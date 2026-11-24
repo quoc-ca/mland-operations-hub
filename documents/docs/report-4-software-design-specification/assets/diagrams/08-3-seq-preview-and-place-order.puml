@@ -1,28 +1,33 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Member" as Member
-participant "MemberCheckoutPage" as UI
-participant "CheckoutController" as Ctl
-participant "RetailCheckoutQuotePreviewService" as Prev
-participant "RetailCheckoutAcceptanceService" as Acc
-participant "GhtkRetailShippingQuoteAdapter" as Ghtk
-participant "LoyaltyFacade" as Loyalty
-participant "RetailCheckoutQuoteRepository /\nGroupedCheckoutRepository" as Repo
-participant "Database" as DB
+participant "MemberCheckoutPage" as UI <<user interaction>>
+participant ":CheckoutController" as Ctl <<control>>
+participant ":RetailCheckoutQuotePreviewService" as Prev <<service>>
+participant ":RetailCheckoutAcceptanceService" as Acc <<service>>
+participant ":GhtkRetailShippingQuoteAdapter" as Ghtk <<adapter>>
+participant ":LoyaltyFacade" as Loyalty <<adapter>>
+participant ":RetailCheckoutQuoteRepository /\nGroupedCheckoutRepository" as Repo <<repository>>
+participant "MySQL Database" as DB <<database>>
 
 Member -> UI : Open checkout page with the ticked cart lines (or the "Mua Ngay" line)
 activate UI
@@ -37,11 +42,11 @@ opt Branch Order Delivered by GHTK
   Prev -> Ghtk : quote(memberId, locationId, lines, recipient)
   activate Ghtk
   Ghtk -> Ghtk : Request shipping fee from GHTK API and store RetailShippingQuote
-  Ghtk --> Prev : Return ShippingQuote (quoteId, charge, expiresAt)
+  Ghtk --> Prev : ShippingQuote (quoteId, charge, expiresAt)
   deactivate Ghtk
-  Prev --> Ctl : Return ShippingQuoteView
+  Prev --> Ctl : ShippingQuoteView
   deactivate Prev
-  Ctl --> UI : 200 OK Response (ShippingQuoteView)
+  Ctl --> UI : HTTP 200 ShippingQuoteView
   deactivate Ctl
 end
 
@@ -51,24 +56,24 @@ Ctl -> Prev : preview(memberId, request)
 activate Prev
 Prev -> Loyalty : previewBenefits(sourceContext, selection)
 activate Loyalty
-Loyalty --> Prev : Return automatic discount, voucher discount, points discount and reasons
+Loyalty --> Prev : automatic discount, voucher discount, points discount and reasons
 deactivate Loyalty
 alt Voucher and Points Accepted
   Prev -> Prev : Share the discounts between the branch orders
   Prev -> Repo : saveAndFlush(quote)
   activate Repo
-  Repo -> DB : Execute INSERT statement on retail_checkout_quotes, retail_checkout_quote_branches, retail_checkout_quote_items
+  Repo -> DB : INSERT retail_checkout_quotes, retail_checkout_quote_branches, retail_checkout_quote_items
   activate DB
-  DB --> Repo : Return inserted rows
+  DB --> Repo : inserted rows
   deactivate DB
-  Repo --> Prev : Return RetailCheckoutQuote
+  Repo --> Prev : RetailCheckoutQuote
   deactivate Repo
 else Voucher or Points Not Accepted
   Prev -> Prev : Keep the reasons; no quote is stored (previewId = null)
 end
-Prev --> Ctl : Return BenefitPreviewView
+Prev --> Ctl : BenefitPreviewView
 deactivate Prev
-Ctl --> UI : 200 OK Response (BenefitPreviewView)
+Ctl --> UI : HTTP 200 BenefitPreviewView
 deactivate Ctl
 UI --> Member : Display "Chi tiết thanh toán" (product discount, voucher discount, points, shipping, payable)
 
@@ -76,66 +81,66 @@ Member -> UI : Click "Đặt hàng"
 UI -> Ctl : POST /api/v1/ready-ring-orders (Idempotency-Key, CreateGroupedCheckoutRequest {branchOrders, benefitPreviewId, benefitSelection, benefitTermsAccepted})
 activate Ctl
 alt Not an Active Member
-  Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+  Ctl --> UI : HTTP 401 / HTTP 403
   UI --> Member : Redirect to Sign-in page / Display error popup
 else Active Member
   Ctl -> Acc : accept(memberId, idempotencyKey, request)
   activate Acc
   Acc -> Repo : findLockedByMemberAccountId(memberId), lockOwned(benefitPreviewId, memberId)
   activate Repo
-  Repo -> DB : Execute SELECT ... FOR UPDATE statement on retail_carts and retail_checkout_quotes
+  Repo -> DB : SELECT FOR UPDATE retail_carts and retail_checkout_quotes
   activate DB
-  DB --> Repo : Return locked cart and quote
+  DB --> Repo : locked cart and quote
   deactivate DB
-  Repo --> Acc : Return RetailCart and RetailCheckoutQuote
+  Repo --> Acc : RetailCart and RetailCheckoutQuote
   deactivate Repo
   opt Checkout Quote Not Found
     Acc --> Ctl : Throw RetailNotFoundException
-    Ctl --> UI : 404 Not Found Response
+    Ctl --> UI : HTTP 404
     UI --> Member : Display error popup
   end
   Acc -> Repo : findByMemberAccountIdAndIdempotencyKey(memberId, idempotencyKey)
   activate Repo
-  Repo -> DB : Execute SELECT statement on retail_grouped_checkouts
+  Repo -> DB : SELECT retail_grouped_checkouts
   activate DB
-  DB --> Repo : Return checkout row or nothing
+  DB --> Repo : checkout row or nothing
   deactivate DB
-  Repo --> Acc : Return existing GroupedCheckout (optional)
+  Repo --> Acc : existing GroupedCheckout (optional)
   deactivate Repo
   alt Same Idempotency-Key Already Accepted with the Same Terms
-    Acc --> Ctl : Return existing GroupedCheckoutView
-    Ctl --> UI : 201 Created Response (GroupedCheckoutView)
+    Acc --> Ctl : existing GroupedCheckoutView
+    Ctl --> UI : HTTP 201 GroupedCheckoutView
   else Same Idempotency-Key Used for Different Terms
     Acc --> Ctl : Throw RetailConflictException ("Checkout key was used for different terms")
-    Ctl --> UI : 409 Conflict Response
+    Ctl --> UI : HTTP 409
     UI --> Member : Display error popup
   else New Order
     Acc -> Acc : validate(quote, cart, request, saleContext, now)\nunder the locked branch sale context (FE-02)
     alt Price, Stock, Shipping Fee or Benefit Changed
       Acc --> Ctl : Throw RetailConflictException (reason)
-      Ctl --> UI : 409 Conflict Response (reason)
+      Ctl --> UI : HTTP 409 reason
       UI --> Member : Display the reason and refresh the quote
     else Quote Still Valid
       Acc -> Acc : Build GroupedCheckout with one RetailOrder per branch\nand split the discount between them
       Acc -> Repo : saveAndFlush(checkout)
       activate Repo
-      Repo -> DB : Execute INSERT statement on retail_grouped_checkouts, retail_orders, retail_order_items
+      Repo -> DB : INSERT retail_grouped_checkouts, retail_orders, retail_order_items
       activate DB
-      DB --> Repo : Return inserted rows
+      DB --> Repo : inserted rows
       deactivate DB
-      Repo --> Acc : Return GroupedCheckout
+      Repo --> Acc : GroupedCheckout
       deactivate Repo
       Acc -> Acc : Create one RetailVariantHold per size × branch under the availability guard\n(holdDeadline: 10 minutes for VNPay, 72 hours for cash at the counter)
       Acc -> Loyalty : reserveAcceptedTransaction(acceptedContext, selection, idempotencyKey)
       activate Loyalty
-      Loyalty --> Acc : Return held benefits
+      Loyalty --> Acc : held benefits
       deactivate Loyalty
       opt Payable Total = 0
         Acc -> Acc : Settle the holds, markPaid(), createShipmentsForPaidCheckout(checkout)\nand settle the benefits (FE-06); no VNPay step
       end
       Acc -> Acc : Mark the quote accepted and remove the bought lines from the cart
-      Acc --> Ctl : Return GroupedCheckoutView
-      Ctl --> UI : 201 Created Response (GroupedCheckoutView)
+      Acc --> Ctl : GroupedCheckoutView
+      Ctl --> UI : HTTP 201 GroupedCheckoutView
       alt Payable Total = 0
         UI --> Member : Display the order as paid
       else Payment Method Is VNPay

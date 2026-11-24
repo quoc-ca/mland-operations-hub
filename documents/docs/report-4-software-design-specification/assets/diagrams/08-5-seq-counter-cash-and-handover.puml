@@ -1,27 +1,32 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Staff" as Staff
-participant "StaffRetailOrdersPage" as UI
-participant "PickupOperationsController" as Ctl
-participant "PickupOperationsService" as Svc
-participant "RetailCounterCashFacade" as Cash
-participant "RetailPickupOrderFacade" as Orders
-participant "PickupEvidenceRepository" as Repo
-participant "Database" as DB
+participant "StaffRetailOrdersPage" as UI <<user interaction>>
+participant ":PickupOperationsController" as Ctl <<control>>
+participant ":PickupOperationsService" as Svc <<service>>
+participant ":RetailCounterCashFacade" as Cash <<adapter>>
+participant ":RetailPickupOrderFacade" as Orders <<adapter>>
+participant ":PickupEvidenceRepository" as Repo <<repository>>
+participant "MySQL Database" as DB <<database>>
 
 == Cash at the counter (store pickup, paid when the customer comes) ==
 Staff -> UI : Click "Xác nhận đã thu" on an order in tab "Chờ thu tiền mặt"
@@ -32,58 +37,58 @@ Ctl -> Svc : collectCashAndHandOver(actor, orderId, idempotencyKey)
 activate Svc
 alt Not Signed In or Not an Active Staff
   Svc --> Ctl : Throw ResponseStatusException (401 / 403)
-  Ctl --> UI : 401 Unauthorized / 403 Forbidden Response
+  Ctl --> UI : HTTP 401 / HTTP 403
   UI --> Staff : Display error message
 else Active Staff
   Svc -> Cash : collectExactAmount(actor, orderId, idempotencyKey)
   activate Cash
-  Cash -> DB : Execute SELECT statement on retail_orders, then SELECT ... FOR UPDATE statement on retail_grouped_checkouts
+  Cash -> DB : SELECT retail_orders, then SELECT ... FOR UPDATE statement on retail_grouped_checkouts
   activate DB
-  DB --> Cash : Return order and locked checkout
+  DB --> Cash : order and locked checkout
   deactivate DB
   alt Order Outside the Staff's Branches, Not Cash at the Counter, Deadline Passed or No Longer Payable
     Cash --> Svc : Throw Refused (403 / 409)
     Svc --> Ctl : Throw ResponseStatusException
-    Ctl --> UI : 403 Forbidden / 409 Conflict Response (nothing recorded)
+    Ctl --> UI : HTTP 403 / HTTP 409 nothing recorded
     UI --> Staff : Display error message
   else Order Waiting for Cash
     Cash -> Cash : Mark the branch order PAID, settle its holds and its FE-06 benefit part
-    Cash -> DB : Execute UPDATE statement on retail_grouped_checkouts and retail_orders (PAID)
+    Cash -> DB : UPDATE retail_grouped_checkouts and retail_orders (PAID)
     activate DB
-    DB --> Cash : Return updated rows count
+    DB --> Cash : updated rows count
     deactivate DB
-    Cash -> DB : Execute INSERT statement on retail_cash_collections (exact amount, Staff, time)
+    Cash -> DB : INSERT retail_cash_collections (exact amount, Staff, time)
     activate DB
-    DB --> Cash : Return inserted row
+    DB --> Cash : inserted row
     deactivate DB
-    Cash --> Svc : Return CashCollected
+    Cash --> Svc : CashCollected
     deactivate Cash
     Svc -> Orders : lock(orderId), markPrepared(orderId)
     activate Orders
-    Orders --> Svc : Return updated order
+    Orders --> Svc : updated order
     deactivate Orders
     Svc -> Repo : saveAndFlush(PickupEvidence PREPARED)
     activate Repo
-    Repo -> DB : Execute INSERT statement on retail_pickup_evidence
+    Repo -> DB : INSERT retail_pickup_evidence
     activate DB
-    DB --> Repo : Return inserted row
+    DB --> Repo : inserted row
     deactivate DB
-    Repo --> Svc : Return PickupEvidence
+    Repo --> Svc : PickupEvidence
     deactivate Repo
     Svc -> Orders : markHandedOver(orderId)
     activate Orders
-    Orders --> Svc : Return completed order
+    Orders --> Svc : completed order
     deactivate Orders
     Svc -> Repo : saveAndFlush(PickupEvidence HANDED_OVER)
     activate Repo
-    Repo -> DB : Execute INSERT statement on retail_pickup_evidence
+    Repo -> DB : INSERT retail_pickup_evidence
     activate DB
-    DB --> Repo : Return inserted row
+    DB --> Repo : inserted row
     deactivate DB
-    Repo --> Svc : Return PickupEvidence
+    Repo --> Svc : PickupEvidence
     deactivate Repo
-    Svc --> Ctl : Return Result (HANDED_OVER, recordedAt)
-    Ctl --> UI : 200 OK Response (Result)
+    Svc --> Ctl : Result (HANDED_OVER, recordedAt)
+    Ctl --> UI : HTTP 200 Result
     UI --> Staff : Display success message and move the order to "Hoàn thành"
   end
 end
@@ -100,34 +105,34 @@ Ctl -> Svc : prepare(actor, orderId)
 activate Svc
 Svc -> Orders : lock(orderId)
 activate Orders
-Orders --> Svc : Return order (branch, state)
+Orders --> Svc : order (branch, state)
 deactivate Orders
 alt Order Outside the Staff's Branches
   Svc --> Ctl : Throw ResponseStatusException (403)
-  Ctl --> UI : 403 Forbidden Response
+  Ctl --> UI : HTTP 403
   UI --> Staff : Display error message
 else Already Prepared
-  Svc --> Ctl : Return the earlier Result (PREPARED)
-  Ctl --> UI : 200 OK Response (Result)
+  Svc --> Ctl : earlier Result (PREPARED)
+  Ctl --> UI : HTTP 200 Result
 else Order Not Paid or Not a Store-Pickup Order
   Svc --> Ctl : Throw ResponseStatusException (409)
-  Ctl --> UI : 409 Conflict Response
+  Ctl --> UI : HTTP 409
   UI --> Staff : Display error message
 else Paid Store-Pickup Order of the Staff's Branch
   Svc -> Orders : markPrepared(orderId)
   activate Orders
-  Orders --> Svc : Return updated order
+  Orders --> Svc : updated order
   deactivate Orders
   Svc -> Repo : saveAndFlush(PickupEvidence PREPARED)
   activate Repo
-  Repo -> DB : Execute INSERT statement on retail_pickup_evidence
+  Repo -> DB : INSERT retail_pickup_evidence
   activate DB
-  DB --> Repo : Return inserted row
+  DB --> Repo : inserted row
   deactivate DB
-  Repo --> Svc : Return PickupEvidence
+  Repo --> Svc : PickupEvidence
   deactivate Repo
-  Svc --> Ctl : Return Result (PREPARED)
-  Ctl --> UI : 200 OK Response (Result)
+  Svc --> Ctl : Result (PREPARED)
+  Ctl --> UI : HTTP 200 Result
   UI --> Staff : Move the order to "Chờ khách nhận"
 end
 deactivate Svc
@@ -140,31 +145,31 @@ Ctl -> Svc : handOver(actor, orderId)
 activate Svc
 Svc -> Orders : lock(orderId)
 activate Orders
-Orders --> Svc : Return order
+Orders --> Svc : order
 deactivate Orders
 alt Order Outside the Staff's Branches
   Svc --> Ctl : Throw ResponseStatusException (403)
-  Ctl --> UI : 403 Forbidden Response
+  Ctl --> UI : HTTP 403
   UI --> Staff : Display error message
 else Order Not Prepared Yet or Not Waiting for Pickup
   Svc --> Ctl : Throw ResponseStatusException (409)
-  Ctl --> UI : 409 Conflict Response
+  Ctl --> UI : HTTP 409
   UI --> Staff : Display error message
 else Order Prepared and Waiting for Pickup
   Svc -> Orders : markHandedOver(orderId)
   activate Orders
-  Orders --> Svc : Return completed order
+  Orders --> Svc : completed order
   deactivate Orders
   Svc -> Repo : saveAndFlush(PickupEvidence HANDED_OVER)
   activate Repo
-  Repo -> DB : Execute INSERT statement on retail_pickup_evidence
+  Repo -> DB : INSERT retail_pickup_evidence
   activate DB
-  DB --> Repo : Return inserted row
+  DB --> Repo : inserted row
   deactivate DB
-  Repo --> Svc : Return PickupEvidence
+  Repo --> Svc : PickupEvidence
   deactivate Repo
-  Svc --> Ctl : Return Result (HANDED_OVER)
-  Ctl --> UI : 200 OK Response (Result)
+  Svc --> Ctl : Result (HANDED_OVER)
+  Ctl --> UI : HTTP 200 Result
   UI --> Staff : Move the order to "Hoàn thành"
 end
 deactivate Svc

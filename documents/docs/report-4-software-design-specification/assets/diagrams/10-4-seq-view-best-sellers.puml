@@ -1,27 +1,32 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Manager" as Manager
-participant "RevenueReport /\nTopSellers" as UI
-participant "ExecutiveTopSellerController" as Ctl
-participant "ManagerReportingAccess" as Access
-participant "ExecutiveTopSellerService" as Svc
-participant "ReportingPeriodResolver" as Period
-participant "JdbcReportingTopSellerAdapter\n(ReportingTopSellerPort)" as Top
-participant "Database" as DB
+participant "RevenueReport /\nTopSellers" as UI <<user interaction>>
+participant ":ExecutiveTopSellerController" as Ctl <<control>>
+participant "ManagerReportingAccess" as Access <<user interaction>>
+participant ":ExecutiveTopSellerService" as Svc <<service>>
+participant "ReportingPeriodResolver" as Period <<user interaction>>
+participant "JdbcReportingTopSellerAdapter\n(ReportingTopSellerPort)" as Top <<user interaction>>
+participant "MySQL Database" as DB <<database>>
 
 Manager -> UI : Open the dashboard or change the filters
 activate UI
@@ -31,18 +36,18 @@ Ctl -> Access : authorize(actor, locationIds)
 activate Access
 alt User Not Authenticated
   Access --> Ctl : Throw ReportingException (AUTHENTICATION_REQUIRED)
-  Ctl --> UI : 401 Unauthorized Response
+  Ctl --> UI : HTTP 401
   UI --> Manager : Redirect to Sign-in page
 else Invalid Filter (Same Branch Listed Twice)
   Access --> Ctl : Throw ReportingException (REPORTING_FILTER_INVALID)
-  Ctl --> UI : 400 Bad Request Response
+  Ctl --> UI : HTTP 400
   UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
 else Not an Active Manager, No Active Branch, or a Branch Outside the Assignment
   Access --> Ctl : Throw ReportingException (MANAGER_REPORTING_FORBIDDEN)
-  Ctl --> UI : 403 Forbidden Response
+  Ctl --> UI : HTTP 403
   UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
 else Manager Allowed
-  Access --> Ctl : Return branch IDs
+  Access --> Ctl : branch IDs
   deactivate Access
   Ctl -> Svc : topSellers(periodType, anchorDate, branchIds)
   activate Svc
@@ -51,33 +56,33 @@ else Manager Allowed
   alt Invalid Period
     Period --> Svc : Throw ReportingException (REPORTING_FILTER_INVALID)
     Svc --> Ctl : Throw ReportingException
-    Ctl --> UI : 400 Bad Request Response
+    Ctl --> UI : HTTP 400
     UI --> Manager : Display "Không tải được danh sách bán chạy" with "Thử lại"
   else Valid Period
-    Period --> Svc : Return ReportingPeriod [from, to) capped at now
+    Period --> Svc : ReportingPeriod [from, to) capped at now
     deactivate Period
     Svc -> Top : topProducts(branchIds, from, to, 5)
     activate Top
-    Top -> DB : Execute SELECT statement on retail_order_items, retail_orders, retail_grouped_checkouts,\ncatalogue_variants and catalogue_products (PAID, VND, paid in the period; most units first)
+    Top -> DB : SELECT retail_order_items, retail_orders, retail_grouped_checkouts,\ncatalogue_variants and catalogue_products (PAID, VND, paid in the period; most units first)
     activate DB
-    DB --> Top : Return at most 5 rows
+    DB --> Top : at most 5 rows
     deactivate DB
-    Top --> Svc : Return list of ProductSales
+    Top --> Svc : list of ProductSales
     deactivate Top
     Svc -> Top : topPackages(branchIds, from, to, 5)
     activate Top
-    Top -> DB : Execute SELECT statement on ticket_bookings, booking_groups, booking_group_lines\nand booking_group_line_sessions (confirmed, completed or no-show; group placed in the period;\nbranch of the first session; most tickets first)
+    Top -> DB : SELECT ticket_bookings, booking_groups, booking_group_lines\nand booking_group_line_sessions (confirmed, completed or no-show; group placed in the period;\nbranch of the first session; most tickets first)
     activate DB
-    DB --> Top : Return at most 5 rows
+    DB --> Top : at most 5 rows
     deactivate DB
-    Top --> Svc : Return list of PackageSales
+    Top --> Svc : list of PackageSales
     deactivate Top
     opt A Ranking Query Fails
       Svc -> Svc : Keep that list null and add TOP_PRODUCTS or TOP_PACKAGES to unavailable
     end
-    Svc --> Ctl : Return ExecutiveTopSellerResponse
+    Svc --> Ctl : ExecutiveTopSellerResponse
     deactivate Svc
-    Ctl --> UI : 200 OK Response (ExecutiveTopSellerResponse)
+    Ctl --> UI : HTTP 200 ExecutiveTopSellerResponse
     UI --> Manager : Display "Top 5 sản phẩm bán chạy" and "Top 5 gói workshop đặt nhiều nhất":\nrank, name, count and bar; amount before discounts and share of the five on hover or focus;\n"Tạm thời không đọc được dữ liệu này" for a null list, an empty-list notice for no sale
   end
 end

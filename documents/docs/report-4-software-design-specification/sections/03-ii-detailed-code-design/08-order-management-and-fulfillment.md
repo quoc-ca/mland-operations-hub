@@ -61,40 +61,27 @@ This design set covers feature FE-08 Retail Order and Fulfillment (spec `ppswbs-
 
 (Sequence diagram)
 
-The Member chooses a size, a branch and a quantity on the product page and presses "Thêm Vào Giỏ Hàng". `CartController` resolves the Member through `RetailAuthorization`, and `CartService` reads the size's sale facts at that branch through `RetailCataloguePort`. The size must be on sale; the quantity across every branch must stay within 1–99; and the quantity already in the cart for the same size and branch plus the new quantity must not exceed the branch stock. When the cart already holds some, the refusal is `RETAIL_CART_QUANTITY_LIMIT` with a message naming how many are in the cart; the product page shows it in a popup with one "Đồng ý" button. For "Mua Ngay" the product page then opens checkout with the line already in the cart instead of refusing. A new size and branch adds a line (at most 50 lines); an existing one increases its quantity.
-
 ### 8.3 Sequence Diagram — Preview and Place a Retail Order
 
 (Sequence diagram)
-
-Checkout opens with the ticked cart lines (`RetailCartSelection`), grouped by branch. For each branch the Member chooses store pickup or GHTK delivery; for GHTK, `GhtkRetailShippingQuoteAdapter` asks GHTK for the fee outside any transaction and `DurableShippingQuoteWriter` stores the quote. `RetailCheckoutQuotePreviewService` prices every line through `RetailCheckoutPricingPort`, asks FE-06 through `RetailBenefitPort` for the best automatic discount, at most one voucher stacked on what it left, and points on the remainder, and stores a `RetailCheckoutQuote`. The response shows the product discount, the voucher discount, the points discount and the savings as separate lines; each line's discount share goes to its branch order. When the Member presses "Đặt hàng", `RetailCheckoutService` locks the cart and the guard rows, revalidates the quote with `RetailCheckoutQuoteValidator`, and in one transaction creates the `GroupedCheckout`, one `RetailOrder` per branch, the `RetailVariantHold` rows and the FE-06 benefit hold. Any changed price, stock, fee or benefit returns a conflict and the Member reviews the new total.
 
 ### 8.4 Sequence Diagram — Pay a Retail Order with VNPay
 
 (Sequence diagram)
 
-For VNPay, `RetailPaymentService` builds the payment request for the whole checkout (at least 5,000 VND) and `paymentintegration` returns the signed VNPay URL; the browser is redirected to VNPay. The hold lasts 10 minutes from acceptance, and a second press of Thanh toán during the hold reuses the same URL instead of starting a new VNPay payment. VNPay calls the IPN endpoint; `paymentintegration` verifies the signature and amount and hands verified evidence to `RetailPaymentEvidenceService`, which, under the guard lock, marks the checkout and its branch orders paid, sells the holds through FE-02, consumes the FE-06 benefits, publishes `RetailOrderPaid` and calls `RetailShipmentCreationService` for every GHTK branch order. The browser return only shows the result; it never marks an order paid. A payment without a result is checked later by `RetailQueryReconciliationService` (QueryDR); a late or unresolved payment becomes a `RetailPaymentReconciliation` row for the Manager.
-
 ### 8.5 Sequence Diagram — Pay Cash at the Counter and Hand Over
 
 (Sequence diagram)
-
-Cash at the counter is allowed only when every branch order is a store pickup. Each branch order is held for 72 hours and paid on its own. At the counter the Staff of that branch opens the pickup desk (`RetailCounterCashQueryService`), and presses "Xác nhận đã thu" for the order. `RetailCashCollectionService`, through `RetailCounterCashFacade`, locks the order, checks the Staff's branch and the deadline, records the exact amount in `RetailCashCollection`, sells the holds, settles that order's FE-06 benefit share and records the handover, so the order goes straight to completed. Nothing is recorded if any step fails. A VNPay pickup order is prepared by Staff ("Đã chuẩn bị xong") and handed over when the customer reads the order code at the counter (`PickupOperationsService`).
 
 ### 8.6 Sequence Diagram — Ship a Retail Order with GHTK
 
 (Sequence diagram)
 
-When a GHTK branch order is paid, `RetailShipmentCreationService` creates its `RetailShipment` in `PREPARING`. The branch Staff packs the parcel and presses "Đã chuẩn bị xong"; `StaffRetailShipmentService` checks the branch and `expectedVersion` and moves the shipment to `READY_FOR_CARRIER`. The GHTK partner signs in with role CARRIER and opens the carrier portal; `CarrierShipmentService` lists the shipments of every branch and records the courier's two steps: "Đã lấy hàng" (`HANDED_TO_CARRIER`) and "Giao thành công" (`DELIVERED`). Every transition writes `RetailShipmentStatusHistory`, and the Member's order shows the matching stage (Chờ lấy hàng, Chờ giao hàng, Đã giao).
-
 ### 8.7 Sequence Diagram — Cancel or Expire an Unpaid Order
 
 (Sequence diagram)
-
-A Member may cancel an unpaid VNPay checkout (all its branch orders) or a single unpaid cash branch order. `RetailCheckoutCancellationService` (or `RetailBranchPartService` for one cash order) locks the guard rows and the checkout, releases the holds, releases the FE-06 benefit hold and returns the lines to the cart through `RetailCartRestoration`. The scheduled `RetailUnstartedExpiryJob` does the same for checkouts whose hold ended without a payment start, and `RetailConfirmedUnpaidExpiryJob` for VNPay payments verified as failed; a started payment is never released without a verified result. Each checkout is locked and rechecked on its own, so one failure does not stop the others.
 
 ### 8.8 Sequence Diagram — View Purchase Orders and Order Details
 
 (Sequence diagram)
 
-`RetailOrderQueryService` returns the Member's branch orders, newest first, with the display code `ML` + order date + first eight characters of the order ID (`RetailOrderCodes`), the items, the money lines (merchandise subtotal, shipping, total discounts, payable), the payment and shipment state, and for an unpaid VNPay order its payment deadline. The frontend sorts the orders into the tabs Tất cả, Chờ thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and Đã hủy, shows the 10-minute countdown and offers Thanh toán, Hủy đơn or Mua lại. A delivered or picked-up order also offers Đánh giá, or Xem đánh giá once every line is reviewed; the page reads which lines may still be reviewed from FE-11 Review Management, which rechecks eligibility when the review is submitted. The Staff branch order page reads the same orders through the pickup desk and the Staff shipment list, limited to the Staff's branches.

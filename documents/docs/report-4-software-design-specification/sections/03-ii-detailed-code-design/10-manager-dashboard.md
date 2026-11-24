@@ -37,16 +37,11 @@ This design set covers feature FE-10 Manager Dashboard (spec `ppswbs-spec/featur
 
 (Sequence diagram)
 
-The Manager opens the dashboard (or changes the period, branch or day). The page calls `GET /executive-reports` with the period and branch IDs. `ExecutiveReportController` resolves the actor from FE-01 and `ManagerReportingAccess` checks the permission and that every requested branch is assigned to this Manager (all assigned branches when none is chosen); otherwise it returns `403 MANAGER_REPORTING_FORBIDDEN`. `ReportingPeriodResolver` builds the current and previous intervals. `ExecutiveReportService` asks `ReportingSourcePort` for each source separately — paid retail orders and revenue from FE-08, finalized workshop folios, checked-in participants and session capacity from FE-03 — and composes the KPIs per branch and in total. A failing source leaves only its values `null` and sets the report to `PARTIAL`; the page shows "unknown" for them and keeps the other cards.
-
 ### 10.3 Sequence Diagram — View Trends
 
 (Sequence diagram)
-
-With the same filters the page calls `GET /executive-reports/trends`. After the same access check, `ExecutiveTrendService` asks `ReportingTrendPort` for hourly aggregates of retail orders (placed, paid, cancelled, expired) and revenue, and of workshop tickets, places and revenue, for the current and the previous period. It folds the hours into hour buckets for a day, day buckets for a week or month, and month buckets for a year, in Vietnam time. The page draws the retail revenue, workshop revenue and participants charts with the previous period beside the current one and the values written on the bars and points.
 
 ### 10.4 Sequence Diagram — View Best Sellers
 
 (Sequence diagram)
 
-With the same filters the page calls `GET /executive-reports/top-sellers` on its own, so a slow list never holds back the KPI cards. After the same access check in `ExecutiveTopSellerController`, `ExecutiveTopSellerService` resolves the period and asks `ReportingTopSellerPort` for each list separately: the top 5 products by units in VND branch orders paid in the period (FE-08 orders, FE-02 product names), and the top 5 workshop packages by tickets confirmed, completed or marked no-show in booking groups placed in the period at the branch of the first session (FE-03). A list that cannot be read comes back `null` and is named in `unavailable`; the page shows it as unavailable and keeps the other list. Each row shows its rank, name, count and bar; an empty period shows an empty-list notice, and a failed call shows "Không tải được danh sách bán chạy" with Thử lại. These lists have no previous-period comparison.

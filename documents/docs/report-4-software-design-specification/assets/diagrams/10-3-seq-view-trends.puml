@@ -1,27 +1,32 @@
 @startuml
 !pragma charset UTF-8
+hide footbox
 skinparam shadowing false
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 skinparam ParticipantBackgroundColor #FFFFFF
 skinparam ParticipantBorderColor #000000
 skinparam ActorBackgroundColor #FFFFFF
 skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
-skinparam SequenceLifeLineBorderColor #7B61FF
-skinparam SequenceLifeLineBackgroundColor #F5F5F5
-skinparam SequenceGroupBorderColor #7B61FF
-skinparam SequenceGroupBackgroundColor #FFFFFF
 skinparam SequenceGroupHeaderFontStyle plain
 
 actor "Manager" as Manager
-participant "ManagerDashboardPage /\nTrendCharts" as UI
-participant "ExecutiveTrendController" as Ctl
-participant "ManagerReportingAccess" as Access
-participant "ExecutiveTrendService" as Svc
-participant "ReportingPeriodResolver" as Period
-participant "JdbcReportingTrendAdapter\n(ReportingTrendPort)" as Trend
-participant "Database" as DB
+participant "ManagerDashboardPage /\nTrendCharts" as UI <<user interaction>>
+participant ":ExecutiveTrendController" as Ctl <<control>>
+participant "ManagerReportingAccess" as Access <<user interaction>>
+participant ":ExecutiveTrendService" as Svc <<service>>
+participant "ReportingPeriodResolver" as Period <<user interaction>>
+participant "JdbcReportingTrendAdapter\n(ReportingTrendPort)" as Trend <<user interaction>>
+participant "MySQL Database" as DB <<database>>
 
 Manager -> UI : Open the dashboard or change the filters
 activate UI
@@ -31,60 +36,59 @@ Ctl -> Access : authorize(actor, locationIds)
 activate Access
 alt User Not Authenticated
   Access --> Ctl : Throw ReportingException (AUTHENTICATION_REQUIRED)
-  Ctl --> UI : 401 Unauthorized Response
+  Ctl --> UI : HTTP 401
   UI --> Manager : Redirect to Sign-in page
 else Invalid Filter (Same Branch Listed Twice)
   Access --> Ctl : Throw ReportingException (REPORTING_FILTER_INVALID)
-  Ctl --> UI : 400 Bad Request Response
+  Ctl --> UI : HTTP 400
   UI --> Manager : Display error message
 else Not an Active Manager, No Active Branch, or a Branch Outside the Assignment
   Access --> Ctl : Throw ReportingException (MANAGER_REPORTING_FORBIDDEN)
-  Ctl --> UI : 403 Forbidden Response
+  Ctl --> UI : HTTP 403
   UI --> Manager : Display access denied message
 else Manager Allowed
-  Access --> Ctl : Return branch IDs
+  Access --> Ctl : branch IDs
   deactivate Access
   Ctl -> Svc : trend(periodType, anchorDate, branchIds)
   activate Svc
   Svc -> Period : resolve(periodType, anchorDate)
   activate Period
-  Period --> Svc : Return current ReportingPeriod [from, to) capped at now
+  Period --> Svc : current ReportingPeriod [from, to) capped at now
   deactivate Period
-  note right of Period : resolve throws REPORTING_FILTER_INVALID (400)\nfor an unknown periodType or a future-only period
   Svc -> Svc : Compute the previous period of the same length
   loop Current Period, Then Previous Period
     Svc -> Trend : retailOrders(branchIds, from, to)
     activate Trend
-    Trend -> DB : Execute SELECT statement on retail_orders (placed, paid, cancelled, expired per hour)
+    Trend -> DB : SELECT retail_orders (placed, paid, cancelled, expired per hour)
     activate DB
-    DB --> Trend : Return hourly rows
+    DB --> Trend : hourly rows
     deactivate DB
-    Trend --> Svc : Return list of RetailOrderHour
+    Trend --> Svc : list of RetailOrderHour
     deactivate Trend
     Svc -> Trend : retailRevenue(branchIds, from, to)
     activate Trend
-    Trend -> DB : Execute SELECT statement on paid retail_orders (revenue per hour)
+    Trend -> DB : SELECT paid retail_orders (revenue per hour)
     activate DB
-    DB --> Trend : Return hourly rows
+    DB --> Trend : hourly rows
     deactivate DB
-    Trend --> Svc : Return list of RevenueHour
+    Trend --> Svc : list of RevenueHour
     deactivate Trend
     Svc -> Trend : workshopBookings(branchIds, from, to), attendance(branchIds, from, to), workshopRevenue(branchIds, from, to)
     activate Trend
-    Trend -> DB : Execute SELECT statements on workshop bookings, tickets and folios (per hour)
+    Trend -> DB : SELECT workshop bookings, tickets and folios (per hour)
     activate DB
-    DB --> Trend : Return hourly rows
+    DB --> Trend : hourly rows
     deactivate DB
-    Trend --> Svc : Return WorkshopBookingHour, AttendanceHour and RevenueHour lists
+    Trend --> Svc : WorkshopBookingHour, AttendanceHour and RevenueHour lists
     deactivate Trend
   end
   opt A Source Read Fails
     Svc -> Svc : Keep that series null (shown as a gap, never as zero)
   end
   Svc -> Svc : Fold the hours into buckets: hour for a day, day for a week or month,\nmonth for a year (Vietnam time)
-  Svc --> Ctl : Return ExecutiveTrendResponse
+  Svc --> Ctl : ExecutiveTrendResponse
   deactivate Svc
-  Ctl --> UI : 200 OK Response (ExecutiveTrendResponse)
+  Ctl --> UI : HTTP 200 ExecutiveTrendResponse
   UI --> Manager : Draw the charts of the current period (retail revenue and orders, workshop revenue,\nparticipants and tickets) and show the change against the previous period on the stat cards (VI/EN)
 end
 deactivate Ctl
