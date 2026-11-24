@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { Field, ErrorNotice } from '../../shared/ui/components';
+import { useT, useEnumLabel } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
 import { ALL_READINESS_CHECKS } from '../api/otaConnectivityApi';
+import { otaMessages } from '../messages';
+
+const OUTCOMES = ['VERIFIED', 'FAILED', 'MISSING'];
 
 export function BookingEnableModal({ open, mapping, onClose, onSave }) {
+  const t = useT(otaMessages);
+  const tShared = useT(sharedMessages);
+  const outcomeLabel = useEnumLabel(otaMessages, 'outcome');
   const [readinessRecordReference, setReadinessRecordReference] = useState('');
   const [reason, setReason] = useState('');
   const [checks, setChecks] = useState(() =>
@@ -30,10 +38,10 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
   const validate = () => {
     const errs = {};
     if (!readinessRecordReference.trim()) {
-      errs.readinessRecordReference = 'Readiness record reference is required';
+      errs.readinessRecordReference = t('enable.recordRef.required');
     }
     if (!reason.trim()) {
-      errs.reason = 'Reason is required';
+      errs.reason = t('enable.reason.required');
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -61,19 +69,19 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
 
   return (
     <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-modal="true" aria-label="Admin Booking Enablement">
-        <h2>Admin: Enable Booking for Mapping</h2>
+      <div className="dialog" role="dialog" aria-modal="true" aria-label={t('enable.dialog')}>
+        <h2>{t('enable.title')}</h2>
         <p className="small muted">
-          Synchronously enable bookings for <strong className="mono">{mapping.mappingId}</strong> ({mapping.provider}).
-          Requires attestation that all 12 provider readiness gates have been verified.
+          {t('enable.introBefore')} <strong className="mono">{mapping.mappingId}</strong> ({mapping.provider}).{' '}
+          {t('enable.introAfter')}
         </p>
 
         <ErrorNotice error={apiError} />
 
         <form onSubmit={handleSubmit}>
           <Field
-            label="Readiness Record Reference"
-            hint="Controlled document reference for audited provider checklist"
+            label={t('enable.recordRef')}
+            hint={t('enable.recordRefHint')}
             error={errors.readinessRecordReference || apiError?.fieldError('readinessRecordReference')}
           >
             <input
@@ -81,24 +89,24 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
               name="readinessRecordReference"
               value={readinessRecordReference}
               onChange={(e) => setReadinessRecordReference(e.target.value)}
-              placeholder="e.g. DOC-KLOOK-READINESS-REC-20261101"
+              placeholder={t('field.example', { value: 'DOC-KLOOK-READINESS-REC-20261101' })}
               disabled={submitting}
             />
           </Field>
 
-          <Field label="Attestation Reason" error={errors.reason || apiError?.fieldError('reason')}>
+          <Field label={t('enable.reason')} error={errors.reason || apiError?.fieldError('reason')}>
             <input
               type="text"
               name="reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Reviewed and verified all 12 operational readiness checks"
+              placeholder={t('enable.reasonPlaceholder')}
               disabled={submitting}
             />
           </Field>
 
           <label style={{ fontWeight: 700, fontSize: '13px', marginTop: '12px', display: 'block' }}>
-            Readiness Checklist (12 Gates)
+            {t('enable.checklist')}
           </label>
           <div className="readiness-grid">
             {checks.map((item, idx) => (
@@ -109,9 +117,9 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
                   onChange={(e) => handleOutcomeChange(idx, e.target.value)}
                   disabled={submitting}
                 >
-                  <option value="VERIFIED">VERIFIED</option>
-                  <option value="FAILED">FAILED</option>
-                  <option value="MISSING">MISSING</option>
+                  {OUTCOMES.map((value) => (
+                    <option key={value} value={value}>{outcomeLabel(value)}</option>
+                  ))}
                 </select>
               </div>
             ))}
@@ -119,10 +127,10 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
 
           <div className="dialog-actions">
             <button type="button" className="button outline" onClick={onClose} disabled={submitting}>
-              Cancel
+              {tShared('cancel')}
             </button>
             <button type="submit" className="button primary" disabled={submitting}>
-              {submitting ? 'Enabling...' : 'Enable Booking'}
+              {submitting ? t('enable.submitting') : t('enable.submit')}
             </button>
           </div>
         </form>
@@ -130,4 +138,3 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
     </div>
   );
 }
-

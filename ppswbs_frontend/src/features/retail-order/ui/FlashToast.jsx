@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { useText } from './useText';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { messages as retailMessages } from '../messages';
 import './flash-toast.css';
 
 /**
@@ -8,7 +9,7 @@ import './flash-toast.css';
  * `message` is a string, or { text, kind } with kind 'success' | 'info' | 'warn'.
  */
 export function FlashToast({ message, onDone, duration = 5000 }) {
-  const t = useText();
+  const t = useT(retailMessages);
   const text = typeof message === 'string' ? message : message?.text;
   const kind = typeof message === 'string' ? 'success' : message?.kind || 'success';
   useEffect(() => {
@@ -19,6 +20,6 @@ export function FlashToast({ message, onDone, duration = 5000 }) {
   if (!text) return null;
   return <div className={`flash-toast flash-toast-${kind}`} role="status" aria-live="polite">
     <span>{text}</span>
-    <button type="button" className="flash-toast-close" aria-label={t('Đóng thông báo', 'Close notice')} onClick={() => onDone?.()}>×</button>
+    <button type="button" className="flash-toast-close" aria-label={t('toast.closeNotice')} onClick={() => onDone?.()}>×</button>
   </div>;
 }

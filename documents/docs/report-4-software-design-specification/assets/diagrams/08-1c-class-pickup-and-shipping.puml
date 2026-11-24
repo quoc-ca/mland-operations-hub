@@ -1,0 +1,277 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 70
+skinparam ArrowColor #000000
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  FontStyle bold
+  AttributeFontStyle plain
+}
+hide circle
+hide stereotype
+
+class PickupOperationsController {
+  -PickupOperationsService pickup
+  +prepare(HttpServletRequest request, String orderId) Result
+  +handOver(HttpServletRequest request, String orderId) Result
+  +collectCashAndHandOver(HttpServletRequest request, String orderId, String idempotencyKey) Result
+}
+
+class RetailCounterCashController {
+  -RetailCashCollectionService cash
+  -RetailCounterCashQueryService queries
+  +confirm(HttpServletRequest request, String orderId, String idempotencyKey, CashCollectionRequest body) CashCollectionView
+  +pickupDesk(HttpServletRequest request, Long locationId) List<StaffRetailPickupView>
+  +daily(HttpServletRequest request, Long locationId, LocalDate businessDate) DailyCashView
+}
+
+class StaffRetailShipmentController {
+  -StaffRetailShipmentService service
+  +list(HttpServletRequest request, int page, int size, RetailShipmentStatus status, ...) StaffRetailShipmentSummary.Page
+  +detail(HttpServletRequest request, String id) StaffRetailShipmentView
+  +transition(HttpServletRequest request, String id, TransitionRequest body) StaffRetailShipmentTransitionResult
+}
+
+class CarrierShipmentController {
+  -CarrierShipmentService service
+  +list(HttpServletRequest request, RetailShipmentStatus status, int page, int size) CarrierShipmentDtos.Page
+  +transition(HttpServletRequest request, String id, CarrierShipmentDtos.TransitionRequest body) TransitionResult
+}
+
+class Result {
+  -String orderId
+  -String fulfilmentState
+  -String milestone
+  -Instant recordedAt
+}
+
+class CashCollectionRequest {
+  -String amountReceived
+}
+
+class CashCollectionView {
+  -String collectionId
+  -String orderId
+  -Long locationId
+  -String appliedAmount
+  -String amountReceived
+  -String changeReturned
+  -Long confirmedBy
+  -String confirmedAt
+  -String paymentState
+}
+
+class "StaffRetailShipmentSummary.TransitionRequest" as StaffTransitionRequest {
+  -RetailShipmentStatus nextStatus
+  -Integer expectedVersion
+  -String note
+}
+
+class StaffRetailShipmentTransitionResult {
+  -String id
+  -RetailShipmentStatus status
+  -int version
+  -Instant updatedAt
+}
+
+class "CarrierShipmentDtos.TransitionRequest" as CarrierTransitionRequest {
+  -String action
+  -Integer expectedVersion
+}
+
+class TransitionResult {
+  -String id
+  -String status
+  -int version
+  -Instant updatedAt
+}
+
+class PickupOperationsService {
+  -RetailPickupOrderFacade orders
+  -PickupEvidenceRepository evidence
+  -RetailCounterCashFacade counterCash
+  +prepare(CurrentAccountActor actor, String orderId) Result
+  +handOver(CurrentAccountActor actor, String orderId) Result
+  +collectCashAndHandOver(CurrentAccountActor actor, String orderId, String idempotencyKey) Result
+}
+
+class RetailCounterCashFacade {
+  +collectExactAmount(CurrentAccountActor actor, String orderId, String idempotencyKey) CashCollected
+}
+
+class RetailPickupOrderFacade {
+  +lock(String orderId) PickupOrder
+  +markPrepared(String orderId) PickupOrder
+  +markHandedOver(String orderId) PickupOrder
+}
+
+class RetailCashCollectionService {
+  -GroupedCheckoutRepository checkouts
+  -RetailOrderRepository orders
+  -RetailCashCollectionRepository collections
+  -RetailVariantHoldLifecycleService holds
+  -AvailabilityGuardPort guard
+  -LoyaltyFacade loyalty
+  -RetailBranchPartService branchParts
+  +collectExactAmount(CurrentAccountActor actor, String orderId, String idempotencyKey) CashCollected
+  +confirm(CurrentAccountActor actor, String orderId, String amountReceived, String idempotencyKey) CashCollectionView
+}
+
+class RetailPickupOrderFacadeImpl {
+  -RetailOrderRepository orders
+  +lock(String orderId) PickupOrder
+  +markPrepared(String orderId) PickupOrder
+  +markHandedOver(String orderId) PickupOrder
+}
+
+class RetailCounterCashQueryService {
+  -RetailOrderRepository orders
+  -RetailCashCollectionRepository collections
+  -RetailOrderQueryService orderViews
+  +pickupDesk(CurrentAccountActor actor, Long locationId) List<StaffRetailPickupView>
+  +daily(CurrentAccountActor actor, Long locationId, LocalDate businessDate) DailyCashView
+}
+
+class StaffRetailShipmentService {
+  -RetailShipmentRepository shipments
+  +list(CurrentAccountActor actor, ListQuery query) StaffRetailShipmentSummary.Page
+  +detail(CurrentAccountActor actor, String shipmentId) StaffRetailShipmentView
+  +transition(CurrentAccountActor actor, String shipmentId, RetailShipmentStatus nextStatus, Integer expectedVersion, String note) StaffRetailShipmentTransitionResult
+}
+
+class CarrierShipmentService {
+  -RetailShipmentRepository shipments
+  +list(CurrentAccountActor actor, RetailShipmentStatus status, int page, int size) CarrierShipmentDtos.Page
+  +transition(CurrentAccountActor actor, String shipmentId, String action, Integer expectedVersion) TransitionResult
+  +isActiveCarrier(CurrentAccountActor actor) boolean
+}
+
+class PickupEvidenceRepository {
+  +findByOrderIdAndMilestone(String orderId, String milestone) Optional<PickupEvidence>
+}
+
+class RetailOrderRepository {
+  +lockOrder(String orderId) Optional<RetailOrder>
+  +findBranchPickupOrders(List<Long> locations, Instant since) List<RetailOrder>
+}
+
+class RetailCashCollectionRepository {
+  +findByRetailOrderId(String retailOrderId) Optional<RetailCashCollection>
+  +findByConfirmedByAccountIdAndIdempotencyKey(Long confirmedByAccountId, String idempotencyKey) Optional<RetailCashCollection>
+  +findByLocationIdAndBusinessDateOrderByConfirmedAtAsc(Long locationId, LocalDate businessDate) List<RetailCashCollection>
+}
+
+class RetailShipmentRepository {
+  +lockById(String id) Optional<RetailShipment>
+  +findStaffShipments(Collection<Long> locationIds, RetailShipmentStatus status, Pageable pageable) Page<RetailShipment>
+  +findCarrierShipments(RetailShipmentStatus status, Pageable pageable) Page<RetailShipment>
+}
+
+class PickupEvidence {
+  -String id
+  -String orderId
+  -Long locationId
+  -Long actorAccountId
+  -String milestone
+  -Instant occurredAt
+}
+
+class RetailOrder {
+  -String id
+  -GroupedCheckout groupedCheckout
+  -Long locationId
+  -String fulfilmentMethod
+  -PaymentState paymentState
+  -String fulfilmentState
+  -boolean pickupReadyConfirmed
+  -BigDecimal payableAmount
+  -Instant paidAt
+  -Instant completedAt
+  -String recipientName
+  -String recipientPhone
+  -String recipientAddress
+}
+
+class RetailCashCollection {
+  -String id
+  -String groupedCheckoutId
+  -String retailOrderId
+  -Long locationId
+  -LocalDate businessDate
+  -BigDecimal appliedAmount
+  -BigDecimal amountReceived
+  -BigDecimal changeReturned
+  -Long confirmedByAccountId
+  -Instant confirmedAt
+  -String idempotencyKey
+}
+
+class RetailShipment {
+  -String id
+  -GroupedCheckout groupedCheckout
+  -RetailOrder branchOrder
+  -Long locationId
+  -String mockTrackingNumber
+  -RetailShipmentStatus status
+  -String recipientName
+  -String recipientPhone
+  -String recipientAddress
+  -String provinceName
+  -String districtName
+  -String wardName
+  -int version
+  -List<RetailShipmentStatusHistory> history
+}
+
+class RetailShipmentStatusHistory {
+  -String id
+  -RetailShipment shipment
+  -RetailShipmentStatus status
+  -Long actorId
+  -String actorLabel
+  -String note
+  -Instant createdAt
+}
+
+PickupOperationsController ..> Result
+PickupOperationsController --> PickupOperationsService
+RetailCounterCashController ..> CashCollectionRequest
+RetailCounterCashController ..> CashCollectionView
+RetailCounterCashController --> RetailCashCollectionService
+RetailCounterCashController --> RetailCounterCashQueryService
+StaffRetailShipmentController ..> StaffTransitionRequest
+StaffRetailShipmentController ..> StaffRetailShipmentTransitionResult
+StaffRetailShipmentController --> StaffRetailShipmentService
+CarrierShipmentController ..> CarrierTransitionRequest
+CarrierShipmentController ..> TransitionResult
+CarrierShipmentController --> CarrierShipmentService
+
+PickupOperationsService --> RetailPickupOrderFacade
+PickupOperationsService --> RetailCounterCashFacade
+PickupOperationsService --> PickupEvidenceRepository
+RetailCashCollectionService ..|> RetailCounterCashFacade
+RetailPickupOrderFacadeImpl ..|> RetailPickupOrderFacade
+RetailCashCollectionService --> RetailOrderRepository
+RetailCashCollectionService --> RetailCashCollectionRepository
+RetailPickupOrderFacadeImpl --> RetailOrderRepository
+RetailCounterCashQueryService --> RetailOrderRepository
+RetailCounterCashQueryService --> RetailCashCollectionRepository
+StaffRetailShipmentService --> RetailShipmentRepository
+CarrierShipmentService --> RetailShipmentRepository
+
+PickupEvidenceRepository ..> PickupEvidence
+RetailOrderRepository ..> RetailOrder
+RetailCashCollectionRepository ..> RetailCashCollection
+RetailShipmentRepository ..> RetailShipment
+
+RetailOrder "1" -- "0..1" RetailCashCollection
+RetailOrder "1" -- "0..1" RetailShipment
+RetailOrder "1" -- "0..2" PickupEvidence
+RetailShipment "1" *-- "*" RetailShipmentStatusHistory
+@enduml

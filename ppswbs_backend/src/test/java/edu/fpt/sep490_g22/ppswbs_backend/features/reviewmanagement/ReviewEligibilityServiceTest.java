@@ -5,8 +5,12 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.GuestElig
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dao.ReviewRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ContactType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.GuestEligibilityHandle;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.OwnerType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.Review;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.SourceType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.domain.TargetType;
+import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.EligibleSourceDto;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.EligibleSourceListResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.GuestEligibilityLookupRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.eligibility.EligibleSourceItem;
@@ -103,6 +107,45 @@ class ReviewEligibilityServiceTest {
         GuestEligibilityHandle saved = captor.getValue();
         assertThat(saved.getContactType()).isEqualTo(ContactType.EMAIL);
         assertThat(saved.getExpiresAt()).isAfter(Instant.now().plus(25, ChronoUnit.MINUTES));
+    }
+
+    @Test
+    @DisplayName("Member sources carry the retail order, ring and size, and the Member's own review when there is one")
+    void memberSources_RetailLinesCarryOrderSizeAndOwnReview() {
+        EligibleSourceItem pending = EligibleSourceItem.builder()
+                .sourceType(SourceType.RETAIL_ORDER_LINE).sourceReference("LINE-1")
+                .targetType(TargetType.RETAIL_PRODUCT).targetReference("42").targetName("Nhẫn Bạc Ánh Trăng")
+                .orderId("ORDER-1").variantId("7").size(12).eligible(true).build();
+        EligibleSourceItem reviewed = EligibleSourceItem.builder()
+                .sourceType(SourceType.RETAIL_ORDER_LINE).sourceReference("LINE-2")
+                .targetType(TargetType.RETAIL_PRODUCT).targetReference("43").targetName("Nhẫn Vàng")
+                .orderId("ORDER-1").variantId("9").size(14).eligible(true).build();
+        Review review = Review.builder().id("REV-2").sourceType(SourceType.RETAIL_ORDER_LINE).sourceReference("LINE-2")
+                .targetType(TargetType.RETAIL_PRODUCT).targetReference("43").ownerType(OwnerType.MEMBER)
+                .ownerReference("5").maskedDisplayName("T***h").rating(4).bodyText("Đẹp")
+                .status(ReviewStatus.PUBLIC).version(0L).build();
+
+        when(workshopAttendancePort.findEligibleByMemberId(5L)).thenReturn(Collections.emptyList());
+        when(retailFulfilmentPort.findEligibleByMemberId(5L)).thenReturn(List.of(pending, reviewed));
+        when(reviewRepository.findBySourceTypeAndSourceReferenceIn(eq(SourceType.RETAIL_ORDER_LINE), anyCollection()))
+                .thenReturn(List.of(review));
+
+        EligibleSourceListResponse response = eligibilityService.getMemberEligibleSources(5L);
+
+        assertThat(response.getSources()).hasSize(2);
+        EligibleSourceDto first = response.getSources().get(0);
+        assertThat(first.getTargetReference()).isEqualTo("42");
+        assertThat(first.getTargetName()).isEqualTo("Nhẫn Bạc Ánh Trăng");
+        assertThat(first.getOrderId()).isEqualTo("ORDER-1");
+        assertThat(first.getSize()).isEqualTo(12);
+        assertThat(first.isAlreadyReviewed()).isFalse();
+        assertThat(first.getReview()).isNull();
+        EligibleSourceDto second = response.getSources().get(1);
+        assertThat(second.isAlreadyReviewed()).isTrue();
+        assertThat(second.getReviewId()).isEqualTo("REV-2");
+        assertThat(second.getReview().getRating()).isEqualTo(4);
+        assertThat(second.getReview().getBodyText()).isEqualTo("Đẹp");
+        assertThat(second.getReview().getCanEdit()).isTrue();
     }
 
     @Test

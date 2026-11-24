@@ -1,8 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { notificationMessages } from '../messages';
 import { useNotificationApi } from './useNotificationApi';
 
 export function useNotificationOperations() {
   const api = useNotificationApi();
+  const t = useT(notificationMessages);
+  const tRef = useRef(t);
+  tRef.current = t;
   const [operating, setOperating] = useState(false);
   const [operationError, setOperationError] = useState(null);
 
@@ -17,7 +22,7 @@ export function useNotificationOperations() {
         });
         return result;
       } catch (err) {
-        setOperationError(err?.message || 'Gửi lại thông báo thất bại');
+        setOperationError(err?.message || tRef.current('operation.resendFailed'));
         throw err;
       } finally {
         setOperating(false);
@@ -34,7 +39,7 @@ export function useNotificationOperations() {
         const result = await api.cancelNotificationRequest(id, { reason });
         return result;
       } catch (err) {
-        setOperationError(err?.message || 'Hủy yêu cầu thông báo thất bại');
+        setOperationError(err?.message || tRef.current('operation.cancelFailed'));
         throw err;
       } finally {
         setOperating(false);
@@ -51,7 +56,7 @@ export function useNotificationOperations() {
         const result = await api.redeliverNotificationRequest(id, { reason });
         return result;
       } catch (err) {
-        setOperationError(err?.message || 'Gửi lại với liên kết mới thất bại');
+        setOperationError(err?.message || tRef.current('operation.redeliverFailed'));
         throw err;
       } finally {
         setOperating(false);

@@ -36,7 +36,7 @@ const counts = (overrides = {}) => ({
   ...overrides,
 });
 
-const rail = () => within(screen.getByRole('complementary', { name: 'Operations Navigation' }));
+const rail = () => within(screen.getByRole('complementary', { name: 'Điều hướng vận hành' }));
 const header = () => within(screen.getByRole('banner'));
 
 function open(role, path, handlers = {}) {
@@ -47,6 +47,15 @@ function open(role, path, handlers = {}) {
 
 describe('operations shell', () => {
   beforeEach(() => { clearRoleCache(); clearNavBadgeCache(); });
+
+  it('labels the rail, breadcrumb and waiting badges in English when the language is EN', async () => {
+    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('MANAGER'), ...counts() });
+    renderRoutes(routes, { path: '/settlement/refunds', language: 'en' });
+    expect(await screen.findByRole('complementary', { name: 'Operations navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
+    expect((await within(screen.getByRole('complementary', { name: 'Operations navigation' })).findAllByLabelText(/ waiting$/)).length).toBeGreaterThan(0);
+  });
 
   it('shows a Manager the ten groups on the rail with the current one marked', async () => {
     open('MANAGER', '/settlement/refunds');
@@ -63,7 +72,7 @@ describe('operations shell', () => {
     const tabs = within(screen.getByRole('navigation', { name: 'Trang trong nhóm' }));
     expect(tabs.getAllByRole('link').map(link => link.textContent.replace(/\d+$/, ''))).toEqual(['Hủy và đổi vé', 'Yêu cầu đổi vé', 'Hàng đợi hoàn tiền', 'Sự vụ và bồi hoàn', 'Thay khóa hoàn tiền']);
     expect(tabs.getByRole('link', { name: /^Hàng đợi hoàn tiền/ })).toHaveAttribute('aria-current', 'page');
-    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Vé và hoàn tiền')).toBeInTheDocument();
+    expect(within(screen.getByRole('navigation', { name: 'Đường dẫn trang' })).getByText('Vé và hoàn tiền')).toBeInTheDocument();
   });
 
   it('shows badges from the Manager counts on the rail and on the tabs, and none for a zero or failed count', async () => {

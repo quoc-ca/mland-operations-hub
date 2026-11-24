@@ -96,16 +96,30 @@ export default function DesignWorkspacePage() {
 
     if (fileInputRef.current) fileInputRef.current.value = '';
 
+    const oversizedFiles = files.filter(f => f.size > LIMITS.maxImageBytes);
+    if (oversizedFiles.length > 0) {
+      const names = oversizedFiles.map(f => `"${f.name}" (${(f.size / (1024 * 1024)).toFixed(1)} MB)`).join(', ');
+      setErrors(prev => ({
+        ...prev,
+        images: `Dung lượng ảnh ${names} vượt quá giới hạn 5 MB. Hệ thống không cho phép tải lên ảnh vượt quá 5 MB, vui lòng chọn ảnh có kích thước nhỏ hơn.`,
+      }));
+    }
+
+    const validSizeFiles = files.filter(f => f.size <= LIMITS.maxImageBytes);
+    if (!validSizeFiles.length) {
+      return;
+    }
+
     const availableSlots = LIMITS.maxImages - selectedImages.length;
     if (availableSlots <= 0) {
       setErrors(prev => ({ ...prev, images: t('validation.maxImagesExceeded') }));
       return;
     }
 
-    const filesToProcess = files.slice(0, availableSlots);
-    if (files.length > availableSlots) {
+    const filesToProcess = validSizeFiles.slice(0, availableSlots);
+    if (validSizeFiles.length > availableSlots) {
       setErrors(prev => ({ ...prev, images: t('validation.maxImagesExceeded') }));
-    } else {
+    } else if (oversizedFiles.length === 0) {
       setErrors(prev => {
         const copy = { ...prev };
         delete copy.images;
@@ -200,6 +214,11 @@ export default function DesignWorkspacePage() {
 
     if (selectedImages.length > LIMITS.maxImages) {
       newErrors.images = t('validation.maxImagesExceeded');
+    }
+
+    const hasOversizedImage = selectedImages.some(item => item.file && item.file.size > LIMITS.maxImageBytes);
+    if (hasOversizedImage) {
+      newErrors.images = t('validation.imageTooLarge');
     }
 
     if (hasBlurryImage) {
@@ -468,7 +487,7 @@ export default function DesignWorkspacePage() {
             disabled={command.pending || selectedImages.length >= LIMITS.maxImages}
           />
           <span className="muted small">
-            Đã chọn: {selectedImages.length}/{LIMITS.maxImages} ảnh. Hệ thống tự động kiểm tra độ sắc nét từng ảnh ngay khi chọn.
+            Đã chọn: {selectedImages.length}/{LIMITS.maxImages} ảnh. Dung lượng tối đa 5 MB/ảnh. Hệ thống tự động kiểm tra độ sắc nét từng ảnh ngay khi chọn.
           </span>
           {errors.images && <span className="field-error" style={{ display: 'block', marginTop: '0.25rem' }}>{errors.images}</span>}
         </div>

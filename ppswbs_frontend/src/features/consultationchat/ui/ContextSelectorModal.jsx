@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 
-export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }) {
-  const t = consultationMessages[lang] || consultationMessages.vi;
+export function ContextSelectorModal({ isOpen, onClose, onCreated }) {
+  const t = useT(consultationMessages);
   const api = useConsultationChatApi();
 
   const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
         }
       })
       .catch((err) => {
-        setError(err.message || t.errorGeneral);
+        setError(err.message || t('errorGeneral'));
       })
       .finally(() => {
         setLoading(false);
@@ -48,12 +49,12 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedContext && !useGeneralConsultation) {
-      setError(t.selectContext);
+      setError(t('selectContext'));
       return;
     }
 
     if (initialMessage.trim()) {
-      const msgErr = validateMessageText(initialMessage);
+      const msgErr = validateMessageText(initialMessage, t);
       if (msgErr) {
         setError(msgErr);
         return;
@@ -78,7 +79,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
       }
       onClose();
     } catch (err) {
-      setError(err.message || t.errorGeneral);
+      setError(err.message || t('errorGeneral'));
     } finally {
       setSubmitting(false);
     }
@@ -90,7 +91,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
     <div className="consultation-modal-overlay" onClick={onClose}>
       <div className="consultation-modal" onClick={(e) => e.stopPropagation()}>
         <div className="consultation-modal-header">
-          <h3 className="consultation-modal-title">{t.selectContext}</h3>
+          <h3 className="consultation-modal-title">{t('selectContext')}</h3>
           <button type="button" className="btn-secondary-consultation" onClick={onClose}>
             ✕
           </button>
@@ -100,23 +101,23 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
           <div className="consultation-modal-body">
             {error && <div className="consultation-alert error">{error}</div>}
 
-            <p style={{ margin: 0, color: '#555' }}>{t.selectContextPrompt}</p>
+            <p style={{ margin: 0, color: '#555' }}>{t('selectContextPrompt')}</p>
 
             <button
               type="button"
               className={`consultation-context-card ${useGeneralConsultation ? 'selected' : ''}`}
               onClick={() => { setUseGeneralConsultation(true); setSelectedContext(null); }}
             >
-              {t.generalConsultation}
+              {t('generalConsultation')}
             </button>
 
             {loading ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                Đang tải danh sách thiết kế...
+                {t('loadingContexts')}
               </div>
             ) : options.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                {t.noContextAvailable}
+                {t('noContextAvailable')}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '250px', overflowY: 'auto' }}>
@@ -146,7 +147,7 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
                             {opt.displayCode}
                           </span>
                           <span className="consultation-context-tag">
-                            {opt.contextType === 'WORKSHOP_RING_DESIGN' ? t.contextTypeWorkshop : t.contextTypeIndependent} (v{opt.designVersion})
+                            {opt.contextType === 'WORKSHOP_RING_DESIGN' ? t('contextTypeWorkshop') : t('contextTypeIndependent')} (v{opt.designVersion})
                           </span>
                         </div>
                         <div style={{ fontSize: '0.875rem', color: '#444', marginTop: '0.2rem' }}>
@@ -166,18 +167,18 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
 
             <div style={{ marginTop: '0.5rem' }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.35rem' }}>
-                Tin nhắn ban đầu (tùy chọn):
+                {t('initialMessageLabel')}
               </label>
               <textarea
                 className="consultation-textarea"
                 rows={3}
-                placeholder={t.typeMessagePlaceholder}
+                placeholder={t('typeMessagePlaceholder')}
                 value={initialMessage}
                 onChange={(e) => setInitialMessage(e.target.value)}
                 maxLength={MAX_MESSAGE_LENGTH}
               />
               <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#888', marginTop: '0.25rem' }}>
-                {t.charCount.replace('{count}', String(currentCount))}
+                {t('charCount', { count: currentCount })}
               </div>
             </div>
           </div>
@@ -189,14 +190,14 @@ export function ContextSelectorModal({ isOpen, onClose, onCreated, lang = 'vi' }
               onClick={onClose}
               disabled={submitting}
             >
-              {t.cancel}
+              {t('cancel')}
             </button>
             <button
               type="submit"
               className="btn-primary-consultation"
               disabled={submitting || loading || (!useGeneralConsultation && options.length === 0)}
             >
-              {submitting ? 'Đang tạo...' : t.confirm}
+              {submitting ? t('creating') : t('confirm')}
             </button>
           </div>
         </form>

@@ -9,6 +9,7 @@ import { useT } from '../i18n/I18nProvider';
 import { topbarMessages } from './topbarMessages';
 import { useCartCounts } from './useCartCounts';
 import { PendingPaymentNotice } from '../../workshops/PendingPaymentNotice';
+import FloatingAiChatButton from '../../features/designreview/public/FloatingAiChatButton';
 import './topbar.css';
 
 /**
@@ -206,14 +207,7 @@ export default function MainTopbar() {
               >
                 {t('nav.lookup')}
               </Link>
-              {!isStaffOrAdmin && (
-                <Link
-                  to="/ai-support"
-                  className={`main-topbar-link ${location.pathname.startsWith('/ai-support') ? 'active' : ''}`}
-                >
-                  {t('nav.ai')}
-                </Link>
-              )}
+
               <Link
                 to="/reviews"
                 className={`main-topbar-link ${location.pathname.startsWith('/reviews') ? 'active' : ''}`}
@@ -383,7 +377,7 @@ export default function MainTopbar() {
                               className="main-topbar-dropdown-item"
                               role="menuitem"
                             >
-                              <span>🔨</span> Duyệt thiết kế & Báo giá
+                              <span>🔨</span> {t('menu.designReviewQuote')}
                             </Link>
                           )}
                           {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
@@ -436,6 +430,7 @@ export default function MainTopbar() {
         </div>
       </header>
       <PendingPaymentNotice enabled={isAuthenticated && account?.role === 'MEMBER'} userKey={currentUser?.uid || null} getIdToken={getIdToken} />
+      <FloatingAiChatButton />
     </div>
   );
 }

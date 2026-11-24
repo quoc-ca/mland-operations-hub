@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
-import { useFormat } from '../../../../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import CartTabs from '../../../../shared/ui/CartTabs';
-import { useText } from '../useText';
+import { messages as retailMessages } from '../../messages';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { VoucherPicker } from '../checkout/VoucherPicker';
@@ -15,13 +15,13 @@ const MAX_QUANTITY = 99;
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
 const validQuantity = value => Number.isInteger(value) && value >= 1 && value <= MAX_QUANTITY;
 /** Why a typed quantity is refused, or '' when it can be saved: a whole number from 1 to 99 and within branch stock. */
-export function quantityProblem(raw, availableQuantity, t = vi => vi) {
+export function quantityProblem(raw, availableQuantity, t) {
   const text = String(raw ?? '').trim();
-  if (!text) return t(`Nhập số lượng từ 1 đến ${MAX_QUANTITY}.`, `Enter a quantity from 1 to ${MAX_QUANTITY}.`);
-  if (!/^[0-9]+$/.test(text)) return t('Số lượng phải là số nguyên dương.', 'The quantity must be a positive whole number.');
+  if (!text) return t('cart.enterAQuantityFrom1', { MAX_QUANTITY });
+  if (!/^[0-9]+$/.test(text)) return t('cart.theQuantityMustBeA');
   const quantity = Number(text);
-  if (!validQuantity(quantity)) return t(`Số lượng phải từ 1 đến ${MAX_QUANTITY}.`, `The quantity must be from 1 to ${MAX_QUANTITY}.`);
-  if (availableQuantity != null && BigInt(quantity) > BigInt(availableQuantity)) return t(`Chi nhánh chỉ còn ${availableQuantity} sản phẩm này.`, `The branch has only ${availableQuantity} of this item left.`);
+  if (!validQuantity(quantity)) return t('cart.theQuantityMustBeFrom', { MAX_QUANTITY });
+  if (availableQuantity != null && BigInt(quantity) > BigInt(availableQuantity)) return t('cart.theBranchHasOnlyOf', { availableQuantity });
   return '';
 }
 const lineTotal = line => (line.indicativePrice == null ? null : (BigInt(line.indicativePrice) * BigInt(line.quantity || 0)).toString());
@@ -35,13 +35,13 @@ const isPositive = value => /^[1-9][0-9]*$/.test(String(value ?? ''));
  * fulfilment choice before any order is created.
  */
 export default function MemberCartPage() {
-  const t = useText();
+  const t = useT(retailMessages);
   return (
     <>
     <CartTabs active="products" />
     <main className="container public-page retail-page retail-shopping retail-cart-page">
-      <div className="retail-page-heading"><div><p className="retail-kicker">{t('MLAND / MUA SẮM', 'MLAND / SHOPPING')}</p><h1>{t('Giỏ hàng', 'Cart')}</h1></div><Link to="/products" className="retail-back-link">{t('← Tiếp tục mua sắm', '← Continue shopping')}</Link></div>
-      <RequireSession requiredText={t('Đăng nhập để xem giỏ hàng của bạn.', 'Sign in to see your cart.')}><CartContent /></RequireSession>
+      <div className="retail-page-heading"><div><p className="retail-kicker">{t('cart.mlandShopping')}</p><h1>{t('cart.cart')}</h1></div><Link to="/products" className="retail-back-link">{t('common.continueShopping')}</Link></div>
+      <RequireSession requiredText={t('cart.signInToSeeYour')}><CartContent /></RequireSession>
     </main>
     </>
   );
@@ -50,7 +50,7 @@ export default function MemberCartPage() {
 function CartContent() {
   const api = useRetailApi();
   const format = useFormat();
-  const t = useText();
+  const t = useT(retailMessages);
   const navigate = useNavigate();
   const cart = useResource(() => api.getCart(), []);
   const branches = useResource(() => api.listBranches(), []);
@@ -115,7 +115,7 @@ function CartContent() {
     const items = branches.data?.items || branches.data || [];
     return new Map(items.map(item => [String(item.id), item.name]));
   }, [branches.data]);
-  const branchName = locationId => branchNames.get(String(locationId)) || t(`Chi nhánh #${locationId}`, `Branch #${locationId}`);
+  const branchName = locationId => branchNames.get(String(locationId)) || t('common.branchNumber', { locationId });
   const itemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = selectedLines.reduce((total, line) => total + BigInt(line.indicativePrice || '0') * BigInt(line.quantity || 0), 0n).toString();
   const availablePoints = loyalty.data ? String(loyalty.data.availablePoints ?? loyalty.data.balancePoints ?? '0') : null;
@@ -164,7 +164,7 @@ function CartContent() {
         const code = selection.voucherCode;
         setRejectedCodes(current => new Set([...current, code]));
         if (voucherMode === 'manual') {
-          setNotice(t(`Voucher ${code} chưa áp dụng được cho các sản phẩm đã chọn.`, `Voucher ${code} does not apply to the selected items.`));
+          setNotice(t('cart.voucherDoesNotApplyTo', { code }));
           setSelection(current => ({ ...current, choice: 'AUTO', voucherCode: '' }));
         }
       }
@@ -188,6 +188,16 @@ function CartContent() {
   const discountedIds = quote?.eligibleCartLineIds?.length ? new Set(quote.eligibleCartLineIds) : null;
   const lineDiscounts = useMemo(() => {
     const result = new Map();
+    // FE-06's own share of each line (automatic discount + voucher, 006 `lineDiscounts`), so each line shows the price
+    // its branch order really gets. Only when they are missing does the cart spread the total itself (BUG-INT-0002).
+    const fromFe06 = discount > 0n && Array.isArray(quote?.cartLineDiscounts) ? quote.cartLineDiscounts : [];
+    if (fromFe06.length) {
+      fromFe06.forEach(item => {
+        const share = BigInt(item.autoDiscountAmount || '0') + BigInt(item.voucherDiscountAmount || '0');
+        if (selectedLines.some(line => line.id === item.cartLineId)) result.set(item.cartLineId, share);
+      });
+      return result;
+    }
     const covered = discountedIds ? selectedLines.filter(line => discountedIds.has(line.id)) : selectedLines;
     const base = covered.reduce((sum, line) => sum + BigInt(lineTotal(line) || '0'), 0n);
     if (discount <= 0n || base <= 0n) return result;
@@ -201,7 +211,7 @@ function CartContent() {
     return result;
   }, [discount, quote, previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // A voucher says so; an automatic programme is a plain sale price.
-  const discountTag = quote?.appliedVoucherCode ? t('Đã áp dụng mã giảm giá', 'Voucher applied') : t('Đang giảm giá', 'On sale');
+  const discountTag = quote?.appliedVoucherCode ? t('cart.voucherApplied') : t('cart.onSale');
   const pointsDiscount = quote?.eligible ? BigInt(quote.pointsDiscountAmount || '0') : 0n;
   const savings = (discount + pointsDiscount).toString();
   const total = quote?.payableAmount ?? subtotal;
@@ -244,7 +254,7 @@ function CartContent() {
     cart.reload();
   };
   const goToCheckout = () => {
-    if (!selectedLines.length) { setNotice(t('Hãy chọn ít nhất một sản phẩm để mua.', 'Select at least one item to buy.')); return; }
+    if (!selectedLines.length) { setNotice(t('cart.selectAtLeastOneItem')); return; }
     navigate('/member/checkout', { state: { benefitSelection: selection, cartLineIds: selectedLines.map(line => line.id) } });
   };
 
@@ -252,18 +262,18 @@ function CartContent() {
   if (cart.error) return <ErrorNotice error={cart.error} onRetry={cart.reload} />;
   if (lines.length === 0) return (
     <section className="workspace-card empty-state">
-      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: t(`Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán.`, `Could not add ${skippedByBuyAgain.join(', ')} again: not enough stock or no longer sold.`) } : null} onDone={() => setSkipToastOpen(false)} />
-      <p>{t('Giỏ hàng chưa có sản phẩm.', 'Your cart is empty.')}</p>
-      <Link className="button primary" to="/products">{t('Xem sản phẩm', 'Browse products')}</Link>
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: t('cart.couldNotAddAgainNot', { items: skippedByBuyAgain.join(', ') }) } : null} onDone={() => setSkipToastOpen(false)} />
+      <p>{t('cart.yourCartIsEmpty')}</p>
+      <Link className="button primary" to="/products">{t('common.browseProducts')}</Link>
     </section>
   );
 
   return (
     <section className="cart-sp">
-      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: t(`Không thêm lại được ${skippedByBuyAgain.join(', ')} vì hiện không đủ hàng hoặc đã ngừng bán. Các sản phẩm còn lại đã được tích sẵn.`, `Could not add ${skippedByBuyAgain.join(', ')} again: not enough stock or no longer sold. The other items are already ticked.`) } : null} onDone={() => setSkipToastOpen(false)} />
+      <FlashToast message={skipToastOpen && skippedByBuyAgain.length ? { kind: 'warn', text: t('cart.couldNotAddAgainNot2', { items: skippedByBuyAgain.join(', ') }) } : null} onDone={() => setSkipToastOpen(false)} />
       <div className="cart-sp-header">
-        <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label={t('Chọn tất cả sản phẩm', 'Select all items')} /><span>{t('Sản phẩm', 'Product')}</span></label>
-        <span>{t('Đơn giá', 'Unit price')}</span><span>{t('Số lượng', 'Quantity')}</span><span>{t('Số tiền', 'Amount')}</span><span>{t('Thao tác', 'Actions')}</span>
+        <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label={t('cart.selectAllItems')} /><span>{t('cart.product')}</span></label>
+        <span>{t('cart.unitPrice')}</span><span>{t('common.quantity')}</span><span>{t('common.amount')}</span><span>{t('cart.actions')}</span>
       </div>
 
       {groups.map(([locationId, branchLines]) => {
@@ -273,36 +283,36 @@ function CartContent() {
         <section className="cart-sp-branch" key={locationId}>
           <div className="cart-sp-branch-name">
             <Checkbox checked={branchSelectable.length > 0 && branchSelected === branchSelectable.length} indeterminate={branchSelected > 0 && branchSelected < branchSelectable.length}
-              disabled={!branchSelectable.length} onChange={checked => toggleIds(branchSelectable.map(line => line.id), checked)} label={t(`Chọn tất cả sản phẩm của ${branchName(locationId)}`, `Select all items of ${branchName(locationId)}`)} />
+              disabled={!branchSelectable.length} onChange={checked => toggleIds(branchSelectable.map(line => line.id), checked)} label={t('cart.selectAllItemsOf', { branch: branchName(locationId) })} />
             <span className="cart-sp-branch-icon" aria-hidden="true">⌂</span><strong>{branchName(locationId)}</strong>
           </div>
           {branchLines.map(line => (
             <article className={`cart-sp-line${selectable(line) ? '' : ' unavailable'}`} key={line.id}>
               <div className="cart-sp-product">
-                <Checkbox checked={selected.has(line.id)} disabled={!selectable(line)} onChange={checked => toggleIds([line.id], checked)} label={t(`Chọn ${line.productName || 'sản phẩm'}`, `Select ${line.productName || 'item'}`)} />
+                <Checkbox checked={selected.has(line.id)} disabled={!selectable(line)} onChange={checked => toggleIds([line.id], checked)} label={t('cart.selectItem', { name: line.productName || t('cart.itemFallback') })} />
                 <ProductThumb className="retail-product-placeholder" productId={line.productId} />
                 <div className="cart-sp-product-text">
-                  <strong>{line.productName || t(`Sản phẩm #${line.variantId}`, `Product #${line.variantId}`)}</strong>
-                  <span className="muted">Size {line.size ?? '—'} · {line.sku || t('SKU chưa có', 'No SKU yet')}</span>
-                  {line.availableQuantity != null && <span className="muted">{t(`Còn ${line.availableQuantity} sản phẩm`, `${line.availableQuantity} left`)}</span>}
-                  {!line.saleEligible && <span className="status">{t('Tạm thời không còn bán', 'Temporarily not for sale')}</span>}
+                  <strong>{line.productName || t('common.productNumber', { variantId: line.variantId })}</strong>
+                  <span className="muted">{t('common.size', { size: line.size ?? '—' })} · {line.sku || t('cart.noSkuYet')}</span>
+                  {line.availableQuantity != null && <span className="muted">{t('cart.left', { availableQuantity: line.availableQuantity })}</span>}
+                  {!line.saleEligible && <span className="status">{t('cart.temporarilyNotForSale')}</span>}
                 </div>
               </div>
-              <div className="cart-sp-price"><span className="cart-sp-label">{t('Đơn giá', 'Unit price')}</span>{line.indicativePrice == null ? t('Chưa có giá', 'No price yet') : lineDiscounts.get(line.id) > 0n ? <>
+              <div className="cart-sp-price"><span className="cart-sp-label">{t('cart.unitPrice')}</span>{line.indicativePrice == null ? t('common.noPriceYet') : lineDiscounts.get(line.id) > 0n ? <>
                 <s className="cart-sp-was">{format.money(line.indicativePrice)}</s>
                 <b className="cart-sp-now">{format.money(((BigInt(lineTotal(line)) - lineDiscounts.get(line.id)) / BigInt(line.quantity || 1)).toString())}</b>
                 <small className="cart-sp-voucher-tag">{discountTag}</small>
               </> : format.money(line.indicativePrice)}</div>
-              <div className="cart-sp-qty-cell"><div className="cart-sp-qty" role="group" aria-label={t(`Số lượng ${line.productName || ''}`, `Quantity ${line.productName || ''}`)}>
-                <button type="button" aria-label={t('Giảm số lượng', 'Decrease quantity')} disabled={command.pending || line.quantity <= 1} onClick={() => changeQuantity(line, line.quantity - 1)}>−</button>
+              <div className="cart-sp-qty-cell"><div className="cart-sp-qty" role="group" aria-label={t('cart.quantity', { productName: line.productName || '' })}>
+                <button type="button" aria-label={t('cart.decreaseQuantity')} disabled={command.pending || line.quantity <= 1} onClick={() => changeQuantity(line, line.quantity - 1)}>−</button>
                 <input key={`${line.id}-${line.quantity}-${quantityReset[line.id] || 0}`} type="number" min="1" max={line.availableQuantity == null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, Number(line.availableQuantity))}
-                  defaultValue={line.quantity} disabled={command.pending} aria-label={t('Số lượng', 'Quantity')} step="1" aria-invalid={Boolean(quantityErrors[line.id])}
+                  defaultValue={line.quantity} disabled={command.pending} aria-label={t('common.quantity')} step="1" aria-invalid={Boolean(quantityErrors[line.id])}
                   onBlur={event => event.target.value !== String(line.quantity) && changeQuantity(line, event.target.value)}
                   onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} />
-                <button type="button" aria-label={t('Tăng số lượng', 'Increase quantity')} disabled={command.pending || line.quantity >= MAX_QUANTITY || (line.availableQuantity != null && BigInt(line.quantity) >= BigInt(line.availableQuantity))} onClick={() => changeQuantity(line, line.quantity + 1)}>+</button>
+                <button type="button" aria-label={t('cart.increaseQuantity')} disabled={command.pending || line.quantity >= MAX_QUANTITY || (line.availableQuantity != null && BigInt(line.quantity) >= BigInt(line.availableQuantity))} onClick={() => changeQuantity(line, line.quantity + 1)}>+</button>
               </div>{quantityErrors[line.id] && <small className="cart-sp-qty-error" role="alert">{quantityErrors[line.id]}</small>}</div>
-              <div className="cart-sp-amount"><span className="cart-sp-label">{t('Số tiền', 'Amount')}</span>{lineTotal(line) == null ? '—' : format.money((BigInt(lineTotal(line)) - (lineDiscounts.get(line.id) || 0n)).toString())}</div>
-              <div className="cart-sp-actions"><button type="button" className="text-link" disabled={command.pending} onClick={() => remove(line)}>{t('Xóa', 'Delete')}</button></div>
+              <div className="cart-sp-amount"><span className="cart-sp-label">{t('common.amount')}</span>{lineTotal(line) == null ? '—' : format.money((BigInt(lineTotal(line)) - (lineDiscounts.get(line.id) || 0n)).toString())}</div>
+              <div className="cart-sp-actions"><button type="button" className="text-link" disabled={command.pending} onClick={() => remove(line)}>{t('cart.delete')}</button></div>
             </article>
           ))}
         </section>
@@ -315,37 +325,37 @@ function CartContent() {
       <section className="cart-sp-bottom">
         <button type="button" className="cart-sp-row cart-sp-voucher" onClick={() => setPickerOpen(true)}>
           <span className="cart-sp-row-icon" aria-hidden="true">▣</span>
-          <strong>Voucher MLAND</strong>
+          <strong>{t('common.mlandVoucher')}</strong>
           <span className={selection.choice === 'VOUCHER' ? 'cart-sp-applied' : 'cart-sp-link'}>
-            {selection.choice === 'VOUCHER' ? (voucherSaving > 0n ? `${selection.voucherCode} · −${format.money(voucherSaving.toString())}` : (selectedVoucher?.name || selection.voucherCode)) : t('Chọn hoặc nhập mã', 'Select or enter a code')}
+            {selection.choice === 'VOUCHER' ? (voucherSaving > 0n ? `${selection.voucherCode} · −${format.money(voucherSaving.toString())}` : (selectedVoucher?.name || selection.voucherCode)) : t('common.selectOrEnterACode')}
           </span>
         </button>
 
         <label className={`cart-sp-row cart-sp-points${canUsePoints || pointsOn ? '' : ' disabled'}`}>
           <input type="checkbox" checked={pointsOn} disabled={quoting || (!canUsePoints && !pointsOn)} onChange={event => togglePoints(event.target.checked)} />
           <span className="cart-sp-row-icon" aria-hidden="true">Ⓟ</span>
-          <strong>{t('Điểm thành viên', 'Member points')}</strong>
+          <strong>{t('cart.memberPoints')}</strong>
           <span className="muted">
-            {availablePoints == null ? t('Đang tải điểm…', 'Loading points…')
-              : availablePoints === '0' ? t('Bạn chưa có điểm', 'You have no points yet')
-                : pointsBelowMinimum ? t(`Cần tối thiểu ${format.number(quote.minRedeemPoints)} điểm để sử dụng`, `At least ${format.number(quote.minRedeemPoints)} points are needed`)
-                  : canUsePoints ? t(`Bạn có ${format.number(availablePoints)} điểm · dùng tối đa ${format.number(maxPoints)} điểm`, `You have ${format.number(availablePoints)} points · up to ${format.number(maxPoints)} usable`)
-                    : t(`Bạn có ${format.number(availablePoints)} điểm`, `You have ${format.number(availablePoints)} points`)}
+            {availablePoints == null ? t('cart.loadingPoints')
+              : availablePoints === '0' ? t('cart.youHaveNoPointsYet')
+                : pointsBelowMinimum ? t('common.atLeastPointsAreNeeded', { minRedeemPoints: format.number(quote.minRedeemPoints) })
+                  : canUsePoints ? t('cart.youHavePointsUpTo', { availablePoints: format.number(availablePoints), maxPoints: format.number(maxPoints) })
+                    : t('cart.youHavePoints', { availablePoints: format.number(availablePoints) })}
           </span>
           <span className={pointsOn ? 'cart-sp-applied' : 'muted'}>−{format.money(pointsDiscount.toString())}</span>
         </label>
 
-        {quoteError && <p className="notice error cart-sp-quote-error">{quoteError.message || t('Không áp dụng được ưu đãi đã chọn.', 'The selected discount cannot be applied.')}</p>}
+        {quoteError && <p className="notice error cart-sp-quote-error">{quoteError.message || t('cart.theSelectedDiscountCannotBe')}</p>}
 
         <div className="cart-sp-footer">
-          <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label={t('Chọn tất cả sản phẩm', 'Select all items')} /><span>{t('Chọn tất cả', 'Select all')} ({format.number(String(selectableLines.length))})</span></label>
-          <button type="button" className="text-link cart-sp-delete-selected" disabled={command.pending || !selectedLines.length} onClick={removeSelected}>{t('Xóa', 'Delete')}</button>
+          <label className="cart-sp-check-label"><Checkbox checked={allSelected} indeterminate={!allSelected && selectedLines.length > 0} disabled={!selectableLines.length} onChange={toggleAll} label={t('cart.selectAllItems')} /><span>{t('cart.selectAll')} ({format.number(String(selectableLines.length))})</span></label>
+          <button type="button" className="text-link cart-sp-delete-selected" disabled={command.pending || !selectedLines.length} onClick={removeSelected}>{t('cart.delete')}</button>
           <div className="cart-sp-total">
-            <div>{t(`Tổng cộng (${format.number(String(itemCount))} sản phẩm):`, `Total (${format.number(String(itemCount))} items):`)} <strong>{format.money(total)}</strong></div>
-            {savings !== '0' && <small>{t('Tiết kiệm', 'You save')} <b>{format.money(savings)}</b></small>}
-            {quoting && <small className="muted">{t('Đang tính ưu đãi…', 'Calculating discounts…')}</small>}
+            <div>{t('cart.totalItems', { itemCount: format.number(String(itemCount)) })} <strong>{format.money(total)}</strong></div>
+            {savings !== '0' && <small>{t('common.youSave')} <b>{format.money(savings)}</b></small>}
+            {quoting && <small className="muted">{t('cart.calculatingDiscounts')}</small>}
           </div>
-          <button type="button" className="button primary cart-sp-buy" disabled={command.pending || !selectedLines.length} onClick={goToCheckout}>{t('Mua hàng', 'Check out')}</button>
+          <button type="button" className="button primary cart-sp-buy" disabled={command.pending || !selectedLines.length} onClick={goToCheckout}>{t('cart.checkOut')}</button>
         </div>
       </section>
 

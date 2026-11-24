@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
 
 export function RedeliverConfirmationModal({
   isOpen,
@@ -6,6 +9,8 @@ export function RedeliverConfirmationModal({
   requestItem,
   onRedeliver,
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -31,7 +36,7 @@ export function RedeliverConfirmationModal({
     e.preventDefault();
     const trimmed = reason.trim();
     if (!trimmed) {
-      setError('Vui lòng nhập lý do cấp và gửi lại liên kết/vé mới.');
+      setError(t('redeliver.reasonRequired'));
       return;
     }
 
@@ -43,7 +48,7 @@ export function RedeliverConfirmationModal({
     } catch (err) {
       setError(
         err?.message ||
-          'Không thể gửi lại với chứng chỉ mới. Tính năng nguồn có thể đã từ chối yêu cầu cấp mới.'
+          t('redeliver.failed')
       );
     } finally {
       setSubmitting(false);
@@ -59,13 +64,13 @@ export function RedeliverConfirmationModal({
     >
       <div className="nm-modal">
         <div className="nm-modal-header">
-          <h3 id="redeliver-modal-title">Cấp lại liên kết và gửi lại #{requestItem.id}</h3>
+          <h3 id="redeliver-modal-title">{t('redeliver.title', { id: requestItem.id })}</h3>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
             disabled={submitting}
-            aria-label="Đóng"
+            aria-label={ts('close')}
           >
             &times;
           </button>
@@ -76,13 +81,13 @@ export function RedeliverConfirmationModal({
             {error && <div className="nm-alert nm-alert-danger" role="alert">{error}</div>}
 
             <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#334155' }}>
-              <div><strong>Mã sự kiện:</strong> {requestItem.businessEventReference}</div>
-              <div><strong>Mẫu thư:</strong> {requestItem.templateCode}</div>
-              <div><strong>Người nhận:</strong> {requestItem.recipientAddressMasked}</div>
+              <div><strong>{t('request.event')}</strong> {requestItem.businessEventReference}</div>
+              <div><strong>{t('request.template')}</strong> {requestItem.templateCode}</div>
+              <div><strong>{t('request.recipient')}</strong> {requestItem.recipientAddressMasked}</div>
             </div>
 
             <div className="nm-alert nm-alert-info" role="status">
-              Hệ thống sẽ liên hệ với tính năng nguồn (Booking/Retail) để xác thực và cấp mã vé/link mới an toàn mà không làm thay đổi bản chụp dữ liệu giao dịch gốc.
+              {t('redeliver.info')}
             </div>
 
             <div style={{ marginBottom: '0.5rem' }}>
@@ -90,7 +95,7 @@ export function RedeliverConfirmationModal({
                 htmlFor="redeliverReason"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Lý do cấp lại liên kết và gửi *
+                {t('redeliver.reasonLabel')}
               </label>
               <textarea
                 id="redeliverReason"
@@ -98,7 +103,7 @@ export function RedeliverConfirmationModal({
                 style={{ width: '100%', height: '80px' }}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Ví dụ: Link vé QR của khách hàng đã hết hạn sau 24h, cấp link truy cập mới."
+                placeholder={t('redeliver.reasonPlaceholder')}
                 disabled={submitting}
                 required
               />
@@ -112,14 +117,14 @@ export function RedeliverConfirmationModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Hủy
+              {ts('cancel')}
             </button>
             <button
               type="submit"
               className="nm-btn nm-btn-primary"
               disabled={submitting || !reason.trim()}
             >
-              {submitting ? 'Đang xử lý…' : 'Xác nhận cấp lại và gửi'}
+              {submitting ? t('redeliver.submitting') : t('redeliver.submit')}
             </button>
           </div>
         </form>

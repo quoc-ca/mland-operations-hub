@@ -22,7 +22,7 @@ export default function GuestLookupPage() {
   // The email/phone lookup is for Guests. A signed-in Member already has their own list of reviewable sources.
   const { status: authStatus } = useAuth();
   const role = useRole();
-  if (authStatus === 'signed-in' && role === 'MEMBER') return <Navigate to="/reviews/eligible-sources" replace />;
+  if (authStatus === 'signed-in' && role === 'MEMBER') return <Navigate to="/reviews" replace />;
 
   async function submit(event) {
     event.preventDefault();
@@ -46,7 +46,7 @@ export default function GuestLookupPage() {
   }
 
   return (
-    <div className="review-container">
+    <div className="review-container review-theme">
       <header className="page-header">
         <h1>{t('lookupTitle')}</h1>
         <p className="muted">{t('lookupSubtitle')}</p>

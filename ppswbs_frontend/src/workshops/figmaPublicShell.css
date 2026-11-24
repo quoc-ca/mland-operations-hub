@@ -336,3 +336,6 @@
 .ws-filter-grid .ws-filter-branch { grid-column: 1 / -1; }
 .ws-filter-grid label { min-width: 0; }
 .ws-filter-grid select, .ws-filter-grid input { box-sizing: border-box; width: 100%; height: 44px; }
+.filter-bar.ws-filter-grid select, .filter-bar.ws-filter-grid input { min-width: 0; }
+
+@media (max-width: 480px) { .ws-filter-grid { grid-template-columns: minmax(0, 1fr); } }

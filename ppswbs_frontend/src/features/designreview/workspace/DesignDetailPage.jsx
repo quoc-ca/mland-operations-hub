@@ -5,7 +5,7 @@ import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { designReviewMessages } from '../messages';
-import { formatDateTime } from '../rules';
+import { sharedMessages } from '../../../shared/ui/messages';
 
 export default function DesignDetailPage() {
   const { designRequestId } = useParams();
@@ -14,6 +14,7 @@ export default function DesignDetailPage() {
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
   const t = useT(designReviewMessages);
+  const ts = useT(sharedMessages);
   const api = useDesignReviewApi();
 
   const tokenFromUrl = searchParams.get('token');
@@ -87,7 +88,7 @@ export default function DesignDetailPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div>
               <strong>{t('detail.guestBanner')}</strong>
-              <div className="small muted">Lưu lại đường dẫn này để kiểm tra tiến độ bất kỳ lúc nào.</div>
+              <div className="small muted">{t('dd.keepLink')}</div>
             </div>
             <button type="button" className="button outline small" onClick={handleCopyCurrentLink}>
               {copiedLink ? `✓ ${t('guest.copied')}` : `📋 ${t('guest.copyLink')}`}
@@ -116,7 +117,7 @@ export default function DesignDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '1.25rem' }}>{isAccepted ? '✅' : '❌'}</span>
             <h3 style={{ margin: 0, color: isAccepted ? '#166534' : '#991b1b' }}>
-              {isAccepted ? 'Thiết kế đã được chấp nhận' : 'Thiết kế bị từ chối'}
+              {isAccepted ? t('dd.acceptedTitle') : t('dd.rejectedTitle')}
             </h3>
           </div>
           <h4 style={{ margin: '0.75rem 0 0.25rem', fontSize: '0.9rem', color: '#475569' }}>
@@ -133,9 +134,9 @@ export default function DesignDetailPage() {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <span style={{ fontSize: '1.5rem' }}>⏳</span>
             <div>
-              <h3 style={{ margin: 0, color: '#854d0e' }}>Đang chờ nhân viên / quản lý thẩm định</h3>
+              <h3 style={{ margin: 0, color: '#854d0e' }}>{t('dd.pendingTitle')}</h3>
               <p style={{ margin: '0.25rem 0 0', color: '#713f12', fontSize: '0.9rem' }}>
-                Yêu cầu của bạn đã vào hàng đợi thẩm duyệt. Chuyên viên kỹ thuật sẽ kiểm tra tính khả thi và gửi phản hồi văn bản chi tiết sớm nhất.
+                {t('dd.pendingBody')}
               </p>
             </div>
           </div>
@@ -169,7 +170,7 @@ export default function DesignDetailPage() {
               >
                 <img
                   src={img.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(img.imageReference)}`}
-                  alt={img.originalFilename || `Ảnh ${idx + 1}`}
+                  alt={img.originalFilename || t('dd.imageFallback', { n: idx + 1 })}
                   className="image-upload-thumb"
                   onError={e => {
                     // Fallback to placeholder if byte stream unavailable
@@ -178,10 +179,10 @@ export default function DesignDetailPage() {
                 />
                 <div className="image-upload-info">
                   <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.originalFilename}>
-                    {img.originalFilename || `Ảnh ${idx + 1}`}
+                    {img.originalFilename || t('dd.imageFallback', { n: idx + 1 })}
                   </span>
                   <span className="badge-tag badge-success" style={{ alignSelf: 'flex-start', fontSize: '0.7rem' }}>
-                    ✓ Sắc nét
+                    ✓ {t('dd.sharp')}
                   </span>
                 </div>
               </div>
@@ -225,13 +226,13 @@ export default function DesignDetailPage() {
           >
             <img
               src={selectedPreviewImage.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(selectedPreviewImage.imageReference)}`}
-              alt={selectedPreviewImage.originalFilename || 'Ảnh mẫu thiết kế'}
+              alt={selectedPreviewImage.originalFilename || t('dd.imageAlt')}
               style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
             />
             <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
               <span className="small muted">{selectedPreviewImage.originalFilename}</span>
               <button type="button" className="button outline small" onClick={() => setSelectedPreviewImage(null)}>
-                Đóng
+                {ts('close')}
               </button>
             </div>
           </div>
@@ -244,7 +245,7 @@ export default function DesignDetailPage() {
         </Link>
         {isAuthenticated && (
           <Link to="/my/designs?tab=custom" className="button outline">
-            Lịch sử yêu cầu của tôi
+            {t('dd.history')}
           </Link>
         )}
       </div>

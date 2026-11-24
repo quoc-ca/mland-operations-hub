@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
+import { renderRich } from './richText';
 
 export function CancelConfirmationModal({
   isOpen,
@@ -6,6 +10,8 @@ export function CancelConfirmationModal({
   requestItem,
   onCancel,
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -34,12 +40,12 @@ export function CancelConfirmationModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isEligible) {
-      setError('Chỉ có thể hủy yêu cầu đang ở trạng thái PENDING hoặc RETRY_SCHEDULED.');
+      setError(t('cancel.notEligible'));
       return;
     }
     const trimmed = reason.trim();
     if (!trimmed) {
-      setError('Lý do hủy gửi là bắt buộc.');
+      setError(t('cancel.reasonRequired'));
       return;
     }
 
@@ -49,7 +55,7 @@ export function CancelConfirmationModal({
       await onCancel(requestItem.id, trimmed);
       onClose();
     } catch (err) {
-      setError(err?.message || 'Hủy yêu cầu thông báo thất bại.');
+      setError(err?.message || t('cancel.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -64,13 +70,13 @@ export function CancelConfirmationModal({
     >
       <div className="nm-modal">
         <div className="nm-modal-header">
-          <h3 id="cancel-modal-title">Hủy gửi yêu cầu thông báo #{requestItem.id}</h3>
+          <h3 id="cancel-modal-title">{t('cancel.title', { id: requestItem.id })}</h3>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
             disabled={submitting}
-            aria-label="Đóng"
+            aria-label={ts('close')}
           >
             &times;
           </button>
@@ -81,19 +87,19 @@ export function CancelConfirmationModal({
             {error && <div className="nm-alert nm-alert-danger" role="alert">{error}</div>}
 
             <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#334155' }}>
-              <div><strong>Mã sự kiện:</strong> {requestItem.businessEventReference}</div>
-              <div><strong>Mẫu thư:</strong> {requestItem.templateCode}</div>
-              <div><strong>Người nhận:</strong> {requestItem.recipientAddressMasked}</div>
-              <div><strong>Trạng thái hiện tại:</strong> {requestItem.deliveryState}</div>
+              <div><strong>{t('request.event')}</strong> {requestItem.businessEventReference}</div>
+              <div><strong>{t('request.template')}</strong> {requestItem.templateCode}</div>
+              <div><strong>{t('request.recipient')}</strong> {requestItem.recipientAddressMasked}</div>
+              <div><strong>{t('request.currentState')}</strong> {requestItem.deliveryState}</div>
             </div>
 
             {!isEligible ? (
               <div className="nm-alert nm-alert-danger" role="alert">
-                Yêu cầu này đang ở trạng thái <code>{requestItem.deliveryState}</code> và không thể hủy bỏ. Chỉ yêu cầu đang chờ (PENDING) hoặc đang lên lịch gửi lại (RETRY_SCHEDULED) mới được phép hủy.
+                {renderRich(t('cancel.notEligibleBody', { state: requestItem.deliveryState }))}
               </div>
             ) : (
               <div className="nm-alert nm-alert-warning" role="alert">
-                Hành động này không thể hoàn tác. Khi hủy, hệ thống sẽ dừng gửi thư vĩnh viễn và ghi nhật ký kiểm toán hành động này.
+                {t('cancel.warning')}
               </div>
             )}
 
@@ -102,7 +108,7 @@ export function CancelConfirmationModal({
                 htmlFor="cancelReason"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Lý do hủy gửi *
+                {t('cancel.reasonLabel')}
               </label>
               <textarea
                 id="cancelReason"
@@ -110,7 +116,7 @@ export function CancelConfirmationModal({
                 style={{ width: '100%', height: '80px' }}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Ví dụ: Khách hàng yêu cầu hủy đơn, không cần gửi thư xác nhận nữa."
+                placeholder={t('cancel.reasonPlaceholder')}
                 disabled={submitting || !isEligible}
                 required
               />
@@ -124,14 +130,14 @@ export function CancelConfirmationModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Hủy bỏ
+              {t('cancel.back')}
             </button>
             <button
               type="submit"
               className="nm-btn nm-btn-danger"
               disabled={submitting || !isEligible || !reason.trim()}
             >
-              {submitting ? 'Đang hủy…' : 'Xác nhận hủy gửi'}
+              {submitting ? t('cancel.submitting') : t('cancel.submit')}
             </button>
           </div>
         </form>

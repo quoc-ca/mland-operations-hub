@@ -1,4 +1,5 @@
 // Bilingual dictionary for Feature 012 Workshop Ring Design Configuration
+import { uiMessages } from './messages.ui';
 
 export const messages = {
   vi: {
@@ -90,22 +91,28 @@ export const messages = {
     // Actions
     saveAndEvaluate: 'Lưu & Thẩm định',
     saving: 'Đang lưu & thẩm định...',
+    saveAndGoToHistory: 'Lưu & Xem danh sách đã lưu',
     proceedToBooking: 'Khám phá các workshop',
     editDesign: 'Chỉnh sửa thiết kế',
-    archiveDesign: 'Lưu trữ mẫu thiết kế',
-    archiving: 'Đang lưu trữ...',
+    archiveDesign: 'Xóa khỏi danh sách lưu',
+    archiving: 'Đang xử lý...',
+    restoreDesign: 'Khôi phục thiết kế',
+    restoring: 'Đang khôi phục...',
     retry: 'Thử lại',
     restartFlow: 'Bắt đầu phiên mới',
     backToModels: 'Quay lại chọn mẫu',
     viewMyDesigns: 'Thiết kế của tôi',
+    viewSavedDesigns: 'Xem danh sách mẫu thiết kế đã lưu',
+    designSavedSuccess: 'Mẫu thiết kế đã được lưu thành công vào danh sách của bạn!',
+    showArchivedDesigns: 'Hiển thị cả thiết kế đã xóa/lưu kho',
 
     // Statuses
-    DRAFT: 'Bản nháp',
-    SAVED: 'Đã lưu',
-    VALIDATED: 'Đã lưu',
-    ATTACHED_TO_BOOKING: 'Đã gắn lịch đặt',
-    LOCKED: 'Đã khóa',
-    ARCHIVED: 'Đã lưu trữ',
+    'status.DRAFT': 'Bản nháp',
+    'status.SAVED': 'Đã lưu',
+    'status.VALIDATED': 'Đã lưu',
+    'status.ATTACHED_TO_BOOKING': 'Đã gắn lịch đặt',
+    'status.LOCKED': 'Đã khóa',
+    'status.ARCHIVED': 'Đã lưu trữ',
 
     // Summary & Evaluation
     evaluationTitle: 'Kết quả thẩm định thiết kế',
@@ -139,6 +146,7 @@ export const messages = {
     noDesignsYet: 'Bạn chưa có mẫu thiết kế nào.',
     createFirstDesign: 'Tạo mẫu nhẫn đầu tiên',
     versionHistory: 'Lịch sử phiên bản',
+    ...uiMessages.vi,
   },
   en: {
     featureTitle: 'Workshop Ring Design Configuration',
@@ -212,6 +220,9 @@ export const messages = {
     circumferenceLabel: 'Circumference',
     thicknessSummary: 'Thickness',
     bandWidthSummary: 'Width',
+    weightSummary: 'Estimated weight',
+    standardWeightNote: 'Standard quota 3.0g',
+    excessWeightNote: 'Every gram above 3g adds 120,000 VND',
     engravingToggleLabel: 'Custom Engraving (+80,000 VND)',
     engravingTextInputLabel: 'Engraving text (up to 50 characters)',
     engravingPlaceholder: 'e.g. Forever Love 2026',
@@ -221,21 +232,27 @@ export const messages = {
 
     saveAndEvaluate: 'Save & Evaluate',
     saving: 'Saving & Evaluating...',
+    saveAndGoToHistory: 'Save & View in Saved Designs',
     proceedToBooking: 'Proceed to Workshop Booking',
     editDesign: 'Edit Design',
-    archiveDesign: 'Archive Design',
-    archiving: 'Archiving...',
+    archiveDesign: 'Remove from Saved',
+    archiving: 'Removing...',
+    restoreDesign: 'Restore Design',
+    restoring: 'Restoring...',
     retry: 'Retry',
     restartFlow: 'Restart Session',
     backToModels: 'Back to Models',
     viewMyDesigns: 'My Ring Designs',
+    viewSavedDesigns: 'View Saved Designs',
+    designSavedSuccess: 'Design saved successfully to your storage!',
+    showArchivedDesigns: 'Show deleted/archived designs',
 
-    DRAFT: 'Draft',
-    SAVED: 'Saved',
-    VALIDATED: 'Saved',
-    ATTACHED_TO_BOOKING: 'Attached to Booking',
-    LOCKED: 'Locked',
-    ARCHIVED: 'Archived',
+    'status.DRAFT': 'Draft',
+    'status.SAVED': 'Saved',
+    'status.VALIDATED': 'Saved',
+    'status.ATTACHED_TO_BOOKING': 'Attached to Booking',
+    'status.LOCKED': 'Locked',
+    'status.ARCHIVED': 'Archived',
 
     evaluationTitle: 'Design Evaluation Results',
     estimatedPriceLabel: 'Advisory Estimated Cost',
@@ -265,6 +282,7 @@ export const messages = {
     noDesignsYet: 'You have not configured any ring designs yet.',
     createFirstDesign: 'Create Your First Design',
     versionHistory: 'Version History',
+    ...uiMessages.en,
   },
 };
 

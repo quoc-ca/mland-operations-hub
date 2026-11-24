@@ -14,7 +14,7 @@ This is the Carrier's home: the Carrier is always sent here after sign-in, and o
 | Title and badge | "Carrier partner portal (GHTK)" with the badge "CARRIER · {status}". |
 | Partner identity | Partner / representative, Sign-in email, System role and Branch scope "Nationwide (not limited to one branch)". |
 | Suspended notice | "This account is suspended (SUSPENDED). Please contact an administrator." |
-| Shipments to deliver | "{n} new shipments today" (created today, Vietnam time) and "{waiting} waiting for pickup · {delivering} on the way", counted from the Carrier shipment list. |
+| Shipments to deliver | "{n} new shipments today" (created today, Vietnam time) and "{waiting} waiting for pickup · {delivering} on the way", counted from the Carrier shipment list; nothing is shown when the shipments cannot be read. |
 | View shipments → | Opens Carrier Orders. |
 | Security & password | **Change password →** opens the Carrier password page. |
 | Load error | "Could not load the partner account." |

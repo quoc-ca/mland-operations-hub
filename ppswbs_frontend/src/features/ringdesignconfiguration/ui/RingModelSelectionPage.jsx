@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useWorkshopDesignOptions } from '../application/useWorkshopDesignOptions';
 import { getDifficultyMeta } from '../domain/designPreview';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
@@ -10,41 +10,39 @@ export default function RingModelSelectionPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
   const { options, loading, error } = useWorkshopDesignOptions(packageReference);
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang];
+  const t = useT(messages);
 
   const models = options?.models || [];
 
   return (
     <div className="ring-design-container" data-testid="ring-model-selection-page">
       <div className="ring-design-header">
-        <h1 className="ring-design-title">{t.modelChoiceTitle}</h1>
-        <p className="ring-design-subtitle">{t.modelChoiceDesc}</p>
+        <h1 className="ring-design-title">{t('modelChoiceTitle')}</h1>
+        <p className="ring-design-subtitle">{t('modelChoiceDesc')}</p>
         <button
           type="button"
           className="ring-btn-secondary"
           onClick={() => navigate(`/workshops/${encodeURIComponent(packageReference)}/design`)}
         >
-          ← {t.backToModels}
+          ← {t('backToModels')}
         </button>
       </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-          Đang tải danh sách mẫu thiết kế...
+          {t('models.loading')}
         </div>
       )}
 
       {error && (
         <div className="ring-error-card" role="alert">
-          {error.message || 'Không thể tải danh sách mẫu thiết kế.'}
+          {error.message || t('models.loadError')}
         </div>
       )}
 
       {!loading && !error && models.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-          Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng.
+          {t('models.empty')}
           <div style={{ marginTop: '1rem' }}>
             <button
               type="button"
@@ -52,7 +50,7 @@ export default function RingModelSelectionPage() {
               style={{ width: 'auto' }}
               onClick={() => navigate(`/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=BLANK`)}
             >
-              {t.blankChoiceTitle}
+              {t('blankChoiceTitle')}
             </button>
           </div>
         </div>
@@ -108,7 +106,7 @@ export default function RingModelSelectionPage() {
                     color: model.materialReference === 'MAT-COPPER' ? '#c2410c' : model.materialReference === 'MAT-STAINLESS-STEEL' ? '#334155' : '#0369a1',
                   }}
                 >
-                  {model.materialReference === 'MAT-COPPER' ? 'Đồng' : model.materialReference === 'MAT-STAINLESS-STEEL' ? 'Thép không gỉ' : 'Bạc Ý 925'}
+                  {model.materialReference === 'MAT-COPPER' ? t('models.copper') : model.materialReference === 'MAT-STAINLESS-STEEL' ? t('models.steel') : t('material.silver925')}
                 </span>
               </div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.4rem' }}>
@@ -118,10 +116,10 @@ export default function RingModelSelectionPage() {
                 {model.description}
               </p>
               {model.difficultyScore !== undefined && (() => {
-                const diff = getDifficultyMeta(model.difficultyScore);
+                const diff = getDifficultyMeta(model.difficultyScore, t);
                 return (
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                    Độ khó ước tính: <strong>{diff.score} / 10</strong> ({diff.label})
+                    {t('models.estimatedDifficulty')}: <strong>{diff.score} / 10</strong> ({diff.label})
                   </div>
                 );
               })()}
@@ -138,7 +136,7 @@ export default function RingModelSelectionPage() {
                 );
               }}
             >
-              {t.selectModel}
+              {t('selectModel')}
             </button>
           </div>
         ))}

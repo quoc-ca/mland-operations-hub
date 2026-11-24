@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLanguage } from '../../../shared/i18n/I18nProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 
 /**
@@ -17,9 +17,7 @@ export default function RingPreview({
 }) {
   const [draggingStoneId, setDraggingStoneId] = React.useState(null);
   const svgRef = React.useRef(null);
-  const { language } = useLanguage();
-  const lang = language === 'en' ? 'en' : 'vi';
-  const t = messages[lang] || {};
+  const t = useT(messages);
   const {
     material,
     shape,
@@ -123,15 +121,15 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">{t.topViewLabel || (lang === 'en' ? 'Top / Front View' : 'Mặt chính diện (Top View)')}</span>
+          <span className="ring-view-badge">{t('topViewLabel')}</span>
           <span className="ring-view-meta">
-            Size {ringSize} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${stonesToRender.length} ${lang === 'en' ? 'stones' : 'đá'}`}
+            {t('sizeShort', { size: ringSize })} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${t('preview.stones', { count: stonesToRender.length })}`}
           </span>
         </div>
 
         {!readOnly && stonesToRender.length > 0 && (
           <div className="ring-drag-help-pill" data-testid="gemstone-drag-hint">
-            <span>💡 {lang === 'en' ? 'Drag and drop gemstones to arrange around the ring band' : 'Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn'}</span>
+            <span>💡 {t('preview.dragHint')}</span>
           </div>
         )}
 
@@ -141,7 +139,7 @@ export default function RingPreview({
             viewBox="0 0 300 270"
             className="ring-preview-svg"
             role="img"
-            aria-label={lang === 'en' ? `Top view simulation for ${material?.label || ''} ring, shape ${shape?.label || ''}, size ${ringSize}` : `Mô phỏng mặt chính diện nhẫn ${material?.label || ''} dáng ${shape?.label || ''} size ${ringSize}`}
+            aria-label={t('preview.topAria', { material: material?.label || '', shape: shape?.label || '', size: ringSize })}
           >
             <defs>
               <linearGradient id="ringTopMetallicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -303,7 +301,7 @@ export default function RingPreview({
                   onPointerDown={(e) => handlePointerDown(stoneId, e)}
                   tabIndex={readOnly ? -1 : 0}
                   role={readOnly ? 'presentation' : 'button'}
-                  aria-label={`Viên đá ${gem.label || ''} tại góc ${Math.round(angleDeg)} độ. Kéo thả để bố trí quanh đai nhẫn`}
+                  aria-label={t('preview.gemAria', { label: gem.label || '', angle: Math.round(angleDeg) })}
                   data-testid={`gemstone-marker-${stoneId}`}
                 >
                   {/* Outer mounting prong/base */}
@@ -359,7 +357,7 @@ export default function RingPreview({
 
             {/* Center Size & Diameter Watermark */}
             <text x="150" y="132" textAnchor="middle" fontSize="14" fontWeight="600" fill="#64748B">
-              {isNeutral ? (lang === 'en' ? 'Standard Model' : 'Mẫu chuẩn') : `Size ${ringSize}`}
+              {isNeutral ? t('preview.standardModel') : t('sizeShort', { size: ringSize })}
             </text>
             <text x="150" y="150" textAnchor="middle" fontSize="11" fontWeight="500" fill="#94A3B8">
               Ø ~{diameterMm} mm · C {circumferenceMm} mm
@@ -373,9 +371,9 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card" data-testid="ring-side-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">{t.sideViewLabel || (lang === 'en' ? 'Side Profile View' : 'Mặt cạnh / Tiết diện (Side View)')}</span>
+          <span className="ring-view-badge">{t('sideViewLabel')}</span>
           <span className="ring-view-meta">
-            {lang === 'en' ? `Width ${bandWidthMm.toFixed(1)} mm · Thick ${thicknessMm.toFixed(1)} mm` : `Rộng ${bandWidthMm.toFixed(1)} mm · Dày ${thicknessMm.toFixed(1)} mm`}
+            {t('preview.dims', { width: bandWidthMm.toFixed(1), thick: thicknessMm.toFixed(1) })}
           </span>
         </div>
 
@@ -384,7 +382,7 @@ export default function RingPreview({
             viewBox="0 0 300 130"
             className="ring-preview-svg ring-side-svg"
             role="img"
-            aria-label={lang === 'en' ? `Side profile simulation for ${material?.label || ''} ring width ${bandWidthMm}mm thickness ${thicknessMm}mm` : `Mô phỏng mặt cạnh nhẫn ${material?.label || ''} bề rộng ${bandWidthMm}mm độ dày ${thicknessMm}mm`}
+            aria-label={t('preview.sideAria', { material: material?.label || '', width: bandWidthMm, thick: thicknessMm })}
           >
             <defs>
               {/* Cylindrical horizontal metallic gradient */}
@@ -617,13 +615,13 @@ export default function RingPreview({
           2 SLIDERS ĐIỀU CHỈNH ĐỘ DÀY & ĐỘ RỘNG NHẪN
           ========================================================================= */}
       <div className="ring-dimension-sliders-card" data-testid="ring-dimension-sliders">
-        <h4 className="ring-dimension-title">{t.dimensionsHeading || (lang === 'en' ? 'Custom Band Dimensions' : 'Tùy chỉnh thông số kích thước')}</h4>
+        <h4 className="ring-dimension-title">{t('dimensionsHeading')}</h4>
 
         {/* Slider 1: Độ dày nhẫn (1.0mm - 3.0mm, step 0.1) */}
         <div className="ring-slider-group">
           <div className="ring-slider-meta">
             <label htmlFor="thickness-range" className="ring-slider-label">
-              {t.thicknessLabel || (lang === 'en' ? 'Ring Thickness' : 'Độ dày nhẫn (Thickness)')}
+              {t('thicknessLabel')}
             </label>
             <span className="ring-slider-value" data-testid="thickness-value">
               {thicknessMm.toFixed(1)} mm
@@ -639,13 +637,13 @@ export default function RingPreview({
             disabled={readOnly}
             onChange={(e) => onThicknessChange?.(parseFloat(e.target.value))}
             className="ring-range-input"
-            aria-label={lang === 'en' ? 'Ring thickness mm' : 'Độ dày nhẫn mm'}
+            aria-label={t('preview.thicknessAria')}
             data-testid="thickness-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.0 mm ({lang === 'en' ? 'Thin' : 'Mỏng'})</span>
-            <span>2.0 mm ({lang === 'en' ? 'Standard' : 'Tiêu chuẩn'})</span>
-            <span>3.0 mm ({lang === 'en' ? 'Thick' : 'Dày dặn'})</span>
+            <span>1.0 mm ({t('preview.thin')})</span>
+            <span>2.0 mm ({t('preview.standard')})</span>
+            <span>3.0 mm ({t('preview.thick')})</span>
           </div>
         </div>
 
@@ -653,7 +651,7 @@ export default function RingPreview({
         <div className="ring-slider-group" style={{ marginTop: '1rem' }}>
           <div className="ring-slider-meta">
             <label htmlFor="bandwidth-range" className="ring-slider-label">
-              {t.bandWidthLabel || (lang === 'en' ? 'Surface Width (Band Width)' : 'Độ rộng bề mặt (Band Width)')}
+              {t('bandWidthLabel')}
             </label>
             <span className="ring-slider-value" data-testid="bandwidth-value">
               {bandWidthMm.toFixed(1)} mm
@@ -669,13 +667,13 @@ export default function RingPreview({
             disabled={readOnly}
             onChange={(e) => onBandWidthChange?.(parseFloat(e.target.value))}
             className="ring-range-input"
-            aria-label={lang === 'en' ? 'Surface width mm' : 'Độ rộng bề mặt mm'}
+            aria-label={t('preview.widthAria')}
             data-testid="bandwidth-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.5 mm ({lang === 'en' ? 'Slender' : 'Thanh mảnh'})</span>
-            <span>3.5 mm ({lang === 'en' ? 'Medium' : 'Vừa vặn'})</span>
-            <span>6.0 mm ({lang === 'en' ? 'Wide' : 'Bản to'})</span>
+            <span>1.5 mm ({t('preview.slender')})</span>
+            <span>3.5 mm ({t('preview.medium')})</span>
+            <span>6.0 mm ({t('preview.wide')})</span>
           </div>
         </div>
       </div>
@@ -696,11 +694,11 @@ export default function RingPreview({
           data-testid="laser-preview-gallery"
         >
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#1e293b' }}>
-            {t.laserPreviewTitle || (lang === 'en' ? 'Laser Engraving Preview (160px × 160px)' : 'Bản xem trước khắc laser (160px × 160px)')}
+            {t('laserPreviewTitle')}
           </h4>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             {customImages.map((img, idx) => (
-              <LaserPreviewThumbnail key={img.id || idx} img={img} t={t} lang={lang} />
+              <LaserPreviewThumbnail key={img.id || idx} img={img} />
             ))}
           </div>
         </div>
@@ -709,7 +707,8 @@ export default function RingPreview({
   );
 }
 
-function LaserPreviewThumbnail({ img, t, lang }) {
+function LaserPreviewThumbnail({ img }) {
+  const t = useT(messages);
   const [loadError, setLoadError] = React.useState(false);
   const imageSrc = img.previewDataUrl || img.processedPreviewReference || img.imageReference || img.imageUrl;
 
@@ -732,7 +731,7 @@ function LaserPreviewThumbnail({ img, t, lang }) {
         {imageSrc && !loadError ? (
           <img
             src={imageSrc}
-            alt="B&W Laser Engraving Preview"
+            alt={t('preview.laserAlt')}
             onError={() => setLoadError(true)}
             style={{ width: '160px', height: '160px', objectFit: 'contain', imageRendering: 'pixelated' }}
             data-testid="laser-preview-image"
@@ -740,7 +739,7 @@ function LaserPreviewThumbnail({ img, t, lang }) {
         ) : (
           <div style={{ padding: '0.5rem', textAlign: 'center' }} data-testid="laser-preview-error">
             <span style={{ fontSize: '0.75rem', color: '#ef4444', display: 'block', fontWeight: 600 }}>
-              {loadError ? (t?.imageLoadError || (lang === 'en' ? 'Failed to load image' : 'Không tải được ảnh')) : (lang === 'en' ? 'Missing image data' : 'Thiếu dữ liệu ảnh')}
+              {loadError ? t('imageLoadError') : t('preview.missingImage')}
             </span>
             {loadError && (
               <button
@@ -757,14 +756,14 @@ function LaserPreviewThumbnail({ img, t, lang }) {
                 }}
                 data-testid="laser-preview-retry-btn"
               >
-                {t?.imageRetry || (lang === 'en' ? 'Retry' : 'Thử lại')}
+                {t('imageRetry')}
               </button>
             )}
           </div>
         )}
       </div>
       <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
-        {img.placement === 'OUTER_BAND' ? (lang === 'en' ? 'Outer band (+100k)' : 'Mặt ngoài (+100k)') : (lang === 'en' ? 'Inner band (+100k)' : 'Mặt trong (+100k)')}
+        {img.placement === 'OUTER_BAND' ? t('preview.outerPlus') : t('preview.innerPlus')}
         {img.contrast !== undefined && ` · C:${img.contrast} S:${img.sharpness}`}
       </span>
     </div>

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { discountLines } from '../ui/checkout/MemberCheckoutPage';
-import { reasonsInVietnamese } from '../ui/checkout/voucherOptions';
+import { reasonsText } from '../ui/checkout/voucherOptions';
+import { translate } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
+
+const t = (key, params) => translate(messages, 'vi', key, params);
+const tEn = (key, params) => translate(messages, 'en', key, params);
 
 // FE-06 stacks the automatic discount with one voucher (Session 2026-11-22). Example of the FE-06 note:
 // A 600,000 + B 400,000, 10% automatic on both (100,000), a 20% voucher on B after it (72,000).
@@ -21,9 +26,9 @@ describe('checkout discount lines (Shopee order)', () => {
   });
 
   it('says in Vietnamese why a voucher was refused', () => {
-    expect(reasonsInVietnamese(['Save this voucher in Kho Voucher before using it.', 'Other']))
+    expect(reasonsText(['Save this voucher in Kho Voucher before using it.', 'Other'], t))
       .toEqual(['Hãy lưu voucher này ở Kho Voucher trước khi dùng.', 'Other']);
-    expect(reasonsInVietnamese(['The automatic discount already covers these items; this voucher gives nothing more.'])[0])
+    expect(reasonsText(['The automatic discount already covers these items; this voucher gives nothing more.'], t)[0])
       .toBe('Giảm tự động đã trừ hết phần voucher này áp dụng, mã không giảm thêm được.');
   });
 });
@@ -31,8 +36,10 @@ describe('checkout discount lines (Shopee order)', () => {
 describe('voucher picker reason (2026-11-23)', () => {
   it('says why FE-06 refused a voucher, in Vietnamese', async () => {
     const { voucherReason } = await import('../ui/checkout/voucherOptions');
-    expect(voucherReason(['No automatic discount applies to this cart.', 'This voucher does not apply at the branch of these items.']))
+    expect(voucherReason(['No automatic discount applies to this cart.', 'This voucher does not apply at the branch of these items.'], t))
       .toBe('Voucher chỉ áp dụng tại chi nhánh khác, không phải chi nhánh bạn chọn mua.');
-    expect(voucherReason([])).toBeNull();
+    expect(voucherReason([], t)).toBeNull();
+    expect(voucherReason(['This voucher does not apply at the branch of these items.'], tEn)).toBe('This voucher does not apply at the branch of these items.');
+    expect(reasonsText(['Something FE-06 says that has no wording yet'], tEn)).toEqual(['Something FE-06 says that has no wording yet']);
   });
 });

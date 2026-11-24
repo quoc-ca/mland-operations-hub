@@ -25,7 +25,7 @@ export default function ModerationQueuePage() {
       <header className="page-header">
         <div style={{ marginBottom: '0.75rem' }}>
           <Link to="/home" className="button outline small" style={{ textDecoration: 'none' }}>
-            ← Quay lại Trang chủ
+            ← {t('backHome')}
           </Link>
         </div>
         <p className="muted">{t('moderationSubtitle')}</p>
@@ -37,9 +37,9 @@ export default function ModerationQueuePage() {
 
       {role && (
         <div style={{ margin: '0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Vai trò hiện tại:</span>
+          <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{t('currentRole')}</span>
           <span className={`badge-tag ${role === 'MANAGER' ? 'badge-status' : 'badge-status-hidden'}`}>
-            {role === 'MANAGER' ? 'Quản lý (MANAGER)' : 'Nhân viên (STAFF)'}
+            {role === 'MANAGER' ? t('roleManager') : t('roleStaff')}
           </span>
         </div>
       )}

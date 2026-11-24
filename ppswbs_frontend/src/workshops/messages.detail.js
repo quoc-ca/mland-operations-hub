@@ -30,7 +30,6 @@ export const messagesDetail = {
     'detail.perTicket': '/ vé',
     'detail.priceNote': 'Giá tham khảo đã áp mã giảm tốt nhất; giá cuối do hệ thống báo giá khi đặt.',
     'detail.seeReviews': 'Xem đánh giá của gói này ↓',
-    'detail.configRing': '💍 Cấu hình mẫu nhẫn',
     'detail.buyAria': 'Chọn ca và số lượng',
     'detail.branch': 'Chi nhánh',
     'detail.branchLoading': 'Đang tải chi nhánh...',
@@ -126,6 +125,7 @@ export const messagesDetail = {
     'return.profileLoading': 'Đang kiểm tra tài khoản đang đăng nhập…',
     'return.relogin': 'Đăng nhập lại bằng tài khoản Member, hoặc đăng xuất để tra cứu như khách.',
     'return.deadlineLeft': 'Thời hạn thanh toán còn',
+    'return.operator.loadFolio': 'Tải folio',
   },
   en: {
     'detail.branchUnavailable': 'This package is no longer sold at the branch you chose. Please choose another branch.',
@@ -156,7 +156,6 @@ export const messagesDetail = {
     'detail.perTicket': '/ ticket',
     'detail.priceNote': 'Indicative price with the best discount applied; the final price is quoted by the system when you book.',
     'detail.seeReviews': 'See reviews of this package ↓',
-    'detail.configRing': '💍 Configure your ring',
     'detail.buyAria': 'Choose sessions and quantity',
     'detail.branch': 'Branch',
     'detail.branchLoading': 'Loading branches...',
@@ -250,5 +249,6 @@ export const messagesDetail = {
     'return.profileLoading': 'Checking the signed-in account…',
     'return.relogin': 'Sign in again with a Member account, or sign out to look up as a guest.',
     'return.deadlineLeft': 'Time left to pay:',
+    'return.operator.loadFolio': 'Load folio',
   },
 };

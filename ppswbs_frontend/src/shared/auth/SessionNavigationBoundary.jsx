@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Outlet, useNavigate } from 'react-router';
+import { translate, useLanguage } from '../i18n/I18nProvider';
+import { sharedMessages } from '../ui/messages';
 import { useAuth } from './AuthProvider';
 import { executePrivateStateCleanup } from './privateStateCleanup';
 
@@ -13,18 +15,23 @@ import { executePrivateStateCleanup } from './privateStateCleanup';
 export function SessionNavigationBoundary() {
   const navigate = useNavigate();
   const { subscribeOutcome } = useAuth();
+  // The notice is shown once, in the language chosen when the outcome happens; a ref keeps the subscription stable.
+  const { language } = useLanguage();
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
   useEffect(() => {
     if (!subscribeOutcome) return;
 
     return subscribeOutcome(outcome => {
       if (!outcome || !outcome.type) return;
+      const notice = key => translate(sharedMessages, languageRef.current, key);
 
       if (outcome.type === 'USER_SIGN_OUT') {
         executePrivateStateCleanup();
         navigate('/', {
           replace: true,
-          state: { sessionNotice: 'Đã đăng xuất' },
+          state: { sessionNotice: notice('session.noticeSignedOut') },
         });
       } else if (outcome.type === 'SESSION_LOST') {
         executePrivateStateCleanup();
@@ -36,19 +43,19 @@ export function SessionNavigationBoundary() {
           }
           navigate('/login', {
             replace: true,
-            state: { sessionNotice: 'Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại' },
+            state: { sessionNotice: notice('session.noticeAccountMissing') },
           });
         } else {
           navigate('/', {
             replace: true,
-            state: { sessionNotice: 'Phiên đã kết thúc, vui lòng đăng nhập lại' },
+            state: { sessionNotice: notice('session.noticeEnded') },
           });
         }
       } else if (outcome.type === 'ACCESS_DENIED') {
         // Safe generic notice; no role, lifecycle, or Workshop-scope detail is disclosed
         navigate('/', {
           replace: true,
-          state: { sessionNotice: 'Bạn không có quyền truy cập chức năng này.' },
+          state: { sessionNotice: notice('session.noticeAccessDenied') },
         });
       }
     });

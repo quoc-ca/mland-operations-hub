@@ -265,3 +265,10 @@
 .pending-payment-notice { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 999px; background: #fffbe6; border: 1px solid #f5c542; color: #7a4b00; font-size: 13px; text-decoration: none; white-space: nowrap; }
 .pending-payment-notice:hover { background: #fff3bf; }
 .pending-payment-time { font-variant-numeric: tabular-nums; color: #b00020; }
+
+/* Phones: a signed-in chip (name, points, role badge) must fit beside the brand. */
+@media (max-width: 480px) {
+  .main-topbar-role-badge { display: none; }
+  .main-topbar-chip-name { max-width: 72px; }
+  .main-topbar-tools { min-width: 0; gap: 8px; }
+}

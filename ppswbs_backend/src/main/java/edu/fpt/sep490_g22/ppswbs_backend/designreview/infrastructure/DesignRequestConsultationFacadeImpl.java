@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure;
 
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequestImage;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.TemporaryImageReference;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.facade.DesignRequestConsultationFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.facade.DesignRequestConsultationOption;
@@ -18,17 +19,22 @@ public class DesignRequestConsultationFacadeImpl implements DesignRequestConsult
 
     private final DesignRequestRepository designRequestRepository;
     private final TemporaryImageReferenceRepository imageReferenceRepository;
+    private final DesignRequestImageRepository designRequestImageRepository;
 
     @Override
     @Transactional(readOnly = true)
     public List<DesignRequestConsultationOption> findMemberRequestsForConsultation(Long memberAccountId) {
-        if (memberAccountId == null) return Collections.emptyList();
-        List<DesignRequest> requests = designRequestRepository.findByOwnerAccountIdOrderByCreatedAtDesc(memberAccountId);
-        if (requests.isEmpty()) return Collections.emptyList();
+        if (memberAccountId == null)
+            return Collections.emptyList();
+        List<DesignRequest> requests = designRequestRepository
+                .findByOwnerAccountIdOrderByCreatedAtDesc(memberAccountId);
+        if (requests.isEmpty())
+            return Collections.emptyList();
 
         Map<String, DesignRequest> latest = new LinkedHashMap<>();
         for (DesignRequest r : requests) {
-            if ("WITHDRAWN".equalsIgnoreCase(r.getRequestStatus()) || "ARCHIVED".equalsIgnoreCase(r.getRequestStatus())) {
+            if ("WITHDRAWN".equalsIgnoreCase(r.getRequestStatus())
+                    || "ARCHIVED".equalsIgnoreCase(r.getRequestStatus())) {
                 continue;
             }
             DesignRequest ex = latest.get(r.getRequestReference());
@@ -43,13 +49,13 @@ public class DesignRequestConsultationFacadeImpl implements DesignRequestConsult
     @Override
     @Transactional(readOnly = true)
     public Optional<DesignRequestConsultationOption> validateMemberRequestForConsultation(
-            Long memberAccountId, String requestReference, Integer requestVersion
-    ) {
+            Long memberAccountId, String requestReference, Integer requestVersion) {
         if (memberAccountId == null || requestReference == null || requestReference.isBlank()) {
             return Optional.empty();
         }
         Optional<DesignRequest> opt = designRequestRepository.findByRequestReference(requestReference.trim());
-        if (opt.isEmpty()) return Optional.empty();
+        if (opt.isEmpty())
+            return Optional.empty();
         DesignRequest r = opt.get();
         if ("WITHDRAWN".equalsIgnoreCase(r.getRequestStatus()) || "ARCHIVED".equalsIgnoreCase(r.getRequestStatus())) {
             return Optional.empty();
@@ -69,12 +75,20 @@ public class DesignRequestConsultationFacadeImpl implements DesignRequestConsult
                 ? "Yêu cầu thiết kế: " + r.getCatalogueReference()
                 : "Yêu cầu thiết kế tự do";
         String summary = r.getDescription() != null && !r.getDescription().isBlank()
-                ? (r.getDescription().length() > 200 ? r.getDescription().substring(0, 197) + "..." : r.getDescription())
+                ? (r.getDescription().length() > 200 ? r.getDescription().substring(0, 197) + "..."
+                        : r.getDescription())
                 : "Mô tả yêu cầu thiết kế";
-        String imageUrl = imageReferenceRepository.findByDesignRequestId(r.getId())
-                .filter(img -> !img.isDeleted())
-                .map(TemporaryImageReference::getStorageObjectKey)
-                .orElse(null);
+        String imageUrl = null;
+        List<DesignRequestImage> images = designRequestImageRepository.findByDesignRequestId(r.getId());
+        if (images != null && !images.isEmpty()) {
+            imageUrl = images.get(0).getStoragePath();
+        } else {
+            imageUrl = imageReferenceRepository.findAllByDesignRequestId(r.getId()).stream()
+                    .filter(img -> !img.isDeleted())
+                    .map(TemporaryImageReference::getStorageObjectKey)
+                    .findFirst()
+                    .orElse(null);
+        }
 
         return new DesignRequestConsultationOption(
                 r.getRequestReference(),
@@ -82,7 +96,6 @@ public class DesignRequestConsultationFacadeImpl implements DesignRequestConsult
                 name,
                 r.getRequestVersion(),
                 imageUrl,
-                summary
-        );
+                summary);
     }
 }

@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
+import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { designReviewMessages } from '../messages';
+import { wholeAmount } from '../format';
 import '../designreview.css';
 
 export default function MyCustomOrdersPage() {
   const api = useDesignReviewApi();
   const navigate = useNavigate();
+  const t = useT(designReviewMessages);
+  const ts = useT(sharedMessages);
+  const fmt = useFormat();
 
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'requests'
   const [orders, setOrders] = useState([]);
@@ -36,7 +43,7 @@ export default function MyCustomOrdersPage() {
       }
     } catch (err) {
       console.error('Failed to load custom data:', err);
-      setError(err?.message || 'Không thể tải danh sách dữ liệu. Vui lòng thử lại.');
+      setError(err?.message || t('co.loadListFailed'));
     } finally {
       setLoading(false);
     }
@@ -52,11 +59,11 @@ export default function MyCustomOrdersPage() {
       if (res?.paymentUrl) {
         window.location.href = res.paymentUrl;
       } else {
-        throw new Error('Không nhận được liên kết thanh toán từ cổng VNPay.');
+        throw new Error(t('co.paymentLinkMissing'));
       }
     } catch (err) {
       console.error('Payment start failed:', err);
-      setError(err?.message || 'Khởi tạo thanh toán toàn bộ thất bại. Vui lòng thử lại.');
+      setError(err?.message || t('co.payFailedList'));
       setActionLoading(false);
     }
   };
@@ -71,7 +78,7 @@ export default function MyCustomOrdersPage() {
       await loadData();
     } catch (err) {
       console.error('Request new quote failed:', err);
-      setError(err?.message || 'Yêu cầu báo giá mới thất bại.');
+      setError(err?.message || t('co.requestQuoteFailed'));
     } finally {
       setActionLoading(false);
     }
@@ -86,7 +93,7 @@ export default function MyCustomOrdersPage() {
   const handleSubmitClarification = async (e) => {
     e.preventDefault();
     if (!clarificationText.trim()) {
-      setClarifyError('Vui lòng nhập nội dung giải thích / làm rõ.');
+      setClarifyError(t('co.clarifyRequired'));
       return;
     }
 
@@ -109,29 +116,15 @@ export default function MyCustomOrdersPage() {
       await loadData();
     } catch (err) {
       console.error('Clarification submission failed:', err);
-      setClarifyError(err?.message || 'Gửi phản hồi làm rõ thất bại.');
+      setClarifyError(err?.message || t('co.clarifyFailed'));
     } finally {
       setActionLoading(false);
     }
   };
 
-  const formatCurrency = (amount) => {
-    if (!amount) return '0 đ';
-    return Number(amount).toLocaleString('vi-VN') + ' đ';
-  };
+  const formatCurrency = (amount) => fmt.money(wholeAmount(amount || 0));
 
-  const formatDate = (isoStr) => {
-    if (!isoStr) return '—';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleString('vi-VN', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit'
-      });
-    } catch {
-      return isoStr;
-    }
-  };
+  const formatDate = (isoStr) => fmt.dateTime(isoStr);
 
   const isQuoteExpired = (quote) => {
     if (!quote?.expiresAt) return false;
@@ -142,10 +135,10 @@ export default function MyCustomOrdersPage() {
     <div className="design-container custom-orders-page">
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.5rem' }}>
-          Đơn hàng cá nhân
+          {t('co.list.title')}
         </h1>
         <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
-          Quản lý yêu cầu thiết kế nhẫn và đơn hàng cá nhân
+          {t('co.list.subtitle')}
         </p>
       </div>
 
@@ -166,7 +159,7 @@ export default function MyCustomOrdersPage() {
             marginBottom: '-2px'
           }}
         >
-          Đơn hàng cá nhân (Orders)
+          {t('co.list.tabOrders')}
         </button>
         <button
           type="button"
@@ -183,7 +176,7 @@ export default function MyCustomOrdersPage() {
             marginBottom: '-2px'
           }}
         >
-          Yêu cầu thiết kế (Requests)
+          {t('co.list.tabRequests')}
         </button>
       </div>
 
@@ -195,16 +188,16 @@ export default function MyCustomOrdersPage() {
 
       {loading ? (
         <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-          Đang tải dữ liệu...
+          {t('co.list.loading')}
         </div>
       ) : activeTab === 'orders' ? (
         // ORDERS TAB
         <div>
           {orders.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', background: '#f8fafc', borderRadius: 8 }}>
-              <p style={{ color: '#64748b', marginBottom: '1rem' }}>Bạn chưa có đơn hàng thiết kế cá nhân nào.</p>
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>{t('co.list.noOrders')}</p>
               <Link to="/design-requests/new" className="button button-primary">
-                Tạo yêu cầu thiết kế mới
+                {t('co.list.createRequest')}
               </Link>
             </div>
           ) : (
@@ -229,12 +222,12 @@ export default function MyCustomOrdersPage() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mã đơn gia công</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('co.list.orderCode')}</span>
                         <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0' }}>
                           {order.customOrderReference}
                         </h3>
                         <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                          Ngày tạo: {formatDate(order.createdAt)}
+                          {t('co.createdAt', { date: formatDate(order.createdAt) })}
                         </span>
                       </div>
                       <div style={{ textAlign: 'right' }}>
@@ -247,11 +240,11 @@ export default function MyCustomOrdersPage() {
                           backgroundColor: isPaid ? '#dcfce7' : (expired ? '#fee2e2' : '#e0f2fe'),
                           color: isPaid ? '#166534' : (expired ? '#991b1b' : '#0369a1')
                         }}>
-                          {isPaid ? 'Đã thanh toán toàn bộ' : (expired ? 'Báo giá đã hết hạn' : (order.status === 'FULL_PAYMENT_PENDING' ? 'Chờ thanh toán' : 'Chờ duyệt báo giá'))}
+                          {isPaid ? t('co.status.paid') : (expired ? t('co.status.expired') : (order.status === 'FULL_PAYMENT_PENDING' ? t('co.status.payPending') : t('co.status.quotePending')))}
                         </span>
                         {quote?.quoteGeneration && (
                           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
-                            Phiên bản báo giá: Lần #{quote.quoteGeneration}
+                            {t('co.quote.generation', { n: quote.quoteGeneration })}
                           </div>
                         )}
                       </div>
@@ -260,27 +253,27 @@ export default function MyCustomOrdersPage() {
                     {/* Order Details & Quote */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Tổng tiền thanh toán 100%:</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.total100')}</span>
                         <strong style={{ fontSize: '1.25rem', color: '#0f172a' }}>
-                          {quote?.totalAmount ? formatCurrency(quote.totalAmount) : 'Đang tính toán'}
+                          {quote?.totalAmount ? formatCurrency(quote.totalAmount) : t('co.quote.calculating')}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Hạn chót thanh toán:</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.deadline')}</span>
                         <span style={{ color: expired ? '#dc2626' : '#0f172a', fontWeight: 500 }}>
-                          {quote?.expiresAt ? formatDate(quote.expiresAt) : 'Chưa thiết lập'}
+                          {quote?.expiresAt ? formatDate(quote.expiresAt) : t('co.quote.notSet')}
                         </span>
                       </div>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Trạng thái sản xuất:</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.productionStatus')}</span>
                         <span style={{ color: '#0f172a', fontWeight: 500 }}>
-                          {order.productionStatus || (isPaid ? 'Đang chuẩn bị sản xuất' : 'Chờ thanh toán')}
+                          {order.productionStatus || (isPaid ? t('co.list.preparingProduction') : t('co.status.payPending'))}
                         </span>
                       </div>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Trạng thái giao hàng:</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.deliveryStatus')}</span>
                         <span style={{ color: '#0f172a', fontWeight: 500 }}>
-                          {order.fulfilmentStatus || 'Chưa bàn giao'}
+                          {order.fulfilmentStatus || t('co.progress.notHandedOver')}
                         </span>
                       </div>
                     </div>
@@ -292,7 +285,7 @@ export default function MyCustomOrdersPage() {
                         className="button button-outline"
                         style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
                       >
-                        Chi tiết đơn hàng
+                        {t('co.list.orderDetail')}
                       </Link>
 
                       {canPay && (
@@ -309,7 +302,7 @@ export default function MyCustomOrdersPage() {
                             fontWeight: 600
                           }}
                         >
-                          {actionLoading ? 'Đang xử lý...' : `Thanh toán toàn bộ (${formatCurrency(quote?.totalAmount)})`}
+                          {actionLoading ? t('co.list.processing') : t('co.list.payFull', { amount: formatCurrency(quote?.totalAmount) })}
                         </button>
                       )}
 
@@ -321,7 +314,7 @@ export default function MyCustomOrdersPage() {
                           onClick={() => handleRequestNewQuote(order.customOrderReference)}
                           style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
                         >
-                          {actionLoading ? 'Đang gửi...' : 'Yêu cầu báo giá mới'}
+                          {actionLoading ? t('co.action.sending') : t('co.action.requestNewQuote')}
                         </button>
                       )}
                     </div>
@@ -336,9 +329,9 @@ export default function MyCustomOrdersPage() {
         <div>
           {requests.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', background: '#f8fafc', borderRadius: 8 }}>
-              <p style={{ color: '#64748b', marginBottom: '1rem' }}>Bạn chưa gửi yêu cầu thiết kế tùy chỉnh nào.</p>
+              <p style={{ color: '#64748b', marginBottom: '1rem' }}>{t('co.list.noRequests')}</p>
               <Link to="/design-requests/new" className="button button-primary">
-                Tạo yêu cầu ngay
+                {t('co.list.createNow')}
               </Link>
             </div>
           ) : (
@@ -360,12 +353,12 @@ export default function MyCustomOrdersPage() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
                       <div>
-                        <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mã yêu cầu</span>
+                        <span style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('co.list.requestCode')}</span>
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#0f172a', margin: '0.2rem 0' }}>
                           {req.requestReference || req.id}
                         </h3>
                         <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                          Phiên bản: #{req.version || req.requestVersion || 1} &bull; Cập nhật: {formatDate(req.updatedAt || req.createdAt)}
+                          {t('co.list.versionUpdated', { version: req.version || req.requestVersion || 1, date: formatDate(req.updatedAt || req.createdAt) })}
                         </span>
                       </div>
                       <div>
@@ -384,9 +377,9 @@ export default function MyCustomOrdersPage() {
                             status === 'REJECTED' ? '#991b1b' :
                             status === 'CLARIFICATION_REQUIRED' ? '#92400e' : '#334155'
                         }}>
-                          {status === 'ACCEPTED' ? 'Đã chấp nhận' :
-                           status === 'REJECTED' ? 'Đã từ chối' :
-                           status === 'CLARIFICATION_REQUIRED' ? 'Cần làm rõ thông tin' : 'Đang chờ thẩm duyệt'}
+                          {status === 'ACCEPTED' ? t('co.list.reqAccepted') :
+                           status === 'REJECTED' ? t('co.list.reqRejected') :
+                           status === 'CLARIFICATION_REQUIRED' ? t('co.list.reqClarify') : t('co.list.reqPending')}
                         </span>
                       </div>
                     </div>
@@ -407,7 +400,7 @@ export default function MyCustomOrdersPage() {
                         marginBottom: '0.75rem'
                       }}>
                         <strong style={{ fontSize: '0.85rem', color: isClarification ? '#b45309' : '#475569', display: 'block', marginBottom: '0.25rem' }}>
-                          {isClarification ? 'Yêu cầu làm rõ từ nhân viên thẩm duyệt:' : 'Phản hồi thẩm duyệt:'}
+                          {isClarification ? t('co.list.clarifyFromReviewer') : t('co.list.reviewFeedback')}
                         </strong>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>
                           {req.decisionExplanation || req.explanation}
@@ -424,7 +417,7 @@ export default function MyCustomOrdersPage() {
                           onClick={() => handleOpenClarification(req)}
                           style={{ padding: '0.45rem 1rem', fontSize: '0.875rem', backgroundColor: '#d97706', color: '#ffffff' }}
                         >
-                          Phản hồi làm rõ
+                          {t('co.list.respondClarify')}
                         </button>
                       )}
                       <Link
@@ -432,7 +425,7 @@ export default function MyCustomOrdersPage() {
                         className="button button-outline"
                         style={{ padding: '0.45rem 1rem', fontSize: '0.875rem' }}
                       >
-                        Xem chi tiết
+                        {t('co.list.viewDetail')}
                       </Link>
                     </div>
                   </div>
@@ -464,10 +457,10 @@ export default function MyCustomOrdersPage() {
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
           }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Phản hồi làm rõ yêu cầu ({clarifyingRequest.requestReference})
+              {t('co.list.modalTitle', { ref: clarifyingRequest.requestReference })}
             </h3>
             <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
-              Vui lòng bổ sung hoặc làm rõ chi tiết thiết kế theo yêu cầu của đội ngũ nghệ nhân:
+              {t('co.list.modalIntro')}
             </p>
 
             {clarifyError && (
@@ -479,13 +472,13 @@ export default function MyCustomOrdersPage() {
             <form onSubmit={handleSubmitClarification}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontWeight: 500, fontSize: '0.9rem', marginBottom: '0.35rem' }}>
-                  Nội dung phản hồi / làm rõ:
+                  {t('co.list.modalLabel')}
                 </label>
                 <textarea
                   rows={4}
                   value={clarificationText}
                   onChange={(e) => setClarificationText(e.target.value)}
-                  placeholder="Nhập chi tiết điều chỉnh kích thước, chất liệu, hoặc ghi chú thêm..."
+                  placeholder={t('co.list.modalPlaceholder')}
                   style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
                   required
                 />
@@ -498,14 +491,14 @@ export default function MyCustomOrdersPage() {
                   disabled={actionLoading}
                   onClick={() => setClarifyingRequest(null)}
                 >
-                  Hủy
+                  {ts('cancel')}
                 </button>
                 <button
                   type="submit"
                   className="button button-primary"
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'Đang gửi...' : 'Gửi phản hồi'}
+                  {actionLoading ? t('co.action.sending') : t('co.list.sendResponse')}
                 </button>
               </div>
             </form>

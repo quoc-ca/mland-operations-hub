@@ -1,5 +1,6 @@
 export { useReviewManagementApi } from './api/useReviewManagementApi';
 export { default as ReviewCard } from './ui/ReviewCard';
+export { default as ReviewForm } from './ui/ReviewForm';
 export { default as PackageReviewSummary } from './ui/PackageReviewSummary';
 export { default as WorkshopReviewSummary } from './ui/WorkshopReviewSummary';
 export {

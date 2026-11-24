@@ -19,7 +19,7 @@ This is the Manager home after sign-in (the old Manager Home route redirects her
 | Scope line | Period type, start and end dates and the number of branches, in Vietnam time. |
 | Key figures | Retail revenue (after discounts, without shipping), Workshop revenue (fully paid bills), Total revenue, Paid retail orders (confirmed VNPay and cash) and Workshop utilization (checked-in places / capacity of finalized sessions). |
 | Retail and workshop trends | Orders placed, paid, cancelled or expired and retail revenue; tickets booked, check-ins and workshop revenue; each with the change against the previous period and a chart by hour, day or month. |
-| Best sellers | Top 5 products by units in paid orders and Top 5 workshop packages by confirmed tickets; hovering a row shows its revenue before discounts and its share of the five. |
+| Best sellers | Top 5 products by units in paid orders and Top 5 workshop packages by confirmed tickets; each row shows rank, name, count (chiếc or vé) and a bar; hovering or focusing a row shows its revenue before discounts and its share of the five. An empty period, an unreadable list or a failed load (with Thử lại) is stated without hiding the rest of the page. |
 | By branch | Table of Branch, Retail, Workshop, Total revenue (with share bar), Paid orders and Utilization. |
 | Recent events worth a look | Time, actor and kind (refused access attempt or package availability change) from the last 24 hours, notes when a source is missing, and **Open the audit log**. |
 | Error messages | A 403 explains that only a Manager assigned to a branch can see the dashboard; an invalid filter keeps the last valid result. |

@@ -293,8 +293,8 @@ describe('Design Preview Model Derivation', () => {
   it('returns fallback model when draft is null or undefined', () => {
     const preview = derivePreviewModel(null);
     expect(preview.isNeutral).toBe(true);
-    expect(preview.material).toEqual(MATERIAL_PALETTES['MAT-SILVER-925']);
-    expect(preview.shape).toEqual(SHAPE_STROKES['SHP-CLASSIC-ROUND']);
+    expect(preview.material).toEqual({ ...MATERIAL_PALETTES['MAT-SILVER-925'], label: 'Bạc Ý 925' });
+    expect(preview.shape).toEqual({ ...SHAPE_STROKES['SHP-CLASSIC-ROUND'], label: 'Tròn cổ điển' });
   });
 
   it('derives accurate visual tokens and gemstone glows for selected options', () => {
@@ -338,7 +338,7 @@ describe('Design Error Formatting', () => {
 
   it('falls back to error.message or default text when code is unknown', () => {
     expect(getErrorMessage({ message: 'Custom server error' })).toBe('Custom server error');
-    expect(getErrorMessage(null, 'Mặc định')).toBe('Mặc định');
+    expect(getErrorMessage(null)).toBe('Đã xảy ra lỗi không xác định.');
   });
 });
 
@@ -394,6 +394,16 @@ describe('Difficulty Score Classification & Meta', () => {
     expect(meta2.score).toBe('9.8');
     expect(meta2.label).toBe('Rất khó');
     expect(meta2.isVeryHard).toBe(true);
+  });
+
+  it('classifies > 11 as Too Risky (Quá rủi ro) without workshop recommendation', () => {
+    const meta = getDifficultyMeta(11.5);
+    expect(meta.score).toBe('11.5');
+    expect(meta.level).toBe('TOO_RISKY');
+    expect(meta.label).toBe('Quá rủi ro');
+    expect(meta.isTooRisky).toBe(true);
+    expect(meta.note).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
+    expect(meta.advice).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
   });
 });
 

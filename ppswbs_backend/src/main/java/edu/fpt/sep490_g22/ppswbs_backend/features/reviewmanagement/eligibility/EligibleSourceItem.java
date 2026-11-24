@@ -21,6 +21,10 @@ public class EligibleSourceItem {
     private String targetName;
     /** Workshop package of the attended booking (null for retail). */
     private Long packageId;
+    /** Retail only: the order the line belongs to, the ring bought and its size. */
+    private String orderId;
+    private String variantId;
+    private Integer size;
     private Instant completedAt;
     private boolean eligible;
     private String reasonCode;
