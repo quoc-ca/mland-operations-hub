@@ -139,7 +139,7 @@ export default function DesignWorkspacePage() {
       .then((designs) => {
         setAvailableDesigns(Array.isArray(designs) ? designs : []);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingDesigns(false));
   }, [isAuthenticated, workshopRingApi]);
 
@@ -328,39 +328,45 @@ export default function DesignWorkspacePage() {
 
   return (
     <div className="design-container">
-      <header className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h1>{t('workspace.title')}</h1>
-            <p className="muted">{t('workspace.subtitle')}</p>
-          </div>
-          {isAuthenticated && (
-            <Link to="/my/designs?tab=custom" className="button outline small" style={{ textDecoration: 'none' }}>
-              <span>📋</span> Xem yêu cầu của tôi
-            </Link>
+        <header className="design-workspace-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <div className="design-workspace-eyebrow">
+                <span>✨</span> Chế tác thủ công riêng biệt · Personal Custom Request
+              </div>
+              <h1 className="design-workspace-title">{t('workspace.title')}</h1>
+              <p className="design-workspace-subtitle">{t('workspace.subtitle')}</p>
+            </div>
+            {isAuthenticated && (
+                <Link to="/my/designs?tab=custom" className="button outline" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, padding: '0.6rem 1.25rem', borderRadius: '8px', border: '1.5px solid #cbd5e1' }}>
+                  <span>📋</span> Xem yêu cầu của tôi
+                </Link>
           )}
-        </div>
+              </div>
       </header>
 
-      <ErrorNotice error={command.error} messages={designReviewMessages} onRetry={command.retry} />
-      {errors.form && <div className="notice error">{errors.form}</div>}
+        <ErrorNotice error={command.error} messages={designReviewMessages} onRetry={command.retry} />
+        {errors.form && <div className="notice error">{errors.form}</div>}
 
-      <form onSubmit={handleSubmit} className="stack">
-        {/* Feature-012 Ring Design Attachment */}
-        <div className="field" data-testid="ring-design-attachment-field">
-          <label htmlFor="ring-design-select">
-            Mẫu thiết kế nhẫn Feature-012 đính kèm (Tùy chọn)
-          </label>
-          {isAuthenticated ? (
-            <div>
-              {availableDesigns.length > 0 ? (
+        <form onSubmit={handleSubmit} className="stack">
+          {/* Feature-012 Ring Design Attachment */}
+            <div className="design-workspace-card" data-testid="ring-design-attachment-field">
+              <h2 className="design-workspace-card-title">
+                <span>💍</span> Mẫu thiết kế nhẫn Feature-012 đính kèm (Tùy chọn)
+              </h2>
+              <p className="design-workspace-card-desc">
+                Bạn có thể liên kết một mẫu thiết kế nhẫn đã lưu hoặc hoàn thành trước đó để nghệ nhân kim hoàn tham chiếu kích thước, chất liệu và cấu trúc.
+              </p>
+              {isAuthenticated ? (
+                <div>
+                  {availableDesigns.length > 0 ? (
                 <div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <select
                       id="ring-design-select"
                       value={selectedDesignRef}
                       onChange={(e) => setSelectedDesignRef(e.target.value)}
-                      style={{ flex: 1, minWidth: '260px', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+                      style={{ flex: 1, minWidth: '260px', padding: '0.75rem 1rem', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '0.925rem', backgroundColor: '#ffffff' }}
                       data-testid="ring-design-select"
                     >
                       <option value="">-- Không đính kèm mẫu thiết kế --</option>
@@ -376,6 +382,7 @@ export default function DesignWorkspacePage() {
                         className="button outline small"
                         onClick={() => setSelectedDesignRef('')}
                         data-testid="clear-design-btn"
+                        style={{ padding: '0.7rem 1rem', borderRadius: '8px', fontWeight: 600 }}
                       >
                         ✕ Gỡ đính kèm
                       </button>
@@ -391,24 +398,24 @@ export default function DesignWorkspacePage() {
                     return (
                       <div
                         style={{
-                          marginTop: '0.75rem',
-                          padding: '0.875rem 1rem',
-                          background: '#f8fafc',
+                          marginTop: '1rem',
+                          padding: '1.25rem',
+                          background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
                           border: '1px solid #cbd5e1',
-                          borderRadius: '8px',
-                          fontSize: '0.875rem',
+                          borderRadius: '10px',
+                          fontSize: '0.9rem',
                         }}
                         data-testid="selected-design-preview-card"
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 600, color: '#0f172a' }}>
-                            💎 Chi tiết mẫu đã chọn: <code style={{ color: '#0284c7', background: '#f1f5f9', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>{selectedDesignObj.designId}</code>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>💎</span> Chi tiết mẫu đã chọn: <code style={{ color: '#0284c7', background: '#e0f2fe', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>{selectedDesignObj.designId}</code>
                           </span>
-                          <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', fontWeight: 600 }}>
+                          <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', background: '#dbeafe', color: '#1d4ed8', borderRadius: '6px', fontWeight: 700 }}>
                             Phiên bản {selectedDesignObj.designVersion} · {selectedDesignObj.status || 'SAVED'}
                           </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', color: '#334155', lineHeight: 1.5 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', color: '#334155', lineHeight: 1.5 }}>
                           <div><strong>Chất liệu:</strong> {preview.material?.label || 'Bạc Ý 925'}</div>
                           <div><strong>Dáng đai:</strong> {preview.shape?.label || 'Tròn cổ điển'}</div>
                           <div><strong>Kích cỡ:</strong> Size {preview.ringSize || '8'} (Chu vi ~{preview.circumferenceMm} mm)</div>
@@ -429,7 +436,7 @@ export default function DesignWorkspacePage() {
               ) : (
                 <p className="muted small" style={{ margin: 0 }}>
                   Bạn chưa có mẫu thiết kế nào được lưu.{' '}
-                  <Link to="/ring-design" target="_blank">Thiết kế mẫu nhẫn ngay ↗</Link>
+                  <Link to="/ring-design" target="_blank" style={{ color: '#b45309', fontWeight: 600 }}>Thiết kế mẫu nhẫn ngay ↗</Link>
                 </p>
               )}
             </div>
@@ -441,129 +448,176 @@ export default function DesignWorkspacePage() {
                 placeholder="Nhập mã thiết kế (VD: DES-176378...)"
                 value={selectedDesignRef}
                 onChange={(e) => setSelectedDesignRef(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '8px', border: '1.5px solid #cbd5e1' }}
                 data-testid="guest-ring-design-input"
               />
-              <span className="muted small">
+              <span className="muted small" style={{ display: 'block', marginTop: '0.4rem' }}>
                 Nếu bạn đã lưu một mẫu thiết kế nhẫn ở bước workshop, nhập mã thiết kế tại đây để nhân viên tham khảo.
               </span>
             </div>
           )}
         </div>
 
-        <Field
-          label={t('workspace.descriptionLabel')}
-          hint={t('workspace.charCount', { count: charCount })}
-          error={errors.description || command.error?.fieldError?.('description')}
-        >
-          <textarea
-            value={description}
-            onChange={e => {
-              setDescription(e.target.value);
-              if (errors.description) setErrors(prev => ({ ...prev, description: null }));
-              if (errors.form) setErrors(prev => ({ ...prev, form: null }));
-            }}
-            placeholder={t('workspace.descriptionPlaceholder')}
-            rows={5}
-            disabled={command.pending}
-          />
-        </Field>
-
-        <div className="field">
-          <label htmlFor="design-images-upload">
-            Hình ảnh tham khảo mẫu thiết kế (Tối đa 5 ảnh, định dạng JPEG/PNG/WEBP)
-          </label>
-          <input
-            id="design-images-upload"
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={ALLOWED_IMAGE_TYPES.join(',')}
-            onChange={handleFilesSelected}
-            disabled={command.pending || selectedImages.length >= LIMITS.maxImages}
-          />
-          <span className="muted small">
-            Đã chọn: {selectedImages.length}/{LIMITS.maxImages} ảnh. Dung lượng tối đa 5 MB/ảnh. Hệ thống tự động kiểm tra độ sắc nét từng ảnh ngay khi chọn.
-          </span>
-          {errors.images && <span className="field-error" style={{ display: 'block', marginTop: '0.25rem' }}>{errors.images}</span>}
+        {/* Request Description Card */}
+        <div className="design-workspace-card">
+          <h2 className="design-workspace-card-title">
+            <span>📝</span> Mô tả ý tưởng & Yêu cầu chế tác
+          </h2>
+          <p className="design-workspace-card-desc">
+            Hãy mô tả chi tiết mong muốn của bạn về chiếc nhẫn (chất liệu, họa tiết, kích thước đặc biệt, ngân sách hoặc thời gian dự kiến).
+          </p>
+          <Field
+            label={t('workspace.descriptionLabel')}
+            hint={t('workspace.charCount', { count: charCount })}
+            error={errors.description || command.error?.fieldError?.('description')}
+          >
+            <textarea
+              value={description}
+              onChange={e => {
+                setDescription(e.target.value);
+                if (errors.description) setErrors(prev => ({ ...prev, description: null }));
+                if (errors.form) setErrors(prev => ({ ...prev, form: null }));
+              }}
+              placeholder={t('workspace.descriptionPlaceholder')}
+              rows={5}
+              disabled={command.pending}
+              style={{
+                width: '100%',
+                padding: '0.85rem 1rem',
+                borderRadius: '8px',
+                border: '1.5px solid #cbd5e1',
+                fontSize: '0.95rem',
+                lineHeight: 1.6,
+                boxSizing: 'border-box',
+              }}
+            />
+          </Field>
         </div>
 
-        {hasBlurryImage && (
-          <div className="blur-warning-banner" role="alert">
-            <span>⚠️</span>
-            <div>
-              <strong>{t('validation.imageTooBlurry')}</strong>
-              <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
-                Ảnh mờ sẽ khiến thợ kim hoàn không thể đánh giá chính xác độ khả thi. Vui lòng gỡ bỏ ảnh mờ và thay bằng ảnh chụp rõ nét hơn.
+        {/* Reference Image Upload Card */}
+        <div className="design-workspace-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.35rem' }}>
+            <h2 className="design-workspace-card-title" style={{ margin: 0 }}>
+              <span>🖼️</span> Hình ảnh tham khảo mẫu thiết kế
+            </h2>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, padding: '0.2rem 0.6rem', background: '#f1f5f9', borderRadius: '12px', color: '#475569' }}>
+              {selectedImages.length}/{LIMITS.maxImages} ảnh
+            </span>
+          </div>
+          <p className="design-workspace-card-desc">
+            Tải lên bản vẽ, ảnh phác thảo hoặc hình chụp chiếc nhẫn bạn muốn chế tác. Tối đa 5 ảnh (JPEG, PNG, WEBP, tối đa 5 MB/ảnh).
+          </p>
+
+          <div className="field">
+            <label htmlFor="design-images-upload" style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1e293b', marginBottom: '0.5rem', display: 'block' }}>
+              Hình ảnh tham khảo mẫu thiết kế (Tối đa 5 ảnh, định dạng JPEG/PNG/WEBP)
+            </label>
+            <label
+              htmlFor="design-images-upload"
+              className="image-dropzone"
+              style={{ opacity: selectedImages.length >= LIMITS.maxImages || command.pending ? 0.6 : 1, display: 'flex' }}
+            >
+              <div className="image-dropzone-icon">📷</div>
+              <div className="image-dropzone-text">
+                {selectedImages.length >= LIMITS.maxImages ? 'Đã đạt giới hạn tối đa 5 ảnh' : 'Nhấn để chọn ảnh từ máy tính hoặc kéo thả vào đây'}
+              </div>
+              <div className="image-dropzone-subtext">
+                Định dạng hỗ trợ: JPEG, PNG, WEBP · Dung lượng tối đa: 5 MB/ảnh · Tự động kiểm tra độ sắc nét
+              </div>
+              <input
+                id="design-images-upload"
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ALLOWED_IMAGE_TYPES.join(',')}
+                onChange={handleFilesSelected}
+                disabled={command.pending || selectedImages.length >= LIMITS.maxImages}
+                style={{ display: 'none' }}
+              />
+            </label>
+            <span className="muted small" style={{ display: 'block', marginTop: '0.35rem' }}>
+              Đã chọn: {selectedImages.length}/{LIMITS.maxImages} ảnh. Dung lượng tối đa 5 MB/ảnh. Hệ thống tự động kiểm tra độ sắc nét từng ảnh ngay khi chọn.
+            </span>
+            {errors.images && <span className="field-error" style={{ display: 'block', marginTop: '0.5rem' }}>{errors.images}</span>}
+          </div>
+
+          {hasBlurryImage && (
+            <div className="blur-warning-banner" role="alert" style={{ marginTop: '1rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+              <div>
+                <strong>{t('validation.imageTooBlurry')}</strong>
+                <div style={{ fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                  Ảnh mờ sẽ khiến thợ kim hoàn không thể đánh giá chính xác độ khả thi. Vui lòng gỡ bỏ ảnh mờ và thay bằng ảnh chụp rõ nét hơn.
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {selectedImages.length > 0 && (
-          <div className="image-upload-grid">
-            {selectedImages.map(img => {
-              const isBlurry = img.quality.status === 'TOO_BLURRY';
-              const isChecking = img.quality.checking;
-              const isInvalid = img.quality.status === 'INVALID';
+          {selectedImages.length > 0 && (
+            <div className="image-upload-grid" style={{ marginTop: '1.25rem' }}>
+              {selectedImages.map(img => {
+                const isBlurry = img.quality.status === 'TOO_BLURRY';
+                const isChecking = img.quality.checking;
+                const isInvalid = img.quality.status === 'INVALID';
 
-              return (
-                <div key={img.id} className={`image-upload-card ${isBlurry ? 'blurry' : ''}`}>
-                  <img
-                    src={img.previewUrl}
-                    alt={img.name}
-                    className="image-upload-thumb"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedPreviewImage(img)}
-                    title="Nhấn để xem ảnh phóng to"
-                  />
-                  <div className="image-upload-info">
-                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.name}>
-                      {img.name}
-                    </span>
-                    <span className="muted">{formatFileSize(img.size)}</span>
-                    <div>
-                      {isChecking && <span className="badge-tag badge-warning">⏳ {t('validation.imageQualityChecking')}</span>}
-                      {isBlurry && <span className="badge-tag badge-danger">❌ Quá mờ ({img.quality.score})</span>}
-                      {isInvalid && (
-                        <div>
-                          <span className="badge-tag badge-danger">⚠️ Lỗi ảnh</span>
-                          {img.quality.reason && (
-                            <div className="field-error" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                              {img.quality.reason}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {!isChecking && !isBlurry && !isInvalid && (
-                        <span className="badge-tag badge-success">✓ Đạt chuẩn</span>
-                      )}
+                return (
+                  <div key={img.id} className={`image-upload-card ${isBlurry ? 'blurry' : ''}`}>
+                    <img
+                      src={img.previewUrl}
+                      alt={img.name}
+                      className="image-upload-thumb"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setSelectedPreviewImage(img)}
+                      title="Nhấn để xem ảnh phóng to"
+                    />
+                    <div className="image-upload-info">
+                      <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.name}>
+                        {img.name}
+                      </span>
+                      <span className="muted">{formatFileSize(img.size)}</span>
+                      <div>
+                        {isChecking && <span className="badge-tag badge-warning">⏳ {t('validation.imageQualityChecking')}</span>}
+                        {isBlurry && <span className="badge-tag badge-danger">❌ Quá mờ ({img.quality.score})</span>}
+                        {isInvalid && (
+                          <div>
+                            <span className="badge-tag badge-danger">⚠️ Lỗi ảnh</span>
+                            {img.quality.reason && (
+                              <div className="field-error" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                                {img.quality.reason}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {!isChecking && !isBlurry && !isInvalid && (
+                          <span className="badge-tag badge-success">✓ Đạt chuẩn</span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem', width: '100%' }}>
+                      <button
+                        type="button"
+                        className="button outline small"
+                        style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                        onClick={() => setSelectedPreviewImage(img)}
+                      >
+                        🔍 Xem
+                      </button>
+                      <button
+                        type="button"
+                        className="button outline small"
+                        style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5', borderRadius: '6px' }}
+                        onClick={() => handleRemoveImage(img.id)}
+                        disabled={command.pending}
+                      >
+                        Gỡ bỏ
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem', width: '100%' }}>
-                    <button
-                      type="button"
-                      className="button outline small"
-                      style={{ flex: 1, padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
-                      onClick={() => setSelectedPreviewImage(img)}
-                    >
-                      🔍 Xem ảnh
-                    </button>
-                    <button
-                      type="button"
-                      className="button outline small"
-                      style={{ flex: 1, padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5' }}
-                      onClick={() => handleRemoveImage(img.id)}
-                      disabled={command.pending}
-                    >
-                      Gỡ bỏ
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {selectedImages.length > 0 && (
           <div className="consent-card" role="region" aria-label={t('consent.title')}>
@@ -612,10 +666,10 @@ export default function DesignWorkspacePage() {
           </div>
         )}
 
-        <div className="actions" style={{ marginTop: '1.5rem' }}>
+        <div className="actions" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="submit"
-            className="button primary"
+            className="button primary btn-luxury-submit"
             disabled={
               command.pending ||
               isEvaluatingImages ||

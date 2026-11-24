@@ -1,6 +1,8 @@
 /* Feature-013 Consultation Chat Styling */
 
-html, body, * {
+html,
+body,
+* {
   scroll-behavior: auto !important;
 }
 
@@ -14,18 +16,22 @@ html, body, * {
   border: 1px solid #e7e5e0;
   overflow: hidden;
   margin: 1.5rem auto;
-  max-width: 1300px;
+  width: 100%;
+  max-width: 1280px;
+  box-sizing: border-box;
 }
 
 /* Sidebar List */
 .consultation-sidebar {
-  width: 380px;
-  min-width: 320px;
-  flex: 0 0 380px;
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
+  flex: 0 0 360px;
   background: #ffffff;
   border-right: 1px solid #e7e5e0;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .consultation-sidebar-header {
@@ -69,7 +75,7 @@ html, body, * {
   padding: 0;
 }
 
-.consultation-sidebar > .btn-secondary-consultation {
+.consultation-sidebar>.btn-secondary-consultation {
   width: calc(100% - 2rem);
   margin: 0.75rem 1rem 1rem;
 }
@@ -159,10 +165,13 @@ html, body, * {
 
 /* Chat Main View */
 .consultation-chat-main {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: calc(100% - 360px);
   display: flex;
   flex-direction: column;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 .consultation-empty-state {
@@ -177,14 +186,16 @@ html, body, * {
 
 /* Context Header */
 .consultation-context-header {
-  padding: 0.85rem 1.5rem;
+  padding: 0.75rem 1.5rem;
   border-bottom: 1px solid #e7e5e0;
   background: #fcfbf9;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1.25rem;
-  min-height: 72px;
+  height: 76px;
+  min-height: 76px;
+  max-height: 76px;
   box-sizing: border-box;
 }
 
@@ -569,4 +580,27 @@ html, body, * {
   justify-content: flex-end;
   gap: 0.75rem;
   background: #fbfbf9;
+}
+
+@media (max-width: 860px) {
+  .consultation-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+
+  .consultation-sidebar {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    flex: 0 0 auto;
+    max-height: 280px;
+    border-right: none;
+    border-bottom: 1px solid #e7e5e0;
+  }
+
+  .consultation-chat-main {
+    width: 100%;
+    min-height: 500px;
+  }
 }

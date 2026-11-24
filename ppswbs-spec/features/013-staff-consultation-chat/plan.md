@@ -45,3 +45,16 @@ Status: documentation baseline only; implementation is blocked by facade and mig
 5. Resolve all authorization, context-integrity, encoding and audit defects before
    marking the feature implementation-ready.
 
+## Frontend consistency and stable-scroll plan — 2026-11-24
+
+1. Reuse the existing Mland layout and create one shared width/spacing contract
+   for general and design-context chat surfaces.
+2. Keep sidebar width identical for loaded, loading, empty and error states.
+3. Remove automatic bottom scrolling on mount, selection, polling, focus and
+   visibility refresh. Preserve reader position and permit explicit successful
+   send to reveal the new message.
+4. Verify Member, Staff and Manager responsive screens, role-safe context
+   projection and Vietnamese UTF-8 rendering.
+5. Execute E2E for geometry parity, initial top position, polling stability,
+   send/retry, closed state, permissions, pagination and empty/loading states.
+

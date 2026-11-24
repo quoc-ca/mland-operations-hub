@@ -154,3 +154,19 @@ owns production, fulfilment and closure after verified full payment.
 11. A Feature-012 reference is copied as an immutable snapshot and never changes
     when the original design changes.
 12. Duplicate commands and stale versions return typed `409` responses.
+
+## 10. Frontend redesign handoff — pending approval
+
+The custom-design request page must use the existing Mland shell, typography,
+paper/white/gold palette, cards, field styling and bilingual copy patterns.
+The contextual consultation entry point must use the same outer chat width,
+spacing and responsive breakpoint as the general consultation chat. Context
+attachment may change header content, not chat geometry.
+
+The draft Figma frames are pending user approval, not an approved baseline:
+
+- F04 desktop: 588:43
+- F04 mobile: 590:43
+
+The draft preserves the current Member-only submission, optional Feature-012
+reference, five-image limit, immediate quality feedback and human-review flow.

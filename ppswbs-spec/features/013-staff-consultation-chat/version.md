@@ -1,7 +1,7 @@
 # Feature-013 Version Log — Staff Consultation Chat
 
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-22
+**Date updated**: 2026-11-24
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt
 
@@ -48,3 +48,21 @@
 ## Status
 
 `IMPLEMENTED — VERIFICATION PENDING FOR VERSION 1.1`
+
+## Version 1.3 — 2026-11-24 frontend consistency and stable-scroll handoff
+
+- Created editable Figma draft frames in page 498:2:
+  - Member contextual consultation desktop `590:71`.
+  - Member contextual consultation mobile `590:108`.
+  - Staff/Manager consultation desktop `590:127`.
+- The contextual and general consultation chats share one outer width,
+  responsive behavior, header spacing, message padding and composer geometry.
+- Loading, empty, error and loaded sidebar states must reserve identical width.
+- Initial route entry and conversation loading stay at the top; polling,
+  focus and visibility refreshes must not move the reader. Explicit successful
+  send is the only normal action allowed to reveal the newest message.
+- Added E2E requirements for Member, Staff and Manager covering layout parity,
+  stable scroll position, polling, send/retry, closed state, permissions,
+  pagination, empty/loading width and Vietnamese text rendering.
+
+**Status:** `FIGMA DRAFT PENDING USER APPROVAL — CODE NOT CHANGED`

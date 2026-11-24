@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-21
-- **Date updated**: 2026-11-22
+- **Date updated**: 2026-11-24
 - **Status**: Implementation handover with payment-schema and contract remediation in progress.
 
 ## Summary of Implementation
@@ -69,6 +69,28 @@ its reason.
   the in-place existing-frame update recorded above.
 
 **Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
+
+## Version 1.10 — 2026-11-24 frontend redesign and scroll-stability handoff
+
+- Reviewed the current React request and consultation screens before design work.
+- Created editable Figma draft frames in the existing page 498:2:
+  - F04 desktop `588:43`.
+  - F04 mobile `590:43`.
+  - Related consultation frames are recorded in Feature-013.
+- The draft follows the existing Mland style and improves hierarchy for the
+  request form, Feature-012 reference snapshot, five-image gallery and quality
+  feedback without changing the business contract.
+- The contextual consultation chat must use the same outer width and responsive
+  geometry as the general consultation chat.
+- The scroll defect is documented as a frontend implementation issue: no
+  scroll-to-bottom on route mount, conversation load, polling, focus,
+  visibility changes or empty/loading states; explicit successful send may
+  reveal the sent message while preserving the reader position otherwise.
+- Added required E2E coverage for visual consistency, initial top position,
+  polling stability, send behavior, loading/empty width stability, UTF-8
+  Vietnamese rendering and role-safe context display.
+
+**Status:** `FIGMA DRAFT PENDING USER APPROVAL — CODE NOT CHANGED`
 
 ### Phase H — Post-test defect remediation (2026-11-21)
 
