@@ -89,13 +89,10 @@ export const AdminAccountListPage: React.FC = () => {
         </Link>
       </div>
 
-      {/* Admin Navigation Tabs (Figma F08-F11) */}
+      {/* Admin Navigation Tabs (Figma F08-F11; role catalogue removed per T113) */}
       <nav className="admin-nav-tabs" aria-label={t('list.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab active">
           {t('list.navAccounts')}
-        </Link>
-        <Link to="/admin/roles" className="admin-nav-tab">
-          {t('list.navRoles')}
         </Link>
       </nav>
 

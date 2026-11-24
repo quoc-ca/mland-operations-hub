@@ -100,6 +100,13 @@ public class AccountBootstrapService {
             throw new InvalidTokenException("Identity must have a valid email claim to bootstrap an account");
         }
 
+        // Direct /login or /register for a reserved pending email is denied with neutral invitation guidance before Member bootstrap
+        String normalizedEmail = identity.email().trim().toLowerCase();
+        Optional<Account> reservedPendingAccount = accountRepository.findByLoginEmail(normalizedEmail);
+        if (reservedPendingAccount.isPresent() && reservedPendingAccount.get().getStatus() == AccountStatus.PENDING_SETUP) {
+            throw new RoleAssignmentForbiddenException("Tài khoản đang chờ hoàn tất thiết lập qua thư mời. Vui lòng mở liên kết trong thư mời email.");
+        }
+
         // Create new Member account (idempotent bootstrap)
         try {
             String email = identity.email().trim();

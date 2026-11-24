@@ -120,7 +120,6 @@ export const GROUPS = [
   {
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
-      { id: 'roles', vi: 'Danh mục vai trò', en: 'Role catalogue', to: '/admin/roles', match: ['/admin/roles*'], visible: admin },
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: manager },
       { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: manager },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },

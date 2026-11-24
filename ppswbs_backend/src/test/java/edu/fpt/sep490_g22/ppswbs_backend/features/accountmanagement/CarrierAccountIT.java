@@ -104,12 +104,11 @@ class CarrierAccountIT {
     }
 
     @Test
-    @DisplayName("T084: Role catalogue contains CARRIER with exact Vietnamese display name")
+    @DisplayName("T113: Role catalogue endpoint removed (GET /api/v1/roles returns 404 Not Found)")
     void roleCatalogue_includesCarrierRole() throws Exception {
         mockMvc.perform(get("/api/v1/roles")
                 .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.roles[?(@.code == 'CARRIER')].displayName").value("Đối tác vận chuyển (GHTK)"));
+            .andExpect(status().isNotFound());
     }
 
     @Test

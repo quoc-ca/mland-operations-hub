@@ -2,6 +2,11 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.servic
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InvitationDeliveryFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InvitationDeliveryReport;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationPurpose;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.DeliveryAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.NotificationRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.entity.DeliveryAttempt;
@@ -35,6 +40,7 @@ public class DeliveryWorkerService {
     private final DeliveryAttemptRepository deliveryAttemptRepository;
     private final RenditionService renditionService;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final ObjectProvider<InvitationDeliveryFacade> invitationDeliveryFacadeProvider;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
     private final String fromAddress;
@@ -44,6 +50,7 @@ public class DeliveryWorkerService {
             DeliveryAttemptRepository deliveryAttemptRepository,
             RenditionService renditionService,
             ObjectProvider<JavaMailSender> mailSenderProvider,
+            ObjectProvider<InvitationDeliveryFacade> invitationDeliveryFacadeProvider,
             ObjectMapper objectMapper,
             PlatformTransactionManager transactionManager,
             @Value("${spring.mail.username:noreply@mland.vn}") String fromAddress) {
@@ -51,6 +58,7 @@ public class DeliveryWorkerService {
         this.deliveryAttemptRepository = deliveryAttemptRepository;
         this.renditionService = renditionService;
         this.mailSenderProvider = mailSenderProvider;
+        this.invitationDeliveryFacadeProvider = invitationDeliveryFacadeProvider;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.fromAddress = (fromAddress != null && !fromAddress.isBlank()) ? fromAddress : "noreply@mland.vn";
@@ -101,7 +109,9 @@ public class DeliveryWorkerService {
 
             String recipientEmail = extractRecipientEmail(request.getRecipientSnapshot());
             return new NotificationClaim(request.getId(), recipientEmail, rendition.getRenderedSubject(),
-                    rendition.getRenderedHtml(), rendition.getRenderedPlainText(), request.getAttemptCount());
+                    rendition.getRenderedHtml(), rendition.getRenderedPlainText(), request.getAttemptCount(),
+                    request.getTemplateCode(), request.getCredentialReference(), request.getCredentialExpiresAt(),
+                    request.getBusinessEventReference());
         });
 
         if (claim == null) {
@@ -109,11 +119,78 @@ public class DeliveryWorkerService {
         }
 
         Instant attemptStart = Instant.now();
+        boolean isInvitation = "INTERNAL_ACCOUNT_INVITATION".equalsIgnoreCase(claim.templateCode());
+        String sendHtml = claim.html();
+        String sendPlain = claim.plainText();
+
+        if (isInvitation) {
+            // Check creation-based expiry
+            if (claim.credentialExpiresAt() != null && Instant.now().isAfter(claim.credentialExpiresAt())) {
+                transactionTemplate.executeWithoutResult(status -> {
+                    NotificationRequest req = notificationRequestRepository.findById(claim.requestId()).orElse(null);
+                    if (req != null) {
+                        req.setDeliveryState("CANCELLED");
+                        req.setTerminalAt(Instant.now());
+                        req.setNextAttemptAt(null);
+                        notificationRequestRepository.save(req);
+                    }
+                });
+                reportInvitationStatus(claim, "CANCELLED", Instant.now());
+                log.info("Invitation request {} cancelled due to expiration", claim.requestId());
+                return;
+            }
+
+            // Materialize URL transiently through FE-001 facade
+            InvitationDeliveryFacade facade = invitationDeliveryFacadeProvider.getIfAvailable();
+            if (facade == null) {
+                recordAttemptAndScheduleRetry(claim.requestId(), claim.previousAttemptCount() + 1, attemptStart,
+                        Instant.now(), "FAILED", null, "InvitationDeliveryFacade not available", isInvitation, claim);
+                return;
+            }
+
+            Long invitationId = parseInvitationId(claim.credentialReference());
+            int version = parseInvitationVersion(claim.credentialReference());
+
+            MaterializationRequest matReq = MaterializationRequest.builder()
+                    .invitationId(invitationId)
+                    .version(version)
+                    .eventReference(claim.businessEventReference())
+                    .requestId(claim.requestId())
+                    .purpose(MaterializationPurpose.SMTP_ATTEMPT)
+                    .attemptId((long) (claim.previousAttemptCount() + 1))
+                    .build();
+
+            MaterializationOutcome outcome = facade.materialize(matReq);
+            if (outcome == null || outcome.status() == MaterializationOutcome.Status.STALE) {
+                transactionTemplate.executeWithoutResult(status -> {
+                    NotificationRequest req = notificationRequestRepository.findById(claim.requestId()).orElse(null);
+                    if (req != null) {
+                        req.setDeliveryState("CANCELLED");
+                        req.setTerminalAt(Instant.now());
+                        req.setNextAttemptAt(null);
+                        notificationRequestRepository.save(req);
+                    }
+                });
+                log.info("Invitation request {} cancelled due to stale/superseded version", claim.requestId());
+                return;
+            }
+
+            if (outcome.status() == MaterializationOutcome.Status.UNAVAILABLE) {
+                recordAttemptAndScheduleRetry(claim.requestId(), claim.previousAttemptCount() + 1, attemptStart,
+                        Instant.now(), "NETWORK_TEMPORARY", null, "Invitation materialization unavailable: " + outcome.safeReason(), isInvitation, claim);
+                return;
+            }
+
+            // Substitute in memory only
+            sendHtml = sendHtml.replace("{{setup_url}}", outcome.transientUrl());
+            sendPlain = sendPlain.replace("{{setup_url}}", outcome.transientUrl());
+        }
+
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
 
         if (mailSender == null) {
             recordAttemptAndScheduleRetry(claim.requestId(), claim.previousAttemptCount() + 1, attemptStart,
-                    Instant.now(), "FAILED", null, "JavaMailSender bean is not configured in this environment");
+                    Instant.now(), "FAILED", null, "JavaMailSender bean is not configured in this environment", isInvitation, claim);
             return;
         }
 
@@ -123,19 +200,22 @@ public class DeliveryWorkerService {
             helper.setFrom(fromAddress);
             helper.setTo(claim.recipientEmail());
             helper.setSubject(claim.subject());
-            helper.setText(claim.plainText(), claim.html());
+            helper.setText(sendPlain, sendHtml);
 
             mailSender.send(message);
 
             String messageId = message.getMessageID();
             recordSuccess(claim.requestId(), claim.previousAttemptCount() + 1, attemptStart, Instant.now(), messageId);
+            if (isInvitation) {
+                reportInvitationStatus(claim, "SENT", Instant.now());
+            }
 
         } catch (Exception ex) {
             log.warn("SMTP attempt failed for notification request {}: {}", claim.requestId(), ex.getMessage());
             String outcomeCategory = classifyError(ex);
             String safeError = sanitizeError(ex.getMessage());
             recordAttemptAndScheduleRetry(claim.requestId(), claim.previousAttemptCount() + 1, attemptStart,
-                    Instant.now(), outcomeCategory, null, safeError);
+                    Instant.now(), outcomeCategory, null, safeError, isInvitation, claim);
         }
     }
 
@@ -165,7 +245,8 @@ public class DeliveryWorkerService {
     }
 
     private void recordAttemptAndScheduleRetry(Long requestId, int attemptNumber, Instant start, Instant end,
-                                               String outcomeCategory, String messageId, String safeError) {
+                                               String outcomeCategory, String messageId, String safeError,
+                                               boolean isInvitation, NotificationClaim claim) {
         transactionTemplate.executeWithoutResult(status -> {
             NotificationRequest request = notificationRequestRepository.findById(requestId).orElse(null);
             if (request == null) return;
@@ -182,23 +263,68 @@ public class DeliveryWorkerService {
 
             request.setAttemptCount(attemptNumber);
 
-            // Retry schedule: 1 minute for attempt 1, 5 minutes for attempt 2, max 3 attempts total (FR-013)
-            if ("REJECTED_PERMANENT".equalsIgnoreCase(outcomeCategory) || attemptNumber >= 3) {
-                request.setDeliveryState("FAILED");
-                request.setTerminalAt(end);
-                request.setNextAttemptAt(null);
-                log.warn("Notification request {} reached terminal FAILED state after {} attempts", requestId, attemptNumber);
-            } else if (attemptNumber == 1) {
-                request.setDeliveryState("RETRY_SCHEDULED");
-                request.setNextAttemptAt(end.plus(Duration.ofMinutes(1)));
-                log.info("Notification request {} scheduled for retry 2 at {}", requestId, request.getNextAttemptAt());
-            } else if (attemptNumber == 2) {
-                request.setDeliveryState("RETRY_SCHEDULED");
-                request.setNextAttemptAt(end.plus(Duration.ofMinutes(5)));
-                log.info("Notification request {} scheduled for retry 3 at {}", requestId, request.getNextAttemptAt());
+            if (isInvitation) {
+                // Maximum 2 attempts for INTERNAL_ACCOUNT_INVITATION (FR-032)
+                if ("REJECTED_PERMANENT".equalsIgnoreCase(outcomeCategory) || attemptNumber >= 2) {
+                    request.setDeliveryState("FAILED");
+                    request.setTerminalAt(end);
+                    request.setNextAttemptAt(null);
+                    reportInvitationStatus(claim, "FAILED", end);
+                    log.warn("Invitation request {} reached terminal FAILED state after {} attempts", requestId, attemptNumber);
+                } else if (attemptNumber == 1) {
+                    request.setDeliveryState("RETRY_SCHEDULED");
+                    request.setNextAttemptAt(end.plus(Duration.ofMinutes(1)));
+                    reportInvitationStatus(claim, "RETRY_SCHEDULED", end);
+                    log.info("Invitation request {} scheduled for retry 2 at {}", requestId, request.getNextAttemptAt());
+                }
+            } else {
+                // Retry schedule: 1 minute for attempt 1, 5 minutes for attempt 2, max 3 attempts total (FR-013)
+                if ("REJECTED_PERMANENT".equalsIgnoreCase(outcomeCategory) || attemptNumber >= 3) {
+                    request.setDeliveryState("FAILED");
+                    request.setTerminalAt(end);
+                    request.setNextAttemptAt(null);
+                    log.warn("Notification request {} reached terminal FAILED state after {} attempts", requestId, attemptNumber);
+                } else if (attemptNumber == 1) {
+                    request.setDeliveryState("RETRY_SCHEDULED");
+                    request.setNextAttemptAt(end.plus(Duration.ofMinutes(1)));
+                    log.info("Notification request {} scheduled for retry 2 at {}", requestId, request.getNextAttemptAt());
+                } else if (attemptNumber == 2) {
+                    request.setDeliveryState("RETRY_SCHEDULED");
+                    request.setNextAttemptAt(end.plus(Duration.ofMinutes(5)));
+                    log.info("Notification request {} scheduled for retry 3 at {}", requestId, request.getNextAttemptAt());
+                }
             }
             notificationRequestRepository.save(request);
         });
+    }
+
+    private void reportInvitationStatus(NotificationClaim claim, String state, Instant now) {
+        InvitationDeliveryFacade facade = invitationDeliveryFacadeProvider.getIfAvailable();
+        if (facade != null && claim != null) {
+            Long invId = parseInvitationId(claim.credentialReference());
+            int ver = parseInvitationVersion(claim.credentialReference());
+            if (invId != null) {
+                facade.reportDeliveryState(new InvitationDeliveryReport(invId, ver, claim.requestId(), state, now));
+            }
+        }
+    }
+
+    private Long parseInvitationId(String credentialRef) {
+        if (credentialRef == null || !credentialRef.contains(":")) return null;
+        try {
+            return Long.parseLong(credentialRef.split(":")[0]);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private int parseInvitationVersion(String credentialRef) {
+        if (credentialRef == null || !credentialRef.contains(":")) return 1;
+        try {
+            return Integer.parseInt(credentialRef.split(":")[1]);
+        } catch (Exception e) {
+            return 1;
+        }
     }
 
     private String classifyError(Exception ex) {
@@ -239,6 +365,17 @@ public class DeliveryWorkerService {
         }
     }
 
-    private record NotificationClaim(Long requestId, String recipientEmail, String subject, String html, String plainText, int previousAttemptCount) {}
+    private record NotificationClaim(
+            Long requestId,
+            String recipientEmail,
+            String subject,
+            String html,
+            String plainText,
+            int previousAttemptCount,
+            String templateCode,
+            String credentialReference,
+            Instant credentialExpiresAt,
+            String businessEventReference
+    ) {}
 }
 

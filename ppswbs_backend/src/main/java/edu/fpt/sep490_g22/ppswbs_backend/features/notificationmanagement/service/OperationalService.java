@@ -1,6 +1,10 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InvitationDeliveryFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationPurpose;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.DeliveryAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.NotificationRequestRepository;
@@ -13,6 +17,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.entity.
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -33,6 +38,7 @@ public class OperationalService {
     private final DeliveryAttemptRepository deliveryAttemptRepository;
     private final OperationalAuditRepository operationalAuditRepository;
     private final RenditionRepository renditionRepository;
+    private final ObjectProvider<InvitationDeliveryFacade> invitationDeliveryFacadeProvider;
 
     @Transactional(readOnly = true)
     public Page<NotificationRequestSummaryDto> listRequests(
@@ -142,6 +148,11 @@ public class OperationalService {
                 .orElseThrow(() -> NotificationManagementException.notFound("REQUEST_NOT_FOUND",
                         "Notification request not found with ID: " + id));
 
+        if ("INTERNAL_ACCOUNT_INVITATION".equalsIgnoreCase(original.getTemplateCode())) {
+            throw NotificationManagementException.badRequest("INVITATION_RESEND_FORBIDDEN",
+                    "Thư mời nội bộ (INTERNAL_ACCOUNT_INVITATION) không cho phép gửi lại qua cổng thông báo chung. Vui lòng sử dụng tính năng gửi lại thư mời tại trang Quản trị tài khoản.");
+        }
+
         String state = original.getDeliveryState();
         String actorRole = actor.role() != null ? actor.role().name() : "";
 
@@ -235,6 +246,11 @@ public class OperationalService {
                 .orElseThrow(() -> NotificationManagementException.notFound("REQUEST_NOT_FOUND",
                         "Notification request not found with ID: " + id));
 
+        if ("INTERNAL_ACCOUNT_INVITATION".equalsIgnoreCase(request.getTemplateCode())) {
+            throw NotificationManagementException.badRequest("INVITATION_CANCEL_FORBIDDEN",
+                    "Thư mời nội bộ (INTERNAL_ACCOUNT_INVITATION) không cho phép hủy qua cổng thông báo chung.");
+        }
+
         String state = request.getDeliveryState();
         if ("PROCESSING".equalsIgnoreCase(state)) {
             throw NotificationManagementException.conflict("CANNOT_CANCEL_PROCESSING",
@@ -285,6 +301,11 @@ public class OperationalService {
         NotificationRequest original = notificationRequestRepository.findById(id)
                 .orElseThrow(() -> NotificationManagementException.notFound("REQUEST_NOT_FOUND",
                         "Notification request not found with ID: " + id));
+
+        if ("INTERNAL_ACCOUNT_INVITATION".equalsIgnoreCase(original.getTemplateCode())) {
+            throw NotificationManagementException.badRequest("INVITATION_RESEND_FORBIDDEN",
+                    "Thư mời nội bộ (INTERNAL_ACCOUNT_INVITATION) không cho phép gửi lại qua cổng thông báo chung. Vui lòng sử dụng tính năng gửi lại thư mời tại trang Quản trị tài khoản.");
+        }
 
         NotificationRequest rootRequest = resolveRootRequest(original);
 
@@ -347,6 +368,126 @@ public class OperationalService {
                 .createdAt(saved.getCreatedAt())
                 .message("Redelivery request enqueued with replacement credential.")
                 .build();
+    }
+
+    @Transactional
+    public ManualInvitationContentResponse getFailedInvitationManualContent(Long requestId, CurrentAccountActor actor) {
+        if (actor == null || !"ADMIN".equalsIgnoreCase(actor.role() != null ? actor.role().name() : "")) {
+            throw NotificationManagementException.forbidden("ACTOR_NOT_ADMIN",
+                    "Chỉ Quản trị viên (ADMIN) mới có quyền lấy nội dung thư mời thủ công.");
+        }
+
+        NotificationRequest req = notificationRequestRepository.findById(requestId)
+                .orElseThrow(() -> NotificationManagementException.notFound("REQUEST_NOT_FOUND",
+                        "Không tìm thấy yêu cầu thông báo với ID: " + requestId));
+
+        if (!"INTERNAL_ACCOUNT_INVITATION".equalsIgnoreCase(req.getTemplateCode())) {
+            throw NotificationManagementException.conflict("INVALID_TEMPLATE",
+                    "Chỉ hỗ trợ lấy nội dung thủ công cho mẫu thông báo thư mời tạo tài khoản nội bộ.");
+        }
+
+        // Must be in terminal FAILED state
+        if (!"FAILED".equalsIgnoreCase(req.getDeliveryState())) {
+            throw NotificationManagementException.conflict("REQUEST_NOT_FAILED",
+                    "Yêu cầu thông báo chưa ở trạng thái thất bại (FAILED). Trạng thái hiện tại: " + req.getDeliveryState());
+        }
+
+        // Must have at least 2 definite failed attempts
+        if (req.getAttemptCount() < 2) {
+            throw NotificationManagementException.conflict("INSUFFICIENT_ATTEMPTS",
+                    "Cần tối thiểu 2 lần gửi thất bại để được phép lấy nội dung thủ công.");
+        }
+
+        // UNKNOWN_OUTCOME blocks manual content until operator reconciliation
+        List<DeliveryAttempt> attempts = deliveryAttemptRepository.findByNotificationRequestIdOrderByAttemptNumberAsc(requestId);
+        boolean hasUnknown = attempts.stream().anyMatch(a -> "UNKNOWN_OUTCOME".equalsIgnoreCase(a.getOutcomeCategory()));
+        if (hasUnknown) {
+            throw NotificationManagementException.conflict("DELIVERY_OUTCOME_UNKNOWN",
+                    "Tồn tại lần thử với kết quả không xác định (UNKNOWN_OUTCOME). Cần đối soát trước khi lấy nội dung.");
+        }
+
+        // Check facade availability
+        InvitationDeliveryFacade facade = invitationDeliveryFacadeProvider.getIfAvailable();
+        if (facade == null) {
+            throw NotificationManagementException.serviceUnavailable("INVITATION_FACADE_UNAVAILABLE",
+                    "Dịch vụ thư mời tạo tài khoản không khả dụng.");
+        }
+
+        // Parse credential reference: "{invitationId}:{version}"
+        String credRef = req.getCredentialReference();
+        Long invitationId = null;
+        int version = 1;
+        if (credRef != null && credRef.contains(":")) {
+            try {
+                String[] parts = credRef.split(":");
+                invitationId = Long.parseLong(parts[0]);
+                version = Integer.parseInt(parts[1]);
+            } catch (Exception ignored) {}
+        }
+
+        if (invitationId == null) {
+            throw NotificationManagementException.conflict("INVALID_CREDENTIAL_REFERENCE",
+                    "Tham chiếu thư mời không hợp lệ trên yêu cầu thông báo.");
+        }
+
+        // Call FE-001 facade with MaterializationPurpose.MANUAL_CONTENT and admin actor ID
+        MaterializationRequest matReq = MaterializationRequest.builder()
+                .invitationId(invitationId)
+                .version(version)
+                .eventReference(req.getBusinessEventReference())
+                .requestId(req.getId())
+                .purpose(MaterializationPurpose.MANUAL_CONTENT)
+                .adminActorAccountId(actor.accountId())
+                .build();
+
+        MaterializationOutcome outcome = facade.materialize(matReq);
+        if (outcome == null || outcome.status() == MaterializationOutcome.Status.UNAVAILABLE) {
+            String reason = outcome != null ? outcome.safeReason() : "Materialization unavailable";
+            throw NotificationManagementException.serviceUnavailable("INVITATION_MATERIALIZATION_UNAVAILABLE", reason);
+        }
+
+        if (outcome.status() == MaterializationOutcome.Status.STALE) {
+            String reason = outcome.safeReason() != null ? outcome.safeReason() : "Thư mời đã hết hạn hoặc phiên bản đã cũ.";
+            throw NotificationManagementException.gone("INVITATION_STALE", reason);
+        }
+
+        // Retrieve rendition
+        Rendition rendition = renditionRepository.findByNotificationRequestId(requestId)
+                .orElseThrow(() -> NotificationManagementException.notFound("RENDITION_NOT_FOUND",
+                        "Không tìm thấy nội dung mẫu thông báo kết xuất cho yêu cầu: " + requestId));
+
+        // Inject transient URL into {{setup_url}} in memory only
+        String transientUrl = outcome.transientUrl() != null ? outcome.transientUrl() : "";
+        String subject = rendition.getRenderedSubject() != null ? rendition.getRenderedSubject().replace("{{setup_url}}", transientUrl) : "";
+        String html = rendition.getRenderedHtml() != null ? rendition.getRenderedHtml().replace("{{setup_url}}", transientUrl) : "";
+        String plainText = rendition.getRenderedPlainText() != null ? rendition.getRenderedPlainText().replace("{{setup_url}}", transientUrl) : "";
+
+        // Record audit without logging secret/content
+        recordManualInvitationAudit(req, actor.accountId());
+
+        return ManualInvitationContentResponse.builder()
+                .requestId(req.getId())
+                .invitationVersion(version)
+                .subject(subject)
+                .html(html)
+                .plainText(plainText)
+                .expiresAt(outcome.expiresAt())
+                .serverNow(Instant.now())
+                .build();
+    }
+
+    @Transactional
+    public void recordManualInvitationAudit(NotificationRequest request, Long adminAccountId) {
+        OperationalAuditRecord audit = new OperationalAuditRecord();
+        audit.setNotificationRequest(request);
+        audit.setActorAccountId(adminAccountId != null ? String.valueOf(adminAccountId) : "system");
+        audit.setActorRole("ADMIN");
+        audit.setActionType("MANUAL_INVITATION_RETRIEVED");
+        audit.setReason("ADMIN manual email-content retrieval after 2 failed SMTP attempts");
+        audit.setPreviousState("FAILED");
+        audit.setNewState("FAILED");
+        audit.setDuplicateRiskAccepted(false);
+        operationalAuditRepository.save(audit);
     }
 
     private NotificationRequest resolveRootRequest(NotificationRequest request) {

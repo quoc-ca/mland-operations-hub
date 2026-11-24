@@ -164,6 +164,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         if ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/v1/workshop-design-options")) {
             return true;
         }
+
+        // Feature-001 R-INV Internal Account Invitation public secret exchange
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/internal-account-invitations/exchanges".equals(path)) {
+            return true;
+        }
         if (path.startsWith("/api/v1/workshop-designs") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
