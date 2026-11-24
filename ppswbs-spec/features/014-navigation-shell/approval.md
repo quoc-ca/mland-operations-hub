@@ -35,3 +35,10 @@
 - Scope: spec "Session 2026-11-22" and tasks T038–T044 (rail of 10 groups, tabs, page header with actions, `useNavBadges`, one dashboard page at `/manager/dashboard`).
 - Approval date: 2026-11-22. Approver: Hồ Hoàng Quốc.
 - Source of approval: the owner's instruction to the implementing session, which names the design as approved on the prototype `claude.ai/artifact/AB3ZMi6aiCwUnS4X6rS28B`. Dropped by the owner on 2026-11-22: the overdue block (T042). Not built in this change: Staff badges, Ctrl K search.
+
+## Split and rename (2026-11-25)
+
+- The folder `013-manager-home` was renamed `014-navigation-shell` so that number 013 belongs only to `013-staff-consultation-chat`. The Manager Home dashboard blocks moved into `010-manager-dashboard` (tasks T064 to T071); the shell and badges stay here.
+- **No new approval is granted by this split** and no approved scope was widened or narrowed. The approvals recorded above keep their original date and approver; they now cover, in this folder, the shell (T038 to T044 scope) and the owner count reads, and, in 010, the blocks whose tasks moved.
+- The `sha256` prefixes recorded above are of the 2026-11-18 drafts. Before the 2026-11-25 banner, `design/architecture.md` (`a03d1207…`) and `design/workflows.md` (`47a5f40b…`) already differed from them, so the recorded revision no longer identifies the files as they are today. This was already the case before the split. The Tech Lead needs to re-record the approved revision if the approval is to be relied on for the current design.
+- `design/` files only received a status banner on 2026-11-25; their content is unchanged.

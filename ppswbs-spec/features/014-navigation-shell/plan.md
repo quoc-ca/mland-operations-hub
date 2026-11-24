@@ -1,5 +1,6 @@
 # Implementation Plan: Manager Home
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
+> **Status 2026-11-25:** describes the Manager Home wave-1 slice of the former `013-manager-home`. The page of cards, revenue card and shortcuts are superseded (2026-11-22); the shell and badges belong to `014-navigation-shell`, and today's operations and recent events to `010-manager-dashboard`. Kept as the history of the wave-1 design; not rewritten. The frontend slice is now `features/manager-dashboard/operations`.
 
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18
@@ -78,7 +79,7 @@ ppswbs-spec/features/014-navigation-shell/
 Frontend (new slice; the Staff home stays where it is):
 
 ```text
-ppswbs_frontend/src/features/managerhome/
+ppswbs_frontend/src/features/manager-dashboard/operations/
 ├── routes.jsx                  # /manager/home
 ├── ui/
 │   ├── ManagerHomePage.jsx     # layout, refresh, last-updated, sections in spec order

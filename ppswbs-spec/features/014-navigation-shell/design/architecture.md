@@ -1,5 +1,6 @@
 # Architecture Design: Manager Home
 
+> **Status 2026-11-25:** describes the Manager Home wave-1 slice of the former `013-manager-home`. The page of cards, revenue card and shortcuts are superseded (2026-11-22); the shell and badges belong to `014-navigation-shell`, and today's operations and recent events to `010-manager-dashboard`. Kept as the history of the wave-1 design; not rewritten. The frontend slice is now `features/manager-dashboard/operations`.
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18
 **Author**: Hồ Hoàng Quốc
