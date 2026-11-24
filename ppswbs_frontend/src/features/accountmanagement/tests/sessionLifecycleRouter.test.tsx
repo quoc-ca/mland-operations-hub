@@ -257,7 +257,7 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
         account: {
           accountId: 1,
-          role: 'MEMBER',
+          role: 'MANAGER',
           status: 'ACTIVE',
           loginEmail: 'member@mland.vn',
           revocationStatus: 'NOT_APPLICABLE',
@@ -305,7 +305,7 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
         account: {
           accountId: 1,
-          role: 'MEMBER',
+          role: 'MANAGER',
           status: 'ACTIVE',
           loginEmail: 'member@mland.vn',
           revocationStatus: 'NOT_APPLICABLE',
