@@ -27,74 +27,57 @@ participant ":RetailCataloguePort" as Cat <<adapter>>
 participant ":RetailCartRepository" as Repo <<repository>>
 participant "MySQL Database" as DB <<database>>
 
+
 Member -> UI : Choose size, branch, quantity and click "Thêm Vào Giỏ Hàng" or "Mua Ngay"
 activate UI
-alt User Not Signed In
-  UI --> Member : Redirect to Sign-in page
-else User Signed In
-  UI -> Ctl : POST /api/v1/members/me/ready-ring-cart/lines (AddCartLineRequest {variantId, locationId, quantity})
-  activate Ctl
-  alt Not an Active Member
-    Ctl --> UI : HTTP 401 / HTTP 403
-    UI --> Member : Display error popup
-  else Active Member
-    Ctl -> Svc : addLine(memberAccountId, request)
-    activate Svc
-    Svc -> Cat : isEligibleForCart(variantId, locationId)
-    activate Cat
-    Cat --> Svc : eligibility
-    deactivate Cat
-    Svc -> Repo : findByMemberAccountId(memberAccountId)
+UI -> Ctl : POST /api/v1/members/me/ready-ring-cart/lines (AddCartLineRequest {variantId, locationId, quantity})
+activate Ctl
+alt Not Signed In or Not an Active Member
+  Ctl --> UI : HTTP 401 / HTTP 403
+  UI --> Member : Redirect to Sign-in page / Display error popup
+else Active Member
+  Ctl -> Svc : addLine(memberAccountId, request)
+  activate Svc
+  Svc -> Cat : isEligibleForCart(variantId, locationId)
+  activate Cat
+  Cat --> Svc : eligibility
+  deactivate Cat
+  Svc -> Repo : findByMemberAccountId(memberAccountId)
+  activate Repo
+  Repo -> DB : SELECT retail_carts and retail_cart_lines
+  activate DB
+  DB --> Repo : cart rows
+  deactivate DB
+  Repo --> Svc : RetailCart (new empty cart when none)
+  deactivate Repo
+  Svc -> Cat : readCartProduct(variantId, locationId)
+  activate Cat
+  Cat --> Svc : CartProductFact (price, saleEligible, availableQuantity)
+  deactivate Cat
+  alt Not Eligible, Not on Sale, More Than 99 of the Size or More Than 50 Lines
+    Svc --> Ctl : Throw RetailConflictException
+    Ctl --> UI : HTTP 409 reason
+    UI --> Member : Display popup with the reason and "Đồng ý"
+  else Quantity in Cart + Requested > Branch Stock
+    Svc --> Ctl : Throw RetailConflictException (RETAIL_CART_QUANTITY_LIMIT when the size is already in the cart)
+    Ctl --> UI : HTTP 409 "Bạn đã có n sản phẩm này trong giỏ hàng..."
+    UI --> Member : Display popup with the message and "Đồng ý"\n("Mua Ngay" with the size already in the cart opens checkout with the existing line)
+  else Quantity Accepted
+    Svc -> Svc : Add a new CartLine, or increase the quantity of the CartLine of the same size and branch
+    Svc -> Repo : save(cart)
     activate Repo
-    Repo -> DB : SELECT retail_carts and retail_cart_lines
+    Repo -> DB : INSERT / UPDATE retail_cart_lines
     activate DB
-    DB --> Repo : cart rows
+    DB --> Repo : saved rows
     deactivate DB
-    Repo --> Svc : RetailCart (new empty cart when none)
+    Repo --> Svc : saved RetailCart
     deactivate Repo
-    Svc -> Cat : readCartProduct(variantId, locationId)
-    activate Cat
-    Cat --> Svc : CartProductFact (price, saleEligible, availableQuantity)
-    deactivate Cat
-    alt Not Eligible, Not on Sale, More Than 99 of the Size or More Than 50 Lines
-      Svc --> Ctl : Throw RetailConflictException
-      Ctl --> UI : HTTP 409 reason
-      UI --> Member : Display popup with the reason and "Đồng ý"
-    else Quantity in Cart + Requested > Branch Stock
-      Svc --> Ctl : Throw RetailConflictException (RETAIL_CART_QUANTITY_LIMIT when the size is already in the cart)
-      Ctl --> UI : HTTP 409 "Bạn đã có n sản phẩm này trong giỏ hàng..."
-      alt "Mua Ngay" and RETAIL_CART_QUANTITY_LIMIT
-        UI -> Ctl : GET /api/v1/members/me/ready-ring-cart
-        Ctl --> UI : HTTP 200 RetailCartView
-        UI --> Member : Open checkout page with the existing cart line
-      else Otherwise
-        UI --> Member : Display popup with the message and "Đồng ý"
-      end
-    else Quantity Accepted
-      alt Same Size and Branch Already in Cart
-        Svc -> Svc : Increase quantity of the existing CartLine
-      else New Size or Branch
-        Svc -> Svc : Add new CartLine
-      end
-      Svc -> Repo : save(cart)
-      activate Repo
-      Repo -> DB : INSERT / UPDATE retail_cart_lines
-      activate DB
-      DB --> Repo : saved rows
-      deactivate DB
-      Repo --> Svc : saved RetailCart
-      deactivate Repo
-      Svc --> Ctl : RetailCartView
-      Ctl --> UI : HTTP 200 RetailCartView
-      alt "Mua Ngay"
-        UI --> Member : Open checkout page with the new cart line
-      else "Thêm Vào Giỏ Hàng"
-        UI --> Member : Navigate to cart page
-      end
-    end
-    deactivate Svc
+    Svc --> Ctl : RetailCartView
+    Ctl --> UI : HTTP 200 RetailCartView
+    UI --> Member : "Thêm Vào Giỏ Hàng": navigate to the cart page\n"Mua Ngay": open checkout with the new cart line
   end
-  deactivate Ctl
+  deactivate Svc
 end
+deactivate Ctl
 deactivate UI
 @enduml

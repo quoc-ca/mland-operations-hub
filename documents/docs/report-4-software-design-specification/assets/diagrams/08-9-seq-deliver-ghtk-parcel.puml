@@ -19,66 +19,13 @@ skinparam ActorBorderColor #000000
 skinparam ArrowColor #000000
 skinparam SequenceGroupHeaderFontStyle plain
 
-actor "Staff" as Staff
 actor "GHTK Partner\n(role CARRIER)" as Carrier
-participant "StaffRetailOrdersPage" as StaffUI <<user interaction>>
 participant "CarrierPages" as CarrierUI <<user interaction>>
-participant ":StaffRetailShipmentController" as StaffCtl <<control>>
 participant ":CarrierShipmentController" as CarrierCtl <<control>>
-participant ":StaffRetailShipmentService" as StaffSvc <<service>>
 participant ":CarrierShipmentService" as CarrierSvc <<service>>
 participant ":RetailShipmentRepository" as Repo <<repository>>
 participant "MySQL Database" as DB <<database>>
 
-
-== Staff packs the parcel ==
-Staff -> StaffUI : Click "Đã chuẩn bị xong" on an order in tab "Đơn hàng cần chuẩn bị"
-activate StaffUI
-StaffUI -> StaffCtl : POST /api/v1/staff/retail-shipments/{id}/transitions ({nextStatus: READY_FOR_CARRIER, expectedVersion})
-activate StaffCtl
-StaffCtl -> StaffSvc : transition(actor, id, nextStatus, expectedVersion, note)
-activate StaffSvc
-alt Not Signed In or Not an Active Staff / Manager
-  StaffSvc --> StaffCtl : Throw RetailUnauthorizedException / RetailAccessDeniedException
-  StaffCtl --> StaffUI : HTTP 401 / HTTP 403
-  StaffUI --> Staff : Display error message
-else Active Staff
-  StaffSvc -> Repo : lockById(id)
-  activate Repo
-  Repo -> DB : SELECT FOR UPDATE retail_shipments
-  activate DB
-  DB --> Repo : locked shipment
-  deactivate DB
-  Repo --> StaffSvc : RetailShipment
-  deactivate Repo
-  alt Shipment Outside the Staff's Branches
-    StaffSvc --> StaffCtl : Throw RetailAccessDeniedException
-    StaffCtl --> StaffUI : HTTP 403
-    StaffUI --> Staff : Display error message
-  else Version Changed by Someone Else
-    StaffSvc --> StaffCtl : Throw RetailConflictException
-    StaffCtl --> StaffUI : HTTP 409 "The shipment changed; refresh before retrying"
-    StaffUI --> Staff : Display error message and reload the list
-  else Valid Transition
-    StaffSvc -> StaffSvc : advanceTo(READY_FOR_CARRIER) and sync the branch order state
-    StaffSvc -> Repo : flush()
-    activate Repo
-    Repo -> DB : UPDATE retail_shipments and INSERT statement on retail_shipment_status_history
-    activate DB
-    DB --> Repo : updated rows count
-    deactivate DB
-    Repo --> StaffSvc : Return
-    deactivate Repo
-    StaffSvc --> StaffCtl : StaffRetailShipmentTransitionResult
-    StaffCtl --> StaffUI : HTTP 200
-    StaffUI --> Staff : Move the order to "Chờ ĐVVC lấy hàng"
-  end
-end
-deactivate StaffSvc
-deactivate StaffCtl
-deactivate StaffUI
-
-== GHTK partner picks up and delivers ==
 Carrier -> CarrierUI : Sign in and open the shipment list
 activate CarrierUI
 CarrierUI -> CarrierCtl : GET /api/v1/carrier/shipments?status&page&size
@@ -121,7 +68,7 @@ else Active CARRIER Account
     CarrierSvc -> CarrierSvc : advanceTo(HANDED_TO_CARRIER or DELIVERED) and sync the branch order state
     CarrierSvc -> Repo : flush()
     activate Repo
-    Repo -> DB : UPDATE retail_shipments and INSERT statement on retail_shipment_status_history
+    Repo -> DB : UPDATE retail_shipments and INSERT retail_shipment_status_history
     activate DB
     DB --> Repo : updated rows count
     deactivate DB

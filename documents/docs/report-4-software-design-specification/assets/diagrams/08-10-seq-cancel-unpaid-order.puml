@@ -23,12 +23,9 @@ actor "Member" as Member
 participant "MemberOrdersPage" as UI <<user interaction>>
 participant ":RetailCheckoutCancellationController" as Ctl <<control>>
 participant ":RetailCheckoutCancellationService" as Svc <<service>>
-participant ":RetailUnstartedExpiryJob" as Job <<service>>
-participant ":RetailUnstartedExpiryService" as Expiry <<service>>
 participant ":RetailCartRepository /\nGroupedCheckoutRepository" as Repo <<repository>>
 participant "MySQL Database" as DB <<database>>
 
-== Member cancels an unpaid order ==
 Member -> UI : Click "Hủy đơn" on an order in tab "Chờ thanh toán" or "Chờ nhận tại cửa hàng"
 activate UI
 alt VNPay Order (Whole Checkout)
@@ -68,7 +65,7 @@ else Active Member
     Svc -> Svc : cancelWithRestoration(unrestoredQuantity)
     Svc -> Repo : saveAndFlush(checkout)
     activate Repo
-    Repo -> DB : UPDATE retail_grouped_checkouts and retail_orders (CANCELLED), INSERT statement on retail_cart_lines
+    Repo -> DB : UPDATE retail_grouped_checkouts and retail_orders (CANCELLED), INSERT retail_cart_lines
     activate DB
     DB --> Repo : updated rows count
     deactivate DB
@@ -83,39 +80,4 @@ else Active Member
 end
 deactivate Ctl
 deactivate UI
-
-
-== Scheduled expiry of an order never paid ==
-loop Every 30 seconds (fixed delay), for each due checkout
-  activate Job
-  Job -> Expiry : expire(memberId, checkoutId)
-  activate Expiry
-  Expiry -> Repo : findLockedByMemberAccountId(memberId), lockOwned(checkoutId, memberId)
-  activate Repo
-  Repo -> DB : SELECT FOR UPDATE retail_carts and retail_grouped_checkouts
-  activate DB
-  DB --> Repo : locked cart and checkout
-  deactivate DB
-  Repo --> Expiry : RetailCart and GroupedCheckout
-  deactivate Repo
-  alt Payment Already Started, or Hold Not Ended Yet
-    Expiry --> Job : false (skip, nothing released)
-  else Hold Ended Without Payment
-    Expiry -> Expiry : Expire the holds and restore the lines to the cart
-    Expiry -> Expiry : expireUnpaid()
-    Expiry -> Repo : saveAndFlush(checkout)
-    activate Repo
-    Repo -> DB : UPDATE retail_grouped_checkouts and retail_orders (EXPIRED)
-    activate DB
-    DB --> Repo : updated rows count
-    deactivate DB
-    Repo --> Expiry : GroupedCheckout
-    deactivate Repo
-    Expiry -> Expiry : LoyaltyFacade.releaseHeldBenefits(outcome) (FE-06)
-    Expiry --> Job : true
-  end
-  deactivate Expiry
-  deactivate Job
-end
-
 @enduml

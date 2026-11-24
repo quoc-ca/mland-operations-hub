@@ -94,11 +94,6 @@ else Active Member
   deactivate DB
   Repo --> Acc : RetailCart and RetailCheckoutQuote
   deactivate Repo
-  opt Checkout Quote Not Found
-    Acc --> Ctl : Throw RetailNotFoundException
-    Ctl --> UI : HTTP 404
-    UI --> Member : Display error popup
-  end
   Acc -> Repo : findByMemberAccountIdAndIdempotencyKey(memberId, idempotencyKey)
   activate Repo
   Repo -> DB : SELECT retail_grouped_checkouts
@@ -107,7 +102,11 @@ else Active Member
   deactivate DB
   Repo --> Acc : existing GroupedCheckout (optional)
   deactivate Repo
-  alt Same Idempotency-Key Already Accepted with the Same Terms
+  alt Checkout Quote Not Found
+    Acc --> Ctl : Throw RetailNotFoundException
+    Ctl --> UI : HTTP 404
+    UI --> Member : Display error popup
+  else Same Idempotency-Key Already Accepted with the Same Terms
     Acc --> Ctl : existing GroupedCheckoutView
     Ctl --> UI : HTTP 201 GroupedCheckoutView
   else Same Idempotency-Key Used for Different Terms
@@ -135,19 +134,11 @@ else Active Member
       activate Loyalty
       Loyalty --> Acc : held benefits
       deactivate Loyalty
-      opt Payable Total = 0
-        Acc -> Acc : Settle the holds, markPaid(), createShipmentsForPaidCheckout(checkout)\nand settle the benefits (FE-06); no VNPay step
-      end
+      Acc -> Acc : When the payable total is 0, settle the holds, markPaid(), createShipmentsForPaidCheckout(checkout)\nand settle the benefits (FE-06); no VNPay step
       Acc -> Acc : Mark the quote accepted and remove the bought lines from the cart
       Acc --> Ctl : GroupedCheckoutView
       Ctl --> UI : HTTP 201 GroupedCheckoutView
-      alt Payable Total = 0
-        UI --> Member : Display the order as paid
-      else Payment Method Is VNPay
-        UI --> Member : Go to VNPay payment (Sequence 8.4)
-      else Cash at the Counter
-        UI --> Member : Open "Đơn mua" at tab "Chờ nhận tại cửa hàng"
-      end
+      UI --> Member : Payable total 0: display the order as paid\nVNPay: go to the VNPay payment\nCash at the counter: open "Đơn mua" at tab "Chờ nhận tại cửa hàng"
     end
   end
   deactivate Acc

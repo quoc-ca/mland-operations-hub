@@ -94,10 +94,7 @@ else Manager Allowed
       Ctl --> UI : HTTP 503
       UI --> Manager : Display "data unavailable" message
     else Some or All Sources Read
-      opt A Source Read Fails
-        Svc -> Svc : Mark the source UNAVAILABLE; only its values become null, report status PARTIAL
-      end
-      Svc -> Svc : Compose KPIs per branch and in total (retail, workshop and total revenue,\npaid retail orders, participants, workshop utilization)
+      Svc -> Svc : Compose KPIs per branch and in total (retail, workshop and total revenue,\npaid retail orders, participants, workshop utilization);\na source that failed to read is marked UNAVAILABLE, only its values become null and the report is PARTIAL
       Svc --> Ctl : ExecutiveReportResponse
       Ctl --> UI : HTTP 200 ExecutiveReportResponse, Cache-Control: no-store
       UI --> Manager : Display KPI cards and the branch table (VI/EN); a null value is shown as unknown, never as zero
