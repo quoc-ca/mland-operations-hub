@@ -27,7 +27,7 @@ This use case includes the following sub-flows:
 
 **Import Products from Excel**
 
-1. The actor opens Product Management, selects Import from Excel and selects one or more active branches within the actor's scope (a Manager may select any active branch; a Staff only assigned branches).
+1. The actor opens the Product Management List, selects Import from Excel (Import Products from Excel screen) and selects one or more active branches within the actor's scope (a Manager may select any active branch; a Staff only assigned branches).
 2. The actor downloads the template. Its columns are, in order: Group code, Product name, Description, Category, Size, Proposed price (VND), and one Quantity {branch name} column for each selected branch, in the order selected. The template includes instructions, an example and the list of active categories. An older template with a single Quantity column is still accepted when exactly one branch is selected.
 3. The actor fills in the template. Rows with the same Group code form one product and must share the same name, description and category. The Size cell holds one size, a range such as `12-20`, a list such as `12,14,16` (separated by `,` or `;`), or a combination such as `5-9,12`; every size in the cell uses that row's proposed price and quantities. An empty quantity cell means 0.
 4. The actor uploads the `.xlsx` file.

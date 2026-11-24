@@ -34,7 +34,7 @@ This use case includes the following sub-flows:
 
 **Find Products in the Management List**
 
-1. The actor opens Product Management. A Staff member with one assigned branch sees the list filtered on that branch; a Manager or a Staff member with several branches sees all branches.
+1. The actor opens the Product Management List. A Staff member with one assigned branch sees the list filtered on that branch; a Manager or a Staff member with several branches sees all branches.
 2. The system shows the status tabs All, Drafts, Products to review, Rejected, Ready to publish, Published, Hidden and Prices to review, each with the number of products (for Prices to review, the number of prices waiting for a decision) that match the current search, category and branch. Each non-deleted product belongs to exactly one status tab, and the tab that needs the actor's action is highlighted when its count is above 0.
 3. The actor selects a tab and optionally searches by product code, name or SKU and filters by category or branch. Filters apply as soon as they change (the search about 300 ms after typing stops or on Enter), return to the first page and are kept in the page address; Clear filters removes them.
 4. The system lists 20 products per page in a fixed order; deleted products are not listed. Each row shows the product code and name, category, the total stock at the filtered branch (or at all branches) with the available quantity when it is lower, and the status tab name; a SKU match shows the matching size, and with a branch filter a product stopped at that branch shows "Selling stopped at this branch" (MSG66). A tab without products shows its own empty message (MSG67).
@@ -42,7 +42,7 @@ This use case includes the following sub-flows:
 
 **Create Draft Product**
 
-1. The actor opens Product Management and selects New product.
+1. The actor opens the Product Management List and selects New product, which opens the New Product screen.
 2. The actor enters the name (1–200 characters), description (1–5,000 characters), an active category, 1–25 distinct sizes from 5 to 29, and for each size a proposed price (positive whole VND). The actor selects at least one active branch and enters, for each selected branch, a quantity for every size (whole number, 0 or more; default 0; each quantity field also has − and + buttons that change it by 1 and never below 0). The branch selector shows only active branches, and a Staff can select only assigned branches. Images are optional for a draft.
 3. The system validates all data.
 4. The system assigns a stable numeric product code and one read-only SKU per size in the format `SP{product code}-S{size}`, for example `SP000001-S09`.
@@ -59,7 +59,7 @@ This use case includes the following sub-flows:
 
 **Update Product Content and Images**
 
-1. The actor finds the product as in Find Products in the Management List and opens it.
+1. The actor finds the product as in Find Products in the Management List and opens it in Product Management Details.
 2. The system displays the product, its sizes and SKUs, review status, proposed, approved and applied prices, publication status, images and, for each size at each branch, the remaining, held and available quantity and the sale status at that branch. For each price proposal and review version it also shows who submitted it and when, the submitter's branches at that time, and who decided it and when (see UC-14 and UC-15). A Staff sees every branch, but edit buttons outside the Staff's scope are hidden or disabled.
 3. The actor changes the name, description or category, or adds, replaces, reorders or removes images (JPEG, PNG or WebP, up to 10 images, each at most 5,000,000 bytes, with alt text of 1–200 characters).
 4. The system checks that the data is still the latest version and validates the changes.

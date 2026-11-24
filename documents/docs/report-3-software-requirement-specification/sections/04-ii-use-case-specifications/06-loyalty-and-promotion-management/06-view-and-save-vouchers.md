@@ -10,7 +10,7 @@ None.
 
 #### Description
 
-This use case allows a Guest or Member to read promotion cards and their conditions on product pages, workshop package pages and the Voucher hub, and allows a Member to save vouchers that must be saved to their personal My vouchers list. A voucher is either Public, which needs no saving because it is shown on product and package pages and suggested at checkout, or Must be saved, which can be used only after the Member saves it; each save claims one of the voucher's total uses. On the public product cards and product details provided by Product Management, and on the public workshop package pages provided by Workshop Management, it also shows the price after the best automatic discount and the best voucher.
+This use case allows a Guest or Member to read promotion cards and their conditions on product pages, workshop package pages and the Voucher Store, and allows a Member to save vouchers that must be saved to their personal My Saved Vouchers list. A voucher is either Public, which needs no saving because it is shown on product and package pages and suggested at checkout, or Must be saved, which can be used only after the Member saves it; each save claims one of the voucher's total uses. On the public product cards and product details provided by Product Management, and on the public workshop package pages provided by Workshop Management, it also shows the price after the best automatic discount and the best voucher.
 
 This use case includes the following sub-flows:
 
@@ -26,20 +26,20 @@ This use case includes the following sub-flows:
 
 **View and Save Vouchers**
 
-1. The actor opens a product page, a workshop package page or the Voucher hub. The Voucher hub lists only vouchers that must be saved, with the tabs All, Products and Workshops. Public vouchers and automatic discounts need no saving and are shown on the product and package pages.
+1. The actor opens a product page, a workshop package page or the Voucher Store. The Voucher Store lists only vouchers that must be saved, with the tabs All, Products and Workshops. Public vouchers and automatic discounts need no saving and are shown on the product and package pages.
 2. The system displays the voucher cards: scope (Products or Workshops), discount, maximum discount, minimum amount, validity, whether points can be combined, the code and a Conditions link. A product voucher limited to branches shows "Only at: {branch names}". A voucher that must be saved shows "Save to use" (MSG70).
-3. The actor opens the conditions of a card. From a product or package page, the link reads "View and save code" for a voucher that must be saved and "View conditions" for a public voucher.
+3. The actor opens the conditions of a card (Voucher Details). From a product or package page, the link reads "View and save code" for a voucher that must be saved and "View conditions" for a public voucher.
 4. The system shows the products or size variants in scope and, for a product voucher, its branches ("All branches" when not limited), or the packages, branches, dates and sessions of a workshop voucher, plus the total limit and uses per Member. Only products that are currently published are listed. A public voucher has no Save button; its details show that it needs no saving (MSG69).
 5. The Member selects Save on a voucher that must be saved.
-6. The system checks that the voucher is in the public list, that the Member has not used their use and that a use is left to claim (total uses minus used, held and saved but unused uses is at least 1). It claims one use for the Member, adds the voucher to the Member's My vouchers list and confirms (MSG46).
-7. The Member opens My vouchers; the system shows each saved voucher with its current conditions and status, filtered by All, Products or Workshops, in the tabs Valid (usable or not started yet) and Expired / Unusable. A voucher that must be saved stays Usable for the Member who saved it while their claimed use is not used, even when no use is left for other Members. Public vouchers saved earlier remain in the list.
+6. The system checks that the voucher is in the public list, that the Member has not used their use and that a use is left to claim (total uses minus used, held and saved but unused uses is at least 1). It claims one use for the Member, adds the voucher to the Member's My Saved Vouchers list and confirms (MSG46).
+7. The Member opens My Saved Vouchers; the system shows each saved voucher with its current conditions and status, filtered by All, Products or Workshops, in the tabs Valid (usable or not started yet) and Expired / Unusable. A voucher that must be saved stays Usable for the Member who saved it while their claimed use is not used, even when no use is left for other Members. Public vouchers saved earlier remain in the list.
 
 **View Promotions on Product Pages**
 
 1. The actor views a product card in the product list or the home page strip, or opens a product's details.
 2. The system reads the active product programs and finds, for each size, the programs whose product and size scope it matches.
 3. For each size, the system subtracts the largest applicable automatic discount for one unit, using the same rules as the retail checkout: a percentage rounded down, never above the cap or the price.
-4. The system then subtracts the best voucher for one unit, calculated on the price after the automatic discount with the same rules. The vouchers counted are the usable public vouchers and, for a signed-in Member, the usable vouchers in their My vouchers list, including vouchers that must be saved which the Member has saved. A voucher that must be saved but is not saved, a voucher that has not started or has no use left for the Member, and a voucher whose minimum amount is above the price after the automatic discount are not counted. A voucher limited to branches is counted when the size is sold at one or more of its branches. On a tie, the earliest created voucher is used.
+4. The system then subtracts the best voucher for one unit, calculated on the price after the automatic discount with the same rules. The vouchers counted are the usable public vouchers and, for a signed-in Member, the usable vouchers in their My Saved Vouchers list, including vouchers that must be saved which the Member has saved. A voucher that must be saved but is not saved, a voucher that has not started or has no use left for the Member, and a voucher whose minimum amount is above the price after the automatic discount are not counted. A voucher limited to branches is counted when the size is sold at one or more of its branches. On a tie, the earliest created voucher is used.
 5. The system shows the resulting price, with the original price struck through and the label "Price after voucher {code}", or "Price after voucher {code} · at {branches}" for a voucher limited to branches (MSG72). The counted voucher is listed first and up to two voucher labels are shown; a voucher that must be saved and is not saved yet shows only the label "Save code: {value} off" (MSG72). A program that applies to only some sizes names those sizes.
 6. On the product details, when the actor has chosen a branch, the system counts only vouchers without a branch limit or limited to that branch, and calculates the price again for that branch.
 
@@ -60,7 +60,7 @@ The system asks the Guest to sign in (MSG45).
 
 **Step 5 — Signed-in actor is not a Member**
 
-A signed-in Staff, Manager or Admin has no My vouchers list; the system shows that only members can save vouchers (MSG58) instead of a Save button.
+A signed-in Staff, Manager or Admin has no My Saved Vouchers list; the system shows that only members can save vouchers (MSG58) instead of a Save button.
 
 **Step 6 — Voucher already saved**
 
@@ -72,7 +72,7 @@ The system refuses the save and shows "All claimed" or "You have used your use o
 
 **Step 2 — No product in the program's scope is published**
 
-The program is not shown in the public list. In My vouchers it is shown with the status that no product currently applies (MSG47). A program whose targeted sizes are all no longer published is treated the same way.
+The program is not shown in the public list. In My Saved Vouchers it is shown with the status that no product currently applies (MSG47). A program whose targeted sizes are all no longer published is treated the same way.
 
 **Step 2 — All uses of a voucher are used, held or claimed**
 
@@ -80,11 +80,11 @@ The voucher is still shown on the public cards and details without a Save button
 
 **Step 5 — Voucher is not in the public list**
 
-A voucher that is paused, not yet started, expired or has no published product in scope cannot be saved, even by its identifier; the system responds as if the voucher does not exist. A voucher saved earlier stays in My vouchers with its status.
+A voucher that is paused, not yet started, expired or has no published product in scope cannot be saved, even by its identifier; the system responds as if the voucher does not exist. A voucher saved earlier stays in My Saved Vouchers with its status.
 
 **Step 7 — Saved voucher is expired, paused, fully used or not yet eligible**
 
-My vouchers shows the status, including when all uses of the voucher, or all of the Member's own uses, are used or held (MSG47). Being in My vouchers does not make the voucher usable.
+My Saved Vouchers shows the status, including when all uses of the voucher, or all of the Member's own uses, are used or held (MSG47). Being in My Saved Vouchers does not make the voucher usable.
 
 **Product Pages Step 3 / Workshop Package Pages Step 3 — Automatic discount has a minimum above the price of one unit or one ticket**
 
@@ -94,7 +94,7 @@ The price is not reduced; the system shows a label "{discount} off orders from {
 
 The page shows the normal price without an error.
 
-**Product Pages Step 4 / Workshop Package Pages Step 4 — My vouchers cannot be read or the session is lost**
+**Product Pages Step 4 / Workshop Package Pages Step 4 — My Saved Vouchers cannot be read or the session is lost**
 
 The page does not block; the price is calculated as for a Guest.
 
@@ -104,7 +104,7 @@ The system asks the Member to sign in or retry (MSG02, MSG05), or rejects the re
 
 #### Postconditions
 
-- A saved voucher appears in the Member's own My vouchers list.
+- A saved voucher appears in the Member's own My Saved Vouchers list.
 - Saving a public voucher does not hold a use, use points or consume the limit, and does not guarantee the voucher can be used; a Member can still enter a public code directly without saving it.
 - Saving a voucher that must be saved claims one of its total uses for the Member; only a Member who saved it can use it. This version has no option to remove a saved voucher.
 - A price shown on a product page or workshop package page is for viewing only; the amount paid is calculated again by the checkout quote or the workshop cart quote, and the cart does not use the displayed price.
@@ -118,7 +118,7 @@ BR-47-01, BR-47-02, BR-47-03, BR-47-04, BR-47-05
 | ID | Rule Definition |
 |---|---|
 | BR-47-01 | Voucher cards show scope, discount, cap, minimum amount, validity and point combination; public details list only products that are currently published. A voucher whose uses are all used or held, or, for a voucher that must be saved, used, held or claimed, stays visible as "Fully claimed" or "All claimed" and cannot be saved. |
-| BR-47-02 | The Voucher hub lists only vouchers that must be saved. Only a signed-in Member can save vouchers, only to their own My vouchers list, and only vouchers that are in the public list; repeated saves create no extra right. |
+| BR-47-02 | The Voucher Store lists only vouchers that must be saved. Only a signed-in Member can save vouchers, only to their own My Saved Vouchers list, and only vouchers that are in the public list; repeated saves create no extra right. |
 | BR-47-03 | Saving a public voucher reserves nothing. Saving a voucher that must be saved claims one of its total uses, allows one use per Member, and only Members who saved it can use it. Eligibility is still checked when the voucher is applied. |
 | BR-47-04 | Product pages subtract the largest automatic discount and then the best voucher for one unit of each size, using the retail checkout rules, labelled "Price after voucher {code}", with "· at {branches}" for a voucher limited to branches; on the product details the price is recalculated for the chosen branch. Only usable public vouchers and, for a signed-in Member, usable saved vouchers are counted. The displayed price never replaces the checkout quote, and a failure to read promotions never blocks the product page. |
 | BR-47-05 | Workshop package pages subtract the largest workshop automatic discount and then the best workshop voucher for one ticket, labelled "Price after voucher {code}"; vouchers limited to branches are counted with "· at {branches}", vouchers limited to dates or sessions are not, and a signed-in Member's saved vouchers are counted. Points are never subtracted. The displayed price never replaces the workshop cart quote, and a failure to read promotions never blocks the page. |

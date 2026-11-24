@@ -1,325 +1,273 @@
-3.2 Entity Descriptions
+### 3.2 Entity Descriptions
 
-**Entity: User (users)**
+Each block describes one entity in the ERD with its purpose and key business attributes only. The database tables named in brackets are described column by column in Report 4, section 3.
 
-| Field | Value |
-| --- | --- |
-| Purpose | Represents a person with an authenticated system account, with exactly one assigned business role. Guest workshop customers do not require a User record. |
-| Key business attributes | Firebase UID, display name, contact email, email verification, phone number, profile image, assigned role and account status. |
-| Business identity | The Firebase UID (external_user_id) is unique across accounts. Email is optional and not unique; matching email text does not merge accounts. |
-| Status / lifecycle | active or suspended. Suspension blocks protected access while retaining business history. Authentication credentials are managed by Firebase. |
-
-**Entity: Role (roles)**
+**Entity: Account (accounts, account_profiles)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a business role that can be assigned to system accounts. |
-| Key business attributes | Role code, role name, description and activation flag. |
-| Business identity | role_code is unique. Each User references one Role; Guest is not an assigned account role. Role labels alone do not define permissions. |
-| Status / lifecycle | Active or inactive through is_active. Deactivation is rejected while any User, including a suspended User, still references the Role. |
+| Purpose | Every person who signs in to the system, regardless of role. Guest customers do not need an Account. |
+| Key business attributes | Firebase UID, login email, email verification time, full name, phone, role (Member / Staff / Manager / Carrier / Admin) and account status. |
+| Business identity | Firebase UID is unique across the system. Email is not used as the account identity. |
+| Status / lifecycle | Active · Pending setup (internal account not yet activated) · Suspended (protected access blocked, history kept). |
 
-**Entity: Audit Log (audit_logs)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records administrative actions and rejected operations for accountability, separate from payment and design-review timelines. |
-| Key business attributes | Actor, affected entity, action, outcome, reason, approved before/after images, request reference and occurrence time. |
-| Business identity | Each entry has its own audit_log_id. The request reference and affected entity identify context, not a declared unique business key. |
-| Status / lifecycle | Outcomes are SUCCESS, REJECTED or FAILED, rather than workflow states. Evidence is append-only under normal operations, with five-year retention and guarded privacy/expiry. |
-
-**Entity: Category (categories)**
+**Entity: Branch (workshop_locations)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Groups catalogue products for browsing and filtering. |
-| Key business attributes | Category name, description and activation flag. |
-| Business identity | The category name is proposed as unique under the selected database collation; category_id provides a stable reference. |
-| Status / lifecycle | Active or inactive through is_active. Inactive categories are excluded from public selection; historical product references are preserved. |
+| Purpose | A Mland branch that runs workshops, holds ready-ring stock and fulfils orders. |
+| Key business attributes | Branch code, display name and address. |
+| Business identity | Branch code is unique. |
+| Status / lifecycle | Active or inactive. An inactive branch cannot receive new sessions or orders. |
 
-**Entity: Product (products)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Represents a catalogue item available for Member retail purchase. |
-| Key business attributes | Product name, description, category, unit price, currency, remaining-unsold quantity and publication flag. |
-| Business identity | product_id identifies the catalogue item. The design does not declare a unique product name or a separate SKU. |
-| Status / lifecycle | Published or unpublished through is_published. Checkout revalidates availability and active holds. Unpublishing stops new purchases without rewriting historical order items. |
-
-**Entity: Product Image (product_imgs)**
+**Entity: Product Category (catalogue_categories)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Provides an ordered catalogue image for a Product. |
-| Key business attributes | Product reference, image URL, alternative text and display position. |
-| Business identity | product_img_id identifies the image record; (product_id, sort_order) is unique within a Product's image list. |
-| Status / lifecycle | No separate status. Authorized maintainers may add, replace, reorder or remove image references. |
+| Purpose | Groups ready-ring products for browsing and filtering. |
+| Key business attributes | Category name and description. |
+| Business identity | Category name is unique (case-insensitive). |
+| Status / lifecycle | Active or inactive. Inactive categories are hidden from the public catalogue. |
 
-**Entity: Order (orders)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records a Member's retail purchase, processing branch, frozen payable amount and fulfilment progress. |
-| Key business attributes | Order reference, Member, branch, fulfilment method, subtotal, promotion and loyalty discounts, points requested, currency, hold deadline and payment/pickup times. |
-| Business identity | order_code is the unique customer-facing reference. checkout_key uniquely identifies a checkout command across retries with the same request. |
-| Status / lifecycle | Proposed: pending_payment becomes paid or expired; paid becomes preparing, then ready_for_pickup → picked_up or prepared_for_carrier → handed_to_carrier. No in-system cancellation, refund or return lifecycle. |
-
-**Entity: Order Item (order_items)**
+**Entity: Product (catalogue_products)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Records a Product and its purchased quantity within an Order, preserving the agreed name and price. |
-| Key business attributes | Order, Product, product-name snapshot, quantity, unit price and line amount. |
-| Business identity | order_item_id identifies the line. The proposed unique (order_id, product_id) aggregates each Product into one line per Order. |
-| Status / lifecycle | No independent status; follows the parent Order. Historical line snapshots are retained and are not recalculated from later catalogue changes. |
+| Purpose | A ready-ring product sold to Members. |
+| Key business attributes | Product name, description, category, images and publish flag. |
+| Business identity | Each product has its own identifier; product names are not required to be unique. |
+| Status / lifecycle | Unpublished · Published (after Manager approval of content and price) · Deleted (soft delete, history kept). |
 
-**Entity: Payment (payments)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Represents one payment attempt for a retail Order or a workshop deposit. |
-| Key business attributes | Payment reference, exactly one payable target, purpose, amount, currency, provider references, verified outcome, failure reason, optional loyalty-generation binding and evidence-retirement time. |
-| Business identity | payment_code is unique per attempt. Provider-reference uniqueness depends on the approved gateway contract. A retry uses the applicable attempt and generation rules. |
-| Status / lifecycle | Starts at pending; documented outcomes are succeeded, failed, cancelled or expired. Only verified provider evidence can authorize success. Evidence retirement permanently blocks further application effects without changing the original outcome. |
-
-**Entity: Payment Transaction (payment_transactions)**
+**Entity: Product Variant (catalogue_variants, catalogue_variant_branch_stock)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Stores normalized callback or recovery evidence for a Payment, supporting duplicate recognition and recovery. |
-| Key business attributes | Payment, provider event/transaction references, reported amount and currency, normalized outcome, payload fingerprint, receipt/processing/application times and processing reason. |
-| Business identity | Each receipt has a payment_transaction_id. Available provider event IDs and the (provider, payment_id, payload_hash) fingerprint provide documented duplicate-event guards. |
-| Status / lifecycle | Outcome codes are received, succeeded, failed, cancelled or unknown; receipt alone does not confirm payment. Original evidence is retained while guarded processing metadata records application decisions. Evidence follows the five-year retention policy. |
+| Purpose | One ring size of a product, with its own price and stock at each branch. |
+| Key business attributes | Ring size, SKU, applied price, stock per branch and sale flag. |
+| Business identity | SKU is unique. A product has at most one variant per ring size. |
+| Status / lifecycle | Sale enabled or disabled. A price change takes effect only after a Manager approves the price proposal. |
 
-**Entity: Delivery Information (delivery_infos)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Stores a retail Order's recipient details and evidenced handoff to a third-party carrier. |
-| Key business attributes | Order, recipient name and phone, delivery address and note, carrier, handoff reference, recording actor and handoff time. |
-| Business identity | Each record has a delivery_infor_id; order_id is required and unique, allowing at most one delivery record per Order. |
-| Status / lifecycle | No separate status. Applies to paid carrier Orders; responsibility ends at recorded handoff. Recipient/contact/address data is redacted 30 days after handoff while required handoff history remains. |
-
-**Entity: Workshop Location (workshop_locations)**
+**Entity: Cart (retail_carts, retail_cart_lines)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Represents an operating branch used for workshops, retail processing and branch-specific eligibility. |
-| Key business attributes | Stable branch code, name, address, city, country, contact phone, timezone and activation flag. |
-| Business identity | location_code is a unique stable business reference, independent of later name or address changes. |
-| Status / lifecycle | Active or inactive through is_active. Deactivation blocks new operational use without deleting or silently relocating existing bookings and Orders. |
+| Purpose | The shopping cart of a Member before checkout. |
+| Key business attributes | Member, and for each line: variant, branch and quantity. |
+| Business identity | Each Member has at most one cart. |
+| Status / lifecycle | No status. Lines are added, changed or removed until checkout. |
 
-**Entity: Slot (slots)**
+**Entity: Retail Checkout (retail_grouped_checkouts)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Represents a dated workshop session at a branch, with time and capacity constraints. |
-| Key business attributes | Branch, session date, start/end times, configured capacity and open flag. |
-| Business identity | slot_id identifies the session; (location_id, slot_date, start_time) uniquely identifies a dated start at a branch. |
-| Status / lifecycle | Open or closed through is_open, subject to schedule exceptions. Capacity must be configured before booking; null requires configuration and zero means no bookable seats. Remaining seats are derived from participant quantities and valid holds; closure does not silently move paid bookings. |
+| Purpose | One Member payment that covers the orders created from a cart, possibly at several branches. |
+| Key business attributes | Member, merchandise subtotal, shipping charge, discount, payable amount, payment method (VNPay or cash at counter) and payment deadline. |
+| Business identity | The idempotency key identifies one checkout command across retries. |
+| Status / lifecycle | Accepted unpaid → Payment initiated → Paid → Completed, or Expired / Cancelled when payment does not arrive in time. |
+
+**Entity: Retail Order (retail_orders)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | The part of a checkout fulfilled by one branch. |
+| Key business attributes | Checkout, branch, fulfilment method (pickup or delivery), subtotal, shipping charge, payable amount and recipient details. |
+| Business identity | Each order has its own identifier and belongs to exactly one checkout. |
+| Status / lifecycle | Follows the checkout payment state, then the fulfilment state until pickup or delivery is completed. |
+
+**Entity: Retail Order Item (retail_order_items)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | One variant bought in a retail order. |
+| Key business attributes | Order, variant, quantity, unit price and line total. |
+| Business identity | Each line has its own identifier within its order. |
+| Status / lifecycle | No status. Price and quantity are frozen at checkout and are not recalculated later. |
+
+**Entity: Shipment (retail_shipments)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | The carrier delivery of a retail order. |
+| Key business attributes | Order, branch, tracking number and recipient address. |
+| Business identity | One shipment per order; the tracking number is unique. |
+| Status / lifecycle | Preparing → Ready for carrier → Handed to carrier → In transit → Delivered. |
 
 **Entity: Workshop Package (workshop_packages)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a selectable workshop offering and its booking terms. |
-| Key business attributes | Package code, name, description, conditions, duration, price, currency, deposit percentage, image and publication flag. |
-| Business identity | package_code is the unique stable catalogue reference. |
-| Status / lifecycle | Published or unpublished through is_published. Eligibility also depends on branch and material relationships. Retiring a Package preserves booking snapshots. |
+| Purpose | A workshop offer that customers book, such as a ring-making course. |
+| Key business attributes | Name, description, public price, minimum and maximum participants, required number of sessions and scheduling rules. |
+| Business identity | Each package has its own identifier. |
+| Status / lifecycle | Draft → Published → Retired. Only published packages can be booked. |
 
-**Entity: Workshop Registration (workshop_registration)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Represents one workshop booking for a Member or Guest, including a participant group and the confirmation/payment gates. |
-| Key business attributes | Booking reference, optional Member, slot, Package, optional ring design, design path, contact snapshot, participant counts, price/deposit snapshots, email gate, hold deadline, check-in and continuation references. |
-| Business identity | booking_code is unique. Guest contact email is booking-scoped and does not automatically establish account ownership. A continuation is a new booking linked to a previous registration. |
-| Status / lifecycle | Proposed: pending → confirmed → checked_in → completed, or pending → expired. The email gate separately records EMAIL_CONFIRMATION_PENDING, CONFIRMED or EXPIRED; confirmation requires applicable email/deposit gates. Physical state mapping remains to be approved. |
-
-**Entity: Workshop Exception (workshop_exceptions)**
+**Entity: Workshop Session (workshop_sessions)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Records a dated closure or capacity/time exception for the workshop schedule. |
-| Key business attributes | Exception date, optional branch/slot scope, closure flag, capacity/time overrides, reason, activation flag and creator. |
-| Business identity | workshop_exception_id identifies the record. Scope can be global, branch-wide or slot-specific; enforcing one active exception per identical scope/date remains a documented design requirement. |
-| Status / lifecycle | Active or inactive through is_active. Changes affect new booking eligibility; existing confirmed bookings require explicit handling. |
+| Purpose | One scheduled workshop at a branch on a given date and time slot. |
+| Key business attributes | Branch, date, start and end time, capacity and check-in opening time. |
+| Business identity | Session reference is unique. |
+| Status / lifecycle | Draft → Published → Sales paused → In progress → Attendance finalized; or Cancellation requested → Cancelled. |
 
-**Entity: Workshop Package Location (workshop_package_locations)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Defines whether a Workshop Package may be selected at a branch. |
-| Key business attributes | Package, branch and relationship activation flag. |
-| Business identity | The (workshop_package_id, location_id)pair uniquely identifies the relationship. |
-| Status / lifecycle | Active or inactive through is_active. Disabling stops new branch-specific selection while retaining the relationship and existing booking snapshots. |
-
-**Entity: Material Location (material_locations)**
+**Entity: Workshop Add-on (workshop_addons)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines whether a Material is available for new design selection at a branch. |
-| Key business attributes | Material, branch and relationship activation flag. |
-| Business identity | The (material_id, location_id) pair uniquely identifies the relationship. |
-| Status / lifecycle | Active or inactive through is_active. Selection also requires the Material and branch to be active. The relationship records availability, not inventory quantity. |
+| Purpose | An extra item or service sold during a workshop, charged to the ticket folio. |
+| Key business attributes | Package, branch, description and price. |
+| Business identity | Add-on reference is unique. |
+| Status / lifecycle | Draft → Active → Retired. |
 
-**Entity: Workshop Package Material (workshop_package_materials)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Defines compatibility between a Workshop Package and a Material. |
-| Key business attributes | Package, Material and relationship activation flag. |
-| Business identity | The (workshop_package_id, material_id) pair uniquely identifies the relationship. |
-| Status / lifecycle | Active or inactive through is_active. New use also requires a published Package and active Material. Disable rather than delete a retained relationship; changes are audited and do not rewrite frozen history. |
-
-**Entity: Material (materials)**
+**Entity: Booking Group (booking_groups)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a selectable base material used in ring designs and compatible workshop offerings. |
-| Key business attributes | Material code, name, description, purity, unit price, pricing unit, currency, difficulty score, image and activation flag. |
-| Business identity | material_code is the unique stable catalogue reference. |
-| Status / lifecycle | Active or inactive through is_active. Repricing affects new evaluations; historical snapshots remain unchanged. Branch availability is managed separately. |
+| Purpose | One direct booking made by a Member or Guest buyer for one or more participants. |
+| Key business attributes | Group code, buyer, contact email and phone, payment mode, amount to collect, hold expiry and payment deadline. |
+| Business identity | Group code is unique. |
+| Status / lifecycle | Pending payment → Confirmed; or Expired / Cancelled. |
 
-**Entity: Shape (shape)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Defines a selectable base ring form, separate from ring size, gemstone cut and a complete design. |
-| Key business attributes | Shape code, name, description, proposed price contribution, currency, difficulty score, image and activation flag. |
-| Business identity | shape_code is the unique stable catalogue reference. |
-| Status / lifecycle | Active or inactive through is_active. Referenced forms are retained; changes do not rewrite frozen designs. |
-
-**Entity: Gemstone (gemstones)**
+**Entity: Ticket (ticket_bookings)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a selectable gemstone option for ring-design component selections. |
-| Key business attributes | Gemstone code, name, type, colour, cut, dimensions, unit price, pricing unit, currency, difficulty score, image and activation flag. |
-| Business identity | gemstone_code is the unique stable option reference. |
-| Status / lifecycle | Active or inactive through is_active. Inactive options cannot be newly selected; referenced selections and historical price snapshots remain valid. |
+| Purpose | One participant's place in a booking group, used for check-in and settlement. |
+| Key business attributes | Ticket code, booking group, package, participant order, QR reference and number of changes used. |
+| Business identity | Ticket code and QR reference are unique. |
+| Status / lifecycle | Pending payment → Confirmed → Completed or No-show; or Expired / Cancelled. Financial state: Unpaid → Deposit paid → Fully paid, or Refund pending → Refunded. |
 
-**Entity: Attachment (attachments)**
+**Entity: Payment (group_payment_attempts, settlement_folio_collections)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a selectable ring decoration or accessory component. |
-| Key business attributes | Attachment code, name, type, description, unit price, pricing unit, currency, difficulty score, image and activation flag. |
-| Business identity | attachment_code is the unique stable catalogue reference. |
-| Status / lifecycle | Active or inactive through is_active. Repricing or retirement affects new selection/evaluation only; referenced frozen designs retain their snapshots. |
+| Purpose | Money received for a booking group, a ticket folio or a retail checkout. |
+| Key business attributes | Paid target, method (VNPay, cash or bank transfer), amount, provider reference and confirmation time. |
+| Business identity | Payment reference and VNPay merchant reference are unique. |
+| Status / lifecycle | Pending → Success, Failed or Expired for VNPay attempts. Folio collections: Pending verification → Confirmed, Failed or Voided. |
+
+**Entity: Folio (settlement_final_bills)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | The bill of a ticket after the workshop, combining the deposit, add-on charges and the remaining amount. |
+| Key business attributes | Ticket, booking group, amount after promotion, accepted deposit, remaining amount, handover approval and recorded debt. |
+| Business identity | Bill reference is unique; one folio per ticket. |
+| Status / lifecycle | Open → Finalized → Closed. |
+
+**Entity: Ticket Cancellation (settlement_ticket_cancellations)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | A request to cancel one ticket and its outcome. |
+| Key business attributes | Ticket, requester, channel, reason, request time, points returned and voucher restored. |
+| Business identity | Cancellation reference is unique; a ticket can be cancelled only once. |
+| Status / lifecycle | Recorded once when the cancellation is accepted; a refund may follow. |
+
+**Entity: Ticket Change (settlement_ticket_changes)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | A move of a ticket from its sessions to other sessions. |
+| Key business attributes | Ticket, change type, original and new sessions, price increase, requester and reason. |
+| Business identity | Change reference is unique. |
+| Status / lifecycle | Applied once accepted; customer changes are limited by the package quota. |
+
+**Entity: Refund Request (settlement_refund_requests)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | Money that Mland must return to a customer after a cancellation. |
+| Key business attributes | Booking group, amount, reason, recipient bank account (masked), approver, transfer reference and transfer proof. |
+| Business identity | Request reference is unique. |
+| Status / lifecycle | Pending account → Pending approval → Pending transfer → Pending reconciliation → Refunded; or Closed unreachable. |
+
+**Entity: OTA Booking (ota_channel_bookings)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | A booking received from an online travel agency for a Mland session. |
+| Key business attributes | Provider booking reference, mapped session, participant count, retail amount, commission and amount accepted by Mland. |
+| Business identity | Public reference is unique; the provider reference identifies the booking at the OTA. |
+| Status / lifecycle | Follows the provider status reported by the OTA. |
+
+**Entity: Design Request (design_requests)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | A request from a Member or Guest to have a custom ring designed from a description and reference images. |
+| Key business attributes | Owner, description, reference images, analysis result, estimated value and review decision. |
+| Business identity | Request reference is unique. |
+| Status / lifecycle | Active → Completed or Withdrawn. Review: Need review → Accepted, Rejected or Clarification required. |
+
+**Entity: Custom Order (custom_orders)**
+
+| Field | Value |
+| --- | --- |
+| Purpose | An order to make a custom ring after a design request is accepted. |
+| Key business attributes | Member, design request, referenced ring design, quotes, production status, fulfilment status and shipping address. |
+| Business identity | Custom order reference is unique. |
+| Status / lifecycle | Tracked by order status, production status and fulfilment status; payment follows the approved quote. |
 
 **Entity: Ring Design (ring_designs)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Represents a version of a catalogue ring model or a customer's configured design for the permitted workshop journey. |
-| Key business attributes | Design name and description, design type, optional creator/source design, base Material and Shape, ring size, image, component snapshot, estimated price, currency, difficulty and rules version. |
-| Business identity | ring_design_id identifies a specific design/version. source_design_id records lineage; a design name is not declared unique. Changes to referenced frozen designs create new versions. |
-| Status / lifecycle | Proposed states are draft, validated, published and archived. Only validated catalogue models may be published; customer configurations remain private. |
+| Purpose | A ring designed in the configurator from material, shape, gemstones and attachments. |
+| Key business attributes | Owner, material, shape, ring size, selected components, estimated price and difficulty score. |
+| Business identity | Design reference and version together identify one immutable design version. |
+| Status / lifecycle | Draft → Saved → Validated → Attached to booking → Locked; or Archived. |
 
-**Entity: Ring Design Gemstone (ring_design_gemstones)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records a gemstone selection and its quantity within a Ring Design. |
-| Key business attributes | Design, Gemstone, positive quantity, optional variant code and placement. |
-| Business identity | ring_design_gemstone_id identifies the selection. A design/gemstone pair is not declared unique. |
-| Status / lifecycle | No independent status. Selections can change only while the design is editable; validated/frozen/referenced designs retain them. Newly validated selections require an active, compatible Gemstone. |
-
-**Entity: Ring Design Attachment (ring_design_attachments)**
+**Entity: Loyalty Wallet (loyalty_wallet)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Records an attachment selection and its quantity within a Ring Design. |
-| Key business attributes | Design, Attachment, positive quantity, optional variant code and placement. |
-| Business identity | ring_design_attachment_id identifies the selection. A design/attachment pair is not assumed unique until variant and placement rules are approved. |
-| Status / lifecycle | No independent status. Selections can change only while the design is editable; frozen/referenced designs retain them. Newly validated selections require an active, compatible Attachment. |
+| Purpose | The point balance of a Member. |
+| Key business attributes | Member, available points and held points. |
+| Business identity | One wallet per Member. |
+| Status / lifecycle | No status. The balance changes only through point transactions. |
 
-**Entity: Custom Design Request (custom_design_requests)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records a Member's request for Staff review of a ring idea using a description and one reference image. |
-| Key business attributes | Submitting Member, description, image URL, request status, current reviewer, review time and reason. |
-| Business identity | custom_design_request_id identifies a submitted request. A new request is required instead of reopening or resubmitting a rejected one. |
-| Status / lifecycle | need_review → accepted or rejected; rejection requires a reason, and both outcomes are terminal. Submitted content is not editable. Acceptance does not create a Ring Design, quote, booking, Order or payment. |
-
-**Entity: Custom Design Review (custom_design_reviews)**
+**Entity: Point Transaction (loyalty_point_ledger)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Preserves the append-only decision timeline for a Custom Design Request. |
-| Key business attributes | Request, independent authorized reviewer, decision, reason and decision time. |
-| Business identity | custom_design_review_id identifies the review event. A Request may have review history; its reference is not unique in this entity. |
-| Status / lifecycle | Decision is accepted or rejected, rather than a separate lifecycle status. The review and current Request decision are recorded atomically. Terminal Request rules and the prohibition on self-review still apply. |
+| Purpose | One movement of points in a wallet. |
+| Key business attributes | Wallet, kind (earn, hold, consume, release, reverse), change in balance, change in held points and time. |
+| Business identity | Each entry has its own identifier; entries are never edited. |
+| Status / lifecycle | Append-only. A mistake is corrected by a reversing entry. |
 
-**Entity: Promotion (promotions)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Defines a conditional discount campaign or voucher for eligible Member retail Orders. |
-| Key business attributes | Campaign name, description, optional voucher code, discount type/value, currency, minimum amount, discount cap, total/per-Member usage limits, validity window, activation flag and creator. |
-| Business identity | promotion_id identifies the campaign. An optional voucher_code is unique; the current proposal allows at most one code per Promotion. |
-| Status / lifecycle | Eligibility depends on is_active, the validity window and approved branch/order rules; there is no separate status field. Retirement preserves discount history. |
-
-**Entity: Promotion Location (promotion_locations)**
+**Entity: Promotion (promotion_program)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Defines a Promotion's applicability at a branch. |
-| Key business attributes | Promotion, branch, activation flag, assignment creator and creation/update times. |
-| Business identity | The (promotion_id, location_id) pair uniquely identifies the assignment. Reactivation retains the original creator and creation time. |
-| Status / lifecycle | Active or inactive through is_active; absence of a link means the Promotion does not apply at that branch. Disabling affects new eligibility and preserves existing discount snapshots. |
+| Purpose | A voucher or automatic discount for products or workshops. |
+| Key business attributes | Kind (voucher or automatic discount), scope (product or workshop), voucher code, total limit, limit per Member and distribution (public or claim required). |
+| Business identity | Voucher code is unique (case-insensitive). |
+| Status / lifecycle | Enabled or Paused. Each change creates a new immutable revision. |
 
-**Entity: Promotion Redemption (promotion_redemptions)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records a conditional promotion quota reservation and its eventual use or release for one retail checkout generation. |
-| Key business attributes | Reservation reference, Promotion, Order, Member, branch, frozen eligibility/discount/limit terms, discount amount, currency, deadline, accepted payment and terminal evidence. |
-| Business identity | reservation_key is unique. At most one reserved/redeemed generation exists per Order/Promotion; multiple released generations are retained. |
-| Status / lifecycle | reserved → redeemed or released, with terminal states irreversible. Verified payment consumes quota once; eligible failure/expiry releases the unpaid reservation without deleting history. Old callbacks cannot use a replacement generation. |
-
-**Entity: Payment Promotion Redemption (payment_promotion_redemptions)**
+**Entity: Review (reviews)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Links a payment attempt to the exact conditional Promotion Redemption generations included in its quote. |
-| Key business attributes | Payment, Promotion Redemption and pre-initiation link creation time. |
-| Business identity | The (payment_id, promotion_redemption_id) pair is unique. Multiple attempts may use a still-valid generation; multiple campaigns per attempt require approved stacking. |
-| Status / lifecycle | No independent status. Links are committed before provider initiation and retained as immutable evidence; an old attempt cannot be relinked to a replacement generation. |
+| Purpose | A customer review of a product or workshop. |
+| Key business attributes | Reviewer, target, rating, text, images and Manager reply. |
+| Business identity | Each review has its own identifier; one review per eligible purchase or booking. |
+| Status / lifecycle | Public → Hidden or Removed by a Manager; a hidden review can be restored. |
 
-**Entity: Loyalty Policy (loyalty_policies)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Defines conditional, versioned terms for point-to-money conversion and credit expiry. |
-| Key business attributes | Policy version, currency, conversion block and money unit, minimum points, discount caps/basis, credit lifetime, validity window, publication and activation details, creator. |
-| Business identity | policy_version is unique. At most one Policy is active per currency; historical versions remain available for existing credits and quotes. |
-| Status / lifecycle | Unpublished drafts start inactive; only approved published terms may be activated. Published/referenced terms are immutable and changes create a new version. Retirement does not reprice valid holds. |
-
-**Entity: Loyalty Point (loyalty_points)**
+**Entity: Notification (notification_request)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Records an immutable conditional loyalty ledger event; positive entries also identify individual credit lots. |
-| Key business attributes | Member, optional Order, Policy, entry type, signed point quantity, optional credit expiry, redemption/source references, event key and manual-correction actor/reason. |
-| Business identity | event_key is unique per business event. Each entry has a loyalty_point_id; at most one redeem debit is recorded per Redemption. |
-| Status / lifecycle | Entry types are earn, redeem, adjustment and expiry, not workflow states. Posted entries are immutable; holds do not post debits. Spendable points exclude holds and overdue credits. No refund-restoration entry type is included. |
+| Purpose | An email sent to a customer or staff member about a business event. |
+| Key business attributes | Business event, template, recipient (masked), attempt count and next attempt time. |
+| Business identity | The business event reference and template identify one notification. |
+| Status / lifecycle | Pending → Processing → Sent; or Retry scheduled → Failed after the last attempt. |
 
-**Entity: Loyalty Redemption (loyalty_redemptions)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | Records a conditional retail checkout's point hold and frozen point-to-money discount quote. |
-| Key business attributes | Reservation reference, Order, Member, Policy, points requested, conversion/cap/basis snapshots, discount amount, currency, hold deadline, accepted payment and terminal evidence. |
-| Business identity | reservation_key is unique. An Order has at most one reserved/redeemed generation, while released generations remain in history. |
-| Status / lifecycle | reserved → redeemed or released; both terminal states are irreversible. Accepted payment posts one debit; eligible unpaid release changes availability without a compensating credit. The design excludes refund-driven restoration. |
-
-**Entity: Loyalty Allocation (loyalty_allocations)**
+**Entity: Consultation Conversation (consultation_conversations, consultation_messages)**
 
 | Field | Value |
 | --- | --- |
-| Purpose | Identifies the fixed source-credit quantity used by a conditional checkout hold or an actual point debit. |
-| Key business attributes | Positive credit source, optional Redemption, optional debit entry, allocated quantity, creation time and consumption time. |
-| Business identity | loyalty_allocation_id identifies the slice. Separate unique redemption/credit and debit/credit pairs prevent duplicate source allocation for each applicable operation. |
-| Status / lifecycle | No independent status. Held/released checkout slices have no debit; redemption attaches a debit and consumption time once. Expiry/negative adjustments create consumed slices directly. Released slices count as neither held nor consumed; settled slices are immutable. |
+| Purpose | A chat between a Member and Staff about a product, workshop or order. |
+| Key business attributes | Member, context, assigned branch, Staff who claimed it and messages. |
+| Business identity | Conversation reference is unique. |
+| Status / lifecycle | Open → Closed. |

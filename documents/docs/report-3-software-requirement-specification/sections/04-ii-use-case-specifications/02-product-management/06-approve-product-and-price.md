@@ -26,8 +26,8 @@ This use case includes the following sub-flows:
 
 **Approve Product and Price**
 
-1. The Manager opens the Products to review tab (reviews of never-published products) or the Prices to review tab (price proposals of published products) of the product list. A product whose review is Pending shows Review first instead of a one-click publish button.
-2. The Manager selects a pending item, or decides a pending price directly on its row in the Prices to review tab. On the product detail page, the Initial review section is shown to a Manager only while a review submitted by Staff is Pending, or when the review was Rejected (with its reason).
+1. The Manager opens the Products to review tab (reviews of never-published products) or the Prices to review tab (price proposals of published products, the Prices to Review screen) of the Product Management List. A product whose review is Pending shows Review first instead of a one-click publish button.
+2. The Manager selects a pending item, or decides a pending price directly on its row in the Prices to review tab with the Price Proposal Review form. On the product detail page, the Initial review section is shown to a Manager only while a review submitted by Staff is Pending, or when the review was Rejected (with its reason).
 3. The system displays the submitted product content, images and the proposed price of each size, and any AI price suggestion marked as advisory. For each price proposal version (including in the table for several sizes) and each review version, current and past, it shows the submitter and submission time, the submitter's branches at submission (UC-14), and the Manager who decided and the decision time once decided. A Draft that was never submitted shows no submitter.
 4. For each size, the Manager accepts the proposed price or enters an adjusted final price as a positive whole VND amount; one shared final price can be filled in for the selected sizes.
 5. The Manager confirms the decision.

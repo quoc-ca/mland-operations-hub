@@ -35,14 +35,14 @@ This use case includes the following sub-flows:
 
 **Submit Price Proposal for an Existing Size**
 
-1. The actor opens a size in the Price proposals section of a product and selects Propose a new price, or, in the Prices to review tab of the product list, selects Propose a new price on a rejected price or Submit price on a draft not sent. For a product that has been published before, a Manager changes a price with Change price instead (UC-15).
+1. The actor opens a size in the Price proposals section of a product and selects Propose a new price, which opens the Price Proposal Form, or, in the Prices to review tab of the Product Management List (Prices to Review screen), selects Propose a new price on a rejected price or Submit price on a draft not sent. For a product that has been published before, a Manager changes a price with Change price instead (UC-15).
 2. The actor enters a positive whole VND amount and saves it as Draft or submits it.
 3. The system checks that the size has no other pending proposal.
 4. The system saves the proposal with its own proposal code, version, product, size, amount, submitter and status and, when it is submitted, a snapshot of the submitter's branch scope at that time, records an audit entry and confirms (MSG20). The current applied price stays in use while the proposal is pending, and a submitted proposal of a published product appears in the Prices to review tab.
 
 **Submit Price Proposals for Several Sizes**
 
-1. The actor opens Edit proposed prices of several sizes and selects sizes one by one or as a size range.
+1. The actor opens Edit proposed prices of several sizes on the Price Proposal Form and selects sizes one by one or as a size range.
 2. The actor enters one shared positive whole VND amount and may still change any row; sizes left empty are not changed.
 3. The actor selects Save as draft or, after the first publication, Save and submit.
 4. For each size, the system revises the current Draft or Pending proposal (a Pending one returns to Draft) or creates a new proposal, then submits it when asked, as in the sub-flow above. Each size is its own proposal; a size that fails does not affect the others. The system confirms with the number of sizes (MSG20), or lists the sizes that failed and why (MSG54).
