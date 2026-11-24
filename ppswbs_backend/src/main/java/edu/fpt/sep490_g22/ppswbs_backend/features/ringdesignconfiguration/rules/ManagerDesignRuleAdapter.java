@@ -243,7 +243,7 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         }
                         if (item.getContent() == null || item.getContent().trim().isEmpty()) {
                             reasons.add("Nội dung khắc không được để trống khi có mục khắc.");
-                        } else if (item.getContent().trim().length() > MAX_ENGRAVING_CHARS) {
+                        } else if (item.getContent().length() > MAX_ENGRAVING_CHARS) {
                             reasons.add("Độ dài nội dung khắc vượt quá giới hạn " + MAX_ENGRAVING_CHARS + " ký tự.");
                         }
                         if (item.getPlacement() != null && !item.getPlacement().isBlank()
@@ -270,7 +270,7 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                     String text = request.getEngraving().getText();
                     if (text == null || text.trim().isEmpty()) {
                         reasons.add("Nội dung khắc chữ không được để trống khi đã bật tùy chọn khắc.");
-                    } else if (text.trim().length() > MAX_ENGRAVING_CHARS) {
+                    } else if (text.length() > MAX_ENGRAVING_CHARS) {
                         reasons.add("Độ dài nội dung khắc chữ vượt quá giới hạn " + MAX_ENGRAVING_CHARS + " ký tự.");
                     }
                     if (request.getEngraving().getPlacement() != null
@@ -278,6 +278,31 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                             && !ALLOWED_ENGRAVING_PLACEMENTS.contains(request.getEngraving().getPlacement().trim())) {
                         reasons.add("Vị trí khắc chữ không hợp lệ: " + request.getEngraving().getPlacement());
                     }
+                }
+            }
+
+            // Check conflict: Cannot engrave outer band if stones are mounted on outer band
+            int totalGemstones = 0;
+            if (request.getComponents() != null) {
+                totalGemstones = request.getComponents().stream()
+                        .mapToInt(c -> c.getQuantity() != null ? c.getQuantity() : 1)
+                        .sum();
+            }
+            if (totalGemstones > 0 && request.getEngraving() != null) {
+                boolean outerEngravingRequested = false;
+                if (request.getEngraving().getItems() != null) {
+                    outerEngravingRequested = request.getEngraving().getItems().stream()
+                            .anyMatch(it -> "OUTER_BAND".equalsIgnoreCase(it.getPlacement()));
+                } else if ("OUTER_BAND".equalsIgnoreCase(request.getEngraving().getPlacement())) {
+                    outerEngravingRequested = true;
+                }
+                if (request.getEngraving().getCustomImages() != null) {
+                    if (request.getEngraving().getCustomImages().stream().anyMatch(img -> "OUTER_BAND".equalsIgnoreCase(img.getPlacement()))) {
+                        outerEngravingRequested = true;
+                    }
+                }
+                if (outerEngravingRequested) {
+                    reasons.add("Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer");
                 }
             }
 

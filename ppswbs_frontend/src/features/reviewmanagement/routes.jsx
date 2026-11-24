@@ -14,8 +14,8 @@ import './reviewmanagement.css';
 export const reviewManagementRoutes = [
   { path: '/reviews', element: <ReviewsHomePage /> },
   { path: '/reviews/:reviewId', element: <ReviewDetailPage /> },
-  { path: '/reviews/guest/lookup', element: <GuestLookupPage /> },
-  { path: '/reviews/new', element: <CreateReviewPage /> },
+  { path: '/reviews/guest/lookup', element: <Navigate to="/reviews" replace /> },
+  { path: '/reviews/new', element: <RequireSession><CreateReviewPage /></RequireSession> },
   { path: '/reviews/orders/:orderId', element: <RequireSession><OrderReviewPage /></RequireSession> },
   { path: '/reviews/:reviewId/edit', element: <RequireSession><EditReviewPage /></RequireSession> },
   // The separate "Các sản phẩm, trải nghiệm có thể đánh giá" page was folded into the "Chưa đánh giá" tab (2026-11-23).

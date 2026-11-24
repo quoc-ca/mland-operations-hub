@@ -1,107 +1,72 @@
-# Feature Specification: Design Request and Human Review
+# Feature-004 — Custom Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-22
+Date updated: 2026-11-24
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Logical feature name:** `004-design-request-and-human-review`
-**Legacy directory:** `004-ai-chatbox-analysis-and-suggestion`
-**Status:** Implementation baseline; 2026-11-22 terminology, cross-feature reference and consultation changes documented; implementation pending.
+Status: `MEMBER-ONLY REBASELINE — IMPLEMENTATION PLAN REQUIRED`
 
 ## 1. Purpose and boundary
 
-Feature-004 is rebaselined as the custom design request and order-intake boundary.
-It lets a Member submit a custom-manufacturing request using text, images and/or
-a Feature-012 configured-design snapshot. Guest access remains limited to public
-design-request tracking and does not create a custom-manufacturing order.
+Feature-004 lets an authenticated, active Member submit and follow a custom
+manufacturing design request. The request may contain a text description, up to
+five reference images, and/or an immutable snapshot of a Member-owned
+Feature-012 configured design.
 
-Feature-004 has no AI provider, AI analysis, Basic AI Support, AI price suggestion,
-candidate-feature extraction or automated design decision. Old AI artifacts and
-test evidence are historical only and are not acceptance evidence for this baseline.
+Guest users may see the feature entry point, its explanation and a sign-in CTA.
+They must not create, upload, track, revise, or read a private design request.
+When a Guest attempts a protected action, the frontend shows the sign-in flow
+and preserves a safe return route; the backend remains the final authority.
 
-The feature does not own configured-design validation, workshop booking, ticket,
-production, payment settlement or fulfilment. It consumes Feature-012 only through
-an approved snapshot facade and hands accepted requests to Custom Manufacturing.
-
-### Superseding change request — 2026-11-22
-
-- The customer-facing tab is named `Yêu cầu chế tác`; the order area is named
-  `Đơn hàng cá nhân`.
-- The custom request copy explains that the customer describes a ring and the
-  shop assesses feasibility and provides a suitable quote.
-- Guest and Member may attach an owner-controlled Feature-012 design in any
-  readable state, including `DRAFT`, `SAVED`, `ARCHIVED`, and legacy states.
-  The server revalidates ownership and creates an immutable snapshot without
-  mutating or unlocking the source design.
-- AI analysis, AI pricing and automated design decisions remain out of scope.
-- Saved-design consultation is launched through Feature-013 with a safe
-  `WORKSHOP_RING_DESIGN` context. Guest and Member are supported; Staff and
-  Manager may participate in the conversation.
-- Quote terminology is `Phiên bản báo giá`; custom orders remain full-payment,
-  no-cart and no-deposit flows.
+Feature-004 performs human review and quote handoff. It does not use AI to
+assess images, decide feasibility, set a price, approve a request, or reject a
+request. It does not own Feature-012 validation, workshop booking, payment
+settlement, production, or fulfilment.
 
 ## 2. Actors and permissions
 
-### Route masking synchronization (2026-11-20)
+| Capability | Guest | Member | Staff | Manager | Admin |
+|---|---|---|---|---|---|
+| See feature entry/description | Allow | Allow | Allow | Allow | Allow |
+| Start custom request | Deny; prompt sign-in | Allow for own account | Deny as customer | Deny as customer | Deny |
+| Upload/read request images | Deny | Own request only | Authorized review projection | Authorized review projection | Technical projection only |
+| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Audit projection only |
+| Submit revision after clarification | Deny | Own request only | Deny | Deny | Deny |
+| Review request | Deny | Deny | Allow | Allow | Deny |
+| Write decision explanation | Deny | Deny | Mandatory explanation | Mandatory explanation | Deny |
+| Prepare/approve quote | Deny | View own quote/payment state | Prepare if assigned | Approve business quote | Deny |
+| Pay custom order | Deny | Own order, full payment | Deny | Deny | Deny |
 
-`/design-review-requests*` are internal reviewer routes with browser allowlist
-`STAFF` and `MANAGER`; a signed-in `MEMBER`, `ADMIN`, or `CARRIER` is replaced
-to `/404` before page render/request. The former price-suggestion and Basic AI
-Support routes are historical and are not part of the current Feature-004
-contract. Public/Guest/Member design-request routes retain their current rules.
+All Member actions require Firebase identity, an active Mland Member account,
+resource ownership and current request/version state. Client-supplied role,
+owner, status, quote, or reviewer fields are ignored.
 
-| Actor | Allowed capability |
-| --- | --- |
-| Guest | Create a request, track it with an opaque token/link, and read its safe status/result. |
-| Member | Create requests and read only the Member's own requests. |
-| Staff | View the authorized review queue, accept or reject, and write a mandatory explanation. |
-| Manager | Same Feature-004 review authority as Staff. |
-| Admin | Technical/audit access only; no accept/reject authority. |
-
-Staff and Manager have equal business authority in this feature. The previous
-3,000,000 VND threshold is retired because Feature-004 no longer produces an AI
-estimate.
-
-## 3. Customer submission flow
+## 3. Customer flow
 
 ```text
-Guest/Member opens request form
-→ enters optional description
-→ uploads 0..5 images
-→ validates each image immediately
-→ blocks images whose quality is TOO_BLURRY
-→ validates all images again before submit
-→ sends request with Idempotency-Key
-→ backend revalidates proof, quota, files and quality
-→ creates NEED_REVIEW request
-→ returns safe request projection and Guest tracking link when applicable
+Guest sees feature entry
+  → selects protected action
+  → sign-in prompt
+  → Member authentication
+  → request form
+  → optional description and/or up to five images
+  → immediate image-quality feedback
+  → submit with Idempotency-Key
+  → server validation and persistence
+  → NEED_REVIEW
+  → Member views status and staff/manager explanation
 ```
 
-At least one of description or image is required. Each request has at most five
-images. No catalogue, booking or package field is part of the command.
+At least one description or image is required. Each image is validated in the
+browser for type, size and readable quality, then revalidated by the backend.
+`TOO_BLURRY` blocks submission. The backend owns all quality thresholds.
 
-### 3.1 Image quality
+Feature-012 design attachment is optional. If supplied, only a Member-owned,
+readable design snapshot may be used; Feature-004 stores its own immutable
+snapshot and later edits to the source design do not alter the request.
 
-The browser displays quality feedback immediately after each upload. The backend
-is authoritative and revalidates before persistence. Quality thresholds are supplied
-by backend configuration; the frontend must not hard-code a blur threshold.
-
-Allowed results are `PROCESSING`, `PASS`, `TOO_BLURRY` and `QUALITY_CHECK_FAILED`.
-`TOO_BLURRY` blocks submission and requires replacement or removal. A quality-service
-failure does not silently pass the image.
-
-### 3.2 Guest proof and quota
-
-The server issues an opaque Guest Design Session and, after successful creation, an
-opaque tracking token/link. Tokens contain no raw PII or database identifier, have a
-configured expiry, are not raw-logged, and are bound to one request.
-
-Guest creation is limited to five requests per calendar day in the system timezone.
-The sixth request returns HTTP 429 and does not create a request. Idempotent retry of
-the same command returns the original result and is not counted twice.
-
-## 4. Custom request and human review lifecycle
+## 4. Human review lifecycle
 
 ```text
 NEED_REVIEW → CLARIFICATION_REQUIRED → NEED_REVIEW
@@ -109,106 +74,99 @@ NEED_REVIEW → ACCEPTED
 NEED_REVIEW → REJECTED
 ```
 
-`CLARIFICATION_REQUIRED` is non-terminal and creates a revision loop. Staff or
-Manager must provide a non-empty bounded explanation for every clarification,
-acceptance or rejection. The decision,
-explanation, actor, role, version and timestamp are append-only audit evidence.
+Staff and Manager must provide a non-empty explanation for every decision.
+Every decision records actor, role, request version, timestamp and audit data.
+Admin has technical/audit access only and cannot make a business decision.
 
-Guest and Member can read the resulting status and explanation through their safe
-projection. A terminal request cannot receive a second decision; stale or concurrent
-commands return a conflict.
+Member can read the safe status, explanation and next action of an own request.
+A terminal request cannot receive another decision; stale or concurrent commands
+return a conflict.
 
-## 5. API baseline
+## 5. Member-only API baseline
 
 ```text
-POST /api/v1/design-requests (dual-mapped with /api/v1/custom-design-requests)
-GET  /api/v1/design-requests/{designRequestId} (dual-mapped with /api/v1/custom-design-requests/{id})
+POST /api/v1/design-requests
 GET  /api/v1/design-requests
-POST /api/v1/custom-design-requests/{id} (submit revision after CLARIFICATION_REQUIRED)
+GET  /api/v1/design-requests/{designRequestId}
+POST /api/v1/custom-design-requests/{id}
 GET  /api/v1/design-review-requests
 GET  /api/v1/design-review-requests/{reviewRequestId}
-POST /api/v1/design-review-requests/{reviewRequestId}/decisions (CLARIFICATION_REQUIRED, ACCEPTED, REJECTED)
-POST /api/v1/custom-design-requests/{id}/quote (Staff preparation / Manager handoff)
-
-Member Custom Orders & Payment:
-GET  /api/v1/members/me/custom-design-requests
+POST /api/v1/design-review-requests/{reviewRequestId}/decisions
+POST /api/v1/custom-design-requests/{id}/quote
 GET  /api/v1/members/me/custom-orders
 GET  /api/v1/members/me/custom-orders/{customOrderId}
-POST /api/v1/members/me/custom-orders/{customOrderId}/payment (100% full payment only)
+POST /api/v1/members/me/custom-orders/{customOrderId}/payment
 POST /api/v1/members/me/custom-orders/{customOrderId}/request-new-quote
-
-Custom Manufacturing Operations:
-POST /api/v1/custom-orders/{orderId}/approve-quote (Manager approval)
-POST /api/v1/custom-orders/{orderId}/status (Staff/Manager production & fulfilment tracking)
 ```
 
-All writes require `Idempotency-Key`; versioned review decisions require
-`If-Match-Version`. Public/Guest/Member, reviewer and audit projections are separate
-DTOs. Responses never expose raw storage keys, tokens, private contact data or IDs.
+`POST`, `PATCH` and other mutations require `Idempotency-Key`; versioned
+commands require `If-Match-Version`. No Guest token, Guest design session,
+tracking link, or Guest daily quota is part of the current contract. Any legacy
+tracking endpoint must be removed or return a documented authentication error;
+it must not reveal old request data.
 
-Error codes include:
+The old Basic AI Support, AI image analysis and AI price-suggestion routes are
+not Feature-004 capabilities. If legacy routes remain in the repository, they
+must be explicitly deprecated or separately protected and cannot be used as
+acceptance evidence for this feature.
 
-```text
-DESIGN_REQUEST_INVALID
-DESIGN_REQUEST_IMAGE_LIMIT_EXCEEDED
-DESIGN_REQUEST_IMAGE_TOO_BLURRY
-DESIGN_REQUEST_IMAGE_QUALITY_UNAVAILABLE
-DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED
-DESIGN_TRACKING_TOKEN_INVALID
-DESIGN_TRACKING_TOKEN_EXPIRED
-DESIGN_REVIEW_NOT_AUTHORIZED
-DESIGN_REVIEW_REASON_REQUIRED
-DESIGN_REVIEW_STATE_CONFLICT
-DESIGN_REVIEW_ALREADY_DECIDED
-```
+## 6. Quote and custom-order handoff
 
-## 6. Custom design reference and quote handoff
+`ACCEPTED` moves a Member request to quote preparation. A quote has a configured
+expiry. The Member must pay the complete quoted amount in one payment; there is
+no deposit, cart line, or indefinite unpaid hold. An expired unpaid quote is
+cancelled and requires a new quote where policy permits. Custom Manufacturing
+owns production, fulfilment and closure after verified full payment.
 
-- A Guest or Member may submit an owner-verified persisted Feature-012 design
-  reference in any readable lifecycle state, including `DRAFT`, `SAVED` and
-  `ARCHIVED`, subject to source ownership and privacy checks. The reference is
-  copied into an immutable snapshot and is not treated as a booking attachment.
-- Feature-004 receives an immutable `CustomDesignReferenceSnapshot`; later edits
-  to the source design never change the request under review.
-- `ACCEPTED` moves the request to quote preparation. It does not create a payment
-  attempt or reserve a production queue slot.
-- Quotes carry Manager-configured `quoteExpiresAt`. An expired quote cannot be
-  paid and requires a new quote generation on the same custom order.
-- A custom order has no deposit, cart line or deferred balance. After a quote is
-  ready, the Member must pay the complete quoted amount in one payment attempt.
-- The custom-order payment link and any temporary queue hold expire together at
-  the configured deadline. If verified full payment is not received, the quote
-  and custom order are expired/cancelled, the queue hold is released, and the
-  Member must request a new quote where policy permits.
-- No `Add to Cart` action exists for custom orders. A quote creates a
-  single-order payment context directly from the Member's My Custom Orders
-  detail page.
-- Feature-004 owns intake, clarification, review and quote handoff; Custom
-  Manufacturing owns full-payment settlement, production, fulfilment and
-  closure.
+## 7. Privacy, security and retention
 
-## 7. UI and Figma approval gate
+- Public/Member/reviewer/audit projections are separate DTOs.
+- No raw image, storage key, Firebase token, private contact data or internal
+  database ID is returned to a Guest or another Member.
+- Images are retained according to the approved manufacturing-history policy.
+- Request, revision, decision and quote audit records are append-only.
+- Feature-004 never directly accesses Feature-012 repositories.
+- All authorization is enforced server-side; frontend gating is only UX.
 
-Required screens are customer entry/form, five-image gallery, per-image quality
-feedback, submission confirmation, Guest tracking, Member history, request detail,
-review queue, review detail, decision form, accepted/rejected result and access/error
-states for Guest, Member, Staff, Manager and Admin.
+## 8. Explicit non-goals
 
-Each Figma screen needs desktop/mobile variants, loading, empty, validation, blurry
-image, quota, pending, accepted, rejected, token-expired and conflict states. One
-active locale must be used per screen; all Vietnamese text must be valid UTF-8.
-Figma revision and node IDs must be recorded in `version.md`. The current
-in-place visual baseline is approved by the user; coding remains governed by
-the separate contract, permission, data and engineering gates.
+- Guest request creation or private request tracking.
+- AI analysis, AI pricing or automated approval/rejection.
+- Workshop booking or ticket mutation.
+- Catalogue pricing publication.
+- Deposit or cart support for custom orders.
+- Direct access to Feature-012 persistence.
 
-## 8. Invariants and non-goals
+## 9. Acceptance scenarios
 
-- A request has 0..5 images and at least one description/image input.
-- Every submitted image has a server-confirmed quality result.
-- Every new request starts at `NEED_REVIEW`.
-- Every terminal decision has an explanation and audit event.
-- Staff and Manager have equal decision authority; Admin does not.
-- Guest tracking is opaque, scoped and expirable.
-- History/audit is not hard-deleted.
-- No AI, workshop booking mutation, payment settlement, catalogue publication or
-  direct Feature-012 repository access exists.
+1. Guest can see the feature entry and sign-in CTA but cannot submit a request.
+2. Guest interaction with the form/upload/status action opens sign-in and sends
+   no protected request API call.
+3. Active Member submits description-only, image-only, or mixed input.
+4. A request with more than five images or a blurry image is rejected before
+   persistence and before review creation.
+5. A valid request starts at `NEED_REVIEW`.
+6. Staff/Manager decisions without an explanation are rejected.
+7. Member sees the latest decision, explanation and next action for own request.
+8. Member cannot read or revise another Member's request.
+9. Admin cannot accept, reject, clarify, quote, or pay through Feature-004.
+10. Quote payment is full amount only; expired unpaid quote cannot be paid.
+11. A Feature-012 reference is copied as an immutable snapshot and never changes
+    when the original design changes.
+12. Duplicate commands and stale versions return typed `409` responses.
+
+## 10. Frontend redesign handoff — pending approval
+
+The custom-design request page must use the existing Mland shell, typography,
+paper/white/gold palette, cards, field styling and bilingual copy patterns.
+The contextual consultation entry point must use the same outer chat width,
+spacing and responsive breakpoint as the general consultation chat. Context
+attachment may change header content, not chat geometry.
+
+The draft Figma frames are pending user approval, not an approved baseline:
+
+- F04 desktop: 588:43
+- F04 mobile: 590:43
+
+The draft preserves the current Member-only submission, optional Feature-012
+reference, five-image limit, immediate quality feedback and human-review flow.

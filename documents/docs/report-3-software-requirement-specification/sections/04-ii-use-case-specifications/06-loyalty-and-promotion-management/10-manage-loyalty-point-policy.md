@@ -20,7 +20,7 @@ This use case allows a Manager to view and update the shared loyalty point polic
 
 **Manage Loyalty Point Policy**
 
-1. The Manager opens the loyalty point policy.
+1. The Manager opens the Point Policy screen.
 2. The system shows the current values. The initial policy is 10,000 VND per earned point, 100 VND per redeemed point, at least 10 points per use and a cap of 10% of the amount after the program discount.
 3. The Manager changes one or more values.
 4. The system checks that the earning rate and point value are positive, the minimum points per use is a positive whole number, and the cap is greater than 0 up to 100%.

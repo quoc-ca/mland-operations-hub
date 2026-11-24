@@ -1,6 +1,6 @@
 #### 9.1.2 Point History
 
-![](assets/screens/32-point-history.png)
+![](assets/screens/36-point-history.png)
 
 Point history is the **Point history** section of the My Loyalty page. It allows Members to:
 

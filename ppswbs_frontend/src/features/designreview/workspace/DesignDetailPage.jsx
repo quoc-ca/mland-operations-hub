@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { RequireSession } from '../../../shared/auth/RequireSession';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
@@ -33,6 +34,14 @@ export default function DesignDetailPage() {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 3000);
     });
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="design-container">
+        <RequireSession requiredText="Vui lòng đăng nhập để xem tiến độ yêu cầu thiết kế." />
+      </div>
+    );
   }
 
   if (loading) {

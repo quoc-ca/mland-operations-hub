@@ -5,11 +5,14 @@ import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 import { useRole } from '../../../shared/auth/useRole';
+import AttachedRingHoverRecap from './AttachedRingHoverRecap';
 import '../consultation-chat.css';
 
 export function StaffConsultationInboxPage({ currentUser = {} }) {
-  const t = useT(consultationMessages);
   const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
+  const tFn = useT(consultationMessages);
+  const t = Object.assign((k, p) => tFn(k, p), consultationMessages[lang] || consultationMessages.vi);
   const api = useConsultationChatApi();
   const userRole = useRole();
   const isManager = (currentUser?.role || userRole) === 'MANAGER';
@@ -34,6 +37,8 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [assigning, setAssigning] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const userJustSentRef = useRef(false);
   const pollTimerRef = useRef(null);
   const apiRef = useRef(api);
   apiRef.current = api;
@@ -45,7 +50,9 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   nextCursorRef.current = nextCursor;
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   const loadConversations = useCallback(async (silent = false, append = false) => {
@@ -65,12 +72,12 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       setHasMore(Boolean(res?.hasMore));
       setSelectedRef((prev) => prev || (items.length > 0 ? items[0].conversationReference : null));
     } catch (err) {
-      if (!silent) setError(err.message || t('errorGeneral'));
+      if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingList(false);
       if (append) setLoadingMore(false);
     }
-  }, [t]);
+  }, [t.errorGeneral]);
 
   const loadDetail = useCallback(async (convRef, silent = false) => {
     if (!convRef) return;
@@ -82,16 +89,17 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       const msgs = detail?.messages || [];
       if (msgs.length > 0 && detail.unreadCount > 0) {
         const lastMsg = msgs[msgs.length - 1];
-        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => {});
+        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
       }
     } catch (err) {
-      if (!silent) setError(err.message || t('errorGeneral'));
+      if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t]);
+  }, [t.errorGeneral]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     loadConversations();
   }, [loadConversations, statusFilter]);
 
@@ -105,10 +113,13 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   }, [selectedRef, loadDetail]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (userJustSentRef.current) {
+      scrollToBottom();
+      userJustSentRef.current = false;
+    }
   }, [activeConversation?.messages]);
 
-  // Visible-tab polling every 10s
+  // Visible-tab polling every 3s and instant sync on focus / visibility change
   useEffect(() => {
     const poll = () => {
       if (document.visibilityState === 'visible') {
@@ -120,8 +131,18 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     };
 
     pollTimerRef.current = setInterval(poll, POLLING_INTERVAL_MS);
+    const handleFocus = () => poll();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [loadConversations, loadDetail]);
 
@@ -131,11 +152,11 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     if (!activeConversation || !messageInput.trim()) return;
 
     if (activeConversation.status === 'CLOSED') {
-      setError(t('chatClosedWarning'));
+      setError(t.chatClosedWarning);
       return;
     }
 
-    const valErr = validateMessageText(messageInput, t);
+    const valErr = validateMessageText(messageInput);
     if (valErr) {
       setError(valErr);
       return;
@@ -149,10 +170,11 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       const key = newCommandId();
       await api.sendMessage(key, activeConversation.conversationReference, { message: messageInput.trim() });
       setMessageInput('');
+      userJustSentRef.current = true;
       loadDetail(activeConversation.conversationReference, true);
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     } finally {
       setSending(false);
     }
@@ -166,10 +188,10 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       const key = newCommandId();
       const updated = await api.claim(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
-      setActionSuccess(t('claimSuccess'));
+      setActionSuccess(t.claimSuccess);
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     }
   };
 
@@ -181,10 +203,10 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       const key = newCommandId();
       const updated = await api.release(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
-      setActionSuccess(t('releaseSuccess'));
+      setActionSuccess(t.releaseSuccess);
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     }
   };
 
@@ -204,10 +226,10 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       );
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       setIsAssignModalOpen(false);
-      setActionSuccess(t('assignSuccess'));
+      setActionSuccess(t.assignSuccess);
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     } finally {
       setAssigning(false);
     }
@@ -215,27 +237,27 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
 
   // Close conversation
   const handleClose = async () => {
-    if (!activeConversation || !window.confirm(t('closeConfirm'))) return;
+    if (!activeConversation || !window.confirm(t.closeConfirm)) return;
     try {
       const key = newCommandId();
       const updated = await api.close(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     }
   };
 
   // Reopen conversation
   const handleReopen = async () => {
-    if (!activeConversation || !window.confirm(t('reopenConfirm'))) return;
+    if (!activeConversation || !window.confirm(t.reopenConfirm)) return;
     try {
       const key = newCommandId();
       const updated = await api.reopen(key, activeConversation.aggregateVersion, activeConversation.conversationReference);
       setActiveConversation((prev) => ({ ...prev, ...updated }));
       loadConversations(true);
     } catch (err) {
-      setError(err.message || t('errorGeneral'));
+      setError(err.message || t.errorGeneral);
     }
   };
 
@@ -245,323 +267,324 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
 
   return (
     <div className="ota-workspace">
-      
+
       <main className="ota-main">
         <div className="consultation-layout">
-      {/* Sidebar */}
-      <div className="consultation-sidebar">
-        <div className="consultation-sidebar-header">
-          <h2 className="consultation-sidebar-title">{t('inboxTitle')}</h2>
-        </div>
-
-        <div className="consultation-filter-bar">
-          <select
-            className="consultation-filter-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">{t('allStatuses')}</option>
-            <option value="OPEN">{t('filterOpen')}</option>
-            <option value="CLOSED">{t('filterClosed')}</option>
-          </select>
-        </div>
-
-        <ul className="consultation-items-list">
-          {loadingList && conversations.length === 0 ? (
-            <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              {t('loadingList')}
-            </li>
-          ) : conversations.length === 0 ? (
-            <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-              {t('noConversations')}
-            </li>
-          ) : (
-            conversations.map((conv) => {
-              const isActive = selectedRef === conv.conversationReference;
-              const snapshot = conv.contextSnapshot;
-              const code = snapshot?.displayCode || conv.conversationReference;
-              const name = snapshot?.displayName || t('defaultDesignName');
-
-              return (
-                <li
-                  key={conv.conversationReference}
-                  className={`consultation-item ${isActive ? 'active' : ''}`}
-                  onClick={() => setSelectedRef(conv.conversationReference)}
-                >
-                  <div className="consultation-item-header">
-                    <span className="consultation-item-code">{code}</span>
-                    <span className={`consultation-status-badge ${conv.status?.toLowerCase()}`}>
-                      {conv.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
-                    </span>
-                  </div>
-                  <div className="consultation-item-name">{name}</div>
-                  <div className="consultation-item-meta">
-                    <span>
-                      {conv.assignedLocationReference || t('unassignedBranch')}
-                    </span>
-                    {conv.unreadCount > 0 && (
-                      <span className="consultation-unread-badge">
-                        {t('unreadBadge', { count: conv.unreadCount })}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              );
-            })
-          )}
-        </ul>
-        {hasMore && (
-          <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
-            {loadingMore ? '...' : t('loadMore')}
-          </button>
-        )}
-      </div>
-
-      {/* Main View */}
-      <div className="consultation-chat-main">
-        {!activeConversation ? (
-          <div className="consultation-empty-state">
-            <div style={{ fontSize: '3rem' }}>💬</div>
-            <p>{t('noConversations')}</p>
-          </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="consultation-context-header">
-              <div className="consultation-context-info">
-                <div className="consultation-context-thumbnail">
-                  {activeConversation.contextSnapshot?.preview?.imageUrl ? (
-                    <img
-                      src={activeConversation.contextSnapshot.preview.imageUrl}
-                      alt={t('previewAlt')}
-                      style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
-                      ? '💍'
-                      : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
-                  )}
-                </div>
-                <div className="consultation-context-details">
-                  <h3>{activeConversation.contextSnapshot?.displayName || t('generalConsultation')}</h3>
-                  <div className="consultation-context-tags">
-                    {activeConversation.contextSnapshot?.displayCode && (
-                      <span className="consultation-context-tag">
-                        {activeConversation.contextSnapshot.displayCode}
-                      </span>
-                    )}
-                    {activeConversation.contextSnapshot?.designVersion && (
-                      <span className="consultation-context-tag">
-                        v{activeConversation.contextSnapshot.designVersion}
-                      </span>
-                    )}
-                    <span className="consultation-context-tag">
-                      {activeConversation.assignedLocationReference || t('unassignedBranch')}
-                    </span>
-                    <span className="consultation-context-tag">
-                      {activeConversation.claimantRole ? t('claimant') : t('unclaimed')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="consultation-actions">
-                <span className={`consultation-status-badge ${activeConversation.status?.toLowerCase()}`}>
-                  {activeConversation.status === 'OPEN' ? t('statusOpen') : t('statusClosed')}
-                </span>
-
-                {isManager && (
-                  <button
-                    type="button"
-                    className="btn-secondary-consultation"
-                    onClick={() => setIsAssignModalOpen(true)}
-                  >
-                    📍 {t('assign')}
-                  </button>
-                )}
-
-                {!activeConversation.claimantRole ? (
-                  <button
-                    type="button"
-                    className="btn-primary-consultation"
-                    onClick={handleClaim}
-                  >
-                    {t('claim')}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-secondary-consultation"
-                    onClick={handleRelease}
-                  >
-                    {t('release')}
-                  </button>
-                )}
-
-                {activeConversation.status === 'OPEN' ? (
-                  <button
-                    type="button"
-                    className="btn-secondary-consultation"
-                    onClick={handleClose}
-                  >
-                    {t('close')}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-secondary-consultation"
-                    onClick={handleReopen}
-                  >
-                    {t('reopen')}
-                  </button>
-                )}
-              </div>
+          {/* Sidebar */}
+          <div className="consultation-sidebar">
+            <div className="consultation-sidebar-header">
+              <h2 className="consultation-sidebar-title">{t.inboxTitle}</h2>
             </div>
 
-            {error && <div className="consultation-alert error">{error}</div>}
-            {actionSuccess && <div className="consultation-alert warning">{actionSuccess}</div>}
+            <div className="consultation-filter-bar">
+              <select
+                className="consultation-filter-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">{t.allStatuses}</option>
+                <option value="OPEN">{t.filterOpen}</option>
+                <option value="CLOSED">{t.filterClosed}</option>
+              </select>
+            </div>
 
-            {/* Messages Thread */}
-            <div className="consultation-messages-thread">
-              {loadingDetail && !activeConversation.messages ? (
-                <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-                  {t('loadingDetail')}
-                </div>
-              ) : activeConversation.messages?.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
-                  {t('noMessagesYet')}
-                </div>
+            <ul className="consultation-items-list">
+              {loadingList && conversations.length === 0 ? (
+                <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                  Đang tải danh sách...
+                </li>
+              ) : conversations.length === 0 ? (
+                <li style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                  {t.noConversations}
+                </li>
               ) : (
-                activeConversation.messages?.map((msg, idx) => {
-                  const isStaffMsg = msg.senderRole === 'STAFF' || msg.senderRole === 'MANAGER';
-                  const roleClass = isStaffMsg ? 'member' : 'staff'; // Staff view: staff messages align right
-                  const roleName = msg.senderRole === 'MEMBER'
-                    ? t('senderMember')
-                    : (msg.senderRole === 'MANAGER' ? t('senderManager') : t('senderStaff'));
-                  const timeStr = msg.createdAt
-                    ? new Date(msg.createdAt).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })
-                    : '';
+                conversations.map((conv) => {
+                  const isActive = selectedRef === conv.conversationReference;
+                  const snapshot = conv.contextSnapshot;
+                  const code = snapshot?.displayCode || conv.conversationReference;
+                  const name = snapshot?.displayName || 'Thiết kế';
 
                   return (
-                    <div key={msg.messageReference || idx} className={`consultation-bubble-group ${roleClass}`}>
-                      <div className="consultation-bubble-meta">
-                        <span className={`consultation-role-pill ${msg.senderRole?.toLowerCase()}`}>
-                          {roleName}
+                    <li
+                      key={conv.conversationReference}
+                      className={`consultation-item ${isActive ? 'active' : ''}`}
+                      onClick={() => setSelectedRef(conv.conversationReference)}
+                    >
+                      <div className="consultation-item-header">
+                        <span className="consultation-item-code">{code}</span>
+                        <span className={`consultation-status-badge ${conv.status?.toLowerCase()}`}>
+                          {conv.status === 'OPEN' ? t.statusOpen : t.statusClosed}
                         </span>
-                        <span>{timeStr}</span>
                       </div>
-                      <div className={`consultation-bubble ${roleClass}`}>
-                        {msg.text}
+                      <div className="consultation-item-name">{name}</div>
+                      <div className="consultation-item-meta">
+                        <span>
+                          {conv.assignedLocationReference || t.unassignedBranch}
+                        </span>
+                        {conv.unreadCount > 0 && (
+                          <span className="consultation-unread-badge">
+                            {t.unreadBadge.replace('{count}', String(conv.unreadCount))}
+                          </span>
+                        )}
                       </div>
-                    </div>
+                    </li>
                   );
                 })
               )}
-              <div ref={messagesEndRef} />
-            </div>
+            </ul>
+            {hasMore && (
+              <button type="button" className="btn-secondary-consultation" onClick={() => loadConversations(false, true)} disabled={loadingMore}>
+                {loadingMore ? '...' : t.loadMore}
+              </button>
+            )}
+          </div>
 
-            {/* Composer */}
-            <form className="consultation-composer" onSubmit={handleSendMessage}>
-              {isClosed ? (
-                <div className="consultation-alert warning" style={{ margin: 0 }}>
-                  {t('chatClosedWarning')}
-                </div>
-              ) : !isClaimedByMe && !isManager ? (
-                <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{t('mustClaimWarning')}</span>
-                  <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
-                    {t('claim')}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    className="consultation-textarea"
-                    placeholder={t('typeMessagePlaceholder')}
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                      }
-                    }}
-                    disabled={sending}
-                    maxLength={MAX_MESSAGE_LENGTH}
-                  />
-                  <div className="consultation-composer-footer">
-                    <span
-                      className={`consultation-char-counter ${
-                        currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
-                      }`}
-                    >
-                      {t('charCount', { count: currentCount })}
+          {/* Main View */}
+          <div className="consultation-chat-main">
+            {!activeConversation ? (
+              <div className="consultation-empty-state">
+                <div style={{ fontSize: '3rem' }}>💬</div>
+                <p>{t.noConversations}</p>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="consultation-context-header">
+                  <div className="consultation-context-info">
+                    <AttachedRingHoverRecap conversation={activeConversation}>
+                      <div className="consultation-context-thumbnail">
+                        {activeConversation.contextSnapshot?.preview?.imageUrl ? (
+                          <img
+                            src={activeConversation.contextSnapshot.preview.imageUrl}
+                            alt="Preview"
+                            style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
+                            ? '💍'
+                            : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
+                        )}
+                      </div>
+                    </AttachedRingHoverRecap>
+                    <div className="consultation-context-details">
+                      <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
+                      <div className="consultation-context-tags">
+                        {activeConversation.contextSnapshot?.displayCode && (
+                          <span className="consultation-context-tag">
+                            {activeConversation.contextSnapshot.displayCode}
+                          </span>
+                        )}
+                        {activeConversation.contextSnapshot?.designVersion && (
+                          <span className="consultation-context-tag">
+                            v{activeConversation.contextSnapshot.designVersion}
+                          </span>
+                        )}
+                        <span className="consultation-context-tag">
+                          {activeConversation.assignedLocationReference || t.unassignedBranch}
+                        </span>
+                        <span className="consultation-context-tag">
+                          {activeConversation.claimantRole ? t.claimant : t.unclaimed}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="consultation-actions">
+                    <span className={`consultation-status-badge ${activeConversation.status?.toLowerCase()}`}>
+                      {activeConversation.status === 'OPEN' ? t.statusOpen : t.statusClosed}
                     </span>
-                    <button
-                      type="submit"
-                      className="btn-primary-consultation"
-                      disabled={sending || !messageInput.trim() || currentCount > 2000}
-                    >
-                      {sending ? t('sending') : t('send')}
+
+                    {isManager && (
+                      <button
+                        type="button"
+                        className="btn-secondary-consultation"
+                        onClick={() => setIsAssignModalOpen(true)}
+                      >
+                        📍 {t.assign}
+                      </button>
+                    )}
+
+                    {!activeConversation.claimantRole ? (
+                      <button
+                        type="button"
+                        className="btn-primary-consultation"
+                        onClick={handleClaim}
+                      >
+                        {t.claim}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary-consultation"
+                        onClick={handleRelease}
+                      >
+                        {t.release}
+                      </button>
+                    )}
+
+                    {activeConversation.status === 'OPEN' ? (
+                      <button
+                        type="button"
+                        className="btn-secondary-consultation"
+                        onClick={handleClose}
+                      >
+                        {t.close}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary-consultation"
+                        onClick={handleReopen}
+                      >
+                        {t.reopen}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {error && <div className="consultation-alert error">{error}</div>}
+                {actionSuccess && <div className="consultation-alert warning">{actionSuccess}</div>}
+
+                {/* Messages Thread */}
+                  <div className="consultation-messages-thread" ref={messagesContainerRef}>
+                    {loadingDetail && !activeConversation.messages ? (
+                      <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
+                        Đang tải nội dung...
+                      </div>
+                    ) : activeConversation.messages?.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
+                        {t.noMessagesYet}
+                      </div>
+                    ) : (
+                      activeConversation.messages?.map((msg, idx) => {
+                        const isStaffMsg = msg.senderRole === 'STAFF' || msg.senderRole === 'MANAGER';
+                        const roleClass = isStaffMsg ? 'member' : 'staff'; // Staff view: staff messages align right
+                        const roleName = msg.senderRole === 'MEMBER'
+                          ? t.senderMember
+                          : (msg.senderRole === 'MANAGER' ? t.senderManager : t.senderStaff);
+                        const timeStr = msg.createdAt
+                          ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          : '';
+
+                        return (
+                          <div key={msg.messageReference || idx} className={`consultation-bubble-group ${roleClass}`}>
+                            <div className="consultation-bubble-meta">
+                              <span className={`consultation-role-pill ${msg.senderRole?.toLowerCase()}`}>
+                                {roleName}
+                              </span>
+                              <span>{timeStr}</span>
+                            </div>
+                            <div className={`consultation-bubble ${roleClass}`}>
+                              {msg.text}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Composer */}
+                  <form className="consultation-composer" onSubmit={handleSendMessage}>
+                    {isClosed ? (
+                      <div className="consultation-alert warning" style={{ margin: 0 }}>
+                        {t.chatClosedWarning}
+                      </div>
+                    ) : !isClaimedByMe && !isManager ? (
+                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{t.mustClaimWarning}</span>
+                        <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
+                          {t.claim}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <textarea
+                          className="consultation-textarea"
+                          placeholder={t.typeMessagePlaceholder}
+                          value={messageInput}
+                          onChange={(e) => setMessageInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage(e);
+                            }
+                          }}
+                          disabled={sending}
+                          maxLength={MAX_MESSAGE_LENGTH}
+                        />
+                        <div className="consultation-composer-footer">
+                          <span
+                            className={`consultation-char-counter ${currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
+                              }`}
+                          >
+                            {t.charCount.replace('{count}', String(currentCount))}
+                          </span>
+                          <button
+                            type="submit"
+                            className="btn-primary-consultation"
+                            disabled={sending || !messageInput.trim() || currentCount > 2000}
+                          >
+                            {sending ? 'Đang gửi...' : t.send}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </form>
+                </>
+            )}
+              </div>
+
+            {/* Assign Branch Modal (Manager only) */}
+            {isAssignModalOpen && (
+              <div className="consultation-modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
+                <div className="consultation-modal" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
+                  <div className="consultation-modal-header">
+                    <h3 className="consultation-modal-title">{t.assign}</h3>
+                    <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
+                      ✕
                     </button>
                   </div>
-                </>
-              )}
-            </form>
-          </>
-        )}
-      </div>
-
-      {/* Assign Branch Modal (Manager only) */}
-      {isAssignModalOpen && (
-        <div className="consultation-modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
-          <div className="consultation-modal" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="consultation-modal-header">
-              <h3 className="consultation-modal-title">{t('assign')}</h3>
-              <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleAssignSubmit}>
-              <div className="consultation-modal-body">
-                <p style={{ margin: 0, color: '#555' }}>{t('selectBranchToAssign')}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="branch"
-                      value="HN-HOANKIEM"
-                      checked={selectedBranch === 'HN-HOANKIEM'}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
-                    />
-                    <span>{t('branchHN_HOANKIEM')} (HN-HOANKIEM)</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="branch"
-                      value="HN-TAYHO"
-                      checked={selectedBranch === 'HN-TAYHO'}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
-                    />
-                    <span>{t('branchHN_TAYHO')} (HN-TAYHO)</span>
-                  </label>
+                  <form onSubmit={handleAssignSubmit}>
+                    <div className="consultation-modal-body">
+                      <p style={{ margin: 0, color: '#555' }}>{t.selectBranchToAssign}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="branch"
+                            value="HN-HOANKIEM"
+                            checked={selectedBranch === 'HN-HOANKIEM'}
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                          />
+                          <span>{t.branchHN_HOANKIEM} (HN-HOANKIEM)</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="branch"
+                            value="HN-TAYHO"
+                            checked={selectedBranch === 'HN-TAYHO'}
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                          />
+                          <span>{t.branchHN_TAYHO} (HN-TAYHO)</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="consultation-modal-footer">
+                      <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
+                        {t.cancel}
+                      </button>
+                      <button type="submit" className="btn-primary-consultation" disabled={assigning}>
+                        {assigning ? 'Đang xử lý...' : t.confirm}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
-              <div className="consultation-modal-footer">
-                <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
-                  {t('cancel')}
-                </button>
-                <button type="submit" className="btn-primary-consultation" disabled={assigning}>
-                  {assigning ? t('processing') : t('confirm')}
-                </button>
-              </div>
-            </form>
+            )}
           </div>
-        </div>
-      )}
-        </div>
       </main>
     </div>
   );

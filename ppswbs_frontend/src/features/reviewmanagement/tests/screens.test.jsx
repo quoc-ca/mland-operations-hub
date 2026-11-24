@@ -59,55 +59,21 @@ describe('F11-PUBLIC-REVIEW-LIST Screen (/reviews)', () => {
   });
 });
 
-describe('F11-GUEST-LOOKUP Screen (/reviews/guest/lookup)', () => {
-  it('allows Guest to search eligible sources by email and receive opaque handle', async () => {
-    const user = userEvent.setup();
+describe('F11-GUEST-LOOKUP Retired (/reviews/guest/lookup)', () => {
+  it('redirects guest lookup route to public reviews list', async () => {
     mockFetch({
-      'POST /api/v1/review-eligibility/lookup': json(200, {
-        eligibilityHandle: 'opaque-guest-handle-xyz',
-        maskedContact: 't***t@example.com',
-        items: [
-          {
-            sourceType: 'WORKSHOP_ATTENDANCE',
-            sourceReference: 'TICK-901',
-            targetType: 'WORKSHOP_SESSION',
-            targetReference: 'SESS-101',
-            label: 'Buổi làm nhẫn hoa mai',
-            eligible: true,
-          },
-        ],
-      }),
-    });
-
-    open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
-
-    expect(await screen.findByText('Tìm giao dịch đủ điều kiện')).toBeInTheDocument();
-
-    const input = screen.getByLabelText('Email hoặc số điện thoại');
-    await user.type(input, 'test@example.com');
-
-    const submitBtn = screen.getByRole('button', { name: 'Tìm nguồn' });
-    await user.click(submitBtn);
-
-    expect(await screen.findByText('Buổi làm nhẫn hoa mai')).toBeInTheDocument();
-    expect(screen.getByText('Nguồn đã xác minh')).toBeInTheDocument();
-  });
-
-  it('displays empty state when guest has no eligible sources', async () => {
-    const user = userEvent.setup();
-    mockFetch({
-      'POST /api/v1/review-eligibility/lookup': json(200, {
-        eligibilityHandle: null,
+      'GET /api/v1/reviews': json(200, {
+        aggregate: { count: 0, averageRating: 0 },
         items: [],
       }),
     });
 
-    open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
-    const input = screen.getByLabelText('Email hoặc số điện thoại');
-    await user.type(input, 'unknown@example.com');
-    await user.click(screen.getByRole('button', { name: 'Tìm nguồn' }));
+    const { router } = open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
 
-    expect(await screen.findByText('Không có nguồn đủ điều kiện.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/reviews');
+    });
+    expect(await screen.findByText('Chưa có đánh giá công khai.')).toBeInTheDocument();
   });
 });
 

@@ -31,17 +31,28 @@ public class HumanReviewService {
     @Transactional(readOnly = true)
     public List<DesignAnalysisService.DesignRequestViewDto> getReviewQueue(
             String callerUid,
-            Collection<? extends GrantedAuthority> authorities
-    ) {
+            Collection<? extends GrantedAuthority> authorities) {
+        return getReviewQueue(callerUid, authorities, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DesignAnalysisService.DesignRequestViewDto> getReviewQueue(
+            String callerUid,
+            Collection<? extends GrantedAuthority> authorities,
+            ReviewStatus statusFilter) {
         boolean isManager = DesignReviewPermissions.isManager(authorities);
         boolean isStaff = DesignReviewPermissions.isStaff(authorities);
 
         if (!isStaff && !isManager) {
-            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền truy cập hàng đợi duyệt thiết kế.");
+            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED",
+                    "Bạn không có quyền truy cập hàng đợi duyệt thiết kế.");
         }
 
-        // Staff and Manager have equal authority to view all items awaiting human review
-        List<DesignRequest> queue = requestRepository.findByReviewStatusOrderByCreatedAtAsc(ReviewStatus.NEED_REVIEW);
+        // Staff and Manager retain and view all custom design requests, sorted newest
+        // first
+        List<DesignRequest> queue = statusFilter != null
+                ? requestRepository.findByReviewStatusOrderByCreatedAtDesc(statusFilter)
+                : requestRepository.findAllByOrderByCreatedAtDesc();
 
         return queue.stream()
                 .map(designAnalysisService::mapToViewDto)
@@ -55,8 +66,7 @@ public class HumanReviewService {
             Integer designVersion,
             String reason,
             String reviewerUid,
-            Collection<? extends GrantedAuthority> authorities
-    ) {
+            Collection<? extends GrantedAuthority> authorities) {
         log.info("Recording human review decision: reviewRequestId={}, decision={}, version={}, reviewerUid={}",
                 reviewRequestId, decision, designVersion, reviewerUid);
 
@@ -68,36 +78,43 @@ public class HumanReviewService {
         }
 
         if (decision == null) {
-            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Thiếu quyết định thẩm duyệt (ACCEPTED, REJECTED).");
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
+                    "Thiếu quyết định thẩm duyệt (ACCEPTED, REJECTED).");
         }
 
         if (reason == null || reason.trim().isEmpty()) {
-            throw DesignReviewException.badRequest("DESIGN_REVIEW_REASON_REQUIRED", "Bắt buộc phải nhập lời giải thích / lý do cho quyết định thẩm duyệt.");
+            throw DesignReviewException.badRequest("DESIGN_REVIEW_REASON_REQUIRED",
+                    "Bắt buộc phải nhập lời giải thích / lý do cho quyết định thẩm duyệt.");
         }
 
         if (reason.trim().length() > 2000) {
-            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID", "Lý do thẩm duyệt không được vượt quá 2000 ký tự.");
+            throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
+                    "Lý do thẩm duyệt không được vượt quá 2000 ký tự.");
         }
 
         DesignRequest request = requestRepository.findById(reviewRequestId)
                 .or(() -> requestRepository.findByRequestReference(reviewRequestId))
-                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thẩm duyệt với ID đã cung cấp."));
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy yêu cầu thẩm duyệt với ID đã cung cấp."));
 
         // Separation of duties: Reviewer cannot review own request
         accountFacade.resolveAccount(reviewerUid).ifPresent(account -> {
             if (account.accountId().equals(request.getOwnerAccountId())) {
-                throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Không thể tự phê duyệt yêu cầu thiết kế do chính bạn tạo.");
+                throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED",
+                        "Không thể tự phê duyệt yêu cầu thiết kế do chính bạn tạo.");
             }
         });
 
         // Terminal state check
         if (request.getReviewStatus() == ReviewStatus.ACCEPTED || request.getReviewStatus() == ReviewStatus.REJECTED) {
-            throw DesignReviewException.conflict("DESIGN_REVIEW_ALREADY_DECIDED", "Yêu cầu đã có quyết định cuối cùng và không thể thay đổi.");
+            throw DesignReviewException.conflict("DESIGN_REVIEW_ALREADY_DECIDED",
+                    "Yêu cầu đã có quyết định cuối cùng và không thể thay đổi.");
         }
 
         // Design version check
         if (designVersion != null && !designVersion.equals(request.getRequestVersion())) {
-            throw DesignReviewException.conflict("DESIGN_REVIEW_STATE_CONFLICT", "Phiên bản thiết kế đã thay đổi hoặc đã có cập nhật mới hơn.");
+            throw DesignReviewException.conflict("DESIGN_REVIEW_STATE_CONFLICT",
+                    "Phiên bản thiết kế đã thay đổi hoặc đã có cập nhật mới hơn.");
         }
 
         // Record human review decision

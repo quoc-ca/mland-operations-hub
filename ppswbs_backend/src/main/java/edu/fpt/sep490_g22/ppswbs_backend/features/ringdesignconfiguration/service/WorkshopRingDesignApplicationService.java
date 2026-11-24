@@ -121,32 +121,21 @@ public class WorkshopRingDesignApplicationService {
         return response;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader) {
         return listMyDesigns(memberAccountId, guestSessionHeader, false);
     }
 
-    @Transactional(readOnly = true)
-    public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader, boolean includeArchived) {
-        RingDesignOwnerType ownerType;
-        String ownerReference;
-
-        if (memberAccountId != null) {
-            ownerType = RingDesignOwnerType.MEMBER;
-            ownerReference = String.valueOf(memberAccountId);
-        } else if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            try {
-                GuestDesignSession guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
-                ownerType = RingDesignOwnerType.GUEST_SESSION;
-                ownerReference = guestSession.getSessionDigest();
-            } catch (RingDesignException e) {
-                return Collections.emptyList();
-            }
-        } else {
-            return Collections.emptyList();
+    @Transactional
+    public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader,
+            boolean includeArchived) {
+        if (memberAccountId == null) {
+            throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để xem danh sách thiết kế.");
         }
+        List<RingDesign> allDesigns = new ArrayList<>(
+                designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId)));
 
-        List<RingDesign> allDesigns = designRepository.findAllByOwner(ownerType, ownerReference);
         if (allDesigns.isEmpty()) {
             return Collections.emptyList();
         }
@@ -262,28 +251,56 @@ public class WorkshopRingDesignApplicationService {
         snapshotMap.put("engraving", request.getEngraving());
         snapshotMap.put("gemstonePositions", request.getGemstonePositions());
 
-        RingDesign newVersion = RingDesign.builder()
-                .designReference(latest.getDesignReference())
-                .designVersion(latest.getDesignVersion() + 1)
-                .designName(latest.getDesignName())
-                .designType(latest.getDesignType())
-                .ownerType(latest.getOwnerType())
-                .ownerReference(latest.getOwnerReference())
-                .packageReference(request.getPackageReference())
-                .sourceModelReference(latest.getSourceModelReference())
-                .sourceDesign(latest)
-                .materialReference(request.getMaterialReference())
-                .shapeReference(request.getShapeReference())
-                .ringSize(request.getRingSize())
-                .componentSnapshot(serializeSnapshot(snapshotMap))
-                .estimatedPrice(new BigDecimal(eval.getEstimatedPrice()))
-                .currency(eval.getCurrency())
-                .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
-                .rulesVersion(eval.getRulesVersion())
-                .status(RingDesignStatus.SAVED)
-                .build();
+        RingDesignOwnerType targetOwnerType = memberAccountId != null ? RingDesignOwnerType.MEMBER : latest.getOwnerType();
+        String targetOwnerReference = memberAccountId != null ? String.valueOf(memberAccountId) : latest.getOwnerReference();
 
-        RingDesign saved = designRepository.save(newVersion);
+        // If a member is saving an existing guest design, claim historical versions too
+        if (memberAccountId != null && latest.getOwnerType() == RingDesignOwnerType.GUEST_SESSION) {
+            latest.setOwnerType(RingDesignOwnerType.MEMBER);
+            latest.setOwnerReference(String.valueOf(memberAccountId));
+            designRepository.save(latest);
+        }
+
+        RingDesign targetToSave;
+        if (latest.getStatus() == RingDesignStatus.DRAFT && latest.getDesignVersion() == 1) {
+            // Initial draft save: update draft in place to version 1 with SAVED status
+            latest.setOwnerType(targetOwnerType);
+            latest.setOwnerReference(targetOwnerReference);
+            latest.setPackageReference(request.getPackageReference());
+            latest.setMaterialReference(request.getMaterialReference());
+            latest.setShapeReference(request.getShapeReference());
+            latest.setRingSize(request.getRingSize());
+            latest.setComponentSnapshot(serializeSnapshot(snapshotMap));
+            latest.setEstimatedPrice(new BigDecimal(eval.getEstimatedPrice()));
+            latest.setCurrency(eval.getCurrency());
+            latest.setDifficultyScore(new BigDecimal(eval.getDifficultyScore()));
+            latest.setRulesVersion(eval.getRulesVersion());
+            latest.setStatus(RingDesignStatus.SAVED);
+            targetToSave = latest;
+        } else {
+            targetToSave = RingDesign.builder()
+                    .designReference(latest.getDesignReference())
+                    .designVersion(latest.getDesignVersion() + 1)
+                    .designName(latest.getDesignName())
+                    .designType(latest.getDesignType())
+                    .ownerType(targetOwnerType)
+                    .ownerReference(targetOwnerReference)
+                    .packageReference(request.getPackageReference())
+                    .sourceModelReference(latest.getSourceModelReference())
+                    .sourceDesign(latest)
+                    .materialReference(request.getMaterialReference())
+                    .shapeReference(request.getShapeReference())
+                    .ringSize(request.getRingSize())
+                    .componentSnapshot(serializeSnapshot(snapshotMap))
+                    .estimatedPrice(new BigDecimal(eval.getEstimatedPrice()))
+                    .currency(eval.getCurrency())
+                    .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
+                    .rulesVersion(eval.getRulesVersion())
+                    .status(RingDesignStatus.SAVED)
+                    .build();
+        }
+
+        RingDesign saved = designRepository.save(targetToSave);
         DesignResponseDto response = mapToResponse(saved, val, eval, snapshotMap);
 
         idempotencyService.record(idempotencyKey, "SAVE_VERSION", actorScope, request, 200, response);
@@ -352,6 +369,49 @@ public class WorkshopRingDesignApplicationService {
     }
 
     @Transactional
+    public DesignResponseDto restore(
+            String designId,
+            Long memberAccountId,
+            String guestSessionHeader,
+            Long ifMatchVersion,
+            String idempotencyKey) {
+        String actorScope = resolveActorScope(memberAccountId, guestSessionHeader);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var replay = idempotencyService.checkReplay(idempotencyKey, "RESTORE_DESIGN", actorScope, designId);
+            if (replay.isPresent()) {
+                return idempotencyService.deserialize(replay.get().getResponseBody(), DesignResponseDto.class);
+            }
+        }
+
+        RingDesign latest = designRepository.findLatestByDesignReference(designId)
+                .orElseThrow(() -> RingDesignException.notFound("Không tìm thấy thiết kế nhẫn: " + designId));
+
+        verifyOwnership(latest, memberAccountId, guestSessionHeader);
+
+        latest.setStatus(RingDesignStatus.SAVED);
+        RingDesign saved = designRepository.save(latest);
+
+        Map<String, Object> snapshot = deserializeSnapshot(saved.getComponentSnapshot());
+        DesignResponseDto response = mapToResponse(saved,
+                ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build(),
+                EvaluationResultDto.builder()
+                        .estimatedPrice(
+                                saved.getEstimatedPrice() != null ? saved.getEstimatedPrice().toPlainString() : "0.00")
+                        .currency(saved.getCurrency())
+                        .difficultyScore(
+                                saved.getDifficultyScore() != null ? saved.getDifficultyScore().toPlainString() : "1.0000")
+                        .rulesVersion(saved.getRulesVersion())
+                        .advisory(true)
+                        .build(),
+                snapshot);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyService.record(idempotencyKey, "RESTORE_DESIGN", actorScope, designId, 200, response);
+        }
+        return response;
+    }
+
+    @Transactional
     public BookingDesignSnapshotDto attachToBooking(
             String designId,
             AttachDesignRequestDto request,
@@ -406,24 +466,22 @@ public class WorkshopRingDesignApplicationService {
     }
 
     private void verifyOwnership(RingDesign design, Long memberAccountId, String guestSessionHeader) {
+        if (memberAccountId == null) {
+            throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                    "Yêu cầu đăng nhập tài khoản hội viên.");
+        }
         if (design.getOwnerType() == RingDesignOwnerType.MEMBER) {
-            if (memberAccountId == null || !design.getOwnerReference().equals(String.valueOf(memberAccountId))) {
+            if (!design.getOwnerReference().equals(String.valueOf(memberAccountId))) {
                 throw RingDesignException.accessDenied("Bạn không có quyền truy cập vào thiết kế nhẫn này.");
             }
-        } else if (design.getOwnerType() == RingDesignOwnerType.GUEST_SESSION) {
-            GuestDesignSession guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
-            if (!design.getOwnerReference().equals(guestSession.getSessionDigest())) {
-                throw RingDesignException.accessDenied("Guest session không khớp với chủ sở hữu thiết kế.");
-            }
+        } else {
+            throw RingDesignException.accessDenied("Bạn không có quyền truy cập vào thiết kế nhẫn này.");
         }
     }
 
     private String resolveActorScope(Long memberAccountId, String guestSessionHeader) {
         if (memberAccountId != null) {
             return "MEMBER:" + memberAccountId;
-        }
-        if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            return "GUEST:" + GuestDesignSessionService.computeDigest(guestSessionHeader.trim());
         }
         return "ANONYMOUS";
     }
@@ -435,18 +493,8 @@ public class WorkshopRingDesignApplicationService {
         if (memberAccountId != null) {
             return new ActorBinding(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId), null);
         }
-        GuestDesignSession guestSession;
-        if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            try {
-                guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
-            } catch (RingDesignException e) {
-                log.info("Stale or expired guest session header ({}), issuing a fresh guest session for new design draft.", guestSessionHeader);
-                guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
-            }
-        } else {
-            guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
-        }
-        return new ActorBinding(RingDesignOwnerType.GUEST_SESSION, guestSession.getSessionDigest(), guestSession);
+        throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                "Yêu cầu đăng nhập tài khoản hội viên để tạo mẫu thiết kế nhẫn.");
     }
 
     private DesignResponseDto mapToResponse(
@@ -454,6 +502,20 @@ public class WorkshopRingDesignApplicationService {
             ValidationResultDto val,
             EvaluationResultDto eval,
             Map<String, Object> snapshot) {
+        if (snapshot == null) {
+            snapshot = new HashMap<>();
+        } else {
+            snapshot = new HashMap<>(snapshot);
+        }
+        if (!snapshot.containsKey("materialReference") && design.getMaterialReference() != null) {
+            snapshot.put("materialReference", design.getMaterialReference());
+        }
+        if (!snapshot.containsKey("shapeReference") && design.getShapeReference() != null) {
+            snapshot.put("shapeReference", design.getShapeReference());
+        }
+        if (!snapshot.containsKey("ringSize") && design.getRingSize() != null) {
+            snapshot.put("ringSize", design.getRingSize());
+        }
         return DesignResponseDto.builder()
                 .designId(design.getDesignReference())
                 .packageReference(design.getPackageReference())

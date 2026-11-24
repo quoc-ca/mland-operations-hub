@@ -52,6 +52,17 @@ public class ReviewApplicationService {
     private final ReviewIdempotencyService idempotencyService;
     private final AccountFacade accountFacade;
 
+    private static final java.util.regex.Pattern SQL_INJECTION_PATTERN = java.util.regex.Pattern.compile(
+            "(?i)(\\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|UNION|DECLARE|CAST)\\b[\\s\\S]*?\\b(FROM|INTO|SET|TABLE|DATABASE|WHERE|ALL|JOIN|ON)\\b)|(--|;|/\\*|\\*/|@@|char\\s*\\(|nchar\\s*\\()",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private void validateSafeContent(String text) {
+        if (text != null && SQL_INJECTION_PATTERN.matcher(text).find()) {
+            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID",
+                    "Nội dung đánh giá chứa cú pháp hoặc ký tự không hợp lệ (nguy cơ SQL Injection).");
+        }
+    }
+
     private static boolean wantsAnonymous(CreateReviewRequest request) {
         return Boolean.TRUE.equals(request.getAnonymous());
     }
@@ -59,13 +70,17 @@ public class ReviewApplicationService {
     @Transactional
     public ReviewDto createReview(CreateReviewRequest request, Long authenticatedMemberId, String idempotencyKey) {
         if (request == null) {
-            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Dữ liệu tạo đánh giá không được để trống.");
+            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID",
+                    "Dữ liệu tạo đánh giá không được để trống.");
+        }
+        validateSafeContent(request.getBodyText());
+
+        if (authenticatedMemberId == null) {
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để tạo đánh giá.");
         }
 
-        String guestHandle = request.getGuestEligibilityHandle();
-        String actorScope = authenticatedMemberId != null
-                ? "MEMBER_" + authenticatedMemberId
-                : "GUEST_" + (guestHandle != null ? eligibilityService.hashHandle(guestHandle) : "ANON");
+        String actorScope = "MEMBER_" + authenticatedMemberId;
 
         // Idempotency check
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -78,36 +93,44 @@ public class ReviewApplicationService {
         }
 
         // Kiểm tra duplicate source
-        if (reviewRepository.existsBySourceTypeAndSourceReference(request.getSourceType(), request.getSourceReference())) {
-            throw ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm/đơn hàng này đã được gửi đánh giá trước đó.");
+        if (reviewRepository.existsBySourceTypeAndSourceReference(request.getSourceType(),
+                request.getSourceReference())) {
+            throw ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS",
+                    "Trải nghiệm/đơn hàng này đã được gửi đánh giá trước đó.");
         }
 
         OwnerType ownerType;
         String ownerReference;
         String maskedDisplayName;
-        // The package of the attended workshop, kept with the review so it can be shown and filtered by package.
+        // The package of the attended workshop, kept with the review so it can be shown
+        // and filtered by package.
         Long packageId = null;
         String packageName = null;
 
         if (authenticatedMemberId != null) {
             ownerType = OwnerType.MEMBER;
             ownerReference = String.valueOf(authenticatedMemberId);
-            // The reviewer's name on the account, partly masked; or anonymous when they chose so. Never the account number.
+            // The reviewer's name on the account, partly masked; or anonymous when they
+            // chose so. Never the account number.
             maskedDisplayName = wantsAnonymous(request)
                     ? ReviewMaskingService.ANONYMOUS_DISPLAY_NAME
                     : maskingService.maskMemberDisplayName(authenticatedMemberId,
-                            accountFacade == null ? null : accountFacade.findAccountFullName(authenticatedMemberId).orElse(null));
+                            accountFacade == null ? null
+                                    : accountFacade.findAccountFullName(authenticatedMemberId).orElse(null));
 
             // Verify eligibility
             if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
                 Optional<EligibleSourceItem> itemOpt = workshopAttendancePort.verifySource(
                         request.getSourceReference(), authenticatedMemberId, null, null);
                 if (itemOpt.isEmpty()) {
-                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Vé tham gia workshop không hợp lệ hoặc chưa điểm danh.");
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE",
+                            "Vé tham gia workshop không hợp lệ hoặc chưa điểm danh.");
                 }
                 EligibleSourceItem item = itemOpt.get();
-                if (request.getTargetType() != TargetType.WORKSHOP_SESSION || !request.getTargetReference().equals(item.getTargetReference())) {
-                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với buổi workshop đã tham dự.");
+                if (request.getTargetType() != TargetType.WORKSHOP_SESSION
+                        || !request.getTargetReference().equals(item.getTargetReference())) {
+                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH",
+                            "Target của đánh giá không khớp với buổi workshop đã tham dự.");
                 }
                 packageId = item.getPackageId();
                 packageName = item.getTargetName();
@@ -115,50 +138,22 @@ public class ReviewApplicationService {
                 Optional<EligibleSourceItem> itemOpt = retailFulfilmentPort.verifySource(
                         request.getSourceReference(), authenticatedMemberId, null, null);
                 if (itemOpt.isEmpty()) {
-                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Mục đơn hàng bán lẻ không hợp lệ hoặc chưa được hoàn tất nhận hàng.");
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE",
+                            "Mục đơn hàng bán lẻ không hợp lệ hoặc chưa được hoàn tất nhận hàng.");
                 }
                 EligibleSourceItem item = itemOpt.get();
-                if (request.getTargetType() != TargetType.RETAIL_PRODUCT || !request.getTargetReference().equals(item.getTargetReference())) {
-                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với sản phẩm bán lẻ trong đơn hàng.");
+                if (request.getTargetType() != TargetType.RETAIL_PRODUCT
+                        || !request.getTargetReference().equals(item.getTargetReference())) {
+                    throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH",
+                            "Target của đánh giá không khớp với sản phẩm bán lẻ trong đơn hàng.");
                 }
             } else {
-                throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Loại nguồn đánh giá không được hỗ trợ.");
+                throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID",
+                        "Loại nguồn đánh giá không được hỗ trợ.");
             }
         } else {
-            // Guest submission
-            if (guestHandle == null || guestHandle.isBlank()) {
-                throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu mã guestHandle hợp lệ khi chưa đăng nhập.");
-            }
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
-                    guestHandle, request.getSourceType(), request.getSourceReference());
-            ownerType = OwnerType.GUEST;
-            ownerReference = handle.getHandleHash();
-            maskedDisplayName = wantsAnonymous(request)
-                    ? ReviewMaskingService.ANONYMOUS_DISPLAY_NAME
-                    : handle.getContactValueMasked();
-
-            Optional<EligibleSourceItem> itemOpt;
-            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
-                itemOpt = workshopAttendancePort.verifySource(request.getSourceReference());
-            } else if (request.getSourceType() == SourceType.RETAIL_ORDER_LINE) {
-                itemOpt = retailFulfilmentPort.verifySource(request.getSourceReference());
-            } else {
-                itemOpt = Optional.empty();
-            }
-            if (itemOpt.isEmpty()) {
-                // Kiểm tra trực tiếp qua verifySource với contactType và null value (adapter hỗ trợ filter bằng reference)
-                throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE", "Source không hợp lệ hoặc chưa đủ điều kiện review.");
-            }
-            EligibleSourceItem item = itemOpt.get();
-            TargetType expectedTarget = request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
-                    ? TargetType.WORKSHOP_SESSION : TargetType.RETAIL_PRODUCT;
-            if (request.getTargetType() != expectedTarget || !request.getTargetReference().equals(item.getTargetReference())) {
-                throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH", "Target của đánh giá không khớp với source.");
-            }
-            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
-                packageId = item.getPackageId();
-                packageName = item.getTargetName();
-            }
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để tạo đánh giá.");
         }
 
         String reviewId = UUID.randomUUID().toString();
@@ -178,8 +173,10 @@ public class ReviewApplicationService {
                 .rating(request.getRating())
                 .bodyText(request.getBodyText() != null ? request.getBodyText().trim() : null)
                 .status(ReviewStatus.PUBLIC)
-                // No version here: the id is assigned by us, so a non-null @Version would make Spring Data call merge()
-                // on a row that does not exist yet and fail with an optimistic-lock error. Hibernate sets version 0.
+                // No version here: the id is assigned by us, so a non-null @Version would make
+                // Spring Data call merge()
+                // on a row that does not exist yet and fail with an optimistic-lock error.
+                // Hibernate sets version 0.
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -207,7 +204,8 @@ public class ReviewApplicationService {
             reviewRepository.save(review);
             revisionRepository.save(revision);
         } catch (DataIntegrityViolationException ex) {
-            log.warn("Concurrent duplicate review detected for source {}:{}", request.getSourceType(), request.getSourceReference());
+            log.warn("Concurrent duplicate review detected for source {}:{}", request.getSourceType(),
+                    request.getSourceReference());
             throw ReviewManagementException.conflict("REVIEW_ALREADY_EXISTS", "Trải nghiệm này đã được gửi đánh giá.");
         }
 
@@ -222,40 +220,40 @@ public class ReviewApplicationService {
 
     @Transactional
     public ReviewDto editReview(String reviewId, EditReviewRequest request, Long authenticatedMemberId,
-                                String guestHandle, Long expectedVersion, String idempotencyKey) {
+            String guestHandle, Long expectedVersion, String idempotencyKey) {
         if (reviewId == null || reviewId.isBlank()) {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
         }
         if (request == null) {
-            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "Dữ liệu chỉnh sửa không được để trống.");
+            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID",
+                    "Dữ liệu chỉnh sửa không được để trống.");
         }
+        validateSafeContent(request.getBodyText());
 
         Review review = reviewRepository.findById(reviewId.trim())
-                .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy đánh giá với ID: " + reviewId));
+                .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND",
+                        "Không tìm thấy đánh giá với ID: " + reviewId));
 
         if (review.getStatus() == ReviewStatus.REMOVED) {
-            throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT", "Đánh giá đã bị gỡ bỏ, không thể chỉnh sửa.");
+            throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT",
+                    "Đánh giá đã bị gỡ bỏ, không thể chỉnh sửa.");
         }
 
         // Ownership authorization
-        if (review.getOwnerType() == OwnerType.MEMBER) {
-            if (authenticatedMemberId == null || !String.valueOf(authenticatedMemberId).equals(review.getOwnerReference())) {
-                throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền chỉnh sửa đánh giá này.");
-            }
-        } else if (review.getOwnerType() == OwnerType.GUEST) {
-            if (guestHandle == null || guestHandle.isBlank()) {
-                throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu mã guestHandle hợp lệ để chỉnh sửa đánh giá khách vãng lai.");
-            }
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
-                    guestHandle, review.getSourceType(), review.getSourceReference());
-            if (!handle.getHandleHash().equals(review.getOwnerReference())) {
-                throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED", "Mã guestHandle không khớp với chủ sở hữu đánh giá.");
-            }
+        if (authenticatedMemberId == null) {
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để chỉnh sửa đánh giá.");
+        }
+        if (review.getOwnerType() != OwnerType.MEMBER
+                || !String.valueOf(authenticatedMemberId).equals(review.getOwnerReference())) {
+            throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED",
+                    "Bạn không có quyền chỉnh sửa đánh giá này.");
         }
 
         // Optimistic locking
         if (expectedVersion == null || !review.getVersion().equals(expectedVersion)) {
-            throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT", "Phiên bản dữ liệu không khớp (Optimistic Lock Conflict). Vui lòng tải lại trang.");
+            throw ReviewManagementException.conflict("REVIEW_STATE_CONFLICT",
+                    "Phiên bản dữ liệu không khớp (Optimistic Lock Conflict). Vui lòng tải lại trang.");
         }
 
         String actorScope = authenticatedMemberId != null
@@ -264,8 +262,10 @@ public class ReviewApplicationService {
         String requestHash = idempotencyService != null ? idempotencyService.computeHash(request) : null;
         Optional<ReviewDto> cached = idempotencyService != null ? idempotencyService.findCompletedResponse(
                 idempotencyKey, actorScope, requestHash, ReviewDto.class) : Optional.empty();
-        if (cached.isPresent()) return cached.get();
-        if (idempotencyService != null) idempotencyService.recordPending(idempotencyKey, "EDIT_REVIEW", actorScope, requestHash);
+        if (cached.isPresent())
+            return cached.get();
+        if (idempotencyService != null)
+            idempotencyService.recordPending(idempotencyKey, "EDIT_REVIEW", actorScope, requestHash);
 
         Instant now = Instant.now();
         review.setRating(request.getRating());
@@ -297,7 +297,8 @@ public class ReviewApplicationService {
 
         ReplyDto replyDto = replyRepository.findByReviewId(reviewId).map(this::mapToReplyDto).orElse(null);
         ReviewDto result = mapToReviewDto(review, replyDto, true, true);
-        if (idempotencyService != null) idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
+        if (idempotencyService != null)
+            idempotencyService.recordSuccess(idempotencyKey, actorScope, result);
         return result;
     }
 
@@ -307,12 +308,14 @@ public class ReviewApplicationService {
             throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
         }
         Review review = reviewRepository.findById(reviewId.trim())
-                .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy đánh giá với ID: " + reviewId));
+                .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND",
+                        "Không tìm thấy đánh giá với ID: " + reviewId));
 
         boolean owner = actor != null && actor.role() == ActorRole.MEMBER
                 && review.getOwnerType() == OwnerType.MEMBER
                 && String.valueOf(actor.accountId()).equals(review.getOwnerReference());
-        boolean isInternalModerator = actor != null && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER);
+        boolean isInternalModerator = actor != null
+                && (actor.role() == ActorRole.STAFF || actor.role() == ActorRole.MANAGER);
         if (review.getStatus() != ReviewStatus.PUBLIC && !owner && !isInternalModerator) {
             throw ReviewManagementException.notFound("REVIEW_NOT_FOUND", "Không tìm thấy review.");
         }
@@ -374,4 +377,3 @@ public class ReviewApplicationService {
                 .build();
     }
 }
-

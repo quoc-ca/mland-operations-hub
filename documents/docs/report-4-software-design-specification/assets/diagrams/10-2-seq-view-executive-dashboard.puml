@@ -1,0 +1,107 @@
+@startuml
+!pragma charset UTF-8
+hide footbox
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam sequenceMessageAlign center
+skinparam SequenceLifeLineBorderColor #555555
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam SequenceGroupBorderColor #000000
+skinparam SequenceGroupBackgroundColor #FFFFFF
+skinparam SequenceStereotypeFontSize 9
+skinparam SequenceStereotypeFontStyle italic
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #000000
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #000000
+skinparam ArrowColor #000000
+skinparam SequenceGroupHeaderFontStyle plain
+
+actor "Manager" as Manager
+participant "ManagerDashboardPage" as UI <<user interaction>>
+participant "ExecutiveReportController" as Ctl <<user interaction>>
+participant "ManagerReportingAccess" as Access <<user interaction>>
+participant "ExecutiveReportService" as Svc <<user interaction>>
+participant "ReportingPeriodResolver" as Period <<user interaction>>
+participant "JdbcReportingSourceAdapter\n(ReportingSourcePort)" as Source <<user interaction>>
+participant "MySQL Database" as DB <<database>>
+
+Manager -> UI : Open "/manager/dashboard", or change period, branch or day
+activate UI
+UI -> Ctl : GET /api/v1/executive-reports?periodType&anchorDate&locationId
+activate Ctl
+Ctl -> Access : authorize(actor, locationIds)
+activate Access
+alt User Not Authenticated
+  Access --> Ctl : Throw ReportingException (AUTHENTICATION_REQUIRED)
+  Ctl --> UI : HTTP 401
+  UI --> Manager : Redirect to Sign-in page
+else Invalid Filter (Same Branch Listed Twice)
+  Access --> Ctl : Throw ReportingException (REPORTING_FILTER_INVALID)
+  Ctl --> UI : HTTP 400
+  UI --> Manager : Display error message
+else Not an Active Manager, No Active Branch, or a Branch Outside the Assignment
+  Access --> Ctl : Throw ReportingException (MANAGER_REPORTING_FORBIDDEN)
+  Ctl --> UI : HTTP 403
+  UI --> Manager : Display access denied message
+else Manager Allowed
+  Access --> Ctl : branch IDs (all assigned branches when none is chosen)
+  deactivate Access
+  Ctl -> Svc : report(periodType, anchorDate, branchIds)
+  activate Svc
+  Svc -> Period : resolve(periodType, anchorDate)
+  activate Period
+  alt Unknown periodType or Future-Only Period
+    Period --> Svc : Throw ReportingException (REPORTING_FILTER_INVALID)
+    Svc --> Ctl : Throw ReportingException
+    Ctl --> UI : HTTP 400
+    UI --> Manager : Display error message
+  else Valid Period
+    Period --> Svc : ReportingPeriod [from, to) capped at now (Vietnam time)
+    deactivate Period
+    Svc -> Source : retailRevenue(branchIds, from, to)
+    activate Source
+    Source -> DB : SELECT paid retail_orders (revenue and order count per branch)
+    activate DB
+    DB --> Source : aggregated rows
+    deactivate DB
+    Source --> Svc : list of RetailBranchRevenue
+    deactivate Source
+    Svc -> Source : workshopRevenue(branchIds, from, to)
+    activate Source
+    Source -> DB : SELECT finalized, fully paid workshop folios
+    activate DB
+    DB --> Source : aggregated rows
+    deactivate DB
+    Source --> Svc : WorkshopRevenue
+    deactivate Source
+    Svc -> Source : completedSessions(branchIds, from, to)
+    activate Source
+    Source -> DB : SELECT workshop sessions (checked-in places and capacity)
+    activate DB
+    DB --> Source : aggregated rows
+    deactivate DB
+    Source --> Svc : list of SessionCapacity
+    deactivate Source
+    Svc -> Source : branchNames(branchIds)
+    activate Source
+    Source --> Svc : branch names
+    deactivate Source
+    alt All Sources Unavailable
+      Svc --> Ctl : Throw ReportingException (REPORTING_SOURCES_UNAVAILABLE)
+      Ctl --> UI : HTTP 503
+      UI --> Manager : Display "data unavailable" message
+    else Some or All Sources Read
+      Svc -> Svc : Compose KPIs per branch and in total (retail, workshop and total revenue,\npaid retail orders, participants, workshop utilization);\na source that failed to read is marked UNAVAILABLE, only its values become null and the report is PARTIAL
+      Svc --> Ctl : ExecutiveReportResponse
+      Ctl --> UI : HTTP 200 ExecutiveReportResponse, Cache-Control: no-store
+      UI --> Manager : Display KPI cards and the branch table (VI/EN); a null value is shown as unknown, never as zero
+    end
+  end
+  deactivate Svc
+end
+deactivate Ctl
+deactivate UI
+@enduml

@@ -1,11 +1,15 @@
 ## 3. Project Stakeholders {#project-stakeholders}
 
-The named stakeholder register has not yet been formally recorded. This report therefore identifies stakeholder roles only and does not invent personal contact information.
+The named stakeholder register has not yet been formally recorded. This report therefore identifies stakeholder roles only and marks personal contact fields as TBD rather than inventing contact information.
 
-| Stakeholder role | Relationship to the project |
-| --- | --- |
-| Workshop customer | Uses the Guest or Member journey to book a workshop, submit design input, or, for Members, buy a ready-made ring. |
-| Shop Staff | Supports consultation, workshop operations, custody, invoice adjustment, settlement, and delivery handoff records. |
-| Manager | Manages workshop operations, catalogue and business rules, reviews higher-value design requests, and makes operational and financial decisions within the approved workflow. |
-| Admin Technical | Manages accounts, RBAC, technical parameters, integration credentials, monitoring, and technical audit without replacing business approvals. |
-| Academic supervisor | Reviews project analysis and deliverables. |
+| Full Name | Role | Email | Mobile |
+| --- | --- | --- | --- |
+| TBD | Academic supervisor | TBD | TBD |
+| TBD | Workshop customer representative | N/A | N/A |
+| TBD | Staff representative | TBD | TBD |
+| TBD | Manager representative | TBD | TBD |
+| TBD | Admin Technical representative | TBD | TBD |
+| SEP490_G22 | Project team | TBD | TBD |
+
+The stakeholder register is temporary. Names and contact details will be added
+after the project team provides the approved information.

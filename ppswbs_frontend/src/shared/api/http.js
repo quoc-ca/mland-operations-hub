@@ -125,12 +125,18 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
     const init = { method, headers, body: payload, signal };
 
     let token = null;
-    if (auth) {
+    if (auth === true) {
       token = getIdToken ? await getIdToken(false) : null;
       if (!token) throw new ApiError({ status: 401, code: 'AUTHENTICATION_REQUIRED', message: '', method });
+    } else if (auth === 'optional') {
+      try {
+        token = getIdToken ? await getIdToken(false) : null;
+      } catch {
+        token = null;
+      }
     }
     let response = await send(url, init, token);
-    if (auth && response.status === 401) {
+    if (auth === true && response.status === 401) {
       let initialError = null;
       try {
         const cloned = typeof response.clone === 'function' ? response.clone() : response;

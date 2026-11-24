@@ -197,7 +197,26 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByTestId('bandwidth-slider')).toBeInTheDocument();
     });
 
-    it('updates size, toggles engraving, and executes create and save commands', async () => {
+    it('redirects unauthenticated guest to login when clicking save and evaluate', async () => {
+      const user = userEvent.setup();
+      mockFetch({
+        'GET /api/v1/workshop-design-options': json(200, mockOptionsData),
+      });
+
+      const { router } = open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
+        session: fakeSession('signed-out'),
+      });
+
+      expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
+      const saveBtn = screen.getByTestId('save-and-evaluate-btn');
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/login');
+      });
+    });
+
+    it('updates size, toggles engraving, and executes create and save commands for signed-in member', async () => {
       const user = userEvent.setup();
 
       mockFetch({
@@ -205,7 +224,6 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         'POST /api/v1/workshop-designs': json(201, {
           designId: 'DSG-NEW-456',
           designVersion: 1,
-          guestSession: 'guest-sess-abc',
           status: 'DRAFT',
         }),
         'POST /api/v1/workshop-designs/DSG-NEW-456/versions': json(200, {
@@ -216,7 +234,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       });
 
       const { router } = open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
-        session: fakeSession('signed-out'),
+        session: fakeSession('signed-in'),
       });
 
       expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
@@ -239,9 +257,6 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       await waitFor(() => {
         expect(router.state.location.pathname).toBe('/workshops/PKG-COUPLE-01/design/DSG-NEW-456');
       });
-
-      // Guest session should be preserved in sessionStorage
-      expect(sessionStorage.getItem('mland_guest_design_session')).toBe('guest-sess-abc');
     });
 
     it('shows surface texture warning when outer engraving is selected on a textured shape', async () => {
@@ -327,12 +342,18 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       },
     };
 
+    it('shows login requirement when guest visits evaluation page', async () => {
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      expect(await screen.findByText('Vui lòng đăng nhập để xem thông tin mẫu thiết kế đã lưu.')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
+    });
+
     it('renders evaluation status, estimated price, and difficulty score', async () => {
       mockFetch({
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, mockDesignData),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
       expect(screen.getByText(/Mã thiết kế:/)).toBeInTheDocument();
@@ -356,7 +377,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, veryHardData),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
       expect(screen.getByText('9.4 / 10')).toBeInTheDocument();
@@ -372,7 +393,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       });
 
       const { router } = open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', {
-        session: fakeSession('signed-out'),
+        session: fakeSession('signed-in'),
       });
 
       const proceedBtn = await screen.findByTestId('proceed-booking-btn');
@@ -393,7 +414,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         }),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       const archiveBtn = await screen.findByTestId('archive-design-btn');
       await user.click(archiveBtn);

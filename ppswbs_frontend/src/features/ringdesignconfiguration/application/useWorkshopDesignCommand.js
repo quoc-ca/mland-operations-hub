@@ -143,6 +143,26 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
     }
   }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
 
+  const executeRestore = useCallback(async (designId, expectedVersion) => {
+    setLoading(true);
+    setError(null);
+    const key = getOrCreateCommandKey();
+    try {
+      const guestSession = getStoredGuestSession();
+      const res = await api.restoreDesign(key, designId, expectedVersion, guestSession, isAuthenticated);
+      resetCommandKey();
+      return res;
+    } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
+      setError(getErrorMessage(err));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey]);
+
   return {
     loading,
     error,
@@ -151,6 +171,7 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
     executeSave,
     executeEvaluate,
     executeArchive,
+    executeRestore,
     executeAttach,
   };
 }

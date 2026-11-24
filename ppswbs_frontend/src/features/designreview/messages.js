@@ -31,7 +31,7 @@ const baseMessages = {
     'workspace.catalogueRefLabel': 'Mã tham chiếu sản phẩm / danh mục (không bắt buộc)',
     'workspace.catalogueRefPlaceholder': 'Ví dụ: RING-SILVER-CLASSIC-01',
     'workspace.imageLabel': 'Hình ảnh tham khảo mẫu thiết kế (không bắt buộc)',
-    'workspace.imageHint': 'Định dạng JPEG, PNG, WEBP. Tối đa 10 MB. Độ phân giải tối đa 4096×4096.',
+    'workspace.imageHint': 'Định dạng JPEG, PNG, WEBP. Tối đa 5 MB. Độ phân giải tối đa 4096×4096.',
     'workspace.submit': 'Gửi yêu cầu thiết kế',
     'workspace.success': 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên',
     'workspace.charCount': '{count}/4.000 ký tự',
@@ -39,9 +39,19 @@ const baseMessages = {
     'workspace.removeImage': 'Gỡ bỏ ảnh',
 
     // F04-CONSENT
-    'consent.title': 'Chấp thuận Xử lý Hình ảnh Tham khảo',
-    'consent.body': 'Bằng việc gửi hình ảnh, bạn đồng ý cho phép hệ thống lưu trữ tạm thời và xử lý hình ảnh này phục vụ mục đích phân tích thiết kế bằng AI. Hình ảnh sẽ được tự động xóa sau khi quá trình trích xuất hoàn tất.',
-    'consent.checkbox': 'Tôi đồng ý với mục đích sử dụng hình ảnh ({purpose}, phiên bản {version}).',
+    'consent.title': 'Chấp thuận Điều khoản Sử dụng Hình ảnh & Bản quyền Chế tác',
+    'consent.body': 'Bằng việc gửi hình ảnh, bạn đồng ý cho phép chuyên viên cửa hàng và thợ kim hoàn lưu trữ và xem hình ảnh này để thẩm định và chế tác mẫu nhẫn thủ công.',
+    'consent.checkbox': 'Tôi đồng ý với Điều khoản Sử dụng Hình ảnh & Miễn trừ Trách nhiệm Bản quyền Chế tác ({purpose}, phiên bản {version}).',
+    'consent.cardSummary': 'Xưởng chế tác sẽ sử dụng hình ảnh Quý khách cung cấp để tạo mẫu thiết kế và không chịu trách nhiệm về vi phạm bản quyền. Vui lòng xem và chấp thuận điều khoản chi tiết trước khi gửi yêu cầu.',
+    'consent.openModal': '📜 Đọc & Chấp thuận Điều khoản',
+    'consent.reviewModal': 'Xem lại điều khoản',
+    'consent.acceptedBadge': '✓ Đã chấp thuận điều khoản',
+    'consent.modalTitle': 'Điều khoản Sử dụng Hình ảnh & Miễn trừ Trách nhiệm Bản quyền Chế tác',
+    'consent.modalSubtitle': 'Quý khách vui lòng cuộn xuống đọc hết nội dung điều khoản bên dưới để kích hoạt lựa chọn Chấp nhận hoặc Từ chối.',
+    'consent.modalScrollWarning': 'Vui lòng cuộn xuống cuối văn bản điều khoản để kích hoạt lựa chọn.',
+    'consent.modalScrollSuccess': 'Quý khách đã đọc hết nội dung điều khoản. Vui lòng chọn Chấp nhận để tiếp tục hoặc Từ chối để quay về.',
+    'consent.accept': 'Chấp nhận',
+    'consent.decline': 'Từ chối',
 
     // F04-ANALYSIS-STATUS & F04-RESULT
     'detail.title': 'Chi tiết Yêu cầu Thiết kế',
@@ -110,7 +120,7 @@ const baseMessages = {
     // Validation & Errors
     'validation.required': 'Trường này không được để trống.',
     'validation.invalidImageType': 'Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.',
-    'validation.imageTooLarge': 'Dung lượng ảnh vượt quá giới hạn 10 MB.',
+    'validation.imageTooLarge': 'Dung lượng ảnh vượt quá giới hạn 5 MB. Vui lòng chọn ảnh nhỏ hơn 5 MB.',
     'validation.imageEmpty': 'Tệp ảnh rỗng hoặc bị lỗi (0 bytes). Vui lòng chọn tệp ảnh hợp lệ.',
     'validation.imageDimensionTooLarge': 'Độ phân giải ảnh vượt quá giới hạn tối đa 4096×4096px. Vui lòng giảm kích thước ảnh.',
     'validation.consentRequired': 'Bạn phải tích chọn đồng ý xử lý hình ảnh trước khi gửi.',
@@ -203,7 +213,7 @@ const baseMessages = {
     'workspace.catalogueRefLabel': 'Product / Catalogue reference (optional)',
     'workspace.catalogueRefPlaceholder': 'E.g. RING-SILVER-CLASSIC-01',
     'workspace.imageLabel': 'Reference design image (optional)',
-    'workspace.imageHint': 'JPEG, PNG, WEBP. Max 10 MB. Max resolution 4096×4096.',
+    'workspace.imageHint': 'JPEG, PNG, WEBP. Max 5 MB. Max resolution 4096×4096.',
     'workspace.submit': 'Submit design request',
     'workspace.success': 'Your request has been submitted successfully and is awaiting staff review.',
     'workspace.charCount': '{count}/4,000 characters',
@@ -211,9 +221,19 @@ const baseMessages = {
     'workspace.removeImage': 'Remove image',
 
     // F04-CONSENT
-    'consent.title': 'Reference Image Processing Consent',
-    'consent.body': 'By providing an image, you consent to Mland temporarily storing and processing this image for AI design analysis. The image will be deleted after feature extraction completes.',
-    'consent.checkbox': 'I consent to the image processing purpose ({purpose}, version {version}).',
+    'consent.title': 'Image Use Terms & Crafting Copyright Disclaimer',
+    'consent.body': 'By providing an image, you consent to Mland storing and reviewing this image for crafting feasibility and manual ring creation.',
+    'consent.checkbox': 'I agree to the Image Use Terms & Crafting Copyright Disclaimer ({purpose}, version {version}).',
+    'consent.cardSummary': 'The workshop will use submitted images to craft this design and is not liable for copyright infringement. Please review and accept the detailed terms before submitting.',
+    'consent.openModal': '📜 Read & Accept Terms',
+    'consent.reviewModal': 'Review Terms',
+    'consent.acceptedBadge': '✓ Terms Accepted',
+    'consent.modalTitle': 'Custom Crafting Image Use & Copyright Liability Terms',
+    'consent.modalSubtitle': 'Please scroll to the bottom of the terms below to enable Accept or Decline.',
+    'consent.modalScrollWarning': 'Please scroll to the bottom of the document to enable choices.',
+    'consent.modalScrollSuccess': 'You have read all terms. Please choose Accept to proceed or Decline to return.',
+    'consent.accept': 'Accept',
+    'consent.decline': 'Decline',
 
     // F04-ANALYSIS-STATUS & F04-RESULT
     'detail.title': 'Design Request Details',
@@ -282,7 +302,7 @@ const baseMessages = {
     // Validation & Errors
     'validation.required': 'This field is required.',
     'validation.invalidImageType': 'Invalid image format. Only JPEG, PNG, or WEBP are supported.',
-    'validation.imageTooLarge': 'Image size exceeds the 10 MB limit.',
+    'validation.imageTooLarge': 'Image size exceeds the 5 MB limit. Please select a file smaller than 5 MB.',
     'validation.imageEmpty': 'Image file is empty or corrupted (0 bytes). Please choose a valid image file.',
     'validation.imageDimensionTooLarge': 'Image resolution exceeds the 4096×4096px limit. Please reduce image dimensions.',
     'validation.consentRequired': 'You must give consent for image processing before submitting.',

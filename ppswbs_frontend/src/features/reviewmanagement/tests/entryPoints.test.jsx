@@ -24,12 +24,13 @@ describe('who is offered which way into reviewing', () => {
     expect(screen.queryByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeNull();
   });
 
-  it('offers a Guest the email/phone lookup and no Member list', async () => {
+  it('offers a Guest a login link to write review and no lookup', async () => {
     mockFetch({ [LIST]: empty });
     open('/reviews', { session: fakeSession('signed-out') });
 
-    expect(await screen.findByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Viết đánh giá' })).toBeNull();
+    expect(await screen.findByRole('link', { name: 'Viết đánh giá' })).toBeInTheDocument();
+    expect(screen.getByTestId('guest-write-review-btn')).toHaveAttribute('href', '/login?returnTo=/reviews');
+    expect(screen.queryByRole('link', { name: 'Tìm giao dịch đủ điều kiện' })).toBeNull();
   });
 
   it('offers neither to a Staff, who moderates instead', async () => {
@@ -50,10 +51,12 @@ describe('who is offered which way into reviewing', () => {
     expect(await screen.findByText('Bạn không còn sản phẩm hay trải nghiệm nào chờ đánh giá.')).toBeInTheDocument();
   });
 
-  it('keeps the Guest lookup for a Guest', async () => {
-    mockFetch({});
-    open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
+  it('redirects Guest lookup to public reviews for Guest', async () => {
+    mockFetch({ [LIST]: empty });
+    const { router } = open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
 
-    expect(await screen.findByText('Tìm giao dịch đủ điều kiện')).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/reviews'));
+    expect(await screen.findByText('Đánh giá từ khách hàng')).toBeInTheDocument();
+    expect(screen.queryByText('Tìm giao dịch đủ điều kiện')).toBeNull();
   });
 });

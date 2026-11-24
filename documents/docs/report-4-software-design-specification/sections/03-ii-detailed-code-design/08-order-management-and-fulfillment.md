@@ -1,0 +1,63 @@
+## 8. Order Management and Fulfillment
+
+### 8.1 Class Diagram
+
+#### 8.1.1 Cart and Checkout
+
+{{r4-cd-order-management-cart-checkout width=100% align=center}}
+
+#### 8.1.2 Payment, Cancellation and Order History
+
+{{r4-cd-order-management-payment-cancellation-history width=100% align=center}}
+
+#### 8.1.3 Store Pickup and GHTK Shipping
+
+{{r4-cd-order-management-pickup-shipping width=100% align=center}}
+
+### 8.2 Sequence Diagram — Add Product to Cart
+
+{{r4-sd-add-product-to-cart width=100% align=center}}
+
+### 8.3 Sequence Diagram — Preview a Retail Order
+
+{{r4-sd-preview-retail-order width=100% align=center}}
+
+### 8.4 Sequence Diagram — Place a Retail Order
+
+{{r4-sd-place-retail-order width=100% align=center}}
+
+### 8.5 Sequence Diagram — Start a VNPay Payment
+
+{{r4-sd-start-vnpay-payment width=100% align=center}}
+
+### 8.6 Sequence Diagram — Confirm a VNPay Payment
+
+{{r4-sd-confirm-vnpay-payment width=100% align=center}}
+
+### 8.7 Sequence Diagram — Pay Cash at the Counter
+
+{{r4-sd-pay-cash-counter width=100% align=center}}
+
+### 8.8 Sequence Diagram — Hand Over a Pickup Order Paid by VNPay
+
+{{r4-sd-pickup-vnpay-order width=100% align=center}}
+
+### 8.9 Sequence Diagram — Pack a GHTK Parcel
+
+{{r4-sd-pack-ghtk-parcel width=100% align=center}}
+
+### 8.10 Sequence Diagram — Deliver a GHTK Parcel
+
+{{r4-sd-deliver-ghtk-parcel width=100% align=center}}
+
+### 8.11 Sequence Diagram — Cancel an Unpaid Order
+
+{{r4-sd-cancel-unpaid-order width=100% align=center}}
+
+### 8.12 Sequence Diagram — Expire an Unpaid Order
+
+{{r4-sd-expire-unpaid-order width=100% align=center}}
+
+### 8.13 Sequence Diagram — View Purchase Orders and Order Details
+
+{{r4-sd-view-purchase-orders width=100% align=center}}

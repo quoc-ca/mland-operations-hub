@@ -75,6 +75,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-packages/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/ai-support/messages").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/ai-support/quota").permitAll()
                         // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a
                         // Guest (contract
                         // `security: [{}]`); each service authorizes server-side and a bearer, when
@@ -129,31 +130,13 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/change-option-lookups")
                         .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/review-eligibility/lookup").permitAll()
+                        // Feature-011 Public Reviews (public read-only for guest/member)
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews").permitAll()
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").permitAll()
-                        // Feature-012 Workshop Ring Design Configuration endpoints (Guest & Member
-                        // access)
+                        // Feature-012 Public Catalogue Options (public read-only for configurator options)
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-design-options/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/workshop-designs/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/evaluate").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/versions").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/evaluate").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/archive").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/workshop-designs/*/attach-to-booking").permitAll()
-                        // Feature-004 Independent Design Requests (safe read for guest lookup and
-                        // member view, public submit for guest/member)
-                        .requestMatchers(HttpMethod.GET, "/api/v1/design-requests/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/design-requests").permitAll()
-                        // Compatibility alias for the same independent human-review request flow.
-                        // Decision and quote endpoints have additional path segments and remain
-                        // protected by the authenticated catch-all below.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/custom-design-requests/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/custom-design-requests").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/custom-design-requests/*").permitAll()
+                        // Feature-004 Reference image streaming (public read for <img> tags)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/design-requests/images/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/custom-design-requests/images/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());
 

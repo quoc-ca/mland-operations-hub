@@ -1,7 +1,7 @@
 # Feature Specification: Staff Consultation Chat
 
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-22
+**Date updated**: 2026-11-24
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt  
 **Feature**: `013-staff-consultation-chat`  
@@ -166,4 +166,23 @@ optimistic locking and audit evidence.
 # Route masking synchronization (2026-11-20)
 
 `/operations/consultations` has browser allowlist `STAFF` and `MANAGER`; direct navigation by `MEMBER`, `ADMIN`, or `CARRIER` is replaced to `/404` before inbox data is requested. The `STAFF` location-scope and `MANAGER` global authority checks remain server-side; this route rule does not authorize access to an individual consultation.
+
+## 12. Frontend consistency and stable-scroll contract — 2026-11-24
+
+The general consultation and Feature-004 design-context consultation use the
+same chat surface geometry. Contextual headers may show a safe design
+projection, but they must not create a narrower or wider chatbox. The shared
+contract includes the same desktop maximum width, mobile behavior, header
+height, message padding, composer spacing and sidebar width reservation.
+
+Loading a conversation, switching conversation, polling, refocusing the tab,
+changing visibility, or rendering an empty/loading/error state must not move
+the page or message thread to the bottom. A successful explicit send may bring
+the sent message into view. When polling receives a new inbound message while
+the reader is not at the bottom, the client preserves the current position and
+presents a visible new-message affordance. Staff and Manager screens follow the
+same rule.
+
+The implementation must preserve UTF-8 Vietnamese text, shared i18n behavior,
+and equal sidebar width for loading, empty, error and loaded states.
 

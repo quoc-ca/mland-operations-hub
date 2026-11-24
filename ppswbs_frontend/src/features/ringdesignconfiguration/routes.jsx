@@ -45,7 +45,7 @@ export const ringDesignConfigurationRoutes = [
   {
     path: '/my/designs',
     element: (
-      <RequireSession>
+      <RequireSession requiredText="Bạn cần đăng nhập để tiếp tục.">
         <MemberDesignHistoryPage />
       </RequireSession>
     ),

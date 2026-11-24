@@ -3,7 +3,7 @@ import { translate } from '../../../shared/i18n/I18nProvider';
 import { consultationMessages } from '../messages';
 
 export const MAX_MESSAGE_LENGTH = 2000;
-export const POLLING_INTERVAL_MS = 10000;
+export const POLLING_INTERVAL_MS = 3000;
 
 export function countCodePoints(str) {
   if (!str) return 0;

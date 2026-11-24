@@ -1,0 +1,188 @@
+@startuml
+title 8.1b Class Diagram — Payment, Cancellation and Order History (FE-08)
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam nodesep 30
+skinparam ranksep 50
+skinparam ArrowColor #000000
+skinparam defaultFontSize 12
+skinparam class {
+  BorderColor #000000
+  BackgroundColor #F5F5F5
+  BackgroundColor<<controller>> #DAE8FC
+  BackgroundColor<<service>> #D5E8D4
+  BackgroundColor<<repository>> #E1D5E7
+  BackgroundColor<<interface>> #FFF2CC
+  BackgroundColor<<adapter>> #FFE6CC
+  BackgroundColor<<entity>> #F5F5F5
+  BackgroundColor<<DTO>> #FFFFFF
+  BackgroundColor<<exception>> #F5F5F5
+  FontStyle bold
+  AttributeFontStyle plain
+  StereotypeFontStyle plain
+}
+left to right direction
+hide circle
+
+class CheckoutController <<controller>> {
+  - actorResolver : RetailActorResolver
+  - paymentService : RetailPaymentService
+  + initiatePayment(checkoutId) : PaymentRedirectView
+}
+
+class VnpayPaymentIngressController <<controller>> {
+  - ingress : PaymentIngressService
+  + receive(params) : Map<String,String>
+}
+
+class RetailCheckoutCancellationController <<controller>> {
+  - actors : RetailActorResolver
+  - cancellation : RetailCheckoutCancellationService
+  + cancel(checkoutId, key) : CancellationView
+  + cancelBranchOrder(orderId, key) : CancellationView
+}
+
+class RetailOrderQueryController <<controller>> {
+  - actors : RetailActorResolver
+  - orders : RetailOrderQueryService
+  + list() : List<RetailOrderHistoryView>
+  + detail(orderId) : RetailOrderHistoryView
+}
+
+class RetailPaymentService <<service>> {
+  - checkoutService : RetailCheckoutService
+  - paymentPort : RetailPaymentPort
+  - expiryService : ObjectProvider<RetailUnstartedExpiryService>
+  + initiate(memberAccountId, checkoutId) : PaymentRedirectView
+}
+
+class VnpayRetailPaymentAdapter <<adapter>> {
+  - gateway : PaymentGatewayCheckoutPort
+  - owners : PaymentOwnerRegistrationPort
+  - holds : RetailVariantHoldRepository
+  + initiate(checkoutId, amount) : PaymentInitiation
+}
+
+class PaymentIngressService <<service>> {
+  - checksum : VnpayChecksumService
+  - registry : PaymentOwnerRegistry
+  - retail : RetailPaymentEvidenceFacade
+  + receive(params) : Outcome
+}
+
+class RetailPaymentEvidenceFacade <<interface>> {
+  + applyVerifiedPayment(payment) : void
+}
+
+class RetailPaymentEvidenceService <<service>> {
+  - checkouts : GroupedCheckoutRepository
+  - holdRepository : RetailVariantHoldRepository
+  - holds : RetailVariantHoldLifecycleService
+  + applyVerifiedPayment(payment) : void
+}
+
+class RetailCheckoutCancellationService <<service>> {
+  - carts : RetailCartRepository
+  - checkouts : GroupedCheckoutRepository
+  - orders : RetailOrderRepository
+  + cancel(memberId, checkoutId) : CancellationView
+  + cancelBranchOrder(memberId, orderId) : CancellationView
+}
+
+class RetailUnstartedExpiryJob <<service>> {
+  - holds : RetailVariantHoldRepository
+  - expiry : RetailUnstartedExpiryService
+  + process() : void
+}
+
+class RetailUnstartedExpiryService <<service>> {
+  - carts : RetailCartRepository
+  - checkouts : GroupedCheckoutRepository
+  - holds : RetailVariantHoldLifecycleService
+  + requirePaymentBeforeDeadline(checkoutId) : void
+  + expire(memberId, checkoutId) : boolean
+}
+
+class RetailOrderQueryService <<service>> {
+  - orders : RetailOrderRepository
+  - catalogue : RetailCataloguePort
+  + list(memberId) : List<RetailOrderHistoryView>
+  + find(memberId, orderId) : RetailOrderHistoryView
+}
+
+class RetailShipmentCreationService <<service>> {
+  - shipments : RetailShipmentRepository
+  + createShipmentsForPaidCheckout(checkout) : void
+}
+
+class LoyaltyFacade <<interface>> {
+  + settleAcceptedBenefits(outcome) : BenefitResult
+  + grantEarnedPoints(outcome) : BenefitResult
+  + releaseHeldBenefits(outcome) : BenefitResult
+}
+
+class GroupedCheckoutRepository <<repository>> {
+  + lockOwned(id, memberId) : Optional<GroupedCheckout>
+  + lockById(id) : Optional<GroupedCheckout>
+}
+
+class RetailOrderRepository <<repository>> {
+  + findOwnedOrders(memberId) : List<RetailOrder>
+  + findOwnedOrder(memberId, orderId) : Optional<RetailOrder>
+}
+
+class GroupedCheckout <<entity>> {
+  - id : String
+  - memberAccountId : Long
+  - payableAmount : BigDecimal
+}
+
+class RetailOrder <<entity>> {
+  - id : String
+  - groupedCheckout : GroupedCheckout
+  - locationId : Long
+}
+
+class OrderItem <<entity>> {
+  - id : String
+  - retailOrder : RetailOrder
+  - variantId : Long
+}
+
+class RetailPaymentReconciliation <<entity>> {
+  - id : Long
+  - checkoutId : String
+  - merchantReference : String
+}
+
+CheckoutController --> RetailPaymentService : uses
+VnpayPaymentIngressController --> PaymentIngressService : uses
+RetailCheckoutCancellationController --> RetailCheckoutCancellationService : uses
+RetailOrderQueryController --> RetailOrderQueryService : uses
+
+RetailPaymentService --> RetailUnstartedExpiryService : uses
+RetailPaymentService --> RetailShipmentCreationService : uses
+PaymentIngressService --> RetailPaymentEvidenceFacade : uses
+RetailPaymentEvidenceService ..|> RetailPaymentEvidenceFacade : implements
+RetailPaymentEvidenceService --> GroupedCheckoutRepository : uses
+RetailPaymentEvidenceService --> RetailShipmentCreationService : uses
+RetailPaymentEvidenceService --> LoyaltyFacade : uses
+RetailCheckoutCancellationService --> GroupedCheckoutRepository : uses
+RetailCheckoutCancellationService --> RetailOrderRepository : uses
+RetailCheckoutCancellationService --> LoyaltyFacade : uses
+RetailUnstartedExpiryJob --> RetailUnstartedExpiryService : uses
+RetailUnstartedExpiryService --> GroupedCheckoutRepository : uses
+RetailUnstartedExpiryService --> LoyaltyFacade : uses
+RetailOrderQueryService --> RetailOrderRepository : uses
+
+GroupedCheckoutRepository ..> GroupedCheckout : manages
+RetailOrderRepository ..> RetailOrder : manages
+
+GroupedCheckout "1" *-- "*" RetailOrder
+RetailOrder "1" *-- "*" OrderItem
+RetailPaymentService --> VnpayRetailPaymentAdapter : uses
+RetailPaymentEvidenceService --> RetailPaymentReconciliation
+@enduml
