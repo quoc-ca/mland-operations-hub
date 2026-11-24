@@ -1,7 +1,5 @@
 ## 8. Order Management and Fulfillment
 
-This design set covers feature FE-08 Retail Order and Fulfillment (spec `ppswbs-spec/features/008-retail-order-and-fulfillment`). The backend modules are `features.readyringsales` (cart, checkout, payment, GHTK shipments, carrier portal) and `features.fulfilment` (store-pickup operations), both Spring Modulith modules layered as `controller → service → dao → entity`. A checkout is one `GroupedCheckout` with one `RetailOrder` per branch; stock is held per size and branch, and benefits are held in FE-06, until the order is paid or released. A VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours. Commands take pessimistic locks (availability guard → checkout → order), check `expectedVersion` where the client edits a resource, and are idempotent by `Idempotency-Key`. The module integrates with FE-01 Account Management (actor, role and branch scope), FE-02 Product Management (sale facts and stock through `CatalogueSalesFacade`), FE-06 Loyalty & Promotion (benefit preview, hold, consume and release), VNPay (payment) and GHTK (shipping fee).
-
 ### 8.1 Class Diagram
 
 (Class diagram — 8.1a Cart and Checkout)
@@ -9,53 +7,6 @@ This design set covers feature FE-08 Retail Order and Fulfillment (spec `ppswbs-
 (Class diagram — 8.1b Payment, Cancellation and Order History)
 
 (Class diagram — 8.1c Store Pickup and GHTK Shipping)
-
-::: {.docx-table width="100%" columns="8%,32%,60%" repeat-header="false"}
-
-|No|Class|Description|
-|---|---|---|
-|1|CartController|Member cart under `/api/v1/members/me/ready-ring-cart`: read, add a line, change quantity, remove a line.|
-|2|CheckoutController|Benefit and price preview (`/ready-ring-benefit-previews`), GHTK shipping quote (`/ready-ring-shipping-quotes`), place order (`/ready-ring-orders`) and start VNPay payment (`/ready-ring-checkouts/{id}/payment`).|
-|3|RetailCheckoutCancellationController|Member cancellation of a whole checkout or of one cash branch order.|
-|4|RetailOrderQueryController|Member order history and order detail under `/api/v1/members/me/ready-ring-orders`.|
-|5|RetailCounterCashController|Staff pickup desk, cash confirmation of a store-pickup order and Manager daily cash.|
-|6|StaffRetailShipmentController|Staff and Manager GHTK shipment list, detail and the "packed and ready" transition.|
-|7|CarrierShipmentController|GHTK partner portal (role CARRIER): all GHTK shipments and the courier transitions "picked up" and "delivered".|
-|8|RetailPaymentReconciliationController|Manager list of VNPay transactions that need manual reconciliation.|
-|9|PickupOperationsController (fulfilment)|Store-pickup preparation, handover to the customer and counter-cash handover.|
-|10|RetailAuthorization / RetailActorResolver|Resolves the signed-in Member, Staff, Manager or Carrier from FE-01 and checks role and branch scope; never trusts a client-supplied account ID.|
-|11|CartService|Cart rules: 1–99 per size across the cart, at most 50 lines, quantity within the branch stock counting what is already in the cart (`RETAIL_CART_QUANTITY_LIMIT` when the cart already holds some).|
-|12|RetailCartSelection|Resolves the ticked cart lines (or the single Mua Ngay line) that a checkout prices, holds and orders.|
-|13|RetailCheckoutQuotePreviewService|Prices the selected lines through FE-02, asks FE-06 for the benefit preview (automatic discount, voucher, points), adds GHTK fees and stores a durable `RetailCheckoutQuote`; splits each line's discount to its branch order and returns each ticked cart line's own share (`cartLineDiscounts`) so the cart shows the price that line really gets.|
-|14|RetailCheckoutQuoteValidator|Revalidates a locked quote against the locked cart and the locked FE-02 sale facts before acceptance.|
-|15|RetailCheckoutAcceptanceService|Accepts a quote (`accept`): creates the `GroupedCheckout`, one `RetailOrder` per branch, the size × branch holds and the FE-06 benefit hold, all or nothing.|
-|16|RetailPaymentMethods|Payment-method rules: VNPay (at least 5,000 VND, 10-minute hold) or cash at the counter (store pickup only, 72-hour hold).|
-|17|RetailDiscountAllocation|Splits a discount over branch orders in proportion to their amount, flooring each share and giving the remainder to the largest branches.|
-|18|RetailPaymentService / VnpayRetailPaymentAdapter|Starts a VNPay payment for a held checkout and returns the payment URL; the adapter signs the request through `paymentintegration`.|
-|19|RetailPaymentEvidenceService|Applies verified VNPay evidence: marks the checkout paid, sells the holds, consumes the FE-06 benefits, publishes `RetailOrderPaid` and creates GHTK shipments.|
-|20|RetailQueryReconciliationService|Calls VNPay QueryDR outside the lock for payments without a result and records unresolved or late payments as `RetailPaymentReconciliation`.|
-|21|RetailUnstartedExpiryService / RetailConfirmedUnpaidExpiryService (+ jobs)|Scheduled release of checkouts whose payment was never started, or was started and verified as failed, after the hold ends: holds released, FE-06 benefits released, lines returned to the cart.|
-|22|RetailCheckoutCancellationService / RetailBranchPartService|Member cancellation of an unpaid checkout, or of one cash branch order on its own (only that order's holds, lines and benefit share).|
-|23|RetailCashCollectionService|Staff confirms the exact counter cash of a pickup order; pays the branch order and records the handover in one transaction.|
-|24|RetailShipmentCreationService|Creates one GHTK shipment (tracking number, recipient snapshot) for each paid GHTK branch order.|
-|25|StaffRetailShipmentService / CarrierShipmentService|Shipment state machine: Staff moves PREPARING → READY_FOR_CARRIER; the carrier moves READY_FOR_CARRIER → HANDED_TO_CARRIER and → DELIVERED. Each step writes `RetailShipmentStatusHistory`.|
-|26|RetailAvailabilityGuardService / RetailVariantHoldLifecycleService|Implements FE-02's availability boundary: locks the size and branch guard rows in ascending order and creates, sells, releases or expires `RetailVariantHold` rows only inside that lock.|
-|27|RetailOrderQueryService / RetailCounterCashQueryService|Read models for Member order history, Staff pickup desk and Manager daily cash.|
-|28|GhtkRetailShippingQuoteAdapter / DurableShippingQuoteWriter|Calls the GHTK fee API outside any transaction, then stores the `RetailShippingQuote` in its own transaction.|
-|29|RetailCataloguePort, RetailCheckoutPricingPort, RetailBenefitPort, RetailPaymentPort, RetailShippingQuotePort|Outbound ports to FE-02, FE-06, VNPay and GHTK; each has a production adapter and a local development substitute.|
-|30|RetailPickupOrderFacade / RetailCounterCashFacade / RetailOrderPaid|Facade exported to `fulfilment`: transaction-bound pickup operations, counter-cash payment and the post-payment event.|
-|31|RetailCart / CartLine|Member cart and its lines (size, branch, quantity).|
-|32|RetailCheckoutQuote / RetailCheckoutQuoteBranch / RetailCheckoutQuoteItem|Durable server-priced quote: selection, branch orders, items, discounts and payable total.|
-|33|GroupedCheckout|One accepted checkout: payment method and state, payment deadline, frozen benefit evidence.|
-|34|RetailOrder / OrderItem|One branch order with frozen lines, fulfilment method, discount share, shipping charge, payable amount and payment and fulfilment state.|
-|35|RetailVariantHold / CheckoutHold|Stock hold per size and branch, and the checkout-level hold with its deadline.|
-|36|RetailCashCollection|Confirmed counter cash: amount, Staff and time.|
-|37|RetailShipment / RetailShipmentStatusHistory|GHTK shipment with tracking number, recipient snapshot, status and its history.|
-|38|RetailShippingQuote|GHTK fee quote for one branch and address, with its expiry.|
-|39|RetailPaymentReconciliation|VNPay transaction that needs a Manager's attention, with its reason.|
-|40|PickupEvidence (fulfilment)|Evidence of preparation and handover of a store-pickup order.|
-
-:::
 
 ### 8.2 Sequence Diagram — Add Product to Cart
 
