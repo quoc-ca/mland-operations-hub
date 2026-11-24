@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
@@ -8,6 +8,13 @@ import { designReviewRoutes } from '../routes';
 beforeEach(() => {
   clearRoleCache();
 });
+
+function simulateScroll(element, { scrollTop = 0, scrollHeight = 600, clientHeight = 250 } = {}) {
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: scrollHeight });
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: clientHeight });
+  Object.defineProperty(element, 'scrollTop', { configurable: true, value: scrollTop });
+  fireEvent.scroll(element);
+}
 
 const open = (path, options) => renderRoutes(designReviewRoutes, { path, ...options });
 
@@ -117,11 +124,11 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
-  it('allows Guest to access workspace without signing in and shows guest rate limit notice', async () => {
+  it('requires Member session for guests attempting to access workspace', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
-    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
-    expect(screen.getByText(/Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu\/ngày/)).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
 
   it('renders design workspace and validates empty input', async () => {
@@ -169,13 +176,32 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     await user.upload(fileInput, file);
 
     // Consent box must appear
-    expect(await screen.findByText('Chấp thuận Xử lý Hình ảnh Tham khảo')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: /Chấp thuận/i })).toBeInTheDocument();
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     expect(submitBtn).toBeDisabled();
 
-    // Check consent checkbox
+    // Check consent checkbox - opens terms popup
     const consentCheckbox = screen.getByRole('checkbox');
     await user.click(consentCheckbox);
+
+    // Terms modal appears
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Điều khoản Sử dụng Hình ảnh & Miễn trừ/i })).toBeInTheDocument();
+
+    const acceptBtn = screen.getByRole('button', { name: 'Chấp nhận' });
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Scroll to bottom of terms
+    const termsBox = screen.getByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 500, scrollHeight: 600, clientHeight: 250 });
+    expect(acceptBtn).not.toBeDisabled();
+    expect(declineBtn).not.toBeDisabled();
+
+    // Accept terms
+    await user.click(acceptBtn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(submitBtn).not.toBeDisabled();
 
     await user.click(submitBtn);
@@ -228,12 +254,73 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     const consentCheckbox = await screen.findByRole('checkbox');
     await user.click(consentCheckbox);
 
+    // Accept via modal
+    const termsBox = await screen.findByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 500, scrollHeight: 600, clientHeight: 250 });
+    await user.click(screen.getByRole('button', { name: 'Chấp nhận' }));
+
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);
 
     expect(await screen.findByText(/Bạn đã gửi ảnh quá số lần cho phép/)).toBeInTheDocument();
     // Form data is preserved
     expect(descInput).toHaveValue('Nhẫn vàng trắng 18k.');
+  });
+
+  it('enforces scrolling to bottom before enabling Accept and Decline buttons in terms modal', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    const file = new File(['image-bytes'], 'ring.png', { type: 'image/png' });
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    await user.upload(fileInput, file);
+
+    const openTermsBtn = await screen.findByRole('button', { name: /Đọc & Chấp thuận Điều khoản/i });
+    await user.click(openTermsBtn);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Điều khoản Sử dụng Hình ảnh & Miễn trừ/i })).toBeInTheDocument();
+    expect(screen.getByTestId('scroll-warning')).toBeInTheDocument();
+
+    const acceptBtn = screen.getByRole('button', { name: 'Chấp nhận' });
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Partial scroll (not reaching bottom)
+    const termsBox = screen.getByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 50, scrollHeight: 600, clientHeight: 250 });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Full scroll to bottom
+    simulateScroll(termsBox, { scrollTop: 400, scrollHeight: 600, clientHeight: 250 });
+    expect(screen.getByTestId('scroll-success')).toBeInTheDocument();
+    expect(acceptBtn).not.toBeDisabled();
+    expect(declineBtn).not.toBeDisabled();
+  });
+
+  it('navigates back to previous screen when user declines terms in popup after scrolling', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    const { router } = open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    const file = new File(['image-bytes'], 'ring.png', { type: 'image/png' });
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    await user.upload(fileInput, file);
+
+    const openTermsBtn = await screen.findByRole('button', { name: /Đọc & Chấp thuận Điều khoản/i });
+    await user.click(openTermsBtn);
+
+    const termsBox = await screen.findByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 400, scrollHeight: 600, clientHeight: 250 });
+
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(declineBtn).not.toBeDisabled();
+
+    await user.click(declineBtn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 
@@ -268,25 +355,12 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
     expect(screen.getByText('topaz-ring.jpg')).toBeInTheDocument();
   });
 
-  it('allows Guest to view request details and review status with tracking token', async () => {
-    mockFetch({
-      'GET /api/v1/design-requests/guest-req-1': json(200, {
-        id: 'guest-req-1',
-        requestReference: 'DR-GUEST-01',
-        requestVersion: 1,
-        requestStatus: 'ACTIVE',
-        reviewStatus: 'NEED_REVIEW',
-        description: 'Nhẫn bạc đính đá topaz tự nhiên.',
-        guestSessionId: 'guest-session-123',
-      }),
-    });
-
+  it('requires Member session when guest attempts to view request details without login', async () => {
+    mockFetch({});
     open('/design-requests/guest-req-1?token=token-guest-xyz', { session: fakeSession('signed-out') });
 
-    expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
-    expect(screen.getByText('Nhẫn bạc đính đá topaz tự nhiên.')).toBeInTheDocument();
-    expect(screen.getByText('Đang chờ nhân viên thẩm duyệt')).toBeInTheDocument();
-    expect(screen.getByText(/Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi/)).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng đăng nhập để xem tiến độ yêu cầu thiết kế.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
 });
 

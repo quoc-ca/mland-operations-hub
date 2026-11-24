@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
+import { AuthContext } from '../../../shared/auth/AuthProvider';
+import { RequireSession } from '../../../shared/auth/RequireSession';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { ContextSelectorModal } from './ContextSelectorModal';
 import { newCommandId } from '../../../shared/api/http';
@@ -11,7 +13,10 @@ import '../consultation-chat.css';
 export function MemberConsultationPage() {
   const t = useT(consultationMessages);
   const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
   const api = useConsultationChatApi();
+  const auth = useContext(AuthContext);
+  const isAuthenticated = auth ? auth.status === 'signed-in' : true;
 
   const [searchParams] = useSearchParams();
   const designRefParam = searchParams.get('designReference') || searchParams.get('designId');
@@ -42,7 +47,9 @@ export function MemberConsultationPage() {
   nextCursorRef.current = nextCursor;
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
   };
 
   // Fetch conversations list
@@ -89,8 +96,10 @@ export function MemberConsultationPage() {
 
   // Initial load
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    if (isAuthenticated) {
+      loadConversations();
+    }
+  }, [isAuthenticated, loadConversations]);
 
   // Handle auto-attaching design reference from URL if provided
   useEffect(() => {
@@ -138,6 +147,7 @@ export function MemberConsultationPage() {
 
   // Visible-tab polling every 3s and instant sync on focus / visibility change
   useEffect(() => {
+    if (!isAuthenticated) return;
     const poll = () => {
       if (document.visibilityState === 'visible') {
         loadConversations(true);
@@ -261,6 +271,14 @@ export function MemberConsultationPage() {
 
   const currentCount = countCodePoints(messageInput);
   const isClosed = activeConversation?.status === 'CLOSED';
+
+  if (auth && auth.status === 'signed-out') {
+    return (
+      <div className="consultation-layout" style={{ justifyContent: 'center', alignItems: 'center', minHeight: '60vh', display: 'flex' }}>
+        <RequireSession requiredText={t('loginRequired')} />
+      </div>
+    );
+  }
 
   return (
     <div className="consultation-layout">
@@ -445,7 +463,8 @@ export function MemberConsultationPage() {
                 })
               )}
               {activeConversation.messages?.length > 0 &&
-                activeConversation.messages[activeConversation.messages.length - 1].senderRole === 'MEMBER' && (
+                (activeConversation.messages[activeConversation.messages.length - 1].senderRole === 'MEMBER' ||
+                 activeConversation.messages[activeConversation.messages.length - 1].senderRole === 'CUSTOMER') && (
                   <div
                     style={{
                       display: 'flex',

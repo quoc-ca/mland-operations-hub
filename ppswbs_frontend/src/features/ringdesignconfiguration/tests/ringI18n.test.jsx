@@ -71,7 +71,7 @@ describe('Ring design i18n', () => {
       path: '/workshops/:packageReference/design/:designId',
       element: <><LanguageToggle /><DesignEvaluationPage /></>,
     }];
-    renderRoutes(routes, { path: '/workshops/PKG-COUPLE-01/design/DSG-I18N-1', session: fakeSession('signed-out') });
+    renderRoutes(routes, { path: '/workshops/PKG-COUPLE-01/design/DSG-I18N-1', session: fakeSession('signed-in') });
 
     expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
     expect(screen.getByText(/Mã thiết kế:/)).toBeInTheDocument();

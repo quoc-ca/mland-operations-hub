@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { RequireSession } from '../../../shared/auth/RequireSession';
+import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useWorkshopRingDesignApi } from '../../ringdesignconfiguration/api/useWorkshopRingDesignApi';
@@ -47,6 +48,8 @@ function formatDesignOptionLabel(d) {
 
 export default function DesignWorkspacePage() {
   const t = useT(designReviewMessages);
+  const { language } = useLanguage();
+  const lang = language === 'en' ? 'en' : 'vi';
   const navigate = useNavigate();
   const api = useDesignReviewApi();
   const workshopRingApi = useWorkshopRingDesignApi();
@@ -55,6 +58,7 @@ export default function DesignWorkspacePage() {
   const isAuthenticated = authStatus === 'signed-in' || Boolean(userId);
 
   const fileInputRef = useRef(null);
+  const termsScrollRef = useRef(null);
 
   const [searchParams] = useSearchParams();
   const ringDesignRef = searchParams.get('designReference') || searchParams.get('ringDesignReference') || '';
@@ -62,6 +66,8 @@ export default function DesignWorkspacePage() {
   const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [consentAgreed, setConsentAgreed] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [errors, setErrors] = useState({});
   const [guestSubmission, setGuestSubmission] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -69,6 +75,54 @@ export default function DesignWorkspacePage() {
   const [selectedDesignRef, setSelectedDesignRef] = useState(ringDesignRef);
   const [loadingDesigns, setLoadingDesigns] = useState(false);
   const selectedDesignObj = availableDesigns.find((d) => d.designId === selectedDesignRef);
+
+  useEffect(() => {
+    if (!showTermsModal) return;
+    const el = termsScrollRef.current;
+    if (!el) return;
+
+    const checkScroll = () => {
+      if (el.clientHeight > 0 && el.scrollHeight <= el.clientHeight) {
+        setHasScrolledToBottom(true);
+        return;
+      }
+      if (el.scrollHeight > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 20) {
+        setHasScrolledToBottom(true);
+      }
+    };
+
+    checkScroll();
+    el.addEventListener('scroll', checkScroll, { passive: true });
+    return () => el.removeEventListener('scroll', checkScroll);
+  }, [showTermsModal]);
+
+  const handleTermsScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight > 0 && scrollTop + clientHeight >= scrollHeight - 20) {
+      setHasScrolledToBottom(true);
+    }
+  };
+
+  const handleOpenTermsModal = () => {
+    setHasScrolledToBottom(consentAgreed);
+    setShowTermsModal(true);
+  };
+
+  const handleAcceptTerms = () => {
+    setConsentAgreed(true);
+    setShowTermsModal(false);
+    setErrors(prev => {
+      const copy = { ...prev };
+      delete copy.consent;
+      return copy;
+    });
+  };
+
+  const handleDeclineTerms = () => {
+    setConsentAgreed(false);
+    setShowTermsModal(false);
+    navigate(-1);
+  };
 
   useEffect(() => {
     if (ringDesignRef) {
@@ -231,6 +285,8 @@ export default function DesignWorkspacePage() {
 
     if (selectedImages.length > 0 && !consentAgreed) {
       newErrors.consent = t('validation.consentRequired');
+      setHasScrolledToBottom(false);
+      setShowTermsModal(true);
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -255,74 +311,16 @@ export default function DesignWorkspacePage() {
     );
 
     if (res.ok && res.result?.id) {
-      if (isAuthenticated) {
-        navigate(`/design-requests/${encodeURIComponent(res.result.id)}`, {
-          state: { successMessage: 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên' },
-        });
-      } else {
-        // Guest submission confirmation screen
-        setGuestSubmission(res.result);
-      }
+      navigate(`/design-requests/${encodeURIComponent(res.result.id)}`, {
+        state: { successMessage: 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên' },
+      });
     }
   }
 
-  function handleCopyGuestLink() {
-    if (!guestSubmission) return;
-    const url = `${window.location.origin}/design-requests/${encodeURIComponent(guestSubmission.id)}?token=${encodeURIComponent(guestSubmission.guestTrackingToken || '')}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 3000);
-    });
-  }
-
-  if (guestSubmission) {
-    const trackingUrl = `/design-requests/${encodeURIComponent(guestSubmission.id)}?token=${encodeURIComponent(guestSubmission.guestTrackingToken || '')}`;
-    const fullTrackingUrl = `${window.location.origin}${trackingUrl}`;
-
+  if (!isAuthenticated) {
     return (
       <div className="design-container">
-        <header className="page-header">
-          <h1>🎉 Gửi yêu cầu thiết kế thành công!</h1>
-          <p className="muted">
-            Mã yêu cầu: <strong>{guestSubmission.requestReference || guestSubmission.id}</strong>
-          </p>
-        </header>
-
-        <div className="guest-tracking-card">
-          <h3>📌 {t('guest.trackingLink')}</h3>
-          <p>{t('guest.trackingLinkDesc')}</p>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', margin: '1rem 0', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              readOnly
-              value={fullTrackingUrl}
-              style={{ flex: 1, minWidth: '260px', padding: '0.6rem', background: '#ffffff', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-            />
-            <button type="button" className="button outline" onClick={handleCopyGuestLink}>
-              {copiedLink ? `✓ ${t('guest.copied')}` : `📋 ${t('guest.copyLink')}`}
-            </button>
-          </div>
-          <p className="small muted">
-            * Lưu ý: Vì bạn gửi với tư cách Khách, liên kết trên là cách duy nhất để xem cập nhật và phản hồi thẩm duyệt từ nhân viên cửa hàng.
-          </p>
-          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
-            <Link to={trackingUrl} className="button primary">
-              Xem tiến độ yêu cầu ngay
-            </Link>
-            <button
-              type="button"
-              className="button outline"
-              onClick={() => {
-                setGuestSubmission(null);
-                setDescription('');
-                setSelectedImages([]);
-                setConsentAgreed(false);
-              }}
-            >
-              Gửi yêu cầu thiết kế khác
-            </button>
-          </div>
-        </div>
+        <RequireSession requiredText="Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh" />
       </div>
     );
   }
@@ -333,10 +331,7 @@ export default function DesignWorkspacePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1>{t('workspace.title')}</h1>
-            <p className="muted">
-              {t('workspace.subtitle')}
-              {!isAuthenticated && ' (Bạn đang gửi yêu cầu với tư cách Khách — tối đa 5 yêu cầu/ngày)'}
-            </p>
+            <p className="muted">{t('workspace.subtitle')}</p>
           </div>
           {isAuthenticated && (
             <Link to="/my/designs?tab=custom" className="button outline small" style={{ textDecoration: 'none' }}>
@@ -554,28 +549,48 @@ export default function DesignWorkspacePage() {
 
         {selectedImages.length > 0 && (
           <div className="consent-card" role="region" aria-label={t('consent.title')}>
-            <h3>{t('consent.title')}</h3>
-            <p className="small muted">
-              Bằng việc gửi hình ảnh, bạn đồng ý cho phép chuyên viên cửa hàng và thợ kim hoàn lưu trữ và xem hình ảnh này để thẩm định tính khả thi của thiết kế thủ công.
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>{t('consent.title')}</h3>
+              {consentAgreed && (
+                <span className="badge-tag badge-success">{t('consent.acceptedBadge')}</span>
+              )}
+            </div>
+            <p className="small muted" style={{ margin: '0.5rem 0' }}>
+              {t('consent.cardSummary')}
             </p>
-            <label className="consent-checkbox">
-              <input
-                type="checkbox"
-                checked={consentAgreed}
-                onChange={e => {
-                  setConsentAgreed(e.target.checked);
-                  if (errors.consent) setErrors(prev => ({ ...prev, consent: null }));
-                }}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                className={`button small ${consentAgreed ? 'outline' : 'primary'}`}
+                onClick={handleOpenTermsModal}
                 disabled={command.pending}
-              />
-              <span>
-                {t('consent.checkbox', {
-                  purpose: 'HUMAN_DESIGN_REVIEW',
-                  version: CONSENT_VERSION,
-                })}
-              </span>
-            </label>
-            {errors.consent && <div className="field-error">{errors.consent}</div>}
+              >
+                {consentAgreed ? t('consent.reviewModal') : t('consent.openModal')}
+              </button>
+              <label className="consent-checkbox" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={consentAgreed}
+                  onChange={() => {
+                    if (!consentAgreed) {
+                      setHasScrolledToBottom(false);
+                      setShowTermsModal(true);
+                    } else {
+                      setConsentAgreed(false);
+                    }
+                    if (errors.consent) setErrors(prev => ({ ...prev, consent: null }));
+                  }}
+                  disabled={command.pending}
+                />
+                <span>
+                  {t('consent.checkbox', {
+                    purpose: 'HUMAN_DESIGN_REVIEW',
+                    version: CONSENT_VERSION,
+                  })}
+                </span>
+              </label>
+            </div>
+            {errors.consent && <div className="field-error" style={{ marginTop: '0.5rem' }}>{errors.consent}</div>}
           </div>
         )}
 
@@ -601,6 +616,117 @@ export default function DesignWorkspacePage() {
           </button>
         </div>
       </form>
+
+      {showTermsModal && (
+        <div className="dialog-backdrop" role="presentation" style={{ zIndex: 1000 }}>
+          <div
+            className="dialog terms-modal-container"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="terms-modal-title"
+          >
+            <h2 id="terms-modal-title" style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.25rem' }}>
+              {t('consent.modalTitle')}
+            </h2>
+            <p className="small muted" style={{ marginTop: 0, marginBottom: '1rem' }}>
+              {t('consent.modalSubtitle')}
+            </p>
+
+            <div
+              data-testid="terms-scroll-box"
+              ref={termsScrollRef}
+              onScroll={handleTermsScroll}
+              tabIndex={0}
+              className="terms-scroll-box"
+            >
+              {lang === 'en' ? (
+                <>
+                  <h4>1. Purpose of Using Crafting Images</h4>
+                  <p>
+                    Mland Workshop will use reference images, sketches, and materials provided by you exclusively for technical feasibility analysis, 3D modeling, and custom handmade ring crafting according to your individual order. By submitting images with this request, you consent to our store, technicians, and jewelers storing and using the images throughout the design, crafting, and warranty processes.
+                  </p>
+                  <h4>2. Disclaimer of Copyright & Intellectual Property Liability</h4>
+                  <p>
+                    Mland Workshop operates as an artisan manufacturing service based on custom customer requests. <strong>The workshop assumes NO liability whatsoever for any copyright infringement, trademark disputes, or intellectual property violations</strong> arising from or related to images, logos, or designs uploaded by you. You represent that you possess lawful rights to use the submitted images and bear sole legal responsibility toward third parties and governing authorities.
+                  </p>
+                  <h4>3. Customer Agreement Upon Submission</h4>
+                  <p>
+                    By attaching and submitting images with this custom crafting request, you explicitly and unconditionally agree that the workshop has full rights to utilize these images for the purpose of creating this design.
+                  </p>
+                  <h4>4. Confidentiality & Internal Storage</h4>
+                  <p>
+                    All image assets and request details will remain confidential and circulated internally solely for fulfilling your crafting order in accordance with Mland privacy standards, and will not be mass commercialized without prior written agreement.
+                  </p>
+                  <h4>5. Execution & Navigation Terms</h4>
+                  <p>
+                    You must scroll to the bottom to read these complete terms. If you choose <strong>"Accept"</strong>, the system will record your agreement and allow you to proceed with submitting the request. If you choose <strong>"Decline"</strong>, you cannot proceed and will be redirected to the previous screen.
+                  </p>
+                  <div style={{ marginTop: '1.25rem', padding: '0.625rem', background: '#e2e8f0', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.8rem', color: '#475569' }}>
+                    --- END OF TERMS & CONDITIONS ---
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h4>1. Mục đích sử dụng hình ảnh chế tác</h4>
+                  <p>
+                    Workshop Mland sẽ sử dụng hình ảnh, bản phác thảo và tài liệu tham khảo do Quý khách cung cấp độc quyền phục vụ việc nghiên cứu tính khả thi kỹ thuật, lập bản vẽ mô phỏng 3D và trực tiếp gia công chế tác sản phẩm nhẫn thủ công theo đơn đặt hàng cá nhân của Quý khách. Khi gửi hình ảnh này kèm theo yêu cầu, Quý khách chấp thuận việc cửa hàng, chuyên viên kỹ thuật và nghệ nhân kim hoàn lưu trữ và sử dụng hình ảnh cho toàn bộ quy trình thiết kế, chế tác và bảo hành sản phẩm.
+                  </p>
+                  <h4>2. Miễn trừ trách nhiệm về bản quyền và sở hữu trí tuệ</h4>
+                  <p>
+                    Workshop Mland hoạt động với tư cách là cơ sở gia công chế tác kim hoàn thủ công theo yêu cầu cá nhân hóa của khách hàng. <strong>Workshop hoàn toàn không chịu trách nhiệm</strong> về bất kỳ khiếu nại, tranh chấp, khiếu kiện bản quyền, nhãn hiệu thương mại hoặc hành vi xâm phạm quyền sở hữu trí tuệ nào phát sinh từ hình ảnh, logo, hoa văn hoặc mẫu thiết kế do Quý khách tải lên. Quý khách cam kết có toàn quyền hợp pháp sử dụng các hình ảnh đã gửi và tự chịu toàn bộ trách nhiệm trước pháp luật cũng như các bên thứ ba liên quan.
+                  </p>
+                  <h4>3. Chấp thuận của khách hàng khi gửi yêu cầu</h4>
+                  <p>
+                    Bằng việc gửi hình ảnh kèm theo yêu cầu chế tác riêng này, Quý khách chính thức xác nhận và đồng ý vô điều kiện rằng workshop có toàn quyền sử dụng hình ảnh cho mục đích chế tác mẫu thiết kế này.
+                  </p>
+                  <h4>4. Bảo mật thông tin nội bộ</h4>
+                  <p>
+                    Toàn bộ tư liệu hình ảnh của Quý khách chỉ được lưu hành nội bộ phục vụ việc sản xuất đơn hàng của Quý khách tại xưởng, tuân thủ chính sách bảo mật của Mland và không sử dụng cho mục đích kinh doanh đại trà khi chưa có sự đồng ý của Quý khách.
+                  </p>
+                  <h4>5. Điều khoản thực hiện</h4>
+                  <p>
+                    Quý khách cần cuộn xuống dưới cùng để đọc hết toàn bộ nội dung văn bản này. Nếu Quý khách chọn <strong>"Chấp nhận"</strong>, hệ thống sẽ ghi nhận và cho phép Quý khách tiếp tục gửi yêu cầu chế tác. Nếu Quý khách chọn <strong>"Từ chối"</strong>, hệ thống sẽ không cho phép tiếp tục và tự động đưa Quý khách trở về màn hình trước đó.
+                  </p>
+                  <div style={{ marginTop: '1.25rem', padding: '0.625rem', background: '#e2e8f0', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.8rem', color: '#475569' }}>
+                    --- HẾT NỘI DUNG ĐIỀU KHOẢN ---
+                  </div>
+                </>
+              )}
+            </div>
+
+            {!hasScrolledToBottom ? (
+              <div data-testid="scroll-warning" className="terms-status-notice warning">
+                <span>⚠️</span>
+                <span>{t('consent.modalScrollWarning')}</span>
+              </div>
+            ) : (
+              <div data-testid="scroll-success" className="terms-status-notice success">
+                <span>✓</span>
+                <span>{t('consent.modalScrollSuccess')}</span>
+              </div>
+            )}
+
+            <div className="dialog-actions" style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="button outline danger"
+                onClick={handleDeclineTerms}
+                disabled={!hasScrolledToBottom}
+              >
+                {t('consent.decline')}
+              </button>
+              <button
+                type="button"
+                className="button primary"
+                onClick={handleAcceptTerms}
+                disabled={!hasScrolledToBottom}
+              >
+                {t('consent.accept')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

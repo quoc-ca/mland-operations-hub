@@ -55,9 +55,15 @@ public class DesignRequestController {
                         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
                         @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionId,
                         Authentication authentication) {
-                String callerUid = (authentication != null && authentication.isAuthenticated())
-                                ? SecurityIdentityExtractor.extractUid(authentication).orElse(null)
-                                : null;
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+                boolean isStaffOrManager = authentication.getAuthorities().stream()
+                                .anyMatch(a -> "ROLE_STAFF".equals(a.getAuthority()) || "STAFF".equals(a.getAuthority())
+                                                || "ROLE_MANAGER".equals(a.getAuthority())
+                                                || "MANAGER".equals(a.getAuthority()));
+                if (isStaffOrManager) {
+                        throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID",
+                                        "Nhân viên và Quản lý không thể gửi yêu cầu thiết kế với tư cách khách hàng.");
+                }
 
                 if (idempotencyKey == null || idempotencyKey.isBlank()) {
                         throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
@@ -83,7 +89,7 @@ public class DesignRequestController {
 
                 DesignAnalysisService.DesignRequestViewDto response = designAnalysisService.submitDesignRequest(
                                 callerUid,
-                                guestSessionId,
+                                null,
                                 description,
                                 catalogueReference,
                                 designReference,
@@ -94,23 +100,23 @@ public class DesignRequestController {
                                 idempotencyKey,
                                 allFiles);
 
-                HttpHeaders headers = new HttpHeaders();
-                if (response.getGuestTrackingToken() != null) {
-                        headers.add("X-Guest-Tracking-Token", response.getGuestTrackingToken());
-                }
-
-                return ResponseEntity.status(HttpStatus.ACCEPTED).headers(headers).body(response);
+                return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
         }
 
         @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
         public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> submitDesignRequestJson(
                         @Valid @RequestBody CreateCustomDesignRequestDto body,
                         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-                        @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionId,
                         Authentication authentication) {
-                String callerUid = (authentication != null && authentication.isAuthenticated())
-                                ? SecurityIdentityExtractor.extractUid(authentication).orElse(null)
-                                : null;
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+                boolean isStaffOrManager = authentication.getAuthorities().stream()
+                                .anyMatch(a -> "ROLE_STAFF".equals(a.getAuthority()) || "STAFF".equals(a.getAuthority())
+                                                || "ROLE_MANAGER".equals(a.getAuthority())
+                                                || "MANAGER".equals(a.getAuthority()));
+                if (isStaffOrManager) {
+                        throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID",
+                                        "Nhân viên và Quản lý không thể gửi yêu cầu thiết kế với tư cách khách hàng.");
+                }
 
                 if (idempotencyKey == null || idempotencyKey.isBlank()) {
                         throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
@@ -119,7 +125,7 @@ public class DesignRequestController {
 
                 DesignAnalysisService.DesignRequestViewDto response = designAnalysisService.submitDesignRequest(
                                 callerUid,
-                                guestSessionId,
+                                null,
                                 body.getDescription(),
                                 null,
                                 body.getDesignReference(),
@@ -130,12 +136,7 @@ public class DesignRequestController {
                                 idempotencyKey,
                                 Collections.emptyList());
 
-                HttpHeaders headers = new HttpHeaders();
-                if (response.getGuestTrackingToken() != null) {
-                        headers.add("X-Guest-Tracking-Token", response.getGuestTrackingToken());
-                }
-
-                return ResponseEntity.status(HttpStatus.ACCEPTED).headers(headers).body(response);
+                return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
         }
 
         @GetMapping
@@ -150,25 +151,17 @@ public class DesignRequestController {
         @GetMapping("/{designRequestId}")
         public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getDesignRequest(
                         @PathVariable("designRequestId") String designRequestId,
-                        @RequestHeader(value = "X-Guest-Tracking-Token", required = false) String trackingTokenHeader,
-                        @RequestParam(value = "token", required = false) String trackingTokenParam,
                         Authentication authentication) {
-                String callerUid = (authentication != null && authentication.isAuthenticated())
-                                ? SecurityIdentityExtractor.extractUid(authentication).orElse(null)
-                                : null;
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
                 Collection<? extends GrantedAuthority> authorities = authentication != null
                                 ? authentication.getAuthorities()
                                 : Collections.emptyList();
-
-                String token = (trackingTokenHeader != null && !trackingTokenHeader.isBlank())
-                                ? trackingTokenHeader
-                                : trackingTokenParam;
 
                 DesignAnalysisService.DesignRequestViewDto view = designAnalysisService.getDesignRequestById(
                                 designRequestId,
                                 callerUid,
                                 authorities,
-                                token);
+                                null);
 
                 return ResponseEntity.ok(view);
         }
@@ -177,17 +170,9 @@ public class DesignRequestController {
         public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> reviseDesignRequest(
                         @PathVariable("designRequestId") String designRequestId,
                         @RequestHeader(value = "If-Match-Version", required = false) Integer ifMatchVersionHeader,
-                        @RequestHeader(value = "X-Guest-Tracking-Token", required = false) String trackingTokenHeader,
-                        @RequestParam(value = "token", required = false) String trackingTokenParam,
                         @RequestBody(required = false) CustomDesignRevisionDto body,
                         Authentication authentication) {
-                String callerUid = (authentication != null && authentication.isAuthenticated())
-                                ? SecurityIdentityExtractor.extractUid(authentication).orElse(null)
-                                : null;
-
-                String token = (trackingTokenHeader != null && !trackingTokenHeader.isBlank())
-                                ? trackingTokenHeader
-                                : trackingTokenParam;
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
 
                 String desc = body != null ? body.getDescription() : null;
                 String designRef = body != null ? body.getDesignReference() : null;
@@ -201,7 +186,7 @@ public class DesignRequestController {
                                 designVer,
                                 clarifResp,
                                 callerUid,
-                                token,
+                                null,
                                 ifMatchVersionHeader,
                                 Collections.emptyList());
 
@@ -325,11 +310,9 @@ public class DesignRequestController {
 
         @GetMapping("/{designRequestId}/tracking")
         public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getGuestTracking(
-                        @PathVariable("designRequestId") String designRequestId,
-                        @RequestHeader(value = "X-Guest-Tracking-Token", required = false) String trackingTokenHeader,
-                        @RequestParam(value = "token", required = false) String trackingTokenParam,
-                        Authentication authentication) {
-                return getDesignRequest(designRequestId, trackingTokenHeader, trackingTokenParam, authentication);
+                        @PathVariable("designRequestId") String designRequestId) {
+                throw DesignReviewException.unauthorized("DESIGN_TRACKING_NOT_SUPPORTED",
+                                "Chức năng theo dõi yêu cầu thiết kế ẩn danh đã ngừng hoạt động. Vui lòng đăng nhập tài khoản hội viên.");
         }
 
         @GetMapping("/images/{imageReference}")
