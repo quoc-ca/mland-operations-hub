@@ -61,6 +61,20 @@ Last updated by: Ngô Tiến Đạt
 - [x] Session lifecycle regression tests (29/29 passing).
 - [ ] Detailed E2E test scripts execution (waiting for user-provided test scenario scripts).
 
+## Frontend redesign and consultation regression — 2026-11-24
+
+- [ ] T004-060 Implement the approved existing-style Figma request layout.
+- [ ] T004-061 Keep the Feature-012 reference, description and five-image
+  controls visually consistent with shared Mland components.
+- [ ] T004-062 Share the consultation outer width/spacing contract with
+  Feature-013; do not create a narrower contextual chatbox.
+- [ ] T004-063 Remove load/polling-driven auto-scroll and preserve the reader
+  position; allow explicit successful send behavior only.
+- [ ] T004-064 Add E2E for desktop/mobile geometry, initial top position,
+  polling stability, send/retry, loading/empty width and Vietnamese rendering.
+- [ ] T004-065 Do not mark complete until screenshots and all affected Member,
+  Staff and Manager scenarios pass without regression.
+
 ## Phase F — Custom-order full-payment handoff
 - [x] Add Member Requests and Orders views under My Custom Orders.
 - [x] Display immutable quote total, currency, quote generation and expiry.

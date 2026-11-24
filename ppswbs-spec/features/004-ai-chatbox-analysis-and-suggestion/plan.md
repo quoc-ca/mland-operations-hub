@@ -59,3 +59,20 @@ quote expiry/cancellation, and production/fulfilment tracking.
 - Backend compilation verified with Java 25 (`release 21`).
 - Frontend unit tests passing: 31/31 tests in `src/features/designreview`.
 - Session lifecycle router tests passing (29/29).
+
+## Frontend redesign and E2E plan — 2026-11-24
+
+This plan is documentation-only until the Figma draft is approved.
+
+1. Rebuild the request page from the approved existing Mland shell patterns;
+   preserve all fields, five-image limit, quality feedback and human review.
+2. Define one shared consultation surface-width contract for general and
+   Feature-004-context chats, including desktop/mobile breakpoints and fixed
+   sidebar reservation for loading/empty/error states.
+3. Remove message-change/polling-driven scroll behavior. Preserve scroll on
+   load, selection, polling, focus and visibility; allow explicit successful
+   send to reveal the sent message only.
+4. Verify Member, Staff and Manager screens and Vietnamese UTF-8 rendering.
+5. E2E must cover width parity, initial top position, polling without jumps,
+   successful send, new-message affordance, loading/empty/error width, mobile
+   layout and recoverable failures.

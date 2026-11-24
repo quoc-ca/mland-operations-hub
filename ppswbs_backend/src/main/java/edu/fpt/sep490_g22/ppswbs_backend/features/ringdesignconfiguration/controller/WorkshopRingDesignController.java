@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.contr
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDesignException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.WorkshopRingDesignApplicationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,40 +21,26 @@ public class WorkshopRingDesignController {
     @PostMapping
     public ResponseEntity<DesignResponseDto> createWorkshopDesign(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession,
             @Valid @RequestBody CreateDesignRequest request) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        DesignResponseDto dto = applicationService.createDraft(request, memberAccountId, session, idempotencyKey);
-        var responseBuilder = ResponseEntity.status(HttpStatus.CREATED);
-        if (dto.getGuestSession() != null) {
-            responseBuilder.header("X-Guest-Design-Session", dto.getGuestSession());
-            responseBuilder.header("X-Guest-Session", dto.getGuestSession());
-        }
-        return responseBuilder.body(dto);
+        Long memberAccountId = requireMemberAccountId();
+        DesignResponseDto dto = applicationService.createDraft(request, memberAccountId, null, idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
     @GetMapping
     public ResponseEntity<java.util.List<DesignResponseDto>> listWorkshopDesigns(
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession,
             @RequestParam(value = "includeArchived", required = false, defaultValue = "false") boolean includeArchived) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        java.util.List<DesignResponseDto> list = applicationService.listMyDesigns(memberAccountId, session,
+        Long memberAccountId = requireMemberAccountId();
+        java.util.List<DesignResponseDto> list = applicationService.listMyDesigns(memberAccountId, null,
                 includeArchived);
         return ResponseEntity.ok(list);
     }
 
     @GetMapping("/{designId}")
     public ResponseEntity<DesignResponseDto> getWorkshopDesign(
-            @PathVariable String designId,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        DesignResponseDto dto = applicationService.getDesign(designId, memberAccountId, session);
+            @PathVariable String designId) {
+        Long memberAccountId = requireMemberAccountId();
+        DesignResponseDto dto = applicationService.getDesign(designId, memberAccountId, null);
         return ResponseEntity.ok(dto);
     }
 
@@ -62,12 +49,9 @@ public class WorkshopRingDesignController {
             @PathVariable String designId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader("If-Match-Version") Long ifMatchVersion,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession,
             @Valid @RequestBody SaveDesignVersionRequest request) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        DesignResponseDto dto = applicationService.saveVersion(designId, request, memberAccountId, session,
+        Long memberAccountId = requireMemberAccountId();
+        DesignResponseDto dto = applicationService.saveVersion(designId, request, memberAccountId, null,
                 ifMatchVersion, idempotencyKey);
         return ResponseEntity.ok(dto);
     }
@@ -77,12 +61,9 @@ public class WorkshopRingDesignController {
             @PathVariable String designId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader("If-Match-Version") Long ifMatchVersion,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession,
             @Valid @RequestBody SaveDesignVersionRequest request) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        DesignResponseDto dto = applicationService.evaluateDesign(designId, request, memberAccountId, session,
+        Long memberAccountId = requireMemberAccountId();
+        DesignResponseDto dto = applicationService.evaluateDesign(designId, request, memberAccountId, null,
                 ifMatchVersion, idempotencyKey);
         return ResponseEntity.ok(dto);
     }
@@ -91,12 +72,9 @@ public class WorkshopRingDesignController {
     public ResponseEntity<DesignResponseDto> archiveWorkshopDesign(
             @PathVariable String designId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestHeader("If-Match-Version") Long ifMatchVersion,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        DesignResponseDto dto = applicationService.archive(designId, memberAccountId, session, ifMatchVersion,
+            @RequestHeader("If-Match-Version") Long ifMatchVersion) {
+        Long memberAccountId = requireMemberAccountId();
+        DesignResponseDto dto = applicationService.archive(designId, memberAccountId, null, ifMatchVersion,
                 idempotencyKey);
         return ResponseEntity.ok(dto);
     }
@@ -105,13 +83,10 @@ public class WorkshopRingDesignController {
     public ResponseEntity<DesignResponseDto> restoreWorkshopDesign(
             @PathVariable String designId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-            @RequestHeader(value = "If-Match-Version", required = false) Long ifMatchVersion,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
+            @RequestHeader(value = "If-Match-Version", required = false) Long ifMatchVersion) {
+        Long memberAccountId = requireMemberAccountId();
         String key = idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : java.util.UUID.randomUUID().toString();
-        DesignResponseDto dto = applicationService.restore(designId, memberAccountId, session, ifMatchVersion, key);
+        DesignResponseDto dto = applicationService.restore(designId, memberAccountId, null, ifMatchVersion, key);
         return ResponseEntity.ok(dto);
     }
 
@@ -120,31 +95,23 @@ public class WorkshopRingDesignController {
             @PathVariable String designId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader("If-Match-Version") Long ifMatchVersion,
-            @RequestHeader(value = "X-Guest-Design-Session", required = false) String guestSessionHeader,
-            @RequestHeader(value = "X-Guest-Session", required = false) String legacyGuestSession,
             @Valid @RequestBody AttachDesignRequestDto request) {
-        Long memberAccountId = resolveMemberAccountId();
-        String session = resolveGuestSession(guestSessionHeader, legacyGuestSession);
-        BookingDesignSnapshotDto dto = applicationService.attachToBooking(designId, request, memberAccountId, session,
+        Long memberAccountId = requireMemberAccountId();
+        BookingDesignSnapshotDto dto = applicationService.attachToBooking(designId, request, memberAccountId, null,
                 ifMatchVersion, idempotencyKey);
         return ResponseEntity.ok(dto);
     }
 
-    private String resolveGuestSession(String session1, String session2) {
-        if (session1 != null && !session1.isBlank()) {
-            return session1.trim();
+    private Long requireMemberAccountId() {
+        var actor = ActorContext.getCurrentActor()
+                .orElseThrow(() -> RingDesignException
+                        .unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                                "Yêu cầu đăng nhập tài khoản hội viên để thực hiện thao tác thiết kế nhẫn."));
+        if (actor.role() != ActorRole.MEMBER) {
+            throw RingDesignException
+                    .forbidden("DESIGN_MEMBER_ACCESS_DENIED",
+                            "Chỉ tài khoản hội viên hoạt động mới được thao tác thiết kế nhẫn.");
         }
-        if (session2 != null && !session2.isBlank()) {
-            return session2.trim();
-        }
-        return null;
-    }
-
-    private Long resolveMemberAccountId() {
-        var actor = ActorContext.getCurrentActor().orElse(null);
-        if (actor != null && actor.accountId() != null) {
-            return actor.accountId();
-        }
-        return null;
+        return actor.accountId();
     }
 }

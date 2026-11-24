@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import edu.fpt.sep490_g22.ppswbs_backend.common.settlement.TicketBalancePort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.settlement.TicketRemedyPendingPort;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -40,6 +41,7 @@ class BookingGroupProjectionServiceTest {
     private TicketRecipientRepository recipients;
     private WorkshopOperationsAdapter operations;
     private TicketRemedyPendingPort remedyPending;
+    private TicketBalancePort balancePort;
     private edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository attempts;
     private BookingGroupProjectionService service;
     private BookingGroup group;
@@ -55,7 +57,10 @@ class BookingGroupProjectionServiceTest {
         remedyPending = mock(TicketRemedyPendingPort.class);
         attempts = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository.class);
         when(remedyPending.pendingTicketCodes(any())).thenReturn(java.util.Set.of());
-        service = new BookingGroupProjectionService(lines, tickets, snapshots, recipients, operations, remedyPending, attempts);
+        balancePort = mock(TicketBalancePort.class);
+        when(balancePort.balancesOf(any())).thenReturn(java.util.Map.of());
+        service = new BookingGroupProjectionService(lines, tickets, snapshots, recipients, operations, remedyPending,
+                balancePort, attempts);
 
         group = BookingGroup.builder().id(1L).groupCode("GRP-P1").groupStatus(BookingStatus.CONFIRMED)
                 .paymentMode(GroupPaymentMode.VNPAY).groupCollectionVnd(200_000).build();
@@ -94,6 +99,28 @@ class BookingGroupProjectionServiceTest {
         assertThat(view.attendanceStatus()).isEqualTo("ATTENDED");
         assertThat(view.qrReference()).isEqualTo("QR-1");
         assertThat(view.ticketReference()).isEqualTo(TICKET_REF.toString());
+    }
+
+    @Test
+    void theViewCarriesTheFolioMoneyPositionAfterAnAddOnAndALaterPayment() {
+        when(balancePort.balancesOf(any())).thenReturn(java.util.Map.of(
+                "TK-1", new TicketBalancePort.TicketBalance(600_000, 100_000, 600_000, 0)));
+
+        BookingGroupView.TicketView view = service.project(group, true).tickets().get(0);
+
+        assertThat(view.currentTotalVnd()).isEqualTo(600_000);
+        assertThat(view.currentAddOnVnd()).isEqualTo(100_000);
+        assertThat(view.currentPaidVnd()).isEqualTo(600_000);
+        assertThat(view.currentBalanceDueVnd()).isZero();
+        assertThat(view.remainingVnd()).isEqualTo(300_000); // the booking-time figure is left as it was
+    }
+
+    @Test
+    void theCurrentMoneyPositionIsAbsentWhenSettlementHasNoFolioOrCannotAnswer() {
+        assertThat(service.project(group, true).tickets().get(0).currentBalanceDueVnd()).isNull();
+
+        when(balancePort.balancesOf(any())).thenThrow(new IllegalStateException("down"));
+        assertThat(service.project(group, true).tickets().get(0).currentBalanceDueVnd()).isNull();
     }
 
     @Test

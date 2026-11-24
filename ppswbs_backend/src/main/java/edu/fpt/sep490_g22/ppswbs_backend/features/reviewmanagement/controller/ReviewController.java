@@ -28,18 +28,15 @@ public class ReviewController {
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestHeader(value = "Guest-Eligibility-Handle", required = false) String guestHandleHeader,
             @Valid @RequestBody CreateReviewRequest request) {
-        if (request.getGuestEligibilityHandle() == null && guestHandleHeader != null && !guestHandleHeader.isBlank()) {
-            request.setGuestEligibilityHandle(guestHandleHeader.trim());
-        }
-        var actor = ActorContext.getCurrentActor().orElse(null);
-        Long memberAccountId = actor != null && actor.role() == ActorRole.MEMBER ? actor.accountId() : null;
-        if (actor != null && actor.role() != ActorRole.MEMBER) {
+        var actor = ActorContext.getCurrentActor()
+                .orElseThrow(() -> edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
+                        .unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu đăng nhập tài khoản hội viên để tạo đánh giá."));
+        if (actor.role() != ActorRole.MEMBER) {
             throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
-                    .forbidden(
-                            "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được tạo review.");
+                    .forbidden("REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được tạo review.");
         }
+        Long memberAccountId = actor.accountId();
         ReviewDto dto = applicationService.createReview(request, memberAccountId, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
@@ -70,16 +67,17 @@ public class ReviewController {
             @PathVariable String reviewId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader("If-Match-Version") Long expectedVersion,
-            @RequestHeader(value = "Guest-Eligibility-Handle", required = false) String guestHandle,
             @Valid @RequestBody EditReviewRequest request) {
-        var actor = ActorContext.getCurrentActor().orElse(null);
-        if (actor != null && actor.role() != ActorRole.MEMBER) {
+        var actor = ActorContext.getCurrentActor()
+                .orElseThrow(() -> edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
+                        .unauthorized("REVIEW_NOT_AUTHORIZED", "Yêu cầu đăng nhập tài khoản hội viên để chỉnh sửa đánh giá."));
+        if (actor.role() != ActorRole.MEMBER) {
             throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
                     .forbidden(
                             "REVIEW_NOT_AUTHORIZED", "Chỉ Member mới được chỉnh sửa review sở hữu.");
         }
-        Long memberAccountId = actor != null ? actor.accountId() : null;
-        ReviewDto dto = applicationService.editReview(reviewId, request, memberAccountId, guestHandle, expectedVersion,
+        Long memberAccountId = actor.accountId();
+        ReviewDto dto = applicationService.editReview(reviewId, request, memberAccountId, null, expectedVersion,
                 idempotencyKey);
         return ResponseEntity.ok(dto);
     }

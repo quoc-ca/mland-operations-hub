@@ -55,13 +55,17 @@ package "MLAND Front-End" {
 
 main .down.> app
 app .down.> routes
+app ..> auth
+app ..> nav
 routes .down.> ui
 ui .down.> application
 application .down.> domain
 application .down.> infrastructure
 infrastructure .down.> api
+application ..> api
 api .right.> auth
 ui ..> i18n
-ui ..> nav
+ui ..> domain
+ui ..> api
 ui ..> sharedui
 @enduml

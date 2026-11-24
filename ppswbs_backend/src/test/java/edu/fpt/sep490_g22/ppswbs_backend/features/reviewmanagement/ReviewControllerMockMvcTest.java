@@ -14,6 +14,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.Revie
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewEligibilityService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewPublicReadFacade;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,8 +23,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -60,43 +67,31 @@ class ReviewControllerMockMvcTest {
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(objectMapper))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
+
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(actor, null, List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    @DisplayName("POST /api/v1/review-eligibility/lookup returns 200 with guest handle and sources")
-    void lookupGuestEligibility_Success() throws Exception {
+    @DisplayName("POST /api/v1/review-eligibility/lookup returns 401 as guest lookup is retired")
+    void lookupGuestEligibility_Returns401() throws Exception {
         GuestEligibilityLookupRequest req = GuestEligibilityLookupRequest.builder()
                 .contactType(ContactType.EMAIL)
                 .contactValue("test@example.com")
                 .build();
 
-        EligibleSourceListResponse resp = EligibleSourceListResponse.builder()
-                .guestEligibilityHandle("handle123")
-                .maskedContact("t***t@example.com")
-                .expiresAt(Instant.now())
-                .sources(List.of(
-                        EligibleSourceDto.builder()
-                                .sourceType(SourceType.WORKSHOP_ATTENDANCE)
-                                .sourceReference("TICK-1")
-                                .targetType(TargetType.WORKSHOP_SESSION)
-                                .targetReference("SESS-1")
-                                .eligible(true)
-                                .alreadyReviewed(false)
-                                .build()
-                ))
-                .build();
-
-        when(eligibilityService.lookupGuestEligibility(any(GuestEligibilityLookupRequest.class), any(String.class)))
-                .thenReturn(resp);
-
         mockMvc.perform(post("/api/v1/review-eligibility/lookup")
                         .header("Idempotency-Key", "lookup-idempotency-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.eligibilityHandle").value("handle123"))
-                .andExpect(jsonPath("$.maskedContact").value("t***t@example.com"))
-                .andExpect(jsonPath("$.items[0].sourceReference").value("TICK-1"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
     }
 
     @Test
@@ -195,7 +190,6 @@ class ReviewControllerMockMvcTest {
                 .targetType(TargetType.WORKSHOP_SESSION)
                 .targetReference("SESS-1")
                 .rating(5)
-                .guestEligibilityHandle("guest-handle")
                 .build();
 
         when(applicationService.createReview(any(), any(), any(String.class)))
@@ -208,6 +202,26 @@ class ReviewControllerMockMvcTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("REVIEW_ALREADY_EXISTS"))
                 .andExpect(jsonPath("$.message").value("Trải nghiệm này đã được gửi đánh giá"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/reviews unauthenticated returns 401")
+    void createReview_Unauthenticated_Returns401() throws Exception {
+        SecurityContextHolder.clearContext();
+        CreateReviewRequest req = CreateReviewRequest.builder()
+                .sourceType(SourceType.WORKSHOP_ATTENDANCE)
+                .sourceReference("TICK-1")
+                .targetType(TargetType.WORKSHOP_SESSION)
+                .targetReference("SESS-1")
+                .rating(5)
+                .build();
+
+        mockMvc.perform(post("/api/v1/reviews")
+                        .header("Idempotency-Key", "test-idempotency-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
     }
 }
 

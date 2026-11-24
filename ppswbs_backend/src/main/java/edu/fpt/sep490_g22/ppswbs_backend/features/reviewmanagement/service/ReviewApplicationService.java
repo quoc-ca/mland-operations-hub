@@ -26,6 +26,22 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReviewApplicationService {
 
+    /**
+     * Photos are stored as data URLs in a MEDIUMTEXT column (16 MB). The client allows 10 MB of files, which is about
+     * 13.4 M base64 characters, so this keeps a margin below the column limit and answers 400 instead of a database error.
+     */
+    static final int MAX_IMAGE_CHARS = 14_000_000;
+
+    static void requireImagesFit(java.util.List<String> images) {
+        if (images == null) return;
+        long total = 0;
+        for (String image : images) total += image == null ? 0 : image.length();
+        if (total > MAX_IMAGE_CHARS) {
+            throw ReviewManagementException.badRequest("IMAGES_TOO_LARGE",
+                    "Tổng dung lượng hình ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn (tối đa 10MB).");
+        }
+    }
+
     private final ReviewRepository reviewRepository;
     private final ReviewRevisionRepository revisionRepository;
     private final ReviewReplyRepository replyRepository;
@@ -59,10 +75,12 @@ public class ReviewApplicationService {
         }
         validateSafeContent(request.getBodyText());
 
-        String guestHandle = request.getGuestEligibilityHandle();
-        String actorScope = authenticatedMemberId != null
-                ? "MEMBER_" + authenticatedMemberId
-                : "GUEST_" + (guestHandle != null ? eligibilityService.hashHandle(guestHandle) : "ANON");
+        if (authenticatedMemberId == null) {
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để tạo đánh giá.");
+        }
+
+        String actorScope = "MEMBER_" + authenticatedMemberId;
 
         // Idempotency check
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -134,46 +152,8 @@ public class ReviewApplicationService {
                         "Loại nguồn đánh giá không được hỗ trợ.");
             }
         } else {
-            // Guest submission
-            if (guestHandle == null || guestHandle.isBlank()) {
-                throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
-                        "Yêu cầu mã guestHandle hợp lệ khi chưa đăng nhập.");
-            }
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
-                    guestHandle, request.getSourceType(), request.getSourceReference());
-            ownerType = OwnerType.GUEST;
-            ownerReference = handle.getHandleHash();
-            maskedDisplayName = wantsAnonymous(request)
-                    ? ReviewMaskingService.ANONYMOUS_DISPLAY_NAME
-                    : handle.getContactValueMasked();
-
-            Optional<EligibleSourceItem> itemOpt;
-            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
-                itemOpt = workshopAttendancePort.verifySource(request.getSourceReference());
-            } else if (request.getSourceType() == SourceType.RETAIL_ORDER_LINE) {
-                itemOpt = retailFulfilmentPort.verifySource(request.getSourceReference());
-            } else {
-                itemOpt = Optional.empty();
-            }
-            if (itemOpt.isEmpty()) {
-                // Kiểm tra trực tiếp qua verifySource với contactType và null value (adapter hỗ
-                // trợ filter bằng reference)
-                throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE",
-                        "Source không hợp lệ hoặc chưa đủ điều kiện review.");
-            }
-            EligibleSourceItem item = itemOpt.get();
-            TargetType expectedTarget = request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE
-                    ? TargetType.WORKSHOP_SESSION
-                    : TargetType.RETAIL_PRODUCT;
-            if (request.getTargetType() != expectedTarget
-                    || !request.getTargetReference().equals(item.getTargetReference())) {
-                throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH",
-                        "Target của đánh giá không khớp với source.");
-            }
-            if (request.getSourceType() == SourceType.WORKSHOP_ATTENDANCE) {
-                packageId = item.getPackageId();
-                packageName = item.getTargetName();
-            }
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để tạo đánh giá.");
         }
 
         String reviewId = UUID.randomUUID().toString();
@@ -200,6 +180,7 @@ public class ReviewApplicationService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        requireImagesFit(request.getImageUrls());
         review.setImageList(request.getImageUrls());
 
         ReviewRevision revision = ReviewRevision.builder()
@@ -259,23 +240,14 @@ public class ReviewApplicationService {
         }
 
         // Ownership authorization
-        if (review.getOwnerType() == OwnerType.MEMBER) {
-            if (authenticatedMemberId == null
-                    || !String.valueOf(authenticatedMemberId).equals(review.getOwnerReference())) {
-                throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED",
-                        "Bạn không có quyền chỉnh sửa đánh giá này.");
-            }
-        } else if (review.getOwnerType() == OwnerType.GUEST) {
-            if (guestHandle == null || guestHandle.isBlank()) {
-                throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
-                        "Yêu cầu mã guestHandle hợp lệ để chỉnh sửa đánh giá khách vãng lai.");
-            }
-            GuestEligibilityHandle handle = eligibilityService.validateGuestHandle(
-                    guestHandle, review.getSourceType(), review.getSourceReference());
-            if (!handle.getHandleHash().equals(review.getOwnerReference())) {
-                throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED",
-                        "Mã guestHandle không khớp với chủ sở hữu đánh giá.");
-            }
+        if (authenticatedMemberId == null) {
+            throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để chỉnh sửa đánh giá.");
+        }
+        if (review.getOwnerType() != OwnerType.MEMBER
+                || !String.valueOf(authenticatedMemberId).equals(review.getOwnerReference())) {
+            throw ReviewManagementException.forbidden("REVIEW_NOT_AUTHORIZED",
+                    "Bạn không có quyền chỉnh sửa đánh giá này.");
         }
 
         // Optimistic locking
@@ -299,6 +271,7 @@ public class ReviewApplicationService {
         review.setRating(request.getRating());
         review.setBodyText(request.getBodyText() != null ? request.getBodyText().trim() : null);
         if (request.getImageUrls() != null) {
+            requireImagesFit(request.getImageUrls());
             review.setImageList(request.getImageUrls());
         }
         review.setUpdatedAt(now);

@@ -91,6 +91,10 @@ export default function RingConfigurationPage() {
   }, [targetDesignId, api, isAuthenticated, resetFromSavedDesign]);
 
   const handleSaveAndEvaluate = async (destination = 'evaluate') => {
+    if (!isAuthenticated) {
+      navigate(`/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
     if (!clientValidation.isValid) return;
 
     try {
@@ -149,6 +153,12 @@ export default function RingConfigurationPage() {
           <span>⚠️</span>
           <span>{t.advisoryWarning}</span>
         </div>
+        {!isAuthenticated && (
+          <div className="ring-notice-banner" role="note" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af', marginTop: '0.75rem' }}>
+            <span>ℹ️</span>
+            <span>Bạn đang xem trước với tư cách Khách. Vui lòng đăng nhập để lưu hoặc thẩm định thiết kế này.</span>
+          </div>
+        )}
       </div>
 
       {optionsError && (

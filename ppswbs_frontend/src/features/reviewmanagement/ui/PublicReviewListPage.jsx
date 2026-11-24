@@ -111,12 +111,12 @@ export default function PublicReviewListPage() {
 
         <div className="review-actions" style={{ margin: 0 }}>
           {isGuest && (
-            <Link className="button outline" to="/reviews/guest/lookup">
-              {t('lookupTitle')}
+            <Link className="button primary" to="/login?returnTo=/reviews" data-testid="guest-write-review-btn">
+              {t('writeReview')}
             </Link>
           )}
           {isMember && (
-            <Link className="button primary" to="/reviews">
+            <Link className="button primary" to="/reviews" data-testid="member-write-review-btn">
               {t('writeReview')}
             </Link>
           )}

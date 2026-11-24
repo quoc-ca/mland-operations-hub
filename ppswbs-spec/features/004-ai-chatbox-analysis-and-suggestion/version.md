@@ -4,7 +4,7 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-21
-- **Date updated**: 2026-11-22
+- **Date updated**: 2026-11-24
 - **Status**: Implementation handover with payment-schema and contract remediation in progress.
 
 ## Summary of Implementation
@@ -69,6 +69,28 @@ its reason.
   the in-place existing-frame update recorded above.
 
 **Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
+
+## Version 1.10 — 2026-11-24 frontend redesign and scroll-stability handoff
+
+- Reviewed the current React request and consultation screens before design work.
+- Created editable Figma draft frames in the existing page 498:2:
+  - F04 desktop `588:43`.
+  - F04 mobile `590:43`.
+  - Related consultation frames are recorded in Feature-013.
+- The draft follows the existing Mland style and improves hierarchy for the
+  request form, Feature-012 reference snapshot, five-image gallery and quality
+  feedback without changing the business contract.
+- The contextual consultation chat must use the same outer width and responsive
+  geometry as the general consultation chat.
+- The scroll defect is documented as a frontend implementation issue: no
+  scroll-to-bottom on route mount, conversation load, polling, focus,
+  visibility changes or empty/loading states; explicit successful send may
+  reveal the sent message while preserving the reader position otherwise.
+- Added required E2E coverage for visual consistency, initial top position,
+  polling stability, send behavior, loading/empty width stability, UTF-8
+  Vietnamese rendering and role-safe context display.
+
+**Status:** `FIGMA DRAFT PENDING USER APPROVAL — CODE NOT CHANGED`
 
 ### Phase H — Post-test defect remediation (2026-11-21)
 
@@ -1326,5 +1348,53 @@ Toàn bộ 4 kịch bản E2E của Feature 004 đã được thực thi và ngh
    - Admin đăng nhập mở cùng URL hiển thị chuẩn xác Chế độ xem kiểm toán kỹ thuật, ẩn dữ liệu giá thương mại, hiển thị provider correlation ID `gemini-price-21878445` ([`screenshots/E2E-004-004--admin-audit.jpg`](test-results/screenshots/E2E-004-004--admin-audit.jpg)).
 
 **Tổng kết Feature 004**: Đạt **4/4 kịch bản E2E PASS (100%)**, toàn bộ blocker kỹ thuật và defect `BUG-E2E-0005` đã được đóng hoàn toàn.
+
+## Version 1.4 — Member-only rebaseline and code-alignment plan (2026-11-24)
+
+### Decision
+
+- Guest can see the custom-design entry, explanation and sign-in CTA only.
+- Only an authenticated active Member can create, upload, read, revise or track
+  a private design request or custom order.
+- The previous Guest design session, Guest tracking token and five-per-day quota
+  are retired from the current contract. Historical records are preserved and
+  are not exposed through a new Guest path.
+- Human Staff/Manager review remains mandatory; AI is not part of the current
+  Feature-004 business flow.
+
+### Code findings to resolve
+
+1. `DesignRequestController` currently derives a nullable caller identity and
+   can reach submission without proving Member role. Add a shared active-Member
+   authorization guard before multipart/JSON request creation.
+2. Detail/tracking/revision endpoints still accept Guest tracking proof. Remove
+   or deprecate the Guest branch and return an authentication error without
+   request enumeration.
+3. `designreview` frontend routes for new/detail are not uniformly protected;
+   add a Member gate while keeping the public feature entry screen visible.
+4. `designReviewApi.js` still stores and sends `X-Guest-AI-Session`; remove this
+   legacy transport and any guest-success fallback.
+5. Legacy AI Support/price-suggestion artifacts remain in code and tests even
+   though current Feature-004 is human-review-only. Mark them deprecated or
+   isolate them from Feature-004 acceptance and protect any remaining endpoint.
+6. Audit raw-image access and all request projections to ensure only Member
+   ownership, reviewer scope, or technical audit scope can read them.
+7. Keep Feature-012 handoff Member-owned and snapshot-based; never read its
+   repository directly.
+
+### Implementation and test sequence
+
+1. Add backend authorization tests for unauthenticated, Guest, inactive Member,
+   active Member, Staff, Manager and Admin on every customer endpoint.
+2. Remove Guest token/session creation and tracking tests; add tests proving no
+   protected API call is made before sign-in.
+3. Add Member ownership, five-image, quality, idempotency, revision and stale
+   decision regression tests.
+4. Update React route guards and sign-in return handling; preserve form context
+   only in safe local UI state.
+5. Run Staff/Manager review, Admin-denied, Member ownership and Guest smoke E2E
+   scenarios, then run full backend/frontend regression.
+
+**Current status:** `SPEC UPDATED — CODE REWORK PLANNED — NO CODE CHANGED IN THIS PASS`
 
 

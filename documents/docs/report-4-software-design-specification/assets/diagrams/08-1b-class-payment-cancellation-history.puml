@@ -1,319 +1,188 @@
 @startuml
+title 8.1b Class Diagram — Payment, Cancellation and Order History (FE-08)
 !pragma charset UTF-8
 skinparam shadowing false
 skinparam roundcorner 0
-skinparam classAttributeIconSize 0
 skinparam linetype ortho
-skinparam nodesep 40
-skinparam ranksep 70
+skinparam classAttributeIconSize 0
+skinparam nodesep 30
+skinparam ranksep 50
 skinparam ArrowColor #000000
+skinparam defaultFontSize 12
 skinparam class {
-  BackgroundColor #FFFFFF
   BorderColor #000000
+  BackgroundColor #F5F5F5
+  BackgroundColor<<controller>> #DAE8FC
+  BackgroundColor<<service>> #D5E8D4
+  BackgroundColor<<repository>> #E1D5E7
+  BackgroundColor<<interface>> #FFF2CC
+  BackgroundColor<<adapter>> #FFE6CC
+  BackgroundColor<<entity>> #F5F5F5
+  BackgroundColor<<DTO>> #FFFFFF
+  BackgroundColor<<exception>> #F5F5F5
   FontStyle bold
   AttributeFontStyle plain
+  StereotypeFontStyle plain
 }
+left to right direction
 hide circle
-hide stereotype
 
-class CheckoutController {
-  -RetailActorResolver actorResolver
-  -RetailPaymentService paymentService
-  +initiatePayment(HttpServletRequest request, String checkoutId) PaymentRedirectView
+class CheckoutController <<controller>> {
+  - actorResolver : RetailActorResolver
+  - paymentService : RetailPaymentService
+  + initiatePayment(checkoutId) : PaymentRedirectView
 }
 
-class VnpayPaymentIngressController {
-  -PaymentIngressService ingress
-  +receive(Map<String,String> params) Map<String,String>
+class VnpayPaymentIngressController <<controller>> {
+  - ingress : PaymentIngressService
+  + receive(params) : Map<String,String>
 }
 
-class RetailCheckoutCancellationController {
-  -RetailActorResolver actors
-  -RetailCheckoutCancellationService cancellation
-  +cancel(HttpServletRequest request, String checkoutId, String key) CancellationView
-  +cancelBranchOrder(HttpServletRequest request, String orderId, String key) CancellationView
+class RetailCheckoutCancellationController <<controller>> {
+  - actors : RetailActorResolver
+  - cancellation : RetailCheckoutCancellationService
+  + cancel(checkoutId, key) : CancellationView
+  + cancelBranchOrder(orderId, key) : CancellationView
 }
 
-class RetailOrderQueryController {
-  -RetailActorResolver actors
-  -RetailOrderQueryService orders
-  +list(HttpServletRequest request) List<RetailOrderHistoryView>
-  +detail(HttpServletRequest request, String orderId) RetailOrderHistoryView
+class RetailOrderQueryController <<controller>> {
+  - actors : RetailActorResolver
+  - orders : RetailOrderQueryService
+  + list() : List<RetailOrderHistoryView>
+  + detail(orderId) : RetailOrderHistoryView
 }
 
-class PaymentRedirectView {
-  -String checkoutId
-  -String paymentUrl
-  -String expiresAt
-  -String paymentState
+class RetailPaymentService <<service>> {
+  - checkoutService : RetailCheckoutService
+  - paymentPort : RetailPaymentPort
+  - expiryService : ObjectProvider<RetailUnstartedExpiryService>
+  + initiate(memberAccountId, checkoutId) : PaymentRedirectView
 }
 
-class RetailVerifiedPayment {
-  -String checkoutId
-  -String merchantReference
-  -String providerTransaction
-  -long amountVnd
-  -String currency
+class VnpayRetailPaymentAdapter <<adapter>> {
+  - gateway : PaymentGatewayCheckoutPort
+  - owners : PaymentOwnerRegistrationPort
+  - holds : RetailVariantHoldRepository
+  + initiate(checkoutId, amount) : PaymentInitiation
 }
 
-class CancellationView {
-  -GroupedCheckoutView checkout
-  -int unrestoredQuantity
-  -String message
+class PaymentIngressService <<service>> {
+  - checksum : VnpayChecksumService
+  - registry : PaymentOwnerRegistry
+  - retail : RetailPaymentEvidenceFacade
+  + receive(params) : Outcome
 }
 
-class RetailOrderHistoryView {
-  -String id
-  -String orderCode
-  -Long locationId
-  -String fulfilmentMethod
-  -String paymentState
-  -String fulfilmentState
-  -String subtotal
-  -String shippingCharge
-  -String discountAmount
-  -String payableAmount
-  -List<Item> items
-  -String paymentMethod
-  -Instant paymentDeadline
-  -Instant counterPaymentDeadline
-  -Instant orderedAt
-  -Instant paidAt
-  -Instant completedAt
+class RetailPaymentEvidenceFacade <<interface>> {
+  + applyVerifiedPayment(payment) : void
 }
 
-class RetailPaymentService {
-  -RetailCheckoutService checkoutService
-  -RetailPaymentPort paymentPort
-  -ObjectProvider<RetailUnstartedExpiryService> expiryService
-  -RetailShipmentCreationService shipmentCreation
-  +initiate(Long memberAccountId, String checkoutId) PaymentRedirectView
+class RetailPaymentEvidenceService <<service>> {
+  - checkouts : GroupedCheckoutRepository
+  - holdRepository : RetailVariantHoldRepository
+  - holds : RetailVariantHoldLifecycleService
+  + applyVerifiedPayment(payment) : void
 }
 
-class RetailCheckoutService {
-  -GroupedCheckoutRepository checkoutRepository
-  +lockOwnedCheckout(Long memberAccountId, String checkoutId) GroupedCheckout
+class RetailCheckoutCancellationService <<service>> {
+  - carts : RetailCartRepository
+  - checkouts : GroupedCheckoutRepository
+  - orders : RetailOrderRepository
+  + cancel(memberId, checkoutId) : CancellationView
+  + cancelBranchOrder(memberId, orderId) : CancellationView
 }
 
-class RetailPaymentPort {
-  +initiate(String checkoutId, BigDecimal amount) PaymentInitiation
+class RetailUnstartedExpiryJob <<service>> {
+  - holds : RetailVariantHoldRepository
+  - expiry : RetailUnstartedExpiryService
+  + process() : void
 }
 
-class VnpayRetailPaymentAdapter {
-  -PaymentGatewayCheckoutPort gateway
-  -PaymentOwnerRegistrationPort owners
-  -RetailVariantHoldRepository holds
-  +initiate(String checkoutId, BigDecimal amount) PaymentInitiation
+class RetailUnstartedExpiryService <<service>> {
+  - carts : RetailCartRepository
+  - checkouts : GroupedCheckoutRepository
+  - holds : RetailVariantHoldLifecycleService
+  + requirePaymentBeforeDeadline(checkoutId) : void
+  + expire(memberId, checkoutId) : boolean
 }
 
-class PaymentIngressService {
-  -VnpayChecksumService checksum
-  -PaymentOwnerRegistry registry
-  -RetailPaymentEvidenceFacade retail
-  +receive(Map<String,String> params) Outcome
+class RetailOrderQueryService <<service>> {
+  - orders : RetailOrderRepository
+  - catalogue : RetailCataloguePort
+  + list(memberId) : List<RetailOrderHistoryView>
+  + find(memberId, orderId) : RetailOrderHistoryView
 }
 
-class RetailPaymentEvidenceFacade {
-  +applyVerifiedPayment(RetailVerifiedPayment payment) void
+class RetailShipmentCreationService <<service>> {
+  - shipments : RetailShipmentRepository
+  + createShipmentsForPaidCheckout(checkout) : void
 }
 
-class RetailPaymentEvidenceService {
-  -GroupedCheckoutRepository checkouts
-  -RetailVariantHoldRepository holdRepository
-  -RetailVariantHoldLifecycleService holds
-  -RetailPaymentReconciliationRepository reconciliation
-  -CatalogueSalesFacade catalogue
-  -AvailabilityGuardPort guard
-  -LoyaltyFacade loyalty
-  -RetailShipmentCreationService shipmentCreation
-  +applyVerifiedPayment(RetailVerifiedPayment payment) void
+class LoyaltyFacade <<interface>> {
+  + settleAcceptedBenefits(outcome) : BenefitResult
+  + grantEarnedPoints(outcome) : BenefitResult
+  + releaseHeldBenefits(outcome) : BenefitResult
 }
 
-class RetailCheckoutCancellationService {
-  -RetailCartRepository carts
-  -GroupedCheckoutRepository checkouts
-  -RetailOrderRepository orders
-  -RetailVariantHoldLifecycleService holds
-  -CatalogueSalesFacade catalogue
-  -AvailabilityGuardPort guard
-  -LoyaltyFacade loyalty
-  -RetailBranchPartService branchParts
-  +cancel(Long memberId, String checkoutId) CancellationView
-  +cancelBranchOrder(Long memberId, String orderId) CancellationView
+class GroupedCheckoutRepository <<repository>> {
+  + lockOwned(id, memberId) : Optional<GroupedCheckout>
+  + lockById(id) : Optional<GroupedCheckout>
 }
 
-class RetailUnstartedExpiryJob {
-  -RetailVariantHoldRepository holds
-  -RetailUnstartedExpiryService expiry
-  +process() void
+class RetailOrderRepository <<repository>> {
+  + findOwnedOrders(memberId) : List<RetailOrder>
+  + findOwnedOrder(memberId, orderId) : Optional<RetailOrder>
 }
 
-class RetailUnstartedExpiryService {
-  -RetailCartRepository carts
-  -GroupedCheckoutRepository checkouts
-  -RetailVariantHoldLifecycleService holds
-  -LoyaltyFacade loyalty
-  -RetailBranchPartService branchParts
-  +requirePaymentBeforeDeadline(String checkoutId) void
-  +expire(Long memberId, String checkoutId) boolean
+class GroupedCheckout <<entity>> {
+  - id : String
+  - memberAccountId : Long
+  - payableAmount : BigDecimal
 }
 
-class RetailOrderQueryService {
-  -RetailOrderRepository orders
-  -RetailCataloguePort catalogue
-  +list(Long memberId) List<RetailOrderHistoryView>
-  +find(Long memberId, String orderId) RetailOrderHistoryView
+class RetailOrder <<entity>> {
+  - id : String
+  - groupedCheckout : GroupedCheckout
+  - locationId : Long
 }
 
-class RetailShipmentCreationService {
-  -RetailShipmentRepository shipments
-  +createShipmentsForPaidCheckout(GroupedCheckout checkout) void
+class OrderItem <<entity>> {
+  - id : String
+  - retailOrder : RetailOrder
+  - variantId : Long
 }
 
-class RetailVariantHoldLifecycleService {
-  -RetailVariantHoldRepository holds
-  +requireBranchHolds(String checkoutId, List<BranchVariant> keys) List<RetailVariantHold>
-  +settle(RetailVariantHold hold) void
-  +release(RetailVariantHold hold) void
-  +expire(RetailVariantHold hold) void
+class RetailPaymentReconciliation <<entity>> {
+  - id : Long
+  - checkoutId : String
+  - merchantReference : String
 }
 
-class LoyaltyFacade {
-  +settleAcceptedBenefits(AuthoritativeOutcome outcome) BenefitResult
-  +grantEarnedPoints(AuthoritativeOutcome outcome) BenefitResult
-  +releaseHeldBenefits(AuthoritativeOutcome outcome) BenefitResult
-}
+CheckoutController --> RetailPaymentService : uses
+VnpayPaymentIngressController --> PaymentIngressService : uses
+RetailCheckoutCancellationController --> RetailCheckoutCancellationService : uses
+RetailOrderQueryController --> RetailOrderQueryService : uses
 
-class GroupedCheckoutRepository {
-  +lockOwned(String id, Long memberId) Optional<GroupedCheckout>
-  +lockById(String id) Optional<GroupedCheckout>
-}
+RetailPaymentService --> RetailUnstartedExpiryService : uses
+RetailPaymentService --> RetailShipmentCreationService : uses
+PaymentIngressService --> RetailPaymentEvidenceFacade : uses
+RetailPaymentEvidenceService ..|> RetailPaymentEvidenceFacade : implements
+RetailPaymentEvidenceService --> GroupedCheckoutRepository : uses
+RetailPaymentEvidenceService --> RetailShipmentCreationService : uses
+RetailPaymentEvidenceService --> LoyaltyFacade : uses
+RetailCheckoutCancellationService --> GroupedCheckoutRepository : uses
+RetailCheckoutCancellationService --> RetailOrderRepository : uses
+RetailCheckoutCancellationService --> LoyaltyFacade : uses
+RetailUnstartedExpiryJob --> RetailUnstartedExpiryService : uses
+RetailUnstartedExpiryService --> GroupedCheckoutRepository : uses
+RetailUnstartedExpiryService --> LoyaltyFacade : uses
+RetailOrderQueryService --> RetailOrderRepository : uses
 
-class RetailOrderRepository {
-  +findOwnedOrders(Long memberId) List<RetailOrder>
-  +findOwnedOrder(Long memberId, String orderId) Optional<RetailOrder>
-}
-
-class RetailCartRepository {
-  +findLockedByMemberAccountId(Long memberAccountId) Optional<RetailCart>
-}
-
-class RetailVariantHoldRepository {
-  +findByGroupedCheckoutId(String groupedCheckoutId) List<RetailVariantHold>
-  +findUnstartedExpiryCandidates(RetailVariantHoldStatus holdStatus, ...) List<ExpiryCandidate>
-}
-
-class RetailPaymentReconciliationRepository {
-  +findByMerchantReference(String merchantReference) Optional<RetailPaymentReconciliation>
-}
-
-class GroupedCheckout {
-  -String id
-  -Long memberAccountId
-  -BigDecimal payableAmount
-  -PaymentState paymentState
-  -Instant paymentInitiatedAt
-  -String paymentUrl
-  -Instant paymentUrlExpiresAt
-  -String paymentProofRef
-  -Integer cancellationUnrestoredQuantity
-  -Instant counterPaymentDeadline
-  -List<RetailOrder> orders
-}
-
-class RetailOrder {
-  -String id
-  -GroupedCheckout groupedCheckout
-  -Long locationId
-  -String fulfilmentMethod
-  -PaymentState paymentState
-  -String fulfilmentState
-  -BigDecimal payableAmount
-  -Instant paidAt
-  -Instant completedAt
-  -List<OrderItem> items
-}
-
-class OrderItem {
-  -String id
-  -RetailOrder retailOrder
-  -Long variantId
-  -int quantity
-  -BigDecimal unitPrice
-  -BigDecimal lineTotal
-}
-
-class RetailVariantHold {
-  -String id
-  -GroupedCheckout groupedCheckout
-  -Long variantId
-  -Long locationId
-  -int quantity
-  -RetailVariantHoldStatus status
-  -Instant expiresAt
-}
-
-class RetailCart {
-  -String id
-  -Long memberAccountId
-  -Long version
-  -List<CartLine> lines
-}
-
-class RetailPaymentReconciliation {
-  -Long id
-  -String checkoutId
-  -String merchantReference
-  -String providerTransaction
-  -Long amountVnd
-  -String currencyCode
-  -String reason
-  -Instant createdAt
-}
-
-CheckoutController ..> PaymentRedirectView
-CheckoutController --> RetailPaymentService
-VnpayPaymentIngressController --> PaymentIngressService
-RetailCheckoutCancellationController ..> CancellationView
-RetailCheckoutCancellationController --> RetailCheckoutCancellationService
-RetailOrderQueryController ..> RetailOrderHistoryView
-RetailOrderQueryController --> RetailOrderQueryService
-
-RetailPaymentService --> RetailCheckoutService
-RetailPaymentService --> RetailPaymentPort
-RetailPaymentService --> RetailUnstartedExpiryService
-RetailPaymentService --> RetailShipmentCreationService
-VnpayRetailPaymentAdapter ..|> RetailPaymentPort
-RetailCheckoutService --> GroupedCheckoutRepository
-PaymentIngressService --> RetailPaymentEvidenceFacade
-PaymentIngressService ..> RetailVerifiedPayment
-RetailPaymentEvidenceService ..|> RetailPaymentEvidenceFacade
-RetailPaymentEvidenceService --> GroupedCheckoutRepository
-RetailPaymentEvidenceService --> RetailPaymentReconciliationRepository
-RetailPaymentEvidenceService --> RetailVariantHoldLifecycleService
-RetailPaymentEvidenceService --> RetailShipmentCreationService
-RetailPaymentEvidenceService --> LoyaltyFacade
-RetailCheckoutCancellationService --> RetailCartRepository
-RetailCheckoutCancellationService --> GroupedCheckoutRepository
-RetailCheckoutCancellationService --> RetailOrderRepository
-RetailCheckoutCancellationService --> RetailVariantHoldLifecycleService
-RetailCheckoutCancellationService --> LoyaltyFacade
-RetailUnstartedExpiryJob --> RetailVariantHoldRepository
-RetailUnstartedExpiryJob --> RetailUnstartedExpiryService
-RetailUnstartedExpiryService --> RetailCartRepository
-RetailUnstartedExpiryService --> GroupedCheckoutRepository
-RetailUnstartedExpiryService --> RetailVariantHoldLifecycleService
-RetailUnstartedExpiryService --> LoyaltyFacade
-RetailOrderQueryService --> RetailOrderRepository
-RetailVariantHoldLifecycleService --> RetailVariantHoldRepository
-
-GroupedCheckoutRepository ..> GroupedCheckout
-RetailOrderRepository ..> RetailOrder
-RetailCartRepository ..> RetailCart
-RetailVariantHoldRepository ..> RetailVariantHold
-RetailPaymentReconciliationRepository ..> RetailPaymentReconciliation
+GroupedCheckoutRepository ..> GroupedCheckout : manages
+RetailOrderRepository ..> RetailOrder : manages
 
 GroupedCheckout "1" *-- "*" RetailOrder
 RetailOrder "1" *-- "*" OrderItem
-GroupedCheckout "1" -- "*" RetailVariantHold
+RetailPaymentService --> VnpayRetailPaymentAdapter : uses
+RetailPaymentEvidenceService --> RetailPaymentReconciliation
 @enduml

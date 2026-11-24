@@ -4,7 +4,7 @@ The system has two applications: a React single-page front-end (`ppswbs_frontend
 
 ### 2.1 Front-end Package Diagram
 
-(Front-end package diagram)
+{{r4-pd-frontend width=100% align=center}}
 
 #### Package descriptions
 
@@ -29,7 +29,7 @@ The system has two applications: a React single-page front-end (`ppswbs_frontend
 
 ### 2.2 Back-end Package Diagram
 
-(Back-end package diagram)
+{{r4-pd-backend width=100% align=center}}
 
 #### Package descriptions
 

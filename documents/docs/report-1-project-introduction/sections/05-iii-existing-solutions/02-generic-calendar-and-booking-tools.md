@@ -4,13 +4,13 @@ This representative category covers standalone calendars and appointment tools t
 
 ::: {.docx-table width="100%" columns="35%,65%" repeat-header="false"}
 
-| Attribute | Description |
+| Criteria | Details |
 | --- | --- |
-| Website or link | N/A - representative tool category |
-| Target users | Businesses that need basic appointment calendars or booking forms |
-| Core features | Date and time-slot display, branch or appointment selection, customer reservation and contact capture, confirmation/reminder messages, and basic availability management |
+| Website / Link | N/A - representative tool category |
+| Target Users | Businesses that need basic appointment calendars or booking forms |
+| Core Features | Date and time-slot display, branch or appointment selection, customer reservation and contact capture, confirmation/reminder messages, and basic availability management |
 | Strengths | Faster self-service booking, clearer availability than manual messaging, fewer repetitive booking exchanges, and a familiar interaction model for customers |
 | Weaknesses | Treats the booking as an isolated appointment; limited support for group participant capacity, branch-specific design capability, ring configuration, consented reference images, feasibility review, estimates, payment gates, invoice adjustments, and order fulfilment |
-| Gap for this project | It cannot provide one traceable journey that starts with a group-session booking, carries the customer's customization context through feasibility and estimation, and continues to payment, fulfilment, order status, and final-price consent. |
+| GAP for this project | It cannot provide one traceable journey that starts with a group-session booking, carries a Member's customization context through feasibility and estimation, and continues to payment, fulfilment, order status, and final-price consent. |
 
 :::

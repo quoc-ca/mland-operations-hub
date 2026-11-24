@@ -1,11 +1,11 @@
 # Definition and Acronyms {#definition-and-acronyms}
 
-| Acronym or term | Definition |
+| Acronym | Definition |
 | --- | --- |
 | AI | Artificial intelligence. AI-assisted analysis and AI price suggestion are not part of the current Feature-004 baseline; any future AI capability requires separate approval. |
 | API | Application Programming Interface. |
-| Guest | A customer who uses the system without creating a system account. A Guest may submit a design request subject to the Guest daily quota and opaque tracking flow. |
-| Member | A customer with a system account who can submit design requests, save configured designs, request a custom-manufacturing order, book workshops, and buy ready-made rings. |
+| Guest | A customer who uses the system without creating a system account. A Guest may view public content and feature entry points, but must sign in as a Member before using private design, review, or configuration actions. |
+| Member | A customer with an active system account who can create design requests, save configured designs, create or edit eligible reviews, request a custom-manufacturing order, book workshops, and buy ready-made rings. |
 | Design Request | A customer-submitted description and/or reference images that require Staff or Manager human review. It is not an AI decision or a configured workshop design. |
 | Custom Order | A shop-made custom-manufacturing order created after an eligible Member's design request is accepted and quoted. It is paid in full after quote approval and is not added to the retail cart. |
 | Workshop Recommendation | An advisory package suggestion produced from a saved Feature-012 design. It does not create or modify a booking, payment, or order. |

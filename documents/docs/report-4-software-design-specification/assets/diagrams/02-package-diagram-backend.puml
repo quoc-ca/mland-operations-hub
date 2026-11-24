@@ -43,11 +43,11 @@ package "MLAND Back-End" {
 }
 
 PpswbsBackendApplication .down.> configuration
-configuration .down.> controller
 controller .right.> dto
 controller .down.> service
 service .right.> facade
 service .down.> dao
+service ..> entity
 dao .right.> entity
 service ..> dto
 service ..> common

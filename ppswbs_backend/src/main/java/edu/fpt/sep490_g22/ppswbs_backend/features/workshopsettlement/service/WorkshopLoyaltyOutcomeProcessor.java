@@ -6,8 +6,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.Loyalt
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.OutcomeKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketAttendanceOutcome;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBillLifecycleStatus;
@@ -42,8 +40,7 @@ import java.util.List;
 public class WorkshopLoyaltyOutcomeProcessor {
 
     private final SettlementFinalBillRepository bills;
-    private final SettlementChargeRepository charges;
-    private final SettlementEvidenceConclusionRepository evidence;
+    private final FolioBalanceService balances;
     private final WorkshopBookingSettlementAdapter booking;
     private final WorkshopOperationsSettlementAdapter operations;
     private final LoyaltyFacade loyalty;
@@ -156,13 +153,8 @@ public class WorkshopLoyaltyOutcomeProcessor {
         return SettlementFinalBillLifecycleStatus.isKnown(status);
     }
 
+    /** The same balance the folio shows: it also counts confirmed collections and cash reversals. */
     private long outstanding(SettlementFinalBill bill) {
-        long confirmedCharges = charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(
-                        bill.getBillReference(), "CONFIRMED").stream()
-                .mapToLong(charge -> charge.getAmountVnd() == null ? 0L : charge.getAmountVnd()).sum();
-        long finalPayments = evidence.findByBookingReferenceAndConclusion(
-                        bill.getBookingReference(), "FINAL_PAYMENT_VERIFIED").stream()
-                .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd()).sum();
-        return Math.max(0L, Math.subtractExact(Math.addExact(bill.getRemainingAmountVnd(), confirmedCharges), finalPayments));
+        return balances.balanceOf(bill).balanceDue();
     }
 }

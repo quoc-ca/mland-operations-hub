@@ -174,40 +174,25 @@ public class DesignAnalysisService {
         AccountSummary member = null;
 
         // 1. Ownership & Quota Validation
-        if (isMember) {
-            member = accountFacade.resolveAccount(callerUid)
-                    .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED",
-                            "Không tìm thấy thông tin tài khoản thành viên."));
-            if (member.role() != ActorRole.MEMBER || member.status() != ActorStatus.ACTIVE) {
-                throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID",
-                        "Tài khoản không phải là hội viên hoạt động.");
-            }
+        if (!isMember) {
+            throw DesignReviewException.unauthorized("DESIGN_REQUEST_AUTH_REQUIRED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để tạo yêu cầu thiết kế.");
+        }
 
-            // Check duplicate idempotency for member
-            Optional<DesignRequest> existing = requestRepository
-                    .findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(member.accountId(), version, idempotencyKey);
-            if (existing.isPresent()) {
-                log.info("Duplicate member idempotency key: returning existing design request {}", existing.get().getId());
-                return mapToViewDto(existing.get());
-            }
-        } else {
-            // Guest Request
-            String sessionDigest = (guestSessionId != null && !guestSessionId.isBlank())
-                    ? guestSessionId.trim()
-                    : UUID.randomUUID().toString();
+        member = accountFacade.resolveAccount(callerUid)
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED",
+                        "Không tìm thấy thông tin tài khoản thành viên."));
+        if (member.role() != ActorRole.MEMBER || member.status() != ActorStatus.ACTIVE) {
+            throw DesignReviewException.forbidden("MEMBER_INACTIVE_OR_INVALID",
+                    "Tài khoản không phải là hội viên hoạt động.");
+        }
 
-            // Check duplicate idempotency for guest
-            Optional<DesignRequest> existing = requestRepository
-                    .findByGuestSessionIdAndIdempotencyKey(sessionDigest, idempotencyKey)
-                    .or(() -> requestRepository.findByIdempotencyKey(idempotencyKey));
-            if (existing.isPresent()) {
-                log.info("Duplicate guest idempotency key: returning existing design request {}", existing.get().getId());
-                return mapToViewDto(existing.get());
-            }
-
-            // Guest 5-requests/day limit check
-            guestQuotaService.validateAndConsumeQuota(sessionDigest);
-            guestSessionId = sessionDigest;
+        // Check duplicate idempotency for member
+        Optional<DesignRequest> existing = requestRepository
+                .findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(member.accountId(), version, idempotencyKey);
+        if (existing.isPresent()) {
+            log.info("Duplicate member idempotency key: returning existing design request {}", existing.get().getId());
+            return mapToViewDto(existing.get());
         }
 
         // 2. Request Content Validation
@@ -496,34 +481,16 @@ public class DesignAnalysisService {
             return mapToViewDto(request);
         }
 
-        // Authenticated Member
-        if (callerUid != null) {
+        // Authenticated Member Owner
+        if (callerUid != null && !callerUid.isBlank()) {
             AccountSummary member = accountFacade.resolveAccount(callerUid).orElse(null);
-            if (member != null) {
-                if (member.accountId().equals(request.getOwnerAccountId())) {
-                    return mapToViewDto(request);
-                } else if (!"GUEST".equalsIgnoreCase(request.getOwnershipType())) {
-                    throw DesignReviewException.notFound("NOT_FOUND",
-                            "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
-                }
+            if (member != null && member.accountId().equals(request.getOwnerAccountId())) {
+                return mapToViewDto(request);
             }
         }
 
-        // Guest Request Verification
-        if ("GUEST".equalsIgnoreCase(request.getOwnershipType())) {
-            if (guestTrackingToken != null && !guestTrackingToken.isBlank()) {
-                if (request.getTrackingToken() != null && request.getTrackingToken().equals(guestTrackingToken.trim())) {
-                    if (request.getTrackingTokenExpiresAt() != null && request.getTrackingTokenExpiresAt().isBefore(Instant.now())) {
-                        throw DesignReviewException.unauthorized("DESIGN_TRACKING_TOKEN_EXPIRED", "Mã theo dõi yêu cầu thiết kế đã hết hạn.");
-                    }
-                    return mapToViewDto(request);
-                }
-                throw DesignReviewException.unauthorized("DESIGN_TRACKING_TOKEN_INVALID", "Mã theo dõi yêu cầu thiết kế không hợp lệ.");
-            }
-        }
-
-        // Fallback owner-safe projection
-        return mapToViewDto(request);
+        throw DesignReviewException.notFound("NOT_FOUND",
+                "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
     }
 
     @Transactional(readOnly = true)
@@ -675,19 +642,13 @@ public class DesignAnalysisService {
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy yêu cầu thiết kế."));
 
         // Ownership validation
-        if (callerUid != null && !callerUid.isBlank()) {
-            AccountSummary member = accountFacade.resolveAccount(callerUid)
-                    .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy tài khoản."));
-            if (!member.accountId().equals(request.getOwnerAccountId())) {
-                throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền chỉnh sửa yêu cầu này.");
-            }
-        } else if (guestTrackingToken != null && !guestTrackingToken.isBlank()) {
-            String hash = hashToken(guestTrackingToken);
-            if (!guestTrackingToken.equals(request.getTrackingToken()) && !hash.equals(request.getTrackingTokenHash())) {
-                throw DesignReviewException.forbidden("ACCESS_DENIED", "Token theo dõi không hợp lệ.");
-            }
-        } else {
-            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu đăng nhập hoặc mã theo dõi.");
+        if (callerUid == null || callerUid.isBlank()) {
+            throw DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Yêu cầu đăng nhập tài khoản hội viên.");
+        }
+        AccountSummary member = accountFacade.resolveAccount(callerUid)
+                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED", "Không tìm thấy tài khoản."));
+        if (!member.accountId().equals(request.getOwnerAccountId())) {
+            throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền chỉnh sửa yêu cầu này.");
         }
 
         // State check: Must be in CLARIFICATION_REQUIRED

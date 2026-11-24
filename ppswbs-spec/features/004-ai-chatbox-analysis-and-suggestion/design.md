@@ -1,7 +1,7 @@
 # Feature-004 Frontend Design — Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-22
+Date updated: 2026-11-24
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -71,3 +71,47 @@ as the Feature-004 visual baseline. Do not create a duplicate Figma page when an
 existing frame can be updated. Record node IDs and revision in `version.md`.
 Visual approval is complete for the current baseline; implementation remains
 subject to the specification, API contract, permission and engineering gates.
+
+## Draft redesign for user review — 2026-11-24
+
+The current React implementation was reviewed before preparing a new draft.
+The request page keeps its existing fields and validation but replaces the
+basic visual treatment with the existing Mland shell, card hierarchy and
+responsive patterns.
+
+Draft frames in file mland-operation-hub, page 498:2:
+
+| Screen | Desktop | Mobile |
+|---|---:|---:|
+| Custom design request | 588:43 | 590:43 |
+
+The draft gives the selected Feature-012 snapshot a clear reference card,
+makes the five-image limit visible and makes image-quality feedback a first-
+class state beside the upload area. It does not add a field or change the
+Member-only request boundary.
+
+## Consultation geometry and scroll contract
+
+The contextual and general consultation chats share one outer width token,
+header/message/composer spacing scale, desktop maximum width and mobile
+full-width behavior. Loading, empty, error and loaded sidebar states reserve
+the same horizontal width.
+
+The implementation must not scroll the page or message thread as a side effect
+of route mount, conversation selection, polling, focus, visibility change,
+loading or empty-state rendering. The first view opens at the top. A successful
+explicit send may reveal the sent message. Polling preserves the reader's
+position; a new inbound message while reading older content uses a non-blocking
+new-message affordance rather than moving the viewport.
+
+## Frontend and E2E handoff
+
+The next implementation agent must recompose the request page from existing
+shared patterns, reuse one consultation surface-width contract, remove effects
+that scroll solely because messages changed or polling completed, preserve
+Vietnamese UTF-8 rendering, and add E2E coverage for geometry, initial top
+position, polling stability, send behavior, sidebar width stability and
+permission-safe context display.
+
+No production code is changed by this update. The Figma draft remains pending
+user approval.

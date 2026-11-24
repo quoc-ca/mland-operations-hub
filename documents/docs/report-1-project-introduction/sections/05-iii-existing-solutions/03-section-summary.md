@@ -1,4 +1,4 @@
-## 3. Section Summary {#existing-solutions-summary}
+## 4. Section Summary {#existing-solutions-summary}
 
 The currently existing approaches solve only parts of Mland's problem. Manual coordination is flexible and allows Staff to discuss each customer's idea, but the information remains scattered across conversations and notes. Generic booking tools improve session visibility and self-service reservation, but they do not connect booking with ring customization, human review, quotation, payment, and fulfilment. Domino's Build Your Own Pizza demonstrates how guided, component-based customization can help customers make decisions step by step; however, ring customization is less predictable and may require image-quality checks, clarification, Staff or Manager review, and a tailored quote.
 

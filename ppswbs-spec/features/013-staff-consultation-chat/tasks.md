@@ -74,3 +74,17 @@
 - [ ] T013-057 Execute Browser MCP E2E-013-006 through E2E-013-013.
 - [ ] T013-058 Validate V184 on clean and existing databases.
 
+## Version 1.3 — frontend redesign and regression coverage
+
+- [ ] T013-060 Implement approved Figma layout for Member contextual chat.
+- [ ] T013-061 Apply one shared outer width and spacing contract to general and
+  design-context chatboxes.
+- [ ] T013-062 Keep sidebar width stable across loading, empty, error and loaded
+  states.
+- [ ] T013-063 Remove polling/load-driven auto-scroll; preserve reader position
+  and reveal messages only after explicit successful send.
+- [ ] T013-064 Add Member/Staff/Manager E2E for initial top position, polling,
+  send/retry, new-message affordance and UTF-8 Vietnamese rendering.
+- [ ] T013-065 Attach screenshots and close the defect only after desktop and
+  mobile visual consistency checks pass.
+
