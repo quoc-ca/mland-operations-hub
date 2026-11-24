@@ -72,16 +72,16 @@ An inactive branch cannot receive new checkout, but accepted orders retain their
 
 #### Business Rules
 
-BR-52-01, BR-52-02, BR-52-03, BR-52-04, BR-52-05, BR-52-06, BR-52-07
+BR-60-01, BR-60-02, BR-60-03, BR-60-04, BR-60-05, BR-60-06, BR-60-07
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-52-01 | Assigned-branch Staff or explicitly pickup-action/branch-delegated Manager records completion; the Member provides ownership verification only. |
-| BR-52-02 | Only the signed-in owning Member opening the current matching order may collect; screenshots, references alone and third-party collection are insufficient. |
-| BR-52-03 | Record ready_for_pickup → picked_up only after verified payment, pickup readiness and actual handover to the authenticated owner. |
-| BR-52-04 | Retain actor/time, verification method/result and minimized order reference; collect no identity-document copy, pickup OTP, extra contact/address or raw credentials. |
-| BR-52-05 | Pickup never charges again, changes prices/deadlines or repeats quantity/benefit settlement; a cash-at-the-counter order is charged once, at the counter. |
-| BR-52-06 | Identical recorded completion returns successful no-change; reject stale/conflicting requests without another handover effect. |
-| BR-52-07 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-60-01 | Assigned-branch Staff or explicitly pickup-action/branch-delegated Manager records completion; the Member provides ownership verification only. |
+| BR-60-02 | Only the signed-in owning Member opening the current matching order may collect; screenshots, references alone and third-party collection are insufficient. |
+| BR-60-03 | Record ready_for_pickup → picked_up only after verified payment, pickup readiness and actual handover to the authenticated owner. |
+| BR-60-04 | Retain actor/time, verification method/result and minimized order reference; collect no identity-document copy, pickup OTP, extra contact/address or raw credentials. |
+| BR-60-05 | Pickup never charges again, changes prices/deadlines or repeats quantity/benefit settlement; a cash-at-the-counter order is charged once, at the counter. |
+| BR-60-06 | Identical recorded completion returns successful no-change; reject stale/conflicting requests without another handover effect. |
+| BR-60-07 | Record each attempt and its actual outcome under the shared audit policy. |

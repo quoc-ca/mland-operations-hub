@@ -23,7 +23,7 @@ As a Member, I want the cart lines I ticked revalidated and quoted at approved p
 
 - Successful checkout retains one grouped checkout with one complete order per branch, frozen processing branch/line/fulfilment/discount/payable snapshots and the hold of the ticked lines with original deadline evidence.
 - Rejected checkout creates no partial accepted order/hold/benefit bundle; invalid/unavailable lines are removed and reported.
-- Checkout does not itself assert paid, deduct sold quantities or authorize preparation; UC46 requires verified payment.
+- Checkout does not itself assert paid, deduct sold quantities or authorize preparation; UC55 requires verified payment.
 
 #### Normal Flow
 
@@ -37,7 +37,7 @@ As a Member, I want the cart lines I ticked revalidated and quoted at approved p
 6. The system displays current line/options/quantity/prices, branch, discounts and positive payable total for acceptance; changed terms require explicit Member review and resubmission.
 7. The Member submits acceptance of the complete quote by pressing Đặt hàng.
 8. The system rechecks authority, limits, latest eligibility/quantity and approved terms, then accepts one grouped checkout with one order per branch and the quantity/benefit holds together or none. It freezes policy versions/results and the checkout acceptance time; a VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours.
-9. The system records safe evidence. For VNPay it opens the VNPay payment page straight away (UC46); for cash at the counter it opens Purchase Order History at Chờ nhận tại cửa hàng with where and until when to pay.
+9. The system records safe evidence. For VNPay it opens the VNPay payment page straight away (UC55); for cash at the counter it opens Purchase Order History at Chờ nhận tại cửa hàng with where and until when to pay.
 
 #### Alternative Flows
 
@@ -71,17 +71,17 @@ An identical retry returns the existing order, attempt, link and deadlines; chan
 
 #### Business Rules
 
-BR-45-01, BR-45-02, BR-45-03, BR-45-04, BR-45-05, BR-45-06, BR-45-07, BR-45-08
+BR-54-01, BR-54-02, BR-54-03, BR-54-04, BR-54-05, BR-54-06, BR-54-07, BR-54-08
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-45-01 | Each ticked line belongs to an active processing branch; the accepted order of each branch freezes that branch and its pickup or GHTK choice. |
-| BR-45-02 | Checkout covers the ticked lines; invalid/unavailable lines are removed and reported without a partial order/hold or variant substitution. |
-| BR-45-03 | Freeze product/variant/options, quantity, prices/currency, branch, policy versions, discounts and positive whole-VND totals; later changes never rewrite accepted terms. |
-| BR-45-04 | Allow no-benefit checkout; requested benefits require complete approved policies. The best automatic product discount always applies; at most one voucher stacks on what it left, then points on the remainder, without rounding or silent benefit removal. A voucher that gives nothing more, is not saved when it must be, or does not cover the lines or branch is refused with its reason. |
-| BR-45-05 | Reserve exact-variant quantities and selected benefits together or none; unpaid holds neither deduct sold quantity nor debit points or consume voucher quota. |
-| BR-45-06 | Accepted checkout creates one order per branch and one hold bundle; a VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours, without retry extensions. |
-| BR-45-07 | Require review/resubmission after corrected cart/quote; reject conflicting edits or changed-input retry reuse, and preserve later cart changes during paid cleanup. |
-| BR-45-08 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-54-01 | Each ticked line belongs to an active processing branch; the accepted order of each branch freezes that branch and its pickup or GHTK choice. |
+| BR-54-02 | Checkout covers the ticked lines; invalid/unavailable lines are removed and reported without a partial order/hold or variant substitution. |
+| BR-54-03 | Freeze product/variant/options, quantity, prices/currency, branch, policy versions, discounts and positive whole-VND totals; later changes never rewrite accepted terms. |
+| BR-54-04 | Allow no-benefit checkout; requested benefits require complete approved policies. The best automatic product discount always applies; at most one voucher stacks on what it left, then points on the remainder, without rounding or silent benefit removal. A voucher that gives nothing more, is not saved when it must be, or does not cover the lines or branch is refused with its reason. |
+| BR-54-05 | Reserve exact-variant quantities and selected benefits together or none; unpaid holds neither deduct sold quantity nor debit points or consume voucher quota. |
+| BR-54-06 | Accepted checkout creates one order per branch and one hold bundle; a VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours, without retry extensions. |
+| BR-54-07 | Require review/resubmission after corrected cart/quote; reject conflicting edits or changed-input retry reuse, and preserve later cart changes during paid cleanup. |
+| BR-54-08 | Record each attempt and its actual outcome under the shared audit policy. |

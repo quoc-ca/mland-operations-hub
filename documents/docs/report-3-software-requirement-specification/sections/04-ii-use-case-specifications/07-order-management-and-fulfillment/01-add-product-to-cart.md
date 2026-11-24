@@ -32,7 +32,7 @@ As a Member, I want to add an existing configured retail variant and quantity to
 3. The Member enters a positive integer quantity and submits Add to Cart.
 4. The system rechecks current account/ownership authority, the configured variant, publication/active-category/public-content eligibility, applied price and requested quantity.
 5. The system saves the selection to the Member's cart, retaining distinct variant/term identities and applying only permitted same-variant merging.
-6. The system records safe attempt evidence and displays the updated cart with current indicative prices. When the Member chose Mua Ngay instead of Add to Cart, the system adds the line and opens UC45 Checkout Retail Order for that one line, with the best eligible voucher preselected.
+6. The system records safe attempt evidence and displays the updated cart with current indicative prices. When the Member chose Mua Ngay instead of Add to Cart, the system adds the line and opens UC54 Checkout Retail Order for that one line, with the best eligible voucher preselected.
 
 #### Alternative Flows
 
@@ -50,7 +50,7 @@ The system counts the same variant already in the Member's cart at that branch. 
 
 **Step 6 — Mua Ngay when the cart already holds the branch stock**
 
-When the Member chose Mua Ngay and the add is refused only because the cart already holds that variant at that branch, the system opens UC45 Checkout Retail Order with the existing cart line instead of showing the popup. If that line cannot be read, the system shows the popup of the previous flow.
+When the Member chose Mua Ngay and the add is refused only because the cart already holds that variant at that branch, the system opens UC54 Checkout Retail Order with the existing cart line instead of showing the popup. If that line cannot be read, the system shows the popup of the previous flow.
 
 **Step 5 — Different variant or different price/term identity**
 
@@ -62,17 +62,17 @@ Report a safe failure without false success or partial purchase effects. Reject 
 
 #### Business Rules
 
-BR-43-01, BR-43-02, BR-43-03, BR-43-04, BR-43-05, BR-43-06, BR-43-07, BR-43-08
+BR-52-01, BR-52-02, BR-52-03, BR-52-04, BR-52-05, BR-52-06, BR-52-07, BR-52-08
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-43-01 | Only the active owning Member may add cart items; internal roles cannot act by customer impersonation. |
-| BR-43-02 | Cart items select existing configured size/engraving variants at applied approved positive whole-VND prices; arbitrary variants and free-text engraving are rejected. |
-| BR-43-03 | Cart limits are 50 lines and integer quantity 1–99 per variant across all lines, subject to logical availability; cart items create no hold. |
-| BR-43-04 | Keep variants/terms distinct; merge only the same variant with matching terms. Cart prices remain indicative. |
-| BR-43-05 | Recheck current catalogue eligibility on submission; stale browsing/cart data grants no old-price or post-unpublish hold protection. |
-| BR-43-06 | Reject stale conflicting edits and reload current cart values for review. |
-| BR-43-07 | Record each attempt and its actual outcome under the shared audit policy. |
-| BR-43-08 | A refused add states the branch stock and how many of that variant the cart already holds there, in a popup with one Đồng ý button. Mua Ngay for a variant the cart already holds up to the branch stock opens checkout with the existing line instead of refusing. |
+| BR-52-01 | Only the active owning Member may add cart items; internal roles cannot act by customer impersonation. |
+| BR-52-02 | Cart items select existing configured size/engraving variants at applied approved positive whole-VND prices; arbitrary variants and free-text engraving are rejected. |
+| BR-52-03 | Cart limits are 50 lines and integer quantity 1–99 per variant across all lines, subject to logical availability; cart items create no hold. |
+| BR-52-04 | Keep variants/terms distinct; merge only the same variant with matching terms. Cart prices remain indicative. |
+| BR-52-05 | Recheck current catalogue eligibility on submission; stale browsing/cart data grants no old-price or post-unpublish hold protection. |
+| BR-52-06 | Reject stale conflicting edits and reload current cart values for review. |
+| BR-52-07 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-52-08 | A refused add states the branch stock and how many of that variant the cart already holds there, in a popup with one Đồng ý button. Mua Ngay for a variant the cart already holds up to the branch stock opens checkout with the existing line instead of refusing. |
