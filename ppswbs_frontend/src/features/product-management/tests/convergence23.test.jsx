@@ -6,6 +6,11 @@ import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { invalidPriceFields } from '../ui/public/PublicProductListPage';
 import { categoryPage, managementProduct, publicProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 /** speckit-converge Phase 23 (2026-11-20): T184, T185, T186, T188. */
 const M = '/api/v1/catalogue-management';

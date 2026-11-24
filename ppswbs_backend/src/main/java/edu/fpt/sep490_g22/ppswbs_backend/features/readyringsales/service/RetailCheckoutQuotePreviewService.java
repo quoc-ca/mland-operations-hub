@@ -139,11 +139,12 @@ public class RetailCheckoutQuotePreviewService {
             .filter(index -> index >= 0 && index < selected.size()).map(index -> selected.get(index).getId()).toList();
         String voucherCode = selection.choice() == SelectionChoice.VOUCHER && voucherApplied ? result.normalizedCode() : null;
         String[] parts = discountParts(result);
+        List<CheckoutDtos.CartLineDiscountView> lineViews = cartLineDiscounts(selected, result);
         if (!eligible) {
             return new CheckoutDtos.BenefitPreviewView(null, "VND", subtotal.toString(), true,
                 result.programDiscount().toString(), result.pointDiscount().toString(), result.postPromotionAmount().toString(),
                 null, "0", false, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed());
+                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
         }
         if (request.estimate()) {
             // Cart totals and voucher checks: the same FE-06 numbers, but no quote row (no order can be placed from it).
@@ -151,7 +152,7 @@ public class RetailCheckoutQuotePreviewService {
                 result.programDiscount().toString(), result.pointDiscount().toString(),
                 result.postPromotionAmount().add(shippingTotal).toString(), expiresAt.toString(), shippingTotal.toString(),
                 true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed());
+                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
         }
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
@@ -182,13 +183,35 @@ public class RetailCheckoutQuotePreviewService {
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), quote.getPayableTotal().toString(),
             expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-            discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed());
+            discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
     }
 
     /** True when FE-06 applied exactly the voucher the Member asked for. */
     static boolean appliedCode(BenefitPreview result, String requested) {
         if (requested == null || result.normalizedCode() == null) return false;
         return result.normalizedCode().trim().equalsIgnoreCase(requested.trim());
+    }
+
+    /**
+     * FE-06's share of the programme discount on each selected cart line ({@code lineDiscounts}, line index = position
+     * in the selected lines), for the cart's per-line price. Same checks as {@link #lineShares}: empty when a share is
+     * missing, negative, repeated, out of range, or the shares do not add up to the programme discount.
+     */
+    static List<CheckoutDtos.CartLineDiscountView> cartLineDiscounts(List<CartLine> selected, BenefitPreview result) {
+        List<LineDiscount> lines = result.lineDiscounts();
+        if (lines == null || lines.isEmpty()) return List.of();
+        List<CheckoutDtos.CartLineDiscountView> views = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        BigInteger sum = BigInteger.ZERO;
+        for (LineDiscount line : lines) {
+            if (line == null || line.lineIndex() < 0 || line.lineIndex() >= selected.size() || !seen.add(line.lineIndex())
+                || line.autoDiscount() == null || line.voucherDiscount() == null
+                || line.autoDiscount().signum() < 0 || line.voucherDiscount().signum() < 0) return List.of();
+            sum = sum.add(line.total());
+            views.add(new CheckoutDtos.CartLineDiscountView(selected.get(line.lineIndex()).getId(),
+                line.autoDiscount().toString(), line.voucherDiscount().toString()));
+        }
+        return sum.equals(result.programDiscount()) ? views : List.of();
     }
 
     /**

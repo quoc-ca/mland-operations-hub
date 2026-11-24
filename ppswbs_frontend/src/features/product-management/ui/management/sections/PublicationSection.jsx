@@ -8,6 +8,8 @@ import { publishWithoutReview } from '../../../application/publishNow';
 import { useRole } from '../../../../../shared/auth/useRole';
 import { useProductCommand } from '../ProductDetailPage';
 import { NoticeAt } from '../notices';
+import { CollapsibleHead, useCollapsible } from '../Collapsible';
+import { ProductStateBadge } from '../ProductStateBadge';
 
 /**
  * T040 publication: shows per size the proposed, approved and applied amounts apart, then publishes or hides.
@@ -20,6 +22,7 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, o
   const command = useProductCommand({ reload, setNotice });
   const target = !product.published;
   const isManager = useRole() === 'MANAGER';
+  const [open, toggleOpen] = useCollapsible(true); // Session 2026-11-22: folds like the other sections, open by default
   // A Manager skips the initial review: submit, approve the proposed prices and apply them, then publish, each its own command.
   // Not for a submission waiting for a decision or a rejected review: those are decided in the initial review (FR-010).
   const gate = isManager ? reviewGate(product) : null;
@@ -37,10 +40,8 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, o
 
   return (
     <section className="workspace-card" aria-labelledby="publication-title">
-      <div className="card-head">
-        <h2 id="publication-title">{t('section.publication')}</h2>
-        <span className={product.published ? 'status ok' : 'status'}>{product.published ? t('status.published') : t('status.unpublished')}</span>
-      </div>
+      <CollapsibleHead id="publication-title" title={t('section.publication')} summary={<ProductStateBadge product={product} />} open={open} onToggle={toggleOpen} />
+      {open && (<div id="publication-title-body">
       <div className="data-table" role="table" aria-label={t('section.publication')}>
         <div className="data-row head decision" role="row">
           <span role="columnheader">{t('field.size')}</span><span role="columnheader">{t('price.proposed')}</span>
@@ -63,17 +64,19 @@ export function PublicationSection({ product, api, reload, setNotice, deleted, o
           {t(gate === 'PENDING' ? 'publication.managerReviewFirst' : 'publication.managerRejected')}{' '}
           <a href="#review-title">{t('publication.goToReview')}</a>
         </p>
-      ) : <p className="muted small">{t(!canPublishNow ? 'publication.hint' : currentReview(product)?.state === 'APPROVED' ? 'publication.managerHintApproved' : 'publication.managerHint')}</p>}
+      ) : <p className="muted small">{t(!isManager ? 'publication.staffHint' : !canPublishNow ? 'publication.hint' : currentReview(product)?.state === 'APPROVED' ? 'publication.managerHintApproved' : 'publication.managerHint')}</p>}
       {canPublishNow && (
         <button type="button" className="button primary" disabled={command.pending} onClick={publishNow}>{t('publication.publishNow')}</button>
       )}
-      {!deleted && !outOfScope && !canPublishNow && !gate && (
+      {/* Session 2026-11-23: the publication flag covers every branch, so only a Manager publishes, hides or shows again. */}
+      {isManager && !deleted && !outOfScope && !canPublishNow && !gate && (
         <button type="button" className={target ? 'button primary' : 'button outline'} disabled={command.pending} onClick={toggle}>
           {target ? t('publication.publish') : t('publication.hide')}
         </button>
       )}
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
       <NoticeAt at="publication" />
+      </div>)}
     </section>
   );
 }

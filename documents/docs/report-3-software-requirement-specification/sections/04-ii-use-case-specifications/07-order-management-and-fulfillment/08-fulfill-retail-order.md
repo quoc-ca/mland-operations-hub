@@ -16,7 +16,7 @@ As a Member, I want the pickup or GHTK choice and recipient data I gave at check
 
 1. The platform is available and the retail order exists.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The Member owns the verified paid order. Method/data were chosen at checkout (UC45) and cannot change after acceptance.
+3. The Member owns the verified paid order. Method/data were chosen at checkout (UC54) and cannot change after acceptance.
 4. The processing branch was selected and fixed at checkout; this use case cannot replace it.
 
 #### Postconditions
@@ -29,12 +29,12 @@ As a Member, I want the pickup or GHTK choice and recipient data I gave at check
 
 **Fulfill Retail Order**
 
-1. At checkout the owning Member chose pickup or GHTK for each branch and, for GHTK, a saved or new recipient address (UC45).
+1. At checkout the owning Member chose pickup or GHTK for each branch and, for GHTK, a saved or new recipient address (UC54).
 2. After verified payment the system records the choice on each paid branch order; for GHTK it records one prepaid shipment with a platform-generated tracking number.
 3. The system shows the fixed processing branch, the chosen method and the current step in Purchase Order History.
-4. Authorized Staff prepares the order (UC49) and marks it ready: Chờ khách nhận for pickup (UC50), Chờ ĐVVC lấy hàng for GHTK (UC53).
-5. Pickup: the Member sees Sẵn sàng nhận hàng and collects the order at the counter (UC52).
-6. GHTK: the Member sees Chờ GHTK lấy hàng, then Đang giao hàng once the courier collects the parcel, then Đã giao once the GHTK partner records the delivery (UC53).
+4. Authorized Staff prepares the order (UC58) and marks it ready: Chờ khách nhận for pickup (UC59), Chờ ĐVVC lấy hàng for GHTK (UC61).
+5. Pickup: the Member sees Sẵn sàng nhận hàng and collects the order at the counter (UC60).
+6. GHTK: the Member sees Chờ GHTK lấy hàng, then Đang giao hàng once the courier collects the parcel, then Đã giao once the GHTK partner records the delivery (UC61).
 7. The system records the received time at the counter handover or the GHTK delivery, without repricing or changing branch.
 8. The order moves to the Đã giao tab with its paid and received times.
 
@@ -70,16 +70,16 @@ Reject it. Only the GHTK partner account records the courier pickup and the deli
 
 #### Business Rules
 
-BR-51-01, BR-51-02, BR-51-03, BR-51-04, BR-51-05, BR-51-06, BR-51-07
+BR-59-01, BR-59-02, BR-59-03, BR-59-04, BR-59-05, BR-59-06, BR-59-07
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-51-01 | Only the active owning Member chooses method and recipient data at checkout; they cannot change after acceptance, and internal actors cannot impersonate the Member. |
-| BR-51-02 | Support pickup or domestic GHTK; GHTK requires valid name, phone and address with optional note under the shared field limits, from a saved address or a new one. |
-| BR-51-03 | The method and GHTK fee are frozen at checkout; later progress never changes the branch, frozen prices/totals, shipping fee, payment or hold. |
-| BR-51-04 | Only the chosen method's chain is permitted: pickup Đang chuẩn bị hàng → Chờ khách nhận → Hoàn thành; GHTK Đang chuẩn bị hàng → Chờ ĐVVC lấy hàng → Đã bàn giao cho ĐVVC → Hoàn thành. |
-| BR-51-05 | Retain necessary pending GHTK data and retire it 30 days after original actual handoff. |
-| BR-51-06 | GHTK is called only for the delivery-fee quote; no GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is provided. |
-| BR-51-07 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-59-01 | Only the active owning Member chooses method and recipient data at checkout; they cannot change after acceptance, and internal actors cannot impersonate the Member. |
+| BR-59-02 | Support pickup or domestic GHTK; GHTK requires valid name, phone and address with optional note under the shared field limits, from a saved address or a new one. |
+| BR-59-03 | The method and GHTK fee are frozen at checkout; later progress never changes the branch, frozen prices/totals, shipping fee, payment or hold. |
+| BR-59-04 | Only the chosen method's chain is permitted: pickup Đang chuẩn bị hàng → Chờ khách nhận → Hoàn thành; GHTK Đang chuẩn bị hàng → Chờ ĐVVC lấy hàng → Đã bàn giao cho ĐVVC → Hoàn thành. |
+| BR-59-05 | Retain necessary pending GHTK data and retire it 30 days after original actual handoff. |
+| BR-59-06 | GHTK is called only for the delivery-fee quote; no GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is provided. |
+| BR-59-07 | Record each attempt and its actual outcome under the shared audit policy. |

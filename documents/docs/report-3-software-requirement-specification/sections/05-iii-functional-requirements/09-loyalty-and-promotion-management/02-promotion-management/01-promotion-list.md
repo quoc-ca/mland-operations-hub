@@ -8,14 +8,16 @@ This screen allows Managers to:
 - See each programme's kind, scope, discount, validity window and state.
 - Open a programme's details or start a new programme.
 
+Promotion Management pages are shown only to the Manager role.
+
 | Field Name | Description |
 | --- | --- |
-| Scope (Phạm vi) | Tất cả, Sản phẩm or Workshop; kept in the page URL. |
-| State (Trạng thái) | Tất cả, Đang bật or Tạm dừng; kept in the page URL. |
-| Programme name (Tên chương trình) | Link to Promotion Details, with the voucher code for a voucher. |
-| Kind (Loại) | Voucher or Giảm giá tự động, with a Sản phẩm / Workshop scope badge. |
-| Discount (Mức giảm) | Fixed amount, or percentage with its maximum discount. |
-| Validity window (Thời gian áp dụng) | Start and end date-time. |
-| State badge | Đang bật or Tạm dừng. |
-| Tạo chương trình | Opens Promotion Form. |
-| Pager | Moves between result pages. |
+| Scope | All, Products or Workshops; kept in the page URL. |
+| Status | All, Enabled or Paused; kept in the page URL. |
+| Programme name | Link to Promotion Details, with the voucher code for a voucher. |
+| Kind | Voucher or Automatic discount, with a Products / Workshops scope badge. |
+| Discount | Fixed amount, or percentage with its maximum discount. |
+| Valid period | Start and end date-time. |
+| Status badge | Enabled or Paused. |
+| New programme | Navigation link that opens Promotion Form. |
+| Load more | Loads further programmes. |

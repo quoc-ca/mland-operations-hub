@@ -44,17 +44,36 @@ public final class CheckoutDtos {
     /**
      * {@code discountAmount} is the whole programme discount (automatic discount plus voucher). Since FE-06 stacks
      * them (Session 2026-11-22), {@code autoDiscountAmount} and {@code voucherDiscountAmount} are its two parts; both
-     * are null when FE-06 did not split it.
+     * are null when FE-06 did not split it. {@code cartLineDiscounts} is FE-06's own share of the programme discount
+     * on each discounted cart line ({@code lineDiscounts}, BUG-INT-0002 note), so the cart shows the per-line price the
+     * branch order will really get; empty when FE-06 sent no per-line shares or they do not add up.
      */
+    /** FE-06's discount on one cart line: the automatic-discount and voucher parts (whole VND, decimal strings). */
+    public record CartLineDiscountView(String cartLineId, String autoDiscountAmount, String voucherDiscountAmount) {
+    }
+
     public record BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
                                      boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
                                      String payableAmount, String expiresAt, String shippingTotal,
                                      boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
                                      List<String> eligibleCartLineIds, String appliedVoucherCode,
-                                     String autoDiscountAmount, String voucherDiscountAmount, Boolean pointsAllowed) {
+                                     String autoDiscountAmount, String voucherDiscountAmount, Boolean pointsAllowed,
+                                     List<CartLineDiscountView> cartLineDiscounts) {
         public BenefitPreviewView {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
             eligibleCartLineIds = eligibleCartLineIds == null ? List.of() : List.copyOf(eligibleCartLineIds);
+            cartLineDiscounts = cartLineDiscounts == null ? List.of() : List.copyOf(cartLineDiscounts);
+        }
+        /** View without per-line shares (the cart then spreads the discount itself). */
+        public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,
+                                  boolean shippingExcluded, String discountAmount, String pointsDiscountAmount,
+                                  String payableAmount, String expiresAt, String shippingTotal,
+                                  boolean eligible, List<String> reasons, String maxPoints, String minRedeemPoints,
+                                  List<String> eligibleCartLineIds, String appliedVoucherCode,
+                                  String autoDiscountAmount, String voucherDiscountAmount, Boolean pointsAllowed) {
+            this(previewId, currency, merchandiseSubtotal, shippingExcluded, discountAmount, pointsDiscountAmount,
+                payableAmount, expiresAt, shippingTotal, eligible, reasons, maxPoints, minRedeemPoints,
+                eligibleCartLineIds, appliedVoucherCode, autoDiscountAmount, voucherDiscountAmount, pointsAllowed, List.of());
         }
         /** View without saying whether points may be used with the selection (null = not known). */
         public BenefitPreviewView(String previewId, String currency, String merchandiseSubtotal,

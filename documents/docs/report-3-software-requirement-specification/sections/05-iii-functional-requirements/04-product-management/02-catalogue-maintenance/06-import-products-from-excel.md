@@ -12,10 +12,10 @@ This screen allows Staff and Managers to:
 
 | Field Name | Description |
 | --- | --- |
-| Receiving branches (Chọn chi nhánh nhận hàng) | Checkboxes; the template has one quantity column per selected branch, and an empty cell means 0. |
-| 1. Tải file mẫu | Downloads the template; it is enabled after at least one branch is selected. The Size column accepts one size, a range, a list or a combination; rows sharing a group code form one product. |
-| 2. Chọn file và kiểm tra | **Chọn file .xlsx** and **Kiểm tra file** validate the file on the first sheet without creating data. |
-| 3. Validation result (Kết quả kiểm tra) | State Hợp lệ, Có lỗi, Đã import or Hết hạn; an error table lists Dòng, Cột, Giá trị and Lỗi, with **Tải báo cáo lỗi** and **Kiểm tra file khác**. A same-name warning marks products that match existing names. |
-| Xác nhận import | Requires confirmation of the number of products and sizes, then creates them as unpublished drafts with proposed prices. |
-| Import result | Links to each created product's management details and **Import file khác**. |
-| Attach images (Gắn ảnh cho các sản phẩm vừa import) | Select several images, assign each to a created product with alternative text, then **Lưu ảnh**. |
+| Choose the receiving branches | Checkboxes; the template has one quantity column per selected branch, and an empty cell means 0. |
+| 1. Download the template | **Download template** is enabled after at least one branch is selected. The Size column accepts one size, a range, a list or a combination; rows sharing a group code form one product. |
+| 2. Choose and check a file | **Choose .xlsx file** and **Check file** validate the file on the first sheet without creating data. |
+| 3. Check result | State Valid, Has errors, Imported or Expired, with the time until which the check is valid (60 minutes); an error table lists Row, Column, Value and Problem, with **Download error report** and **Check another file**. A same-name warning marks products that match existing names. |
+| Confirm import | Requires confirmation of the number of products and sizes, then creates them as unpublished drafts with proposed prices. |
+| Import result | Links to each created product's management details and **Import another file**. |
+| Add images to the imported products | Pick images on a product, or **Pick many images** and assign each to a created product with an image description, then save the images of all products. |

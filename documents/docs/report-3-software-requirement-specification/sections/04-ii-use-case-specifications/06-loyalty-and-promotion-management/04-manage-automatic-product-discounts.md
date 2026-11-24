@@ -90,5 +90,5 @@ BR-45-01, BR-45-02, BR-45-03, BR-45-04, BR-45-05
 | BR-45-01 | Only a Manager may create, edit, pause or resume automatic discounts. |
 | BR-45-02 | Automatic discounts apply to retail products or to workshop packages, need no code, have no total or per-Member use limits and always allow loyalty points. Product automatic discounts have no branch limit; workshop automatic discounts have no branch, date or session limit and apply to every direct website customer, including Guests. |
 | BR-45-03 | A product scope is a set of products and/or specific size variants; when both are selected, each size must belong to a selected product. A workshop scope is one or more packages. The scope cannot change after creation. |
-| BR-45-04 | When several automatic discounts apply to an order or booking, the one with the largest discount is used, and the earliest created one wins a tie; choosing a voucher replaces the automatic discount. |
+| BR-45-04 | When several automatic discounts apply to an order or booking, the one with the largest discount is used, and the earliest created one wins a tie. The automatic discount cannot be declined; a voucher chosen by the customer is added on top of it and calculated on the amount after it. |
 | BR-45-05 | A maximum discount is entered only for a percentage discount; for a fixed amount, the cap is stored equal to the amount. |

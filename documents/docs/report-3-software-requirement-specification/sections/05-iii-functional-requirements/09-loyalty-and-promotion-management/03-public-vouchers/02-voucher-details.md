@@ -4,13 +4,15 @@
 
 This screen allows visitors and Members to:
 
-- View a public voucher's ticket and save it as a Member.
+- View a voucher's ticket and, as a Member, save a voucher that must be saved; a public voucher has no Save button because it needs no saving.
 - Read the full conditions: validity window, minimum value, points combination, branches, products or packages and usage limits.
+
+It opens from the Conditions link of a voucher ticket, or from a product or workshop page through "View and save code" (voucher that must be saved) or "View conditions" (public voucher).
 
 | Field Name | Description |
 | --- | --- |
-| Voucher ticket | Discount, minimum order value, branch restriction, programme name, code, expiry date and points combination, with the save button. |
-| Offer (Ưu đãi) | Programme name and discount. |
-| Conditions (Điều kiện áp dụng) | Validity window, minimum value, whether points can be combined, branches, targeted products, sizes or packages, total uses and uses per Member. |
-| Not found state | A voucher that does not exist or is no longer public shows "Ưu đãi không tồn tại hoặc không còn công khai" with **Quay lại**. |
+| Voucher ticket | Discount, minimum order value, branch restriction, programme name, code, expiry date and points combination. A voucher that must be saved shows the save button; a public voucher shows "Public code: no need to save it, pick it at checkout." |
+| Offer | Programme name and discount. |
+| Conditions | Validity window, minimum value, whether points can be combined, branches, targeted products, sizes or packages, total uses and uses per Member. |
+| Not found state | A voucher that does not exist or is no longer public shows "This offer does not exist or is no longer public" with **Back**. |
 | Footnote | Whether the voucher applies is checked when the order is placed. |

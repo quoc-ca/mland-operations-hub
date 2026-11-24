@@ -40,7 +40,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
 |Operational parameters|Configure deadlines, loyalty rates, point value, and discount caps|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
-|Executive dashboard|View consolidated revenue, workshop and retail KPIs, and day/week/month/year trends for all branches or one branch|No|No|No|Restricted|No|
+|Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|
 |Public store review|Open the Google Maps review link|Full|Full|Full|Full|Full|
 
 #### Permission Matrix Footnotes

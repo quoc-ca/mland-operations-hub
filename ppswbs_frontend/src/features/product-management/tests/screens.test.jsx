@@ -5,6 +5,11 @@ import { clearRoleCache } from '../../../shared/auth/useRole';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { actionResult, categoryPage, managementProduct, publicProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 const M = '/api/v1/catalogue-management';
 // US10: one branch in the account's list is chosen by default on the create form.
@@ -39,19 +44,20 @@ describe('management shell', () => {
 describe('T028 product list and create', () => {
   it('lists products with the filters taken from the URL', async () => {
     const calls = mockFetch({
-      [`GET ${M}/products`]: json(200, { items: [managementProduct()], page: 0, pageSize: 20, totalElements: '1' }),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }), [`GET ${M}/products`]: json(200, { items: [managementProduct()], page: 0, pageSize: 20, totalElements: '1' }),
       [`GET ${M}/categories`]: json(200, categoryPage),
     });
-    open('/catalogue-management/products?q=b%E1%BA%A1c&published=false');
+    // FR-064 (Session 2026-11-22): the state comes from the tab, no longer from a publication filter.
+    open('/catalogue-management/products?q=b%E1%BA%A1c&tab=DRAFT');
     expect(await screen.findByRole('link', { name: 'Nhẫn bạc' })).toHaveAttribute('href', '/catalogue-management/products/42');
     const list = calls.find(call => call.path === `${M}/products`);
-    expect(list.query).toEqual({ q: 'bạc', published: 'false' });
+    expect(list.query).toEqual({ q: 'bạc', tab: 'DRAFT' });
     expect(list.headers.Authorization).toBe('Bearer test-token');
   });
 
   it('shows an empty state different from an error', async () => {
-    mockFetch({ [`GET ${M}/products`]: json(200, { items: [], page: 0, pageSize: 20, totalElements: '0' }), [`GET ${M}/categories`]: json(200, categoryPage) });
-    open('/catalogue-management/products');
+    mockFetch({ 'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }), [`GET ${M}/products`]: json(200, { items: [], page: 0, pageSize: 20, totalElements: '0' }), [`GET ${M}/categories`]: json(200, categoryPage) });
+    open('/catalogue-management/products?q=kh%C3%B4ng-c%C3%B3');
     expect(await screen.findByText('Chưa có sản phẩm nào khớp với bộ lọc.')).toBeInTheDocument();
   });
 
@@ -172,9 +178,11 @@ describe('T028 product list and create', () => {
 });
 
 describe('T050 product detail edits', () => {
-  it('after publication a new price, next to the applied one, goes draft → submit → Manager decision → apply, with a hint at each step', async () => {
+  // FR-066 (Session 2026-11-22): a Manager no longer walks their own draft through submit; a submitted proposal (from Staff)
+  // still waits for the Manager's decision, then apply.
+  it('after publication a submitted price, next to the applied one, goes Manager decision → apply, with a hint at each step', async () => {
     const user = userEvent.setup();
-    const stage = { value: 'DRAFT' };
+    const stage = { value: 'PENDING' };
     const proposal = () => ({
       id: '601', variantId: '101', revision: 2, version: 1, effective: true, baseAppliedSequence: 1, proposedPrice: '1350000',
       state: stage.value, approvedPrice: stage.value === 'APPROVED' ? '1300000' : null, applied: false,
@@ -190,14 +198,12 @@ describe('T050 product detail edits', () => {
     const calls = mockFetch({ ...AS_MANAGER,
       [`GET ${M}/products/42`]: () => json(200, product()),
       [`GET ${M}/categories`]: json(200, categoryPage),
-      [`POST ${M}/price-proposals/601/submissions`]: () => { stage.value = 'PENDING'; return json(200, actionResult('601', 'SUBMIT_PRICE')); },
       [`POST ${M}/price-proposals/601/decisions`]: () => { stage.value = 'APPROVED'; return json(200, actionResult('601', 'DECIDE_PRICE')); },
     });
     open('/catalogue-management/products/42');
-    expect(await screen.findByText(/Đề xuất đang là nháp, Manager chưa thấy/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Gửi duyệt giá' }));
-
     expect(await screen.findByText(/Đang chờ Manager duyệt/)).toBeInTheDocument();
+    // While a submission waits, the Manager decides it: no one-step "Đổi giá" that would withdraw it.
+    expect(screen.queryByRole('button', { name: 'Đổi giá' })).not.toBeInTheDocument();
     const prices = screen.getByRole('heading', { name: 'Đề xuất giá' }).closest('section');
     await user.click(within(prices).getByRole('button', { name: 'Duyệt' }));
     const amount = within(prices).getByLabelText('Giá duyệt (₫)');
@@ -812,10 +818,11 @@ describe('T071 public catalogue', () => {
       'GET /api/v1/products/42': json(200, publicProduct()),
     });
     open('/products');
-    // Spec 006 (2026-11-22): the price also takes off the best voucher, measured after the automatic discount: size 12 = 1.250.000 − 10% − 20.000.
+    // 006 FR-048 (Session 2026-11-22): size 12 is 1.250.000 ₫ − 10% = 1.125.000 ₫, which reaches the voucher's
+    // 1.000.000 ₫ minimum, so MLAND20 also comes off (1.105.000 ₫); the other size only gets the automatic discount.
     expect(await screen.findByText('1.105.000 ₫ – 1.170.000 ₫')).toBeInTheDocument();
-    expect(screen.getByText('Giá sau voucher MLAND20')).toBeInTheDocument();
     expect(screen.getByText('1.250.000 ₫ – 1.300.000 ₫').tagName).toBe('S');
+    expect(screen.getByText('Giá sau voucher MLAND20')).toBeInTheDocument();
     expect(screen.getByText('Giảm 10%')).toBeInTheDocument();
     // The voucher covers only size 12 of the two sizes: the badge says so.
     expect(screen.getByText('Mã giảm 20.000 ₫ · size 12')).toBeInTheDocument();
@@ -970,8 +977,9 @@ describe('T085 remaining management journeys', () => {
   it('publishing shows missing prerequisites and hiding sends published=false', async () => {
     const user = userEvent.setup();
     let attempt = 0;
-    const calls = mockFetch({
-      [`GET ${M}/products/42`]: () => json(200, attempt === 0 ? managementProduct() : published()),
+    const calls = mockFetch({ ...AS_MANAGER,
+      // A hidden product (published once): a Manager shows it again with the publication button.
+      [`GET ${M}/products/42`]: () => json(200, attempt === 0 ? managementProduct({ firstPublishedAt: '2026-10-30T00:00:00Z' }) : published()),
       [`GET ${M}/categories`]: json(200, categoryPage),
       [`PUT ${M}/products/42/publication`]: call => (++attempt === 1
         ? json(409, { code: 'PUBLICATION_PREREQUISITES_MISSING', message: 'Missing.' })
@@ -982,6 +990,18 @@ describe('T085 remaining management journeys', () => {
     await user.click(within(section).getByRole('button', { name: 'Công khai sản phẩm' }));
     expect(await within(section).findByText(/Chưa đủ điều kiện công khai/)).toBeInTheDocument();
     expect(calls.filter(call => call.method === 'PUT')[0].body).toEqual({ expectedVersion: 3, published: true });
+  });
+
+  it('gives Staff no publication button on the details page (Session 2026-11-23)', async () => {
+    mockFetch({ 'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
+      [`GET ${M}/products/42`]: json(200, published()),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+    });
+    open('/catalogue-management/products/42');
+    const section = (await screen.findByRole('heading', { name: 'Công khai' })).closest('section');
+    expect(within(section).getByText(/do Manager thực hiện/)).toBeInTheDocument();
+    expect(within(section).queryByRole('button', { name: 'Ẩn sản phẩm' })).toBeNull();
+    expect(within(section).queryByRole('button', { name: 'Công khai sản phẩm' })).toBeNull();
   });
 
   it('names and descriptions are shown as text, never as markup', async () => {
@@ -1250,7 +1270,7 @@ describe('T090 session end on 401 (identity mocked: 001 has no Firebase sign-in 
   it('a token still refused after one refresh ends the session and shows the sign-in notice', async () => {
     const session = fakeSession();
     const calls = mockFetch({
-      [`GET ${M}/products`]: json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'Session expired.' }),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }), [`GET ${M}/products`]: json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'Session expired.' }),
       [`GET ${M}/categories`]: json(200, categoryPage),
     });
     open('/catalogue-management/products', { session });

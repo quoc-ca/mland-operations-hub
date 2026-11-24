@@ -46,7 +46,7 @@ Reject without mutation/private exposure. Manager needs applicable action/branch
 
 **Steps 2 and 6 — Unpaid/unprepared/pickup order or incompatible terminal state**
 
-Reject without skipping readiness or moving from pickup/backwards. Use UC46/UC49/UC50 for valid prerequisites; human paid flags do not authorize handoff.
+Reject without skipping readiness or moving from pickup/backwards. Use UC55/UC58/UC59 for valid prerequisites; human paid flags do not authorize handoff.
 
 **Steps 3 and 6 — Missing recipient data or handoff reference**
 
@@ -74,17 +74,17 @@ An inactive branch cannot receive new checkout, but accepted orders retain their
 
 #### Business Rules
 
-BR-53-01, BR-53-02, BR-53-03, BR-53-04, BR-53-05, BR-53-06, BR-53-07, BR-53-08
+BR-61-01, BR-61-02, BR-61-03, BR-61-04, BR-61-05, BR-61-06, BR-61-07, BR-61-08
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-53-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account records the courier pickup and the delivery. |
-| BR-53-02 | Đã chuẩn bị xong records READY_FOR_CARRIER; Đã lấy hàng records HANDED_TO_CARRIER afterward; Giao thành công records DELIVERED. Packing alone never proves carrier custody. |
-| BR-53-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. |
-| BR-53-04 | Delivered is terminal for shop fulfilment; no backward/cross-terminal override, GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is added. |
-| BR-53-05 | Keep necessary recipient data while handoff is pending; retire private values/copies 30 days after original actual handoff, without resetting on retries. |
-| BR-53-06 | Keep minimized custody/payment/audit evidence under five-year retention without preserving retired recipient/contact/address values. |
-| BR-53-07 | Identical recorded handoff returns successful no-change; reject conflicts without another handoff, settlement or retirement-clock reset. |
-| BR-53-08 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-61-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account records the courier pickup and the delivery. |
+| BR-61-02 | Đã chuẩn bị xong records READY_FOR_CARRIER; Đã lấy hàng records HANDED_TO_CARRIER afterward; Giao thành công records DELIVERED. Packing alone never proves carrier custody. |
+| BR-61-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. |
+| BR-61-04 | Delivered is terminal for shop fulfilment; no backward/cross-terminal override, GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is added. |
+| BR-61-05 | Keep necessary recipient data while handoff is pending; retire private values/copies 30 days after original actual handoff, without resetting on retries. |
+| BR-61-06 | Keep minimized custody/payment/audit evidence under five-year retention without preserving retired recipient/contact/address values. |
+| BR-61-07 | Identical recorded handoff returns successful no-change; reject conflicts without another handoff, settlement or retirement-clock reset. |
+| BR-61-08 | Record each attempt and its actual outcome under the shared audit policy. |

@@ -8,7 +8,9 @@ This screen allows Members to:
 - Land on the tab of the order after paying or placing it.
 - For an unpaid VNPay order, see the time left and press Thanh toán to reopen the same VNPay link, or Hủy đơn.
 - Press Mua lại to put the rings of a past order back in the cart.
+- For a delivered or picked-up order (tab Đã giao), press Đánh giá to review every product of the order on one screen, or Xem đánh giá once all of them are reviewed.
 - Open an order's details.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |
@@ -18,4 +20,5 @@ This screen allows Members to:
 | Thành tiền | Frozen payable amount of the branch order in whole VND. |
 | Thanh toán trong | Countdown to the 10-minute hold deadline; afterwards the order is cancelled and the voucher and points are returned. |
 | Thanh toán / Hủy đơn / Mua lại | Shown only when eligible for the current order/payment state. |
+| Đánh giá / Xem đánh giá | Shown only on a delivered or picked-up order. Đánh giá opens one review screen listing each product not yet reviewed (photo, name, size, then stars, text and photos) and creates one review per order line on the product; when every line is reviewed the button becomes Xem đánh giá and opens the Member's Đã đánh giá tab. |
 | Payment notice | Shown at the top for about 5 seconds, then hidden; errors stay on the page. Payment confirmation comes from verified VNPay evidence, not the browser redirect; a cash order shows where and until when to pay. |

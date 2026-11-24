@@ -188,6 +188,16 @@ function CartContent() {
   const discountedIds = quote?.eligibleCartLineIds?.length ? new Set(quote.eligibleCartLineIds) : null;
   const lineDiscounts = useMemo(() => {
     const result = new Map();
+    // FE-06's own share of each line (automatic discount + voucher, 006 `lineDiscounts`), so each line shows the price
+    // its branch order really gets. Only when they are missing does the cart spread the total itself (BUG-INT-0002).
+    const fromFe06 = discount > 0n && Array.isArray(quote?.cartLineDiscounts) ? quote.cartLineDiscounts : [];
+    if (fromFe06.length) {
+      fromFe06.forEach(item => {
+        const share = BigInt(item.autoDiscountAmount || '0') + BigInt(item.voucherDiscountAmount || '0');
+        if (selectedLines.some(line => line.id === item.cartLineId)) result.set(item.cartLineId, share);
+      });
+      return result;
+    }
     const covered = discountedIds ? selectedLines.filter(line => discountedIds.has(line.id)) : selectedLines;
     const base = covered.reduce((sum, line) => sum + BigInt(lineTotal(line) || '0'), 0n);
     if (discount <= 0n || base <= 0n) return result;

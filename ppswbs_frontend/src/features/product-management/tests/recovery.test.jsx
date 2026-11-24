@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { actionResult, categoryPage, managementProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 const M = '/api/v1/catalogue-management';
 const MEDIA = '11111111-1111-1111-1111-111111111111';
@@ -14,23 +19,26 @@ const receipt = (commandId, action, resourceId) => json(200, { commandId, action
 afterEach(() => { sessionStorage.clear(); });
 
 describe('FR-003 management list', () => {
-  it('shows the product number and marks the size whose SKU was searched', async () => {
+  it('shows the product number, the stock and the size whose SKU was searched', async () => {
     const product = managementProduct({ variants: [
       { ...managementProduct().variants[0] },
       { ...managementProduct().variants[0], id: '102', size: 14, sku: 'SP000042-S14' },
     ] });
     mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
       [`GET ${M}/products`]: json(200, { items: [product], page: 0, pageSize: 20, totalElements: '1' }),
       [`GET ${M}/categories`]: json(200, categoryPage),
     });
     open('/catalogue-management/products?q=%20sp000042-s14%20');
     expect(await screen.findByText('SP000042')).toBeInTheDocument();
-    expect(screen.getByText('14', { selector: 'mark' })).toBeInTheDocument();
+    // Session 2026-11-23: the stock column replaces the sizes (5 + 5); the matched size is still named.
+    expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('Khớp SKU SP000042-S14 (size 14)')).toBeInTheDocument();
   });
 
   it('marks no size when the keyword is not a SKU', async () => {
     mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
       [`GET ${M}/products`]: json(200, { items: [managementProduct()], page: 0, pageSize: 20, totalElements: '1' }),
       [`GET ${M}/categories`]: json(200, categoryPage),
     });

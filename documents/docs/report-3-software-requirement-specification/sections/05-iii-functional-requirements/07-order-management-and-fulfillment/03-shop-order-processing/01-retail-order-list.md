@@ -8,6 +8,7 @@ This screen allows authorized Staff to:
 - See the number of open tasks, Tiền mặt đã thu hôm nay and cash orders whose hold ends in under 24 hours.
 - Search by order code, tracking number or recipient name.
 - Open an order's details and Retail Order Operations.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |

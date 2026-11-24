@@ -5,7 +5,8 @@ import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
 import { FlashToast } from '../FlashToast';
 import { useRetailApi } from '../../application/useRetailApi';
-import { cardToggleProps, orderCode, OrderMoneyRows, useDisplayTime } from '../orderCode';
+import { useReviewManagementApi } from '../../../reviewmanagement/api/useReviewManagementApi';
+import { orderCode, OrderMoneyRows, useDisplayTime } from '../orderCode';
 import { ProductThumb } from '../ProductThumb';
 import { messages as retailMessages } from '../../messages';
 
@@ -66,6 +67,17 @@ function OrdersContent() {
   const [params, setParams] = useSearchParams();
   const orders = useResource(() => api.listOrders(), []);
   const branches = useResource(() => api.listBranches(), []);
+  // FE-11 review sources: which delivered order lines are reviewed already (Session 2026-11-23, "Đánh giá" button).
+  const reviewApi = useReviewManagementApi();
+  const reviewSources = useResource(() => reviewApi.listEligibleSources(), []);
+  const reviewLines = useMemo(() => (reviewSources.data?.items || reviewSources.data?.sources || [])
+    .filter(source => source.targetType === 'RETAIL_PRODUCT' && source.orderId)
+    .reduce((acc, source) => {
+      const entry = acc.get(String(source.orderId)) || { total: 0, pending: 0 };
+      entry.total += 1;
+      if (!source.alreadyReviewed && !source.reviewId) entry.pending += 1;
+      return acc.set(String(source.orderId), entry);
+    }, new Map()), [reviewSources.data]);
   const action = useCommand();
   const [tab, setTab] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -212,17 +224,29 @@ function OrdersContent() {
       const unpaidVnpay = current === 'AWAITING_PAYMENT' && order.checkoutId && ['ACCEPTED_UNPAID', 'PAYMENT_INITIATED'].includes(order.paymentState);
       const held = unpaidVnpay && (left !== null || !order.paymentDeadline);
       const ready = order.fulfilmentState === 'READY_FOR_PICKUP';
-      return <article className={`order-card${open ? ' open' : ''}${order.checkoutId && order.checkoutId === placedCheckout ? ' just-placed' : ''}`} key={order.id} {...cardToggleProps(open, () => setOpenId(open ? null : order.id))}>
+      // Thinh, 2026-11-23: only "Bấm để xem chi tiết" opens the order details; in every tab the product opens
+      // its product page.
+      const toggle = () => setOpenId(open ? null : order.id);
+      const productPath = item => (item.productId ? `/products/${item.productId}` : null);
+      return <article className={`order-card${open ? ' open' : ''}${order.checkoutId && order.checkoutId === placedCheckout ? ' just-placed' : ''}`} key={order.id}>
         <div className="order-card-top">
           <span className="order-code">{orderCode(order)}</span>
           <span className="order-branch">{branchName(order.locationId)}{order.fulfilmentMethod === 'GHTK' ? t('orders.ghtkDelivery') : t('orders.storePickup')}</span>
           <span className={`order-pill pill-${current.toLowerCase()}`}>{statusLabel(order, t, current)}</span>
         </div>
-        <ul className="order-items">{(order.items || []).map(item => <li key={`${order.id}-${item.variantId}`}>
-          <ProductThumb className="order-thumb" productId={item.productId} />
-          <span className="order-item-name"><strong>{item.productName || t('common.productNumber', { variantId: item.variantId })}</strong><small>{t('common.size', { size: item.size ?? '—' })} · x{item.quantity}</small></span>
-          <b>{item.lineTotal ? format.money(item.lineTotal) : ''}</b>
-        </li>)}</ul>
+        <ul className="order-items">{(order.items || []).map(item => {
+          const path = productPath(item);
+          const name = <><strong>{item.productName || t('common.productNumber', { variantId: item.variantId })}</strong><small>{t('common.size', { size: item.size ?? '—' })} · x{item.quantity}</small></>;
+          return <li key={`${order.id}-${item.variantId}`}>
+            {path
+              ? <Link to={path} className="order-item-link" tabIndex={-1} aria-hidden="true"><ProductThumb className="order-thumb" productId={item.productId} /></Link>
+              : <ProductThumb className="order-thumb" productId={item.productId} />}
+            {path
+              ? <Link to={path} className="order-item-name order-item-link" title={t('orders.viewProduct')}>{name}</Link>
+              : <span className="order-item-name">{name}</span>}
+            <b>{item.lineTotal ? format.money(item.lineTotal) : ''}</b>
+          </li>;
+        })}</ul>
         {unpaidVnpay && (held
           ? <p className="order-hint pay-countdown">{t('orders.payWithin')} <strong className="countdown">{left || '10:00'}</strong> {t('orders.byVnpayToKeepThe')}{together > 1 ? t('orders.onePaymentForTheOrders', { together }) : ''}</p>
           : <p className="order-hint warn">{t('orders.theHoldHasEndedThe')}</p>)}
@@ -243,7 +267,7 @@ function OrdersContent() {
           <OrderMoneyRows order={order} format={format} together={together} />
         </dl>}
         <div className="order-card-bottom">
-          <span className="order-more">{open ? t('common.showLess') : t('common.clickForDetails')}</span>
+          <button type="button" className="order-more" aria-expanded={open} onClick={toggle}>{open ? t('common.showLess') : t('common.clickForDetails')}</button>
           <span className="order-sum">{t('common.total')} <strong>{format.money(order.payableAmount)}</strong></span>
         </div>
         {(unpaidVnpay || current === 'COMPLETED' || current === 'CANCELLED' || (current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID')) && <div className="order-actions">
@@ -252,7 +276,12 @@ function OrdersContent() {
             {held && <button type="button" className="button primary" disabled={busy} onClick={() => pay(order)}>{busy ? t('orders.openingVnpay') : t('orders.pay')}</button>}
           </>}
           {current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID' && <button type="button" className="button outline" disabled={busy} onClick={() => cancelCashOrder(order)}>{t('orders.cancelOrder')}</button>}
-          {(current === 'COMPLETED' || current === 'CANCELLED') && <button type="button" className={`button ${current === 'COMPLETED' ? 'primary' : 'outline'}`} disabled={busy} onClick={() => buyAgain(order)}>{busy ? t('orders.adding') : t('orders.buyAgain')}</button>}
+          {(current === 'COMPLETED' || current === 'CANCELLED') && <button type="button" className="button outline" disabled={busy} onClick={() => buyAgain(order)}>{busy ? t('orders.adding') : t('orders.buyAgain')}</button>}
+          {/* Session 2026-11-23: "Đánh giá" opens one review screen for every product of the order; once all are
+              reviewed it becomes "Xem đánh giá" (the Member's "Đã đánh giá" tab). */}
+          {current === 'COMPLETED' && (reviewLines.get(String(order.id))?.total && !reviewLines.get(String(order.id)).pending
+            ? <Link className="button outline" to="/reviews?tab=reviewed">{t('orders.viewReviews')}</Link>
+            : <Link className="button primary" to={`/reviews/orders/${encodeURIComponent(order.id)}`}>{t('orders.review')}</Link>)}
         </div>}
       </article>;
     })}

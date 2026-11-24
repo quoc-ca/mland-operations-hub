@@ -1,10 +1,15 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { categoryPage, managementProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 const M = '/api/v1/catalogue-management';
 const PROFILE = 'GET /api/v1/accounts/me/profile';
@@ -55,7 +60,8 @@ describe('state button on the product list', () => {
 
     const link = await screen.findByRole('link', { name: 'Xem để duyệt' });
     expect(link).toHaveAttribute('href', '/catalogue-management/products/42#review-title');
-    expect(screen.getByText('Staff đã gửi duyệt')).toBeInTheDocument();
+    // FR-064 (Session 2026-11-22): the state column names the tab, so the old "Staff đã gửi duyệt" line is not needed.
+    expect(screen.getByText('Chờ duyệt sản phẩm', { selector: '.status' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Công khai' })).toBeNull();
     expect(calls.filter(call => call.method !== 'GET')).toHaveLength(0);
   });
@@ -89,11 +95,43 @@ describe('state button on the product list', () => {
     expect(hide.body).toMatchObject({ published: false });
   });
 
-  it('shows no state button to Staff', async () => {
+  // Session 2026-11-22: Staff hold the publication right (FR-017) but not the decision (FR-002).
+  it('gives Staff no decision from the row: a waiting submission only links to its details', async () => {
     mockFetch({ [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [`GET ${M}/products`]: page([managementProduct()]) });
     renderRoutes(productManagementRoutes, { path: '/catalogue-management/products' });
-    await screen.findByRole('link', { name: 'Nhẫn bạc' });
+    expect(await screen.findByRole('columnheader', { name: 'Thao tác' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Chi tiết' })).toHaveAttribute('href', '/catalogue-management/products/42');
+    expect(screen.queryByRole('link', { name: 'Xem để duyệt' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Công khai' })).toBeNull();
-    expect(screen.queryByRole('columnheader', { name: 'Thao tác' })).toBeNull();
+  });
+
+  // Session 2026-11-23: publishing acts on every branch, so it is a Manager's action; Staff only get the details.
+  it('gives Staff no Công khai on an approved product', async () => {
+    const base = managementProduct();
+    const approved = managementProduct({ reviews: [{ id: '301', revision: 1, contentVersion: 1, state: 'APPROVED', effective: true }],
+      variants: [{ ...base.variants[0], proposals: [{ ...base.variants[0].proposals[0], state: 'APPROVED', approvedPrice: '1250000' }] }] });
+    const applied = managementProduct({ version: 6, reviews: approved.reviews,
+      variants: [{ ...base.variants[0], appliedSequence: 1, proposals: [{ ...base.variants[0].proposals[0], state: 'APPROVED', approvedPrice: '1250000', applied: true }] }] });
+    const calls = mockFetch({
+      [PROFILE]: json(200, { role: 'STAFF' }),
+      [`GET ${M}/categories`]: json(200, categoryPage),
+      [`GET ${M}/products`]: page([approved]),
+      [`GET ${M}/products/42`]: json(200, applied),
+      [`POST ${M}/price-proposals/501/applications`]: json(200, result('price.apply')),
+      [`PUT ${M}/products/42/publication`]: json(200, result('product.publish')),
+    });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products' });
+    expect(await screen.findByRole('link', { name: 'Chi tiết' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Công khai' })).toBeNull());
+    expect(calls.filter(call => call.method !== 'GET')).toEqual([]);
+  });
+
+  it('gives Staff only the details link for a product outside their branches (T182)', async () => {
+    const live = managementProduct({ published: true, firstPublishedAt: '2026-10-30T00:00:00Z', branches: [{ locationId: '9', name: 'Khác', active: true, saleEnabled: true }] });
+    mockFetch({ [PROFILE]: json(200, { role: 'STAFF' }), [`GET ${M}/categories`]: json(200, categoryPage), [`GET ${M}/products`]: page([live]),
+      'GET /api/v1/workshop-locations': json(200, [{ id: 1, code: 'HN', name: 'Hoàn Kiếm', address: '', active: true }]) });
+    renderRoutes(productManagementRoutes, { path: '/catalogue-management/products' });
+    expect(await screen.findByRole('link', { name: 'Chi tiết' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Ẩn' })).toBeNull());
   });
 });

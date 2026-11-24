@@ -4,18 +4,22 @@
 
 This screen allows Staff and Managers to:
 
-- Browse managed products by name or SKU, category, publication state and branch.
-- See each product's code, category, configured sizes and publication state, including products waiting for Manager review.
+- Browse managed products by product code, name or SKU, category and branch, in status tabs that show how many products each holds.
+- See each product's code, category, stock and status, with the tab that needs the viewer's action highlighted.
 - Open product creation or a product's management details.
-- As a Manager, publish or hide a product directly, or open a submitted product for review.
+- As a Manager, publish, hide or show a product again directly, or open a submitted product for review.
+- As Staff, stop or resume selling a product at their own branch.
+
+A Staff member with one assigned branch sees the list filtered on that branch by default; other users see all branches.
 
 | Field Name | Description |
 | --- | --- |
-| Search (Tìm kiếm) | Text input matched against product name or SKU; a SKU match is highlighted. |
-| Category / Publication / Branch (Danh mục / Công khai / Chi nhánh) | Filters applied together with **Áp dụng** and kept in the page URL. |
-| Product name (Tên sản phẩm) | Link to the management details, with the stable product code (for example SP000009). |
-| Size | Read-only list of the product's configured sizes. |
-| State (Trạng thái) | Đang công khai, Chưa công khai or Đã xóa; a pending submission also shows "Staff đã gửi duyệt". |
-| Actions (Thao tác) | Manager only: **Công khai** or **Ẩn**, **Chi tiết**, **Xem để duyệt** for a pending submission and **Xem lý do** for a rejected one. |
-| Thêm sản phẩm | Opens New Product. |
+| Status tabs | All, Drafts, Products to review, Rejected, Ready to publish, Published, Hidden and Prices to review. Each non-deleted product is in exactly one status tab; Prices to review follows price changes of published products (see Prices to Review). Counts follow the current search, category and branch; a tab without products shows its own empty message. |
+| Search | Text input matched against product code, name or SKU, applied about 300 ms after typing stops or on Enter; a SKU match shows "Matches SKU {sku} (size {size})". |
+| Category / Branch | Applied as soon as they change and kept with the tab in the page URL; "All branches" lists every branch and **Clear filters** removes the filters. |
+| Product name | Link to the management details, with the stable product code (for example SP000009). |
+| Stock | Total remaining quantity of all sizes at the filtered branch, or at all branches, with "Available {count}" when held quantities make the available quantity lower. |
+| State | Name of the product's status tab; with a branch filter, "Selling stopped at this branch" when the product is stopped there. |
+| Actions | Manager: **Publish** for a never-published draft or approved product, **Hide**, **Show again** for a hidden product, **Review first** for a submitted review and **See reason** for a rejected one. Staff: **Stop selling at branch** / **Resume selling at branch** only while the list is filtered on one of their active branches where the product is sold, and **See reason**. Otherwise **Details**. |
+| New product | Opens New Product. |
 | Pager | Moves between result pages. |

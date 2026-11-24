@@ -4,6 +4,7 @@ import { useEnumLabel, useFormat, useLanguage, useT } from '../../shared/i18n/I1
 import { Loading, useResource } from '../../shared/ui/components';
 import { Change, TrendChart, UNIT_LABEL, rate } from './TrendCharts';
 import { managerDashboardMessages } from './messages';
+import TopSellers from './TopSellers';
 
 export const PERIODS = ['DAY', 'WEEK', 'MONTH', 'YEAR'];
 
@@ -69,6 +70,8 @@ export default function RevenueReport() {
   }, [filter]);
   // Trends read the same filters on their own, so a slow trend never holds back the KPI cards.
   const trend = useResource(() => http('/api/v1/executive-reports/trends', { query }), [filter]);
+  // Best sellers (Thinh, 2026-11-23) read the same filters on their own as well.
+  const topSellers = useResource(() => http('/api/v1/executive-reports/top-sellers', { query }), [filter]);
 
   const data = report.data;
   const anchor = filter.anchor || todayInVietnam();
@@ -111,11 +114,11 @@ export default function RevenueReport() {
       {report.error.status !== 401 && report.error.status !== 403 && <button type="button" className="button small outline" onClick={report.reload}>{t('retry')}</button>}
     </div>}
     {report.loading && !data && <Loading />}
-    {data && <div className={report.loading ? 'md-reloading' : ''}><Report data={data} format={format} trend={trend} /></div>}
+    {data && <div className={report.loading ? 'md-reloading' : ''}><Report data={data} format={format} trend={trend} topSellers={topSellers} /></div>}
   </>;
 }
 
-function Report({ data, format, trend }) {
+function Report({ data, format, trend, topSellers }) {
   const t = useT(managerDashboardMessages);
   const sourceLabel = useEnumLabel(managerDashboardMessages, 'source');
   const reasonLabel = useEnumLabel(managerDashboardMessages, 'reason');
@@ -150,6 +153,8 @@ function Report({ data, format, trend }) {
     </section>
 
     <Trends trend={trend} format={format} />
+
+    <TopSellers resource={topSellers} format={format} />
 
     <BranchTable branches={data.branches || []} total={totals.totalRevenue} format={format} />
   </>;

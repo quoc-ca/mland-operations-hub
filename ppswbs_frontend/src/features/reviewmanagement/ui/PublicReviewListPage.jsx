@@ -84,7 +84,7 @@ export default function PublicReviewListPage() {
   const packageName = packageId ? (page.items.find(item => item.packageName)?.packageName || `#${packageId}`) : null;
 
   return (
-    <div className="review-container">
+    <div className="review-container review-theme">
       <header className="page-header">
         <h1>{packageName ? `${t('packageReviewsTitle')}: ${packageName}` : t('publicTitle')}</h1>
         {packageName && (
@@ -116,7 +116,7 @@ export default function PublicReviewListPage() {
             </Link>
           )}
           {isMember && (
-            <Link className="button primary" to="/reviews/eligible-sources">
+            <Link className="button primary" to="/reviews">
               {t('writeReview')}
             </Link>
           )}
