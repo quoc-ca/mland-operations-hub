@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { reviewManagementMessages } from '../messages';
+import { compressReviewImage } from './compressReviewImage';
 
 export const MAX_IMAGES = 3;
 export const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB
@@ -32,17 +33,7 @@ export default function ReviewPhotoPicker({ images, onChange, onError, disabled,
     }
     onError('');
 
-    Promise.all(
-      files.map(
-        file =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve({ dataUrl: reader.result, size: file.size, name: file.name });
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          })
-      )
-    )
+    Promise.all(files.map(compressReviewImage))
       .then(newImages => onChange(prev => [...prev, ...newImages]))
       .catch(() => onError('Không thể đọc tệp hình ảnh.'))
       .finally(() => {

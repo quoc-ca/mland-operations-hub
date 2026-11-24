@@ -17,6 +17,7 @@ import { isValidEmail, normalizeEmail } from './contactValidation';
 import {
   collectionKindLabel,
   formatSessionWindow,
+  hasCurrentMoney,
   isTicketNoShow,
   nonRefundableNotice,
   ticketAttendanceLabel,
@@ -596,9 +597,23 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
             )}
 
             <dl style={{ margin: '10px 0 0', fontSize: '13px', display: 'grid', gridTemplateColumns: 'auto auto', gap: '2px 10px' }}>
-              <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
-              <dt>{t('ticket.paidAtBooking')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd, language)}</dd>
-              <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.remainingVnd, language)}</dd>
+              {/* Once the ticket has a folio, its figures win: add-ons and later payments are only there. */}
+              {hasCurrentMoney(ticket) ? (
+                <>
+                  <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
+                  {Number(ticket.currentAddOnVnd) > 0 && (
+                    <><dt>{t('ticket.addOn')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentAddOnVnd, language)}</dd></>
+                  )}
+                  <dt>{t('ticket.paidSoFar')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentPaidVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentBalanceDueVnd, language)}</dd>
+                </>
+              ) : (
+                <>
+                  <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
+                  <dt>{t('ticket.paidAtBooking')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.remainingVnd, language)}</dd>
+                </>
+              )}
               <dt>{t('ticket.collectionKind')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{collectionKindLabel(ticket.collectionKind, language)}</dd>
             </dl>
 

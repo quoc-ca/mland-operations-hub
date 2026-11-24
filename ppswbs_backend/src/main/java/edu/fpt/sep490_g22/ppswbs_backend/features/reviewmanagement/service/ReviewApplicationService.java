@@ -26,6 +26,22 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReviewApplicationService {
 
+    /**
+     * Photos are stored as data URLs in a MEDIUMTEXT column (16 MB). The client allows 10 MB of files, which is about
+     * 13.4 M base64 characters, so this keeps a margin below the column limit and answers 400 instead of a database error.
+     */
+    static final int MAX_IMAGE_CHARS = 14_000_000;
+
+    static void requireImagesFit(java.util.List<String> images) {
+        if (images == null) return;
+        long total = 0;
+        for (String image : images) total += image == null ? 0 : image.length();
+        if (total > MAX_IMAGE_CHARS) {
+            throw ReviewManagementException.badRequest("IMAGES_TOO_LARGE",
+                    "Tổng dung lượng hình ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn (tối đa 10MB).");
+        }
+    }
+
     private final ReviewRepository reviewRepository;
     private final ReviewRevisionRepository revisionRepository;
     private final ReviewReplyRepository replyRepository;
@@ -164,6 +180,7 @@ public class ReviewApplicationService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        requireImagesFit(request.getImageUrls());
         review.setImageList(request.getImageUrls());
 
         ReviewRevision revision = ReviewRevision.builder()
@@ -254,6 +271,7 @@ public class ReviewApplicationService {
         review.setRating(request.getRating());
         review.setBodyText(request.getBodyText() != null ? request.getBodyText().trim() : null);
         if (request.getImageUrls() != null) {
+            requireImagesFit(request.getImageUrls());
             review.setImageList(request.getImageUrls());
         }
         review.setUpdatedAt(now);

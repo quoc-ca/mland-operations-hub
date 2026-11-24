@@ -78,6 +78,10 @@ export function groupRemainingVnd(group) {
   return (group?.tickets || []).reduce((total, ticket) => total + Number(ticket.remainingVnd || 0), 0);
 }
 
+/** True when the ticket's folio reported its money position (add-ons and later payments included). */
+export const hasCurrentMoney = ticket => ticket?.currentBalanceDueVnd !== null
+  && ticket?.currentBalanceDueVnd !== undefined;
+
 export const ATTENDANCE_LABEL = Object.fromEntries(['ATTENDED', 'NO_SHOW_PENDING', 'NO_SHOW', 'CHECKED_IN']
   .map(status => [status, L('vi', `attendance.${status}`)]));
 

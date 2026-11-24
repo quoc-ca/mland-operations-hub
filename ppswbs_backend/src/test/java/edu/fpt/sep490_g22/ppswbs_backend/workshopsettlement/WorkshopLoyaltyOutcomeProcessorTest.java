@@ -1,8 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementChargeRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementEvidenceConclusionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.FolioBalanceService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFinalBillRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFinalBill;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
@@ -26,8 +25,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class WorkshopLoyaltyOutcomeProcessorTest {
     @Mock SettlementFinalBillRepository bills;
-    @Mock SettlementChargeRepository charges;
-    @Mock SettlementEvidenceConclusionRepository evidence;
+    @Mock FolioBalanceService balances;
     @Mock WorkshopBookingSettlementAdapter booking;
     @Mock WorkshopOperationsSettlementAdapter operations;
     @Mock LoyaltyFacade loyalty;
@@ -83,6 +81,6 @@ class WorkshopLoyaltyOutcomeProcessorTest {
     }
 
     private WorkshopLoyaltyOutcomeProcessor processor() {
-        return new WorkshopLoyaltyOutcomeProcessor(bills, charges, evidence, booking, operations, loyalty);
+        return new WorkshopLoyaltyOutcomeProcessor(bills, balances, booking, operations, loyalty);
     }
 }
