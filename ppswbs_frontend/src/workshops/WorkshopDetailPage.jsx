@@ -353,12 +353,6 @@ export function WorkshopDetailPage({ packageId }) {
             >
               {t('detail.seeReviews')}
             </button>
-            <a
-              href={`/workshops/${pkg.packageReference || 'PKG-COUPLE-SILVER'}/design`}
-              className="button outline"
-            >
-              {t('detail.configRing')}
-            </a>
           </p>
 
           <section className="workspace-card workshop-buy-panel" aria-label={t('detail.buyAria')} style={{ marginTop: '24px', padding: '18px' }}>
