@@ -24,6 +24,14 @@ public class RingDesignException extends RuntimeException {
         this.details = details != null ? details : Collections.emptyList();
     }
 
+    public static RingDesignException unauthorized(String code, String message) {
+        return new RingDesignException(HttpStatus.UNAUTHORIZED, code, message);
+    }
+
+    public static RingDesignException forbidden(String code, String message) {
+        return new RingDesignException(HttpStatus.FORBIDDEN, code, message);
+    }
+
     public static RingDesignException badRequest(String code, String message) {
         return new RingDesignException(HttpStatus.BAD_REQUEST, code, message);
     }

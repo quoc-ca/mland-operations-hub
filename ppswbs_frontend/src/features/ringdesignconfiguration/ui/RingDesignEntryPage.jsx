@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
@@ -7,6 +8,8 @@ import '../ring-design.css';
 export default function RingDesignEntryPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
   const t = useT(messages);
 
   return (
@@ -18,6 +21,12 @@ export default function RingDesignEntryPage() {
           <span>ℹ️</span>
           <span>{t('workshopOnlyNotice')}</span>
         </div>
+        {!isAuthenticated && (
+          <div className="ring-notice-banner" role="note" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af', marginTop: '0.75rem' }}>
+            <span>💡</span>
+            <span>Bạn đang trải nghiệm với tư cách Khách. Bạn có thể xem trước mẫu nhẫn, vui lòng <a href={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`} style={{ color: '#2563eb', fontWeight: 600 }}>đăng nhập</a> để lưu trữ mẫu thiết kế.</span>
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: '860px', margin: '2rem auto 0' }}>

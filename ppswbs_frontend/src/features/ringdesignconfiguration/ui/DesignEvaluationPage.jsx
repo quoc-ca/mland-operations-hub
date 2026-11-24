@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useWorkshopRingDesignApi, getStoredGuestSession } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { RequireSession } from '../../../shared/auth/RequireSession';
 import { useLanguage, useT, useFormat, useEnumLabel } from '../../../shared/i18n/I18nProvider';
 import { wholeMoney } from '../domain/designFormat';
 import { listWorkshopPackages } from '../../../api/workshops';
@@ -123,6 +124,14 @@ export default function DesignEvaluationPage() {
     if (!design) return;
     navigate(`/member/consultations?designReference=${encodeURIComponent(design.designId)}&designVersion=${encodeURIComponent(design.designVersion || 1)}`);
   };
+
+  if (!isAuthenticated && status !== 'loading') {
+    return (
+      <div className="ring-design-container">
+        <RequireSession requiredText="Vui lòng đăng nhập để xem thông tin mẫu thiết kế đã lưu." />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

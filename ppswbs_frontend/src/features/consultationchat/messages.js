@@ -67,6 +67,7 @@ export const consultationMessages = {
     previewAlt: 'Ảnh xem trước',
     messageEmpty: 'Nội dung tin nhắn không được để trống.',
     messageTooLong: 'Tin nhắn vượt quá giới hạn 2.000 ký tự (hiện tại: {count}).',
+    loginRequired: 'Vui lòng đăng nhập để chat tư vấn với nhân viên.',
   },
   en: {
     generalConsultation: 'General consultation',
@@ -135,5 +136,6 @@ export const consultationMessages = {
     previewAlt: 'Preview',
     messageEmpty: 'The message cannot be empty.',
     messageTooLong: 'The message exceeds the 2,000 character limit (current: {count}).',
+    loginRequired: 'Please sign in to chat with staff for consultation.',
   }
 };

@@ -129,28 +129,12 @@ public class WorkshopRingDesignApplicationService {
     @Transactional
     public List<DesignResponseDto> listMyDesigns(Long memberAccountId, String guestSessionHeader,
             boolean includeArchived) {
-        List<RingDesign> allDesigns = new ArrayList<>();
-
-        if (memberAccountId != null) {
-            allDesigns.addAll(designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId)));
+        if (memberAccountId == null) {
+            throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                    "Yêu cầu đăng nhập tài khoản hội viên để xem danh sách thiết kế.");
         }
-
-        if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            String guestDigest = GuestDesignSessionService.computeDigest(guestSessionHeader.trim());
-            List<RingDesign> guestDesigns = designRepository.findAllByOwner(RingDesignOwnerType.GUEST_SESSION, guestDigest);
-
-            if (memberAccountId != null && !guestDesigns.isEmpty()) {
-                // Auto-claim guest designs for this logged-in member
-                for (RingDesign gd : guestDesigns) {
-                    gd.setOwnerType(RingDesignOwnerType.MEMBER);
-                    gd.setOwnerReference(String.valueOf(memberAccountId));
-                    designRepository.save(gd);
-                    allDesigns.add(gd);
-                }
-            } else if (memberAccountId == null) {
-                allDesigns.addAll(guestDesigns);
-            }
-        }
+        List<RingDesign> allDesigns = new ArrayList<>(
+                designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId)));
 
         if (allDesigns.isEmpty()) {
             return Collections.emptyList();
@@ -464,31 +448,22 @@ public class WorkshopRingDesignApplicationService {
     }
 
     private void verifyOwnership(RingDesign design, Long memberAccountId, String guestSessionHeader) {
+        if (memberAccountId == null) {
+            throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                    "Yêu cầu đăng nhập tài khoản hội viên.");
+        }
         if (design.getOwnerType() == RingDesignOwnerType.MEMBER) {
-            if (memberAccountId == null || !design.getOwnerReference().equals(String.valueOf(memberAccountId))) {
+            if (!design.getOwnerReference().equals(String.valueOf(memberAccountId))) {
                 throw RingDesignException.accessDenied("Bạn không có quyền truy cập vào thiết kế nhẫn này.");
             }
-        } else if (design.getOwnerType() == RingDesignOwnerType.GUEST_SESSION) {
-            String designDigest = design.getOwnerReference();
-            boolean sessionMatches = false;
-            if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-                String computed = GuestDesignSessionService.computeDigest(guestSessionHeader.trim());
-                if (designDigest.equals(computed)) {
-                    sessionMatches = true;
-                }
-            }
-            if (!sessionMatches && memberAccountId == null) {
-                throw RingDesignException.accessDenied("Guest session không khớp với chủ sở hữu thiết kế.");
-            }
+        } else {
+            throw RingDesignException.accessDenied("Bạn không có quyền truy cập vào thiết kế nhẫn này.");
         }
     }
 
     private String resolveActorScope(Long memberAccountId, String guestSessionHeader) {
         if (memberAccountId != null) {
             return "MEMBER:" + memberAccountId;
-        }
-        if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            return "GUEST:" + GuestDesignSessionService.computeDigest(guestSessionHeader.trim());
         }
         return "ANONYMOUS";
     }
@@ -500,20 +475,8 @@ public class WorkshopRingDesignApplicationService {
         if (memberAccountId != null) {
             return new ActorBinding(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId), null);
         }
-        GuestDesignSession guestSession;
-        if (guestSessionHeader != null && !guestSessionHeader.isBlank()) {
-            try {
-                guestSession = guestSessionService.resolveAndTouchSession(guestSessionHeader);
-            } catch (RingDesignException e) {
-                log.info(
-                        "Stale or expired guest session header ({}), issuing a fresh guest session for new design draft.",
-                        guestSessionHeader);
-                guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
-            }
-        } else {
-            guestSession = guestSessionService.issueGuestSession(UUID.randomUUID().toString());
-        }
-        return new ActorBinding(RingDesignOwnerType.GUEST_SESSION, guestSession.getSessionDigest(), guestSession);
+        throw RingDesignException.unauthorized("DESIGN_MEMBER_AUTH_REQUIRED",
+                "Yêu cầu đăng nhập tài khoản hội viên để tạo mẫu thiết kế nhẫn.");
     }
 
     private DesignResponseDto mapToResponse(

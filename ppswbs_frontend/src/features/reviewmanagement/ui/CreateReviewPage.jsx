@@ -25,9 +25,6 @@ export default function CreateReviewPage() {
           <Link className="button outline" to="/reviews">
             {t('back')}
           </Link>
-          <Link className="button outline" to="/reviews/guest/lookup">
-            {t('lookupTitle')}
-          </Link>
           <Link className="button primary" to="/reviews">
             {t('tabPending')}
           </Link>

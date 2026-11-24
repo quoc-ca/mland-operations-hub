@@ -654,6 +654,54 @@ the current React/Vite implementation and shared page conventions:
 - Visual evidence was captured for the saved-design and request frames.
 - Status: `APPROVED — VISUAL BASELINE ONLY`.
 
+## Version 1.4 — Member-only rebaseline and code-alignment plan (2026-11-24)
+
+### Decision
+
+- Guest can see the configurator entry, public catalogue options and sign-in
+  CTA, but cannot mutate or view private design data.
+- Only an authenticated active Member can create, configure, evaluate, save,
+  restore, archive or view a design/history.
+- The Guest design-session transport and Guest persistence path are retired from
+  the current contract. Existing legacy rows remain historical only.
+- Booking attachment is not reintroduced; saved-design recommendation remains
+  advisory and keeps all workshop discovery actions visible.
+
+### Code findings to resolve
+
+1. `WorkshopRingDesignController` currently accepts optional
+   `X-Guest-Design-Session`/`X-Guest-Session` and resolves nullable Member IDs;
+   require active Member authorization on every private command and read.
+2. `WorkshopRingDesignApplicationService` still has Guest ownership/session
+   branches and automatic Guest-to-Member claiming. Remove new Guest creation,
+   mutation and auto-claim behavior; preserve historical rows read-only where
+   an approved projection requires it.
+3. Frontend configurator routes are unguarded and the API client persists Guest
+   session values. Keep the public entry/options view, but gate the first
+   protected action and remove Guest headers/storage from commands.
+4. Remove or disable the legacy `attach-to-booking` path in current routes,
+   facade usage and tests; it must not create a new booking association.
+5. Update stale UI labels and tests that describe Guest sessions, `VALIDATED`,
+   or booking locks as current behavior.
+6. Preserve server-owned evaluation, gemstone/engraving limits and saved-design
+   recommendation thresholds; do not move rule authority into the frontend.
+
+### Implementation and test sequence
+
+1. Add backend authorization tests for Guest, inactive/non-Member, active Member,
+   Staff, Manager and Admin across options, list, detail, save, evaluate,
+   archive and restore.
+2. Add tests proving fake Guest headers, expired legacy sessions and null actor
+   cannot mutate or enumerate designs.
+3. Add Member ownership/history, version conflict, idempotency, option limits,
+   recommendation and archive-retention regression tests.
+4. Update routes, sign-in return handling, local preview and public option UI;
+   ensure no protected request is sent before authentication.
+5. Re-run recommendation, preview/i18n, restoration and cross-feature snapshot
+   E2E tests; verify Feature-004 can consume only a Member-owned snapshot.
+
+**Current status:** `SPEC UPDATED — CODE REWORK PLANNED — NO CODE CHANGED IN THIS PASS`
+
 ### Existing-style-first rule — 2026-11-22
 
 The user approved the latest existing-frame updates. Frontend work must first

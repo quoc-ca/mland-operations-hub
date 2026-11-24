@@ -103,7 +103,7 @@ public class DesignRequestIT {
     }
 
     @Test
-    void whenUnauthenticatedGuest_thenAcceptedWithTrackingToken() throws Exception {
+    void whenUnauthenticatedGuest_thenReturns401Unauthorized() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "image-content".getBytes());
 
         mockMvc.perform(multipart("/api/v1/design-requests")
@@ -111,9 +111,7 @@ public class DesignRequestIT {
                         .param("description", "Nhẫn bạc đính đá")
                         .param("consentVersion", "v1.0.0")
                         .header("Idempotency-Key", "idemp-001"))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.id").isNotEmpty())
-                .andExpect(jsonPath("$.guestTrackingToken").isNotEmpty());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

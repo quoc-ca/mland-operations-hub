@@ -20,10 +20,10 @@ public class ReviewEligibilityController {
 
     @PostMapping("/api/v1/review-eligibility/lookup")
     public ResponseEntity<EligibleSourceListResponse> lookupGuestEligibility(
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @Valid @RequestBody GuestEligibilityLookupRequest request) {
-        EligibleSourceListResponse response = eligibilityService.lookupGuestEligibility(request, idempotencyKey);
-        return ResponseEntity.ok(response);
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody(required = false) GuestEligibilityLookupRequest request) {
+        throw ReviewManagementException.unauthorized("REVIEW_NOT_AUTHORIZED",
+                "Chức năng tra cứu đánh giá của khách vãng lai đã ngừng hoạt động. Vui lòng đăng nhập tài khoản hội viên.");
     }
 
     @GetMapping("/api/v1/reviews/eligible-sources")
