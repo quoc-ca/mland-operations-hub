@@ -9,6 +9,7 @@ This screen allows Members to:
 - See the pickup or GHTK choice made at checkout and, for GHTK, the recipient and the recorded shipment step.
 - For pickup, see when the order is ready to collect at the counter.
 - View recorded pickup or delivery facts without GHTK provider tracking.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |

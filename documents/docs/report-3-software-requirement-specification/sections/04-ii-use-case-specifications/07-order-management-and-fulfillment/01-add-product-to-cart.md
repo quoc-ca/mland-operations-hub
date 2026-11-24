@@ -44,6 +44,14 @@ The system rejects unknown combinations, free-text retail engraving, unpublished
 
 The system denies unauthorized access and rejects nonpositive/fractional or unavailable requested quantities. Allow at most 50 cart lines and quantity 1–99 per variant across all lines, subject to logical availability. The Member may correct quantity at Step 3 when authorized.
 
+**Step 4 — Requested quantity exceeds the branch stock**
+
+The system counts the same variant already in the Member's cart at that branch. When that count plus the requested quantity exceeds the branch's available quantity, the system refuses the add, leaves the cart unchanged and shows the reason in a centred popup with one Đồng ý button: "Bạn đã có {n} sản phẩm này trong giỏ hàng. Không thể thêm số lượng đã chọn vào giỏ hàng vì sẽ vượt quá số lượng còn tại chi nhánh ({available})." or, when the cart holds none, "Chi nhánh chỉ còn {available} sản phẩm này." When the chosen quantity already equals the most the Member can choose, the buy panel shows "Số lượng bạn chọn đã đạt mức tối đa của sản phẩm này" under the quantity. Resume at Step 3.
+
+**Step 6 — Mua Ngay when the cart already holds the branch stock**
+
+When the Member chose Mua Ngay and the add is refused only because the cart already holds that variant at that branch, the system opens UC45 Checkout Retail Order with the existing cart line instead of showing the popup. If that line cannot be read, the system shows the popup of the previous flow.
+
 **Step 5 — Different variant or different price/term identity**
 
 Keep the lines distinct. Only the same configured variant with matching price/snapshot terms may merge; cart terms remain indicative and will be revalidated at checkout.
@@ -54,7 +62,7 @@ Report a safe failure without false success or partial purchase effects. Reject 
 
 #### Business Rules
 
-BR-43-01, BR-43-02, BR-43-03, BR-43-04, BR-43-05, BR-43-06, BR-43-07
+BR-43-01, BR-43-02, BR-43-03, BR-43-04, BR-43-05, BR-43-06, BR-43-07, BR-43-08
 
 #### Business Rule Definitions
 
@@ -67,3 +75,4 @@ BR-43-01, BR-43-02, BR-43-03, BR-43-04, BR-43-05, BR-43-06, BR-43-07
 | BR-43-05 | Recheck current catalogue eligibility on submission; stale browsing/cart data grants no old-price or post-unpublish hold protection. |
 | BR-43-06 | Reject stale conflicting edits and reload current cart values for review. |
 | BR-43-07 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-43-08 | A refused add states the branch stock and how many of that variant the cart already holds there, in a popup with one Đồng ý button. Mua Ngay for a variant the cart already holds up to the branch stock opens checkout with the existing line instead of refusing. |

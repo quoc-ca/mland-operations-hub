@@ -9,6 +9,7 @@ This screen allows Members to:
 - Remove cart items and receive validation or stale-edit feedback.
 - Tick the lines to buy (or Chọn tất cả), preview the eligible voucher and member points, and proceed to checkout with only those lines.
 - After Mua lại from an order, find only the re-added rings ticked and a notice listing the rings that could not be added.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |

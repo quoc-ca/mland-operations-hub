@@ -9,6 +9,7 @@ This screen allows authorized Staff to:
 - Record Giao cho khách after confirming the signed-in owning Member and a ready order; the received time is recorded.
 - Follow a GHTK order after packing: Chờ GHTK đến lấy hàng, then GHTK đang giao hàng, both recorded by the GHTK partner.
 - Use valid forward transitions without a manual paid override or automatic cancellation.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |

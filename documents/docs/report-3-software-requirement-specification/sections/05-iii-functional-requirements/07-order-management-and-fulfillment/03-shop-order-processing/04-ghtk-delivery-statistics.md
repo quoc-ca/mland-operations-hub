@@ -6,6 +6,7 @@ This screen allows the GHTK partner to:
 - View shipments received, picked up and delivered, the average time from pickup to delivery and the shipping fees of delivered shipments.
 - View a trend chart over the period and a table per pickup branch.
 - Access this page only with an active GHTK partner account (role CARRIER).
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |

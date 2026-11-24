@@ -9,6 +9,7 @@ This screen allows Members to:
 - For an unpaid VNPay order, see the time left and press Thanh toán to reopen the same VNPay link, or Hủy đơn.
 - Press Mua lại to put the rings of a past order back in the cart.
 - Open an order's details.
+- Read every label in Vietnamese or English with the VI/EN switch.
 
 | Field Name | Description |
 | --- | --- |
