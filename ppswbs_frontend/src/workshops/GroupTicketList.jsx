@@ -564,7 +564,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
   }
 
   return (
-    <div className="group-tickets" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+    <div className="group-tickets" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: '12px' }}>
       {tickets.map(ticket => {
         const attendance = ticketAttendanceLabel(ticket, language);
         const noShow = isTicketNoShow(ticket);

@@ -57,3 +57,6 @@
 .cr-details dd { margin: 2px 0 0; font-size: 13px; color: #111827; overflow-wrap: anywhere; }
 
 .settlement-sim-qr{display:flex;flex-direction:column;align-items:center;margin:12px 0}
+
+@media(max-width:600px){.settlement-amounts{grid-template-columns:1fr}.settlement-amount strong{font-size:26px}}
+@media(max-width:600px){.settlement-summary .ota-panel-head h2{white-space:normal}}

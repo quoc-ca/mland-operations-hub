@@ -159,6 +159,8 @@
 .filter-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 8px;
 }
 
@@ -266,3 +268,8 @@
 
 /* Nút của biểu mẫu trong lưới không giãn theo chiều cao ô khác cùng hàng (ví dụ Generate sessions cạnh hai nhóm checkbox) */
 .ota-evidence-grid > .actions{align-self:end;align-items:flex-end}
+
+/* Price-terms modal rows: two columns on desktop, one on phones (was inline style). */
+.ota-grid-2-1{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.ota-grid-1-1{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.ota-grid-2-1,.ota-grid-1-1{grid-template-columns:minmax(0,1fr)}}
