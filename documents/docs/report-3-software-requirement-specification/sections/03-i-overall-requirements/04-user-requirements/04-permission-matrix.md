@@ -24,7 +24,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Workshop ring design|Create, evaluate, save, and archive own ring design; Guest may only browse public options and sees a sign-in prompt|No|Full|No|No|Technical/audit only|
 |Independent Design Request|Create and view own request and its human-review result|No (sign-in required)|Full|No|No|Technical/audit only|
 |Independent Design Review|Review an in-scope request under approved authority policy|No|No|Restricted|Restricted|No business decision|
-|AI-assisted pricing|Review AI suggestions and decide the published price|No|No|No|Full|Restricted|
+|Published pricing|Decide the published price of a new workshop package or retail product|No|No|No|Full|Restricted|
 |Review Management|Create/edit own eligible review; Staff hide; Manager hide/remove/reply; Admin technical/audit only|Read public reviews only; create/edit requires sign-in|Own eligible sources only|Hide any review|Hide/remove/reply|Technical/audit only|
 |Loyalty|View own points and history|No|Full|No|No|Restricted|
 |Loyalty|Redeem points during eligible checkout|No|Full|No|No|Restricted|
