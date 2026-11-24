@@ -175,7 +175,7 @@ export const uiMessages = {
     'history.lookupLabel': 'Tra cứu nhanh yêu cầu custom bằng mã:',
     'history.lookupPlaceholder': 'Nhập mã yêu cầu (VD: REQ-... hoặc DR-...)',
     'history.lookupBtn': 'Tra cứu',
-    'history.tabWorkshop': 'Mẫu nhẫn Workshop',
+    'history.tabWorkshop': 'Mẫu nhẫn đã lưu',
     'history.tabCustom': 'Yêu cầu chế tác',
     'history.loading': 'Đang tải dữ liệu thiết kế...',
     'history.package': 'Gói',

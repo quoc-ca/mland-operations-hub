@@ -5,6 +5,7 @@ import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 import { useRole } from '../../../shared/auth/useRole';
+import AttachedRingHoverRecap from './AttachedRingHoverRecap';
 import '../consultation-chat.css';
 
 export function StaffConsultationInboxPage({ currentUser = {} }) {
@@ -341,19 +342,21 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                 {/* Header */}
                 <div className="consultation-context-header">
                   <div className="consultation-context-info">
-                    <div className="consultation-context-thumbnail">
-                      {activeConversation.contextSnapshot?.preview?.imageUrl ? (
-                        <img
-                          src={activeConversation.contextSnapshot.preview.imageUrl}
-                          alt="Preview"
-                          style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
-                          ? '💍'
-                          : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
-                      )}
-                    </div>
+                    <AttachedRingHoverRecap conversation={activeConversation}>
+                      <div className="consultation-context-thumbnail">
+                        {activeConversation.contextSnapshot?.preview?.imageUrl ? (
+                          <img
+                            src={activeConversation.contextSnapshot.preview.imageUrl}
+                            alt="Preview"
+                            style={{ width: '100%', height: '100%', borderRadius: '6px', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          activeConversation.contextType === 'WORKSHOP_RING_DESIGN'
+                            ? '💍'
+                            : (activeConversation.contextType === 'INDEPENDENT_DESIGN_REQUEST' ? '📝' : '💬')
+                        )}
+                      </div>
+                    </AttachedRingHoverRecap>
                     <div className="consultation-context-details">
                       <h3>{activeConversation.contextSnapshot?.displayName || t.generalConsultation || 'Tư vấn chung'}</h3>
                       <div className="consultation-context-tags">

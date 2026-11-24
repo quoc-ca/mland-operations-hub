@@ -4,13 +4,13 @@ This representative workaround uses channels such as Instagram, WhatsApp, phone 
 
 ::: {.docx-table width="100%" columns="35%,65%" repeat-header="false"}
 
-| Attribute | Description |
+| Criteria | Details |
 | --- | --- |
-| Website or link | N/A - representative manual process |
-| Target users | Workshop customers and Staff handling booking, design consultation, review, or quotation informally |
-| Core features | Direct messages and calls for booking requests, descriptions, materials, components, reference images, clarification, quote follow-up, payment reminders, and order-status communication |
+| Website / Link | N/A - representative manual process |
+| Target Users | Workshop customers and Staff handling booking, design consultation, review, or quotation informally |
+| Core Features | Direct messages and calls for booking requests, descriptions, materials, components, reference images, clarification, quote follow-up, payment reminders, and order-status communication |
 | Strengths | Low initial cost, familiar communication channels, flexible consultation, and no formal training requirement |
 | Weaknesses | No shared bilingual design record, repeated clarification, inconsistent image-quality checks and feasibility explanations, limited session visibility, and high dependence on individual Staff memory and notes |
-| Gap for this project | It cannot reliably connect design input with human review, workshop availability, quotation, payment, order status, fulfilment, and audit evidence in one traceable journey. |
+| GAP for this project | It cannot reliably connect Member-owned design input with human review, workshop availability, quotation, payment, order status, fulfilment, and audit evidence in one traceable journey. |
 
 :::

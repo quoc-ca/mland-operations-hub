@@ -68,6 +68,7 @@ export default function DesignWorkspacePage() {
   const [consentAgreed, setConsentAgreed] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
   const [errors, setErrors] = useState({});
   const [guestSubmission, setGuestSubmission] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -508,7 +509,14 @@ export default function DesignWorkspacePage() {
 
               return (
                 <div key={img.id} className={`image-upload-card ${isBlurry ? 'blurry' : ''}`}>
-                  <img src={img.previewUrl} alt={img.name} className="image-upload-thumb" />
+                  <img
+                    src={img.previewUrl}
+                    alt={img.name}
+                    className="image-upload-thumb"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedPreviewImage(img)}
+                    title="Nhấn để xem ảnh phóng to"
+                  />
                   <div className="image-upload-info">
                     <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.name}>
                       {img.name}
@@ -532,15 +540,25 @@ export default function DesignWorkspacePage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="button outline small"
-                    style={{ marginTop: '0.5rem', width: '100%', padding: '0.25rem 0.5rem' }}
-                    onClick={() => handleRemoveImage(img.id)}
-                    disabled={command.pending}
-                  >
-                    Gỡ bỏ
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem', width: '100%' }}>
+                    <button
+                      type="button"
+                      className="button outline small"
+                      style={{ flex: 1, padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+                      onClick={() => setSelectedPreviewImage(img)}
+                    >
+                      🔍 Xem ảnh
+                    </button>
+                    <button
+                      type="button"
+                      className="button outline small"
+                      style={{ flex: 1, padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                      onClick={() => handleRemoveImage(img.id)}
+                      disabled={command.pending}
+                    >
+                      Gỡ bỏ
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -722,6 +740,54 @@ export default function DesignWorkspacePage() {
                 disabled={!hasScrolledToBottom}
               >
                 {t('consent.accept')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-size image modal */}
+      {selectedPreviewImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+          }}
+          onClick={() => setSelectedPreviewImage(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              padding: '1rem',
+              borderRadius: '8px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <img
+              src={selectedPreviewImage.previewUrl}
+              alt={selectedPreviewImage.name}
+              style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
+            />
+            <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <span className="small muted">{selectedPreviewImage.name}</span>
+              <button type="button" className="button outline small" onClick={() => setSelectedPreviewImage(null)}>
+                Đóng
               </button>
             </div>
           </div>

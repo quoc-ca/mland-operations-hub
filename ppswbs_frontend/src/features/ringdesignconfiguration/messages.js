@@ -142,7 +142,7 @@ export const messages = {
 
     // Member History
     memberHistoryTitle: 'Lịch sử thiết kế nhẫn của bạn',
-    memberHistorySubtitle: 'Xem lại các mẫu thiết kế đã tạo, các phiên bản đã lưu và trạng thái đặt lịch.',
+    memberHistorySubtitle: 'Xem lại các mẫu thiết kế đã tạo.',
     noDesignsYet: 'Bạn chưa có mẫu thiết kế nào.',
     createFirstDesign: 'Tạo mẫu nhẫn đầu tiên',
     versionHistory: 'Lịch sử phiên bản',
