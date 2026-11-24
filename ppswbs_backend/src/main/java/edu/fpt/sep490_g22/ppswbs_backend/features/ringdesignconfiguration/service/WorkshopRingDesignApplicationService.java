@@ -261,28 +261,46 @@ public class WorkshopRingDesignApplicationService {
             designRepository.save(latest);
         }
 
-        RingDesign newVersion = RingDesign.builder()
-                .designReference(latest.getDesignReference())
-                .designVersion(latest.getDesignVersion() + 1)
-                .designName(latest.getDesignName())
-                .designType(latest.getDesignType())
-                .ownerType(targetOwnerType)
-                .ownerReference(targetOwnerReference)
-                .packageReference(request.getPackageReference())
-                .sourceModelReference(latest.getSourceModelReference())
-                .sourceDesign(latest)
-                .materialReference(request.getMaterialReference())
-                .shapeReference(request.getShapeReference())
-                .ringSize(request.getRingSize())
-                .componentSnapshot(serializeSnapshot(snapshotMap))
-                .estimatedPrice(new BigDecimal(eval.getEstimatedPrice()))
-                .currency(eval.getCurrency())
-                .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
-                .rulesVersion(eval.getRulesVersion())
-                .status(RingDesignStatus.SAVED)
-                .build();
+        RingDesign targetToSave;
+        if (latest.getStatus() == RingDesignStatus.DRAFT && latest.getDesignVersion() == 1) {
+            // Initial draft save: update draft in place to version 1 with SAVED status
+            latest.setOwnerType(targetOwnerType);
+            latest.setOwnerReference(targetOwnerReference);
+            latest.setPackageReference(request.getPackageReference());
+            latest.setMaterialReference(request.getMaterialReference());
+            latest.setShapeReference(request.getShapeReference());
+            latest.setRingSize(request.getRingSize());
+            latest.setComponentSnapshot(serializeSnapshot(snapshotMap));
+            latest.setEstimatedPrice(new BigDecimal(eval.getEstimatedPrice()));
+            latest.setCurrency(eval.getCurrency());
+            latest.setDifficultyScore(new BigDecimal(eval.getDifficultyScore()));
+            latest.setRulesVersion(eval.getRulesVersion());
+            latest.setStatus(RingDesignStatus.SAVED);
+            targetToSave = latest;
+        } else {
+            targetToSave = RingDesign.builder()
+                    .designReference(latest.getDesignReference())
+                    .designVersion(latest.getDesignVersion() + 1)
+                    .designName(latest.getDesignName())
+                    .designType(latest.getDesignType())
+                    .ownerType(targetOwnerType)
+                    .ownerReference(targetOwnerReference)
+                    .packageReference(request.getPackageReference())
+                    .sourceModelReference(latest.getSourceModelReference())
+                    .sourceDesign(latest)
+                    .materialReference(request.getMaterialReference())
+                    .shapeReference(request.getShapeReference())
+                    .ringSize(request.getRingSize())
+                    .componentSnapshot(serializeSnapshot(snapshotMap))
+                    .estimatedPrice(new BigDecimal(eval.getEstimatedPrice()))
+                    .currency(eval.getCurrency())
+                    .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
+                    .rulesVersion(eval.getRulesVersion())
+                    .status(RingDesignStatus.SAVED)
+                    .build();
+        }
 
-        RingDesign saved = designRepository.save(newVersion);
+        RingDesign saved = designRepository.save(targetToSave);
         DesignResponseDto response = mapToResponse(saved, val, eval, snapshotMap);
 
         idempotencyService.record(idempotencyKey, "SAVE_VERSION", actorScope, request, 200, response);

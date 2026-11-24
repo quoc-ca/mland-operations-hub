@@ -342,7 +342,7 @@ export default function MemberDesignHistoryPage() {
               marginBottom: '-2px',
             }}
           >
-            💍 Mẫu nhẫn Workshop
+            💍 {t['history.tabWorkshop'] || 'Mẫu nhẫn đã lưu'}
           </button>
           <button
             type="button"
