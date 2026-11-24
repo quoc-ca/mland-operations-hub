@@ -1,7 +1,7 @@
 # Quickstart & Verification Guide: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -144,4 +144,18 @@ This guide defines end-to-end and integration verification procedures for Featur
 **Expected Outcome**:
 - `notification_rendition` and `recipient_snapshot` for this request are deleted/scrubbed.
 - A row is inserted in `notification_tombstone` preserving original request ID, business event ref, template code, terminal state, and timestamps.
+
+## R-INV invitation delivery verification plan (pending final review; not executed)
+
+Run this section only after FE-001 T110 and FE-007 T038–T043 are implemented with a configured Firebase test project and captured SMTP adapter. Preserve historical FE-007 case results as historical; record source revision, environment, test identities, request/attempt IDs and actual outcome for every case.
+
+| Case | Action | Required evidence |
+| --- | --- | --- |
+| Invitation enqueue | ADMIN creates PENDING_SETUP STAFF/MANAGER | One FE-001 outbox event and one pinned FE-007 request; FE-001 `expiresAt = createdAt + 48 hours`, independent of SMTP; no raw link/secret in either record. |
+| Confirmed acceptance | Captured SMTP adapter accepts the message | FE-007 `SENT` attempt and FE-001 safe delivery status; expiry remains based on creation and is not extended. |
+| Definite failure | SMTP rejects both attempts | Exactly two technical attempts (initial and one retry after about one minute), then FE-007 `FAILED`; FE-001 remains PENDING_SETUP; retry used the same version/link. |
+| Manual content | ADMIN opens content after terminal FAILED while link valid | Pinned subject/HTML/plain text and same-version link returned `no-store` only to ADMIN; accurate remaining time shown; access audited without content; FE-007 remains FAILED. |
+| Unknown outcome | Interrupt after SMTP invocation with ambiguous acceptance | No automatic repeat, rotation or manual content; provider/operator evidence and reconciliation are required. |
+| Rotation | ADMIN resends after cooldown and reconciliation | New version/new intent; old version cannot materialize or activate. Generic FE-007 resend/redeliver rejects the invitation template. |
+| Privacy/boundary | Inspect persisted request/rendition/attempt/audit/diagnostic/log and module verification | No expanded URL, secret or Firebase token; only safe sentinel/reference; ADMIN manual response is transient; one-way `notificationmanagement -> accountmanagement :: invitationdelivery` passes `ApplicationModules.verify()`. |
 

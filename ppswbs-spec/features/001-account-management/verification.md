@@ -1,7 +1,9 @@
 # Verification Report: Account Management (FE-001)
 
+> **R-INV (2026-11-24): PENDING FINAL DESIGN REVIEW; IMPLEMENTATION NOT VERIFIED.** There is no fresh app execution evidence. Historical V-04 and checked task markers do not verify MEMBER replacement/JSON export, creation-based 48-hour setup, two-attempt delivery/manual fallback, ADMIN route isolation or catalogue removal. See [R-INV design](design/revision-2026-11-24.md), FE-001 T105–T116 and FE-007 T038–T045; update this status only after actual evidence and fresh approval are recorded.
+
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

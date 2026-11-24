@@ -1,7 +1,7 @@
 # Interface Contract: NotificationFacade
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -180,4 +180,20 @@ In addition to synchronous facade calls, Feature 007 participates in asynchronou
 - **Consumes**: `BookingNotificationReady` and `SettlementNotificationReady` (from `workshopbooking :: notification` and `workshopsettlement :: facade`).
 - **Publishes**: `BookingNotificationDeliveryFailed(notificationReference, bookingReference, notificationKind, failureCode, failedAt, correlationReference)` when technical retries are exhausted.
 - **Contract Reference**: Documented canonically in `ppswbs-spec/features/003-workshop-management/contracts/workshop-interfeature-facades.md` § "Booking notification delivery-failed signal — Feature 007 to 003.1".
+
+---
+
+## 6. R-INV internal-account invitation boundary (2026-11-24)
+
+The generic `submitNotificationIntent` path above remains for existing notification kinds. The invitation uses a one-way module dependency `notificationmanagement -> accountmanagement :: invitationdelivery`: FE-001 defines the published event and facade types; FE-007 imports them. FE-001 MUST NOT import or call `NotificationFacade` for this flow.
+
+1. In the same transaction that creates or rotates a `PENDING_SETUP` invitation, FE-001 persists the invitation and an outbox record keyed by `(invitationId, version)`. After commit, FE-001 publishes `InternalAccountInvitationRequested(invitationId, version, accountId, recipientEmail, recipientName, eventReference, correlationReference)`. No secret or URL appears in this event. Replay is allowed and FE-007 deduplicates by the event reference plus template and recipient fingerprint. A durable outbox replay handles process failure between commit and event consumption.
+2. FE-007 consumes the event, pins `INTERNAL_ACCOUNT_INVITATION` template version, approved recipient and safe business snapshot, and creates a notification request. Validation failures become durable operational failures; they do not roll back the FE-001 Account. The request's `credential_reference` is an opaque invitation ID/version only; `credential_expires_at` copies FE-001's creation-based `expiresAt`. The persisted rendition contains a sentinel placeholder for the setup URL and never the expanded URL.
+3. Immediately before each SMTP attempt, FE-007 checks `expiresAt` and calls `InvitationDeliveryFacade.materialize(invitationId, version, requestId, attemptId)`. FE-001 authorizes that exact current, unexpired, non-consumed version and returns a transient setup URL derived from the server key version. The URL is substituted into the outgoing MIME in memory, never saved to rendition, request, attempt, failure, preview, audit or log. A retry for the same version obtains the same URL. A rotated/consumed/expired version returns `STALE` and the worker cancels the old request without SMTP invocation.
+4. On definite SMTP acceptance FE-007 records its `SENT` attempt and reports the delivery state to FE-001 idempotently. This report does not alter FE-001 `expiresAt` or gate setup exchange. FE-001's `createdAt` and `expiresAt = createdAt + 48 hours` were persisted when the invitation version was created. FE-007 retries a failed status report from durable attempt evidence; a late report for a rotated version is recorded for audit without reactivating it.
+5. A definite pre-acceptance failure gets one technical retry after about one minute with the same invitation version. After two definite failures FE-007 records terminal `FAILED` and reports it to FE-001. `UNKNOWN_OUTCOME` MUST NOT automatically resend, rotate or unlock manual retrieval; provider/operator evidence must reconcile acceptance or definite failure first. The generic FE-007 resend/redeliver/cancel endpoints do not apply to this template. Only FE-001 ADMIN invitation resend, after five-minute cooldown and reconciliation, rotates the version and enqueues a new event.
+
+6. After terminal `FAILED`, the FE-007 ADMIN-only manual-content API may call the same FE-001 materialization facade with a distinct audited `MANUAL_CONTENT` scope. It substitutes the URL into the pinned subject/HTML/plain text only in the `Cache-Control: no-store` response to that ADMIN. The request, rendition, attempt, log, general diagnostic and audit remain secret-free. The API refuses expired/used/rotated links and any request still pending, sent or `UNKNOWN_OUTCOME`; opening/copying does not mark delivery `SENT` or extend expiry.
+
+The FE-001 named interface returns typed `AVAILABLE(url, expiresAt)` or `STALE/UNAVAILABLE` for materialization and accepts idempotent safe delivery-state reports. General dashboard/API diagnostics never return the URL. FE-007 owns attempt state; FE-001 owns invitation state and expiry. Cross-module calls use published facade/event types only, and `ApplicationModules.verify()` must pass.
 

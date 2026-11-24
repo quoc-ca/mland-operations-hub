@@ -1,13 +1,13 @@
 # REST API Contract: Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Base URL**: `/api/v1`
 **Authorization**: `Authorization: Bearer <Firebase_ID_Token>`
-**Scope**: In V1, all endpoints require `ADMIN` or `MANAGER` role at global scope (FR-027).
+**Scope**: Historical V1 endpoints require `ADMIN` or `MANAGER` at global scope (FR-027). The R-INV manual-invitation operation below is `ADMIN` only and pending final review.
 
 ---
 
@@ -285,7 +285,7 @@ Manually resend an eligible sent or remediated failed request with an auditable 
 Repeated eligible manual resend actions are permitted in V1. This endpoint has no client-supplied idempotency-key contract; each accepted invocation creates one derived request.
 
 - **Actor**: `ADMIN`, `MANAGER`
-- **Eligibility**:
+- **Eligibility**: `INTERNAL_ACCOUNT_INVITATION` is excluded; use only FE-001's invitation resend command.
   - Request must be in `SENT` or `FAILED`.
   - Prohibited if `PENDING`, `PROCESSING`, `RETRY_SCHEDULED`.
   - For `UNKNOWN_OUTCOME`, ONLY `ADMIN` can resend and must explicitly set `duplicateRiskAccepted: true`.
@@ -313,6 +313,8 @@ Repeated eligible manual resend actions are permitted in V1. This endpoint has n
 
 ### 2.4. `POST /api/v1/notification-requests/{id}/cancel`
 Cancel a pending or scheduled delivery request with an auditable reason.
+
+`INTERNAL_ACCOUNT_INVITATION` is excluded; FE-001 owns its invitation lifecycle.
 
 - **Actor**: `ADMIN`, `MANAGER`
 - **Eligibility**:
@@ -360,5 +362,31 @@ The service resolves the root/original request for lineage, asks the owning sour
   "message": "Redelivery request enqueued with replacement credential."
 }
 ```
-- **Error 422 Unprocessable Entity**: If source feature denies authorization or cannot provide fresh credential.
+- **Error 422 Unprocessable Entity**: If source feature denies authorization or cannot provide fresh credential. `INTERNAL_ACCOUNT_INVITATION` is excluded.
+
+---
+
+### 2.6. `GET /api/v1/admin/notification-requests/{requestId}/manual-invitation` (R-INV pending final review)
+
+Returns the exact pinned invitation email for an ADMIN to copy and send outside the system after FE-007 records terminal `FAILED` from two definite SMTP attempts. It is not a resend or delivery confirmation.
+
+- **Actor**: Authenticated `ACTIVE` ADMIN only; server checks the request belongs to `INTERNAL_ACCOUNT_INVITATION` and the current FE-001 invitation ID/version.
+- **Eligibility**: `FAILED` after two definite attempts, current version unexpired/unused, and no unresolved `UNKNOWN_OUTCOME`. FE-007 calls FE-001's `MANUAL_CONTENT` materialization scope and injects the URL into its pinned subject, HTML and plain-text rendition only in memory.
+- **Response 200**: `Cache-Control: no-store`, `Pragma: no-cache`; body contains `requestId`, `invitationVersion`, `subject`, `html`, `plainText`, `expiresAt` and `serverNow`. The response is the deliberate ADMIN-only raw-link exception; no content or URL is persisted, logged, cached in browser storage or shown in general diagnostics. UI renders text safely and offers copy controls rather than executing the HTML.
+
+```json
+{
+  "requestId": 1005,
+  "invitationVersion": 2,
+  "subject": "Mời kích hoạt tài khoản Mland",
+  "html": "<p>Liên kết thiết lập: [current-setup-url]</p>",
+  "plainText": "Liên kết thiết lập: [current-setup-url]",
+  "expiresAt": "2026-11-26T10:00:00+07:00",
+  "serverNow": "2026-11-24T10:05:00+07:00"
+}
+```
+
+`[current-setup-url]` above is documentation notation; the actual ADMIN response contains the live current-version URL. No sample secret is committed.
+- **Errors**: `403` for non-ADMIN, `404` for nonexistent/ineligible type, `409` for pending/SENT/UNKNOWN_OUTCOME/rotated/used version, `410` for expired link, `503` if FE-001 materialization is unavailable. All errors use safe code/message/correlation ID and no raw link.
+- **Audit**: Record actor, request/version, time and safe `MANUAL_CONTENT_VIEWED` action only. Opening/copying does not change `FAILED` to `SENT`, rotate or extend the link, and does not assert outside delivery.
 

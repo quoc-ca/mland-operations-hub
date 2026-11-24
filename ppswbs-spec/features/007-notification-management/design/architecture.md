@@ -1,11 +1,13 @@
 # Architecture Design: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Feature**: [spec.md](../spec.md) | **Plan**: [plan.md](../plan.md) | **Data Model**: [data-model.md](../data-model.md) | **Contracts**: [contracts/](../contracts/)
+
+**R-INV pending final review:** Add an invitation event consumer and a two-attempt worker branch using the FE-001 named materialization/status facade (`notificationmanagement -> accountmanagement :: invitationdelivery`). FE-001 supplies creation-based `expiresAt`; FE-007 checks it before each send. After terminal `FAILED`, an ADMIN-only API composes the pinned subject/HTML/plain text with the current link transiently and returns `no-store`; the expanded content is never persisted or shown in general diagnostics. `UNKNOWN_OUTCOME` blocks automatic retry and manual retrieval until reconciliation. Historical V1 architecture tables below remain baseline for other template types.
 
 ---
 

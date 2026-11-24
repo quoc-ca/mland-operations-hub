@@ -1,7 +1,9 @@
 # Workflow Design: Account Management (FE-001)
 
+> **R-INV design pending final review:** [canonical workflow and failure contract](revision-2026-11-24.md) supersedes older WF-03 invitation and role-catalogue steps. Sequence: ADMIN validates email/role/scope → resolve occupancy → optionally review/export MEMBER → fresh confirm and staged retirement (or Firebase-only delete) → provision real UID/PENDING_SETUP → create invitation with 48-hour expiry/outbox event → FE-007 consumes event after commit and materializes link only at SMTP send → at most two definite attempts → on `FAILED`, ADMIN may retrieve/copy current unexpired email content for outside delivery → invitee exchanges link for bound-UID setup session → links password or Google → backend verifies intended email/UID/current scope and activates → role home. Every external step has persisted stage, safe retry and explicit failure; direct login/register cannot bootstrap a pending internal email as MEMBER. Resend rotates the link after five minutes and UNKNOWN_OUTCOME reconciliation. No old account history or audit is cascade-deleted.
+
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

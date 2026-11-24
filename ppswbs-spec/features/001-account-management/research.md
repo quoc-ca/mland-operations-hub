@@ -1,7 +1,9 @@
 # Research: Account Management (FE-001)
 
+> **R-INV pending final review (2026-11-24):** [decision and risk analysis](design/revision-2026-11-24.md) supersedes older invitation-only assumptions. Firebase custom-token sign-in and provider linking must be verified for one UID across password or Google setup, redirect recovery, provider-email equality and pending-session denial. MEMBER replacement retains business/audit IDs instead of cascading deletion. FE-007's current template allowlist does not yet include invitation mail. The revised design starts the 48-hour link window at creation and allows ADMIN transient manual-content retrieval after two definite SMTP failures. Scoped Tech Lead approval remains pending.
+
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

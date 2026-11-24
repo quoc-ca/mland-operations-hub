@@ -1,7 +1,9 @@
 # Architecture Design: Account Management (FE-001)
 
+> **R-INV design pending final review:** [canonical revision](revision-2026-11-24.md). FE-001 owns AdminCollisionController (lookup/review/export/retire), AccountRetirementService and repository, InvitationSetupController/Service, identity reconciliation, durable invitation outbox, creation-based expiry, ADMIN invitation status and the published at-send/manual-content materialization/status facade. FE-007 owns the invitation template, event consumer, two-attempt worker, FAILED state and ADMIN-only transient manual-content API; its module depends on FE-001's named interface only. Retail owns the server-stored cart and retail inventory facade; workshop booking owns its booking inventory facade. The browser-only workshop cart has no server facade. Account bootstrap denies reserved pending-email direct login/register and permits only scoped setup exchange before activation. RoleCataloguePage/Controller are removed; business routes gain pre-mount role allowlists. These units remain to be implemented.
+
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

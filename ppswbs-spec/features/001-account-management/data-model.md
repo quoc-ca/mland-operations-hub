@@ -1,11 +1,15 @@
 # Account Management Data Model
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Status**: Approved physical-design baseline through Revision R-NAD (2026-11-16) and Revision R-CAR (2026-11-20). This document defines the migration target; it does not itself create a migration.
+**Status**: Approved physical-design baseline through Revision R-NAD (2026-11-16) and Revision R-CAR (2026-11-20). R-INV model below is pending final review and has no applied migration.
+
+**R-INV model under review:** Retained/retired MEMBER Account IDs remain stable for all commerce, workshop and audit references; retire/de-identify the login identity without cascading business rows. Add a unique, versioned invitation record with digest-only secret, key version, `createdAt`, `expiresAt = createdAt + 48 hours`, use state and safe delivery reference; a resend invalidates the prior version and starts a new window at creation. Provisioning holds real Firebase UID, normalized full request digest and resumable provider/DB/mail stages. Retirement holds target/version, actor, correlation and resumable revocation/provider/database stages without copying JSON export or sensitive history. Existing synthetic pending UIDs require explicit quarantine/reconciliation, not email-based backfill. FE-001 owns a durable invitation outbox event; FE-007 consumes it after commit. See [R-INV](design/revision-2026-11-24.md); use new append-only migrations in T106 after approval.
+
+The retirement command reads definitive nonterminal-obligation outcomes from FE-008 and FE-003.1 immediately before its first irreversible stage; a populated server retail cart alone is nonblocking. `UNAVAILABLE` is not an empty result. The browser-only workshop cart has no server entity to migrate or export. Historical orders/bookings continue to reference the retired Account ID.
 
 ## Ownership and entities
 

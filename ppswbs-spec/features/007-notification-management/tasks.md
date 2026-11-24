@@ -1,7 +1,9 @@
 # Tasks: FE-007 Notification Management
 
+> **R-INV invitation extension pending final review:** T038–T045 below describe the proposed implementation after a fresh Tech Lead approval. Historical completion markers do not establish implementation of this extension. See [R-INV](../001-account-management/design/revision-2026-11-24.md) and [facade §6](contracts/notification-facade.md).
+
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -123,6 +125,21 @@
 
 ---
 
+## Phase 8: R-INV internal-account invitation delivery (2026-11-24)
+
+**Status:** R-INV documents reconciled and pending final Tech Lead review. T038–T043 and T045 remain unimplemented/unexecuted; T044 is documentation-only completion. FE-001 T105 is the document reconciliation gate; FE-001 T110 provides the invitation event and materialization/status facade before FE-007 worker integration. Generic notification resend/redeliver/cancel does not handle this template.
+
+- [ ] T038 Register `INTERNAL_ACCOUNT_INVITATION` and a pinned active template version with static subject/body and a setup-URL sentinel in an append-only FE-007 migration. Template allowlist contains only safe recipient and exact expiry copy fields; general preview never materializes a live URL. (FE-007 FR-030)
+- [ ] T039 Consume the FE-001 `InternalAccountInvitationRequested` outbox event idempotently in `notificationmanagement`, creating one original request per invitation ID/version and approved recipient. Persist only invitation reference/version, safe recipient snapshot and static rendition; record validation failure as `OperationalFailure` without rolling back the Account. (FR-030–031; FE-001 T110)
+- [ ] T040 Extend FE-007 rendition/worker path for invitation requests: check creation-based expiry, call FE-001 `InvitationDeliveryFacade.materialize` for each attempt, inject the returned URL only into outgoing SMTP MIME, discard it immediately, cancel stale/expired versions, and fail closed on facade/key unavailability. Never persist/log raw URL, secret, Firebase token or expanded rendition. (FR-031–032; FE-001 T110)
+- [ ] T041 Persist FE-007 attempt evidence and idempotently report `SENT` or `FAILED` to FE-001 without altering the creation-based expiry. Make at most two definite SMTP attempts (initial plus one after about one minute), then record terminal `FAILED`. `UNKNOWN_OUTCOME` blocks automatic repeat and manual content until provider/operator reconciliation. (FR-032; FE-001 T110)
+- [ ] T042 Exclude `INTERNAL_ACCOUNT_INVITATION` from generic FE-007 manual resend/redeliver/cancel; FE-001 ADMIN resend alone rotates a link. Add ADMIN-only `GET /api/v1/admin/notification-requests/{requestId}/manual-invitation` after two definite failures: compose pinned subject/HTML/plain text with current unexpired FE-001 link only in a `no-store` response and audit access without content. Keep general diagnostics masked/secret-free; retrieval does not mark `SENT`. (FR-033–034)
+- [ ] T043 Add focused FE-007 service/integration tests for outbox replay/deduplication, immutable recipient/template version, creation-based expiry, two-attempt retry, transient link on retry, stale-version cancellation, status callback recovery, manual-content ADMIN/FAILED/expiry guard, UNKNOWN_OUTCOME and secret-free persistence/log/general preview. Verify Spring Modulith one-way boundary. (FR-030–034)
+- [x] T044 Reconcile FE-007 operational quickstart and verification matrix for creation-based 48-hour expiry, two attempts, ADMIN manual content after terminal `FAILED`, no false `SENT`, UNKNOWN_OUTCOME and secret-free persistence. Historical test results remain historical; no runtime check is marked passed. (FR-032–034; documentation only, pending final approval)
+- [ ] T045 Run the integrated FE-001/FE-007 delivery journey only after approval, implementation and configured Firebase/mail test adapters; record actual result in both feature verification artifacts, including manual content retrieval and outside-delivery status. FE-001 T116 owns full Account-ID continuity and setup-method evidence. (FR-030–034)
+
+**Order:** FE-001 T105 and FE-007 T044 document reconciliation → explicit Tech Lead approval → FE-001 T109/T110 event/facade → T038–T039 → T040–T042 → T043/T045. FE-007 delivery and failure states are required for the FE-001 ADMIN flow.
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -133,6 +150,7 @@
 - **Phase 5 (User Story 3)**: Depends on Phase 3 (needs notification request entity & states) and Phase 2.
 - **Phase 6 (User Story 4)**: Depends on Phase 5.
 - **Phase 7 (Polish)**: Depends on User Story 4 for the corrective lineage/redelivery verification tasks.
+- **Phase 8 (R-INV)**: Depends on FE-001 invitation event/facade and FE-007 notification foundation; T040/T041 are on the FE-001 activation path.
 
 ### Parallel Opportunities
 - Backend entities & repositories (T004, T005, T006, T007) can be developed in parallel.

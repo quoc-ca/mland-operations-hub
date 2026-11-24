@@ -1,5 +1,13 @@
 # Tech Lead Approval Record: Notification Management (FE-007)
 
+## R-INV invitation extension (2026-11-24)
+
+**Decision state:** PENDING FINAL REVIEW; not approved for R-INV implementation handoff. **Decision owner:** Tech Lead Phan Sơn. **Last clarification date:** 2026-11-24. The later review changed link lifetime, retry count and failed-mail handling and explicitly selected “chờ chốt”. Earlier R-INV approval wording is withdrawn for this revision. FE-007 T044 reconciles documentation only; T038–T043 and T045 remain unimplemented.
+
+**Revision under review and paths:** FE-001 `design/revision-2026-11-24.md` (R-INV); FE-007 `spec.md` (FR-030–034), `plan.md` (R-INV section), `data-model.md` (R-INV extension), `design/workflows.md` (R-INV workflow), `contracts/notification-facade.md` (§6), `contracts/notification-api.md` (manual-content operation), `tasks.md` (T038–T045), and `quickstart.md` (R-INV verification matrix). The revision covers `INTERNAL_ACCOUNT_INVITATION`, durable FE-001 outbox event consumption, a one-way FE-007-to-FE-001 named facade for transient URL materialization, 48-hour expiry from creation, two definite SMTP attempts, ADMIN-only manual content retrieval after FAILED, UNKNOWN_OUTCOME reconciliation, and secret-free persistence/diagnostics. Generic FE-007 manual resend/redeliver does not apply to this template. Fresh named Tech Lead approval is required before implementation; no delivery verification is claimed.
+
+---
+
 ## Revision R-007-DELIVERY-FAILED — Booking Notification Delivery-Failed Signal & Retry Policy Alignment (FR-029)
 
 **Revision date**: 2026-11-16  

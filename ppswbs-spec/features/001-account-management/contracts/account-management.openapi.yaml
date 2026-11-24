@@ -2,21 +2,41 @@ openapi: 3.1.0
 info:
   title: Mland Account Management API
   version: 1.0.0
+  x-r-inv-path-contract: r-inv.openapi.yaml
   description: >
     Production REST transport contract for FE-001 Account Management.
     Bearer-only credential transport using Firebase ID tokens.
     Firebase proves identity; Mland backend determines Account role, status, and authority.
+    R-INV path items below reference the adjacent pending-final-review contract. Role-catalogue
+    endpoints are removed from this proposed revision. Current code may lag this target.
 servers:
   - url: http://localhost:8080
     description: Local Spring Boot Backend
 paths:
+  /api/v1/admin/accounts/email-collisions:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1accounts~1email-collisions'
+  /api/v1/admin/accounts/{accountId}/replacement-review:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1accounts~1{accountId}~1replacement-review'
+  /api/v1/admin/accounts/{accountId}/replacement-export:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1accounts~1{accountId}~1replacement-export'
+  /api/v1/admin/accounts/{accountId}/retire-for-replacement:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1accounts~1{accountId}~1retire-for-replacement'
+  /api/v1/admin/firebase-identities/email-collisions/delete:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1firebase-identities~1email-collisions~1delete'
+  /api/v1/internal-account-invitations/exchanges:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1internal-account-invitations~1exchanges'
+  /api/v1/internal-account-invitations/completions:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1internal-account-invitations~1completions'
+  /api/v1/admin/accounts/{accountId}/setup-invitations/current:
+    $ref: './r-inv.openapi.yaml#/paths/~1api~1v1~1admin~1accounts~1{accountId}~1setup-invitations~1current'
   /api/v1/accounts/me:
     put:
       summary: Bootstrap current Account
       description: >
         Resolves or creates the caller's Account from the verified Firebase identity.
         If unknown with a valid email, creates one MEMBER/ACTIVE Account atomically with initial profile.
-        Idempotent on repeated calls.
+        A reserved PENDING_SETUP internal email/UID is rejected before MEMBER bootstrap;
+        it must complete the R-INV invitation flow. Idempotent on repeated eligible calls.
       operationId: bootstrapOwnAccount
       security:
         - bearerAuth: []
@@ -299,11 +319,14 @@ paths:
     post:
       summary: Create internal Staff, Manager, or CARRIER account
       description: >
-        Admin creates a Staff or Manager account in PENDING_SETUP state, or an ACTIVE
+        Admin creates a Staff or Manager account with required email in PENDING_SETUP state
+        and mandatory FE-007 invitation, or an ACTIVE
         CARRIER account with a Firebase email/password identity. CARRIER requires
         email, password, fullName and phone, and must omit locationIds; it receives
         no invitation. The password is write-only and is never returned.
-        Requires an Idempotency-Key header.
+        Staff/Manager must not send password. Requires an Idempotency-Key header; a
+        changed payload with the same key returns 409. Email collision must first be
+        resolved by the R-INV flow. Invitation creation starts the 48-hour setup window.
         Validates workshopLocationId(s) against authoritative Workshop Location facade.
       operationId: createInternalAccount
       security:
@@ -373,8 +396,11 @@ paths:
     post:
       summary: Resend invitation for pending internal account
       description: >
-        Resends setup invitation to a PENDING_SETUP account.
-        Enforces a 5-minute cooldown between resends.
+        ADMIN-only for a PENDING_SETUP Staff/Manager Account. Enforces a five-minute
+        cooldown, invalidates the prior invitation and creates a new delivery intent.
+        New 48-hour validity starts at invitation creation. UNKNOWN_OUTCOME
+        requires provider/operator reconciliation before resend. Response never includes
+        a raw setup link or token.
       operationId: resendInvitation
       security:
         - bearerAuth: []
@@ -400,7 +426,7 @@ paths:
   /api/v1/admin/accounts/{id}/invitations:
     post:
       summary: Resend invitation (Admin alias)
-      description: Alias to POST /api/v1/accounts/{id}/setup-invitations.
+      description: Alias to POST /api/v1/accounts/{id}/setup-invitations with identical R-INV restrictions.
       operationId: resendInvitationAdminAlias
       security:
         - bearerAuth: []
@@ -656,44 +682,6 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/ConflictError'
-
-  /api/v1/roles:
-    get:
-      summary: Fixed role catalogue
-      description: Returns fixed roles and descriptions. Read-only; no permission configuration.
-      operationId: listRoles
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Fixed role catalogue
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RoleCatalogueResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-
-  /api/v1/admin/roles:
-    get:
-      summary: Fixed role catalogue (alias)
-      description: Alias to GET /api/v1/roles.
-      operationId: listRolesAdminAlias
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Fixed role catalogue
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RoleCatalogueResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
 
   /api/v1/accounts/me/addresses:
     get:
@@ -1029,6 +1017,8 @@ components:
         email:
           type: string
           format: email
+          maxLength: 254
+          description: Normalized Account login email.
         emailVerified:
           type: boolean
         role:
@@ -1181,6 +1171,28 @@ components:
           type: string
           format: date-time
           nullable: true
+        invitationCreatedAt:
+          type: string
+          format: date-time
+          description: Present for pending STAFF/MANAGER invitation only.
+        invitationExpiresAt:
+          type: string
+          format: date-time
+          description: Exactly 48 hours after invitation creation; independent of SMTP state.
+        serverNow:
+          type: string
+          format: date-time
+          description: Response time for clock-skew-safe ADMIN countdown.
+        invitationDeliveryState:
+          type: string
+          enum: [QUEUED, PENDING, RETRY_SCHEDULED, SENT, FAILED, UNKNOWN_OUTCOME, CANCELLED]
+        manualContentEligible:
+          type: boolean
+          description: True only after two definite failed attempts while current link is unexpired.
+        notificationRequestId:
+          type: integer
+          format: int64
+          description: Present once FE-007 consumes the invitation event.
 
     PagedAccountSummaryResponse:
       type: object
@@ -1242,12 +1254,14 @@ components:
         email:
           type: string
           format: email
+          maxLength: 254
+          description: Required normalized login/invitation email for STAFF, MANAGER and CARRIER.
         password:
           type: string
           format: password
           minLength: 6
           writeOnly: true
-          description: Required only for CARRIER. Write-only; never returned, persisted, logged, or audited.
+          description: Required only for CARRIER; forbidden for STAFF/MANAGER. Write-only; never returned, persisted, logged, or audited.
         fullName:
           type: string
           minLength: 1
@@ -1261,7 +1275,7 @@ components:
           items:
             type: integer
             format: int64
-          description: Required: exactly 1 location for STAFF; 1 or more for MANAGER. Must be omitted for CARRIER.
+          description: "Required: exactly 1 location for STAFF; 1 or more for MANAGER. Must be omitted for CARRIER."
 
     InternalProfileUpdateRequest:
       type: object
@@ -1328,27 +1342,6 @@ components:
           type: string
           minLength: 1
           description: Non-empty operational justification for account suspension.
-
-    RoleCatalogueResponse:
-      type: object
-      required:
-        - roles
-      properties:
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/RoleEntryResponse'
-
-    RoleEntryResponse:
-      type: object
-      required:
-        - code
-        - displayName
-      properties:
-        code:
-          $ref: '#/components/schemas/AccountRole'
-        displayName:
-          type: string
 
     ErrorResponse:
       type: object

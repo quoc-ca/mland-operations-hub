@@ -1,7 +1,9 @@
 # Workflow Design: FE-007 Notification Management
 
+> **R-INV workflow pending final review:** FE-001 creates the invitation and its 48-hour expiry with an outbox event in the Account transaction; FE-007 consumes the event idempotently after commit and pins `INTERNAL_ACCOUNT_INVITATION` template/recipient. At send, FE-007 obtains a transient current-version URL from FE-001 and injects it only into outgoing SMTP MIME. A definite failure allows one retry after about one minute; two definite failures produce `FAILED` and unlock ADMIN-only transient manual-content retrieval while the link remains valid. Opening/copying does not prove delivery or change `FAILED` to `SENT`. `UNKNOWN_OUTCOME` requires provider/operator reconciliation before a repeat or manual retrieval. ADMIN resend rotates only through FE-001 and creates a new event; generic FE-007 resend/redeliver/cancel rejects this template. See [delivery boundary](../contracts/notification-facade.md) §6 and [FE-001 R-INV](../../001-account-management/design/revision-2026-11-24.md). This is design, not implementation evidence.
+
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

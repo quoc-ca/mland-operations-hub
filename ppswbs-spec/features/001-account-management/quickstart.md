@@ -1,7 +1,9 @@
 # Quickstart Validation Guide: Account Management (FE-001)
 
+> **R-INV validation plan pending final review:** After approval and implementation, use a configured Firebase test project and captured mail adapter to create STAFF and MANAGER from ADMIN; inspect 48-hour expiry from invitation creation, two definite SMTP attempts, ADMIN manual-content retrieval after FAILED, five-minute resend rotation and accurate server-based countdown. Complete one setup through password and one through Google redirect; assert the same issued UID/Account ID and correct ACTIVE role home. Separately exercise MEMBER collision review/optional JSON export/retirement with preserved purchase and booking history, Firebase-only collision, all blocked-role collisions, direct login/register before setup, wrong provider email, stale review and provider/mail failures. Record environment/revision and actual results in `verification.md`; this paragraph is a plan, not executed evidence. See [R-INV](design/revision-2026-11-24.md).
+
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

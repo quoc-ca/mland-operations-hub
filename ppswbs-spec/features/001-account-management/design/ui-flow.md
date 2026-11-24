@@ -1,7 +1,9 @@
 # UI Flow Design: Account Management (FE-001)
 
+> **R-INV UI pending final review:** [canonical revision](revision-2026-11-24.md). ADMIN create requires email and has no invitation checkbox. Collision routes to existing Staff/Manager maintenance, rejects ADMIN/CARRIER, or opens MEMBER review with name/phone/email/status/addresses/server retail cart/retail and workshop history, optional JSON download and fresh explicit confirmation; Firebase-only collision shows no Mland-data claim. A nonterminal accepted order/booking shows a blocking reference and message only; ADMIN receives no proxy action. A populated retail cart alone does not block. Create/resend responses display queued/SENT/FAILED/UNKNOWN_OUTCOME truthfully, `createdAt`, `expiresAt`, and a server-time-based countdown from invitation creation. After two definite SMTP failures, ADMIN sees a copy action for the pinned subject/HTML/plain text with the current unexpired link; no outside-delivery success is claimed. A subsequent resend warns that any copied or externally sent old link becomes invalid. Setup route offers password or Google redirect after link validation; expired/used/wrong-email link leaves pending with resend guidance, success goes to role home. Direct login/register for reserved pending email is refused with invitation guidance. ADMIN rail excludes business pages; route guards run before mount/request. Role catalogue page/tab is removed and short role guidance stays in form controls.
+
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

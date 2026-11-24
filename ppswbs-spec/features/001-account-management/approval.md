@@ -1,5 +1,15 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## R-INV — 2026-11-24 Admin internal-account repair
+
+**Decision state:** PENDING FINAL REVIEW; not approved for implementation handoff. **Decision owner:** Tech Lead Phan Sơn. **Last clarification date:** 2026-11-24. The subsequent review changed link lifetime and failed-mail recovery and explicitly selected “chờ chốt”. Earlier R-INV approval wording is withdrawn for this revision. Record fresh named Tech Lead approval of the reconciled paths and scope before coding against R-INV.
+
+**Revision under review and paths:** `design/revision-2026-11-24.md` (R-INV, amended 2026-11-24); `spec.md` (FR-048–052 and related US3/US5 reconciliation); `plan.md` (R-INV section); `research.md` (R-INV decision); `data-model.md` (R-INV model); `design/architecture.md`, `design/workflows.md`, `design/ui-flow.md` (R-INV sections); `contracts/interfaces.md`, `contracts/account-management.openapi.yaml`, `contracts/r-inv.openapi.yaml` (R-INV paths and types); `tasks.md` (T105–T116); `quickstart.md` and `verification.md` (R-INV acceptance plan). The companion FE-007 scope is recorded in its own `approval.md`.
+
+**Scope under review:** required STAFF/MANAGER email and invitation; MEMBER-only collision review, optional JSON and guarded retirement preserving history; Firebase-only deletion with confirmation; one bound UID with password or Google setup; 48 hours from invitation creation and five-minute rotating resend; two definite SMTP attempts followed by ADMIN-only manual email-content retrieval; safe partial-failure recovery; ADMIN navigation and route isolation; removal of role catalogue. Retail's server-stored cart is included but does not block retirement; accepted nonterminal retail orders/workshop bookings do. Browser-only unconfirmed workshop cart is excluded. This record does not assert production code, test or SMTP delivery is complete.
+
+---
+
 ## Revision R-404 — Browser route masking and five-role baseline
 
 **Revision date**: 2026-11-20

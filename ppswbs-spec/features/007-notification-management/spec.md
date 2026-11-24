@@ -1,8 +1,9 @@
 # Feature Specification: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06 (FR-027, FR-028 added per clarification session)
-**Status**: Draft — working decisions only; not design-pack approval or authorization to implement.
+**Date updated**: 2026-11-24
+**Last updated by**: Phan Sơn
+**Status**: Historical V1 baseline plus R-INV revision pending final Tech Lead review; R-INV is not authorized for implementation.
 **Input**: Consolidated technical decisions and architecture baseline for transactional email management.
 
 ## User Scenarios & Testing
@@ -88,7 +89,7 @@ When an email's access credential or ticket artifact has expired or been revoked
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST support only `BOOKING_CONFIRMED` and `RETAIL_ORDER_CONFIRMED` as activatable SMTP templates in V1.
+- **FR-001**: The historical V1 scope supports `BOOKING_CONFIRMED` and `RETAIL_ORDER_CONFIRMED` as activatable SMTP templates. R-INV specifies `INTERNAL_ACCOUNT_INVITATION` as a separate type pending final approval; it adds no other account-change template.
 - **FR-002**: The system MUST treat Firebase verification and password-reset email as Firebase-managed, read-only references; it MUST NOT send, retry, or report delivery for those emails.
 - **FR-003**: A source feature MUST submit a structured notification intent in the same transaction as its accepted business result. The intent MUST identify the registered template, stable business event, safe business reference, approved recipient snapshot, frozen template-data snapshot, and any approved artifact reference.
 - **FR-004**: FE-007 MUST own template version selection, notification requests, delivery state, rendition, delivery attempts, resend history, and operational audit. It MUST NOT re-read Booking/Retail data, choose a recipient, or decide that a business event is valid.
@@ -117,6 +118,27 @@ When an email's access credential or ticket artifact has expired or been revoked
 - **FR-027**: In V1, Admin and Manager authorization for template management, resend, cancellation, and operational actions MUST apply at global scope. Workshop Location–scoped authorization is out of scope for V1.
 - **FR-028**: The V1 delivery worker MUST poll for processable requests (PENDING or RETRY_SCHEDULED whose scheduled time has arrived) every 30 seconds. The retry wait times specified in FR-013 are measured from the failed attempt, not from the poll cycle.
 - **FR-029**: For asynchronous post-commit event handoffs from business modules (such as Workshop Booking `BookingNotificationReady`), the delivery worker MUST perform at most 2 technical retry attempts (initial send + 1 retry after ~1 minute) for transient network/provider failures. When technical retries are exhausted without successful provider acceptance, the system MUST record the terminal state `FAILED` and publish the failure event `BookingNotificationDeliveryFailed` defined in `workshopbooking :: notification` to enable the owning business module to drive business-level retry policies (FR-015a/b) and operator escalation.
+
+### R-INV invitation extension (pending final review, 2026-11-24)
+
+`INTERNAL_ACCOUNT_INVITATION` is a separate, ADMIN-initiated transactional template. FE-001 supplies the intended recipient and a durable invitation/version reference through its outbox after the pending Account decision. FE-007 owns template version, queue, attempts and delivery outcome; it requests a transient setup URL from an authorized FE-001 materialization interface immediately before SMTP send. The intent, database rendition, general diagnostics and audit MUST NOT contain the raw URL, setup secret or Firebase custom token. A retry of the same invitation reuses its prepared credential; FE-001's explicit resend rotates it. FE-001 starts the 48-hour validity when the invitation version is created, even if SMTP fails. FE-007 attempts definite delivery at most twice, then records `FAILED`; `UNKNOWN_OUTCOME` requires provider/operator reconciliation before another send or rotation. Only after two definite failures may ADMIN retrieve/copy the current unexpired message for outside delivery. This does not prove delivery or change FE-007 state to `SENT`. Existing Booking/Retail snapshot and retry rules remain in force for their own templates. See [FE-001 R-INV](../001-account-management/design/revision-2026-11-24.md). This revision remains pending final approval.
+
+### R-INV invitation requirements (2026-11-24)
+
+These requirements extend FE-007 for FE-001's STAFF/MANAGER setup. They do not describe behavior already implemented by the historical two-template notification baseline. [FE-001 R-INV](../001-account-management/design/revision-2026-11-24.md) and [delivery boundary](contracts/notification-facade.md) §6 are normative for this extension.
+
+- **FR-030**: FE-007 MUST register `INTERNAL_ACCOUNT_INVITATION`, consume the durable FE-001 invitation event idempotently after Account commit, pin its template version/approved recipient/safe snapshot and record a durable operational failure if validation fails. FE-001 has no Java dependency on FE-007 for this handoff.
+- **FR-031**: For this template only, FE-007 MUST obtain an authorized setup URL from FE-001 for the current invitation ID/version immediately before SMTP send. The persisted rendition may contain only a static sentinel; the expanded URL and raw secret MUST never be persisted in notification requests, renditions, attempts, audits, previews, diagnostics or logs. Stale or unavailable materialization blocks sending.
+- **FR-032**: FE-001 MUST start the 48-hour lifetime when it creates the invitation version. FE-007 MUST check that expiry before each send and make at most two definite SMTP attempts (initial plus one retry after approximately one minute); after two definite failures it MUST record `FAILED` and report that state to FE-001. Possible acceptance is `UNKNOWN_OUTCOME` and MUST NOT trigger automatic repeat or manual-content retrieval without provider/operator reconciliation.
+- **FR-033**: Generic FE-007 resend/redeliver/cancel actions MUST reject `INTERNAL_ACCOUNT_INVITATION`. Only FE-001's ADMIN resend command, after its cooldown and reconciliation checks, may rotate the setup secret and emit a new delivery intent. Diagnostics show masked recipient, safe reference and delivery status only.
+- **FR-034**: Once an invitation request reaches terminal `FAILED` after two definite attempts, FE-007 MUST allow an authenticated ADMIN to retrieve the pinned subject, HTML and plain-text email with the current unexpired FE-001 setup URL through a dedicated `no-store` API response. It MUST use FE-001's transient materialization facade, audit access without content or URL, and never persist the expanded message. An expired, rotated, used or `UNKNOWN_OUTCOME` invitation MUST be refused. Retrieval MUST NOT change `FAILED` to `SENT`, extend validity or assert outside delivery.
+
+**R-INV acceptance scenarios:**
+
+1. **Given** FE-001 commits an invitation, **when** FE-007 consumes the outbox event, **then** it stores one pinned request with FE-001's creation-based expiry and no raw URL.
+2. **Given** two definite SMTP failures, **when** the second attempt ends, **then** FE-007 records `FAILED`; only ADMIN can retrieve the current unexpired pinned message transiently, while delivery state remains `FAILED`.
+3. **Given** `UNKNOWN_OUTCOME`, a rotated/used version or an expired link, **when** manual content is requested, **then** FE-007 rejects the request without revealing a URL.
+4. **Given** an ADMIN manually copies the message, **when** diagnostics, audit and database rows are inspected, **then** they contain no expanded URL or secret and no claim of outside delivery.
 
 ### Key Entities
 

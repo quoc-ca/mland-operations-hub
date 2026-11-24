@@ -1,16 +1,21 @@
 # Account Management Internal Interfaces
 
+> **R-INV interface extension:** [canonical boundary](../design/revision-2026-11-24.md). FE-001 exposes transient materialization for FE-007 worker attempts and authenticated ADMIN manual-content retrieval after two definite failures; both require a current, unexpired invitation version and never persist its URL in FE-007. Retail and workshop booking owners expose read-only, Account-ID-scoped inventory snapshots and definitive nonterminal-obligation outcomes for ADMIN review/JSON. Retail includes its server-stored cart; there is no server workshop-cart facade. FE-001 cannot traverse another module's repositories. Both obligation outcomes must be AVAILABLE and empty before MEMBER retirement; UNAVAILABLE blocks. Provider/DB/email partial outcomes use persisted reconciliation stage and correlation ID. No consumer may treat an email match as authority to attach a UID.
+
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 ## `accountmanagement::facade`
 
-The named facade is the only cross-feature Java boundary. It publishes
+The general named facade is the default cross-feature Java boundary. R-INV adds
+the narrowly scoped `accountmanagement :: invitationdelivery` named interface below.
+The general facade publishes
 `CurrentAccountActor` and verifier/resolver operations used by the shared
 identity gate. It does not publish JPA entities, repositories, Firebase SDK
-types, raw UID/token/email, or cross-feature capabilities.
+types, raw UID/token/email, or cross-feature capabilities. The R-INV delivery
+event carries only its approved recipient email as the explicit exception.
 
 `CurrentAccountActor` contains opaque `accountId`, `role`, `status`, and
 `emailVerified`. It does not contain Workshop Location scope. A
@@ -95,5 +100,14 @@ The consuming feature (FE-008) clones this snapshot into its order record at che
   invited identities; generates fresh setup links; and invalidates sessions.
 - Workshop-location facade validates active location IDs and provides permitted
   display summary. It owns location data.
-- FE-07 accepts idempotent post-commit notification intents. It owns delivery,
-  retries, and message outcome; Account owns business decision/audit.
+- For R-INV, Account persists and publishes the invitation outbox event; FE-007
+  consumes it after commit and owns delivery, retries and message outcome.
+  Account owns the identity decision, secret state and audit.
+
+# R-INV FE-007 delivery boundary (2026-11-24)
+
+FE-001 publishes `accountmanagement :: invitationdelivery` as its only invitation delivery named interface. `InternalAccountInvitationRequested` contains invitation ID/version, Account ID, approved recipient name/email, event reference and correlation reference; FE-001 persists an outbox row in the Account transaction and replays it after commit. The event contains no secret or URL. FE-007 consumes it idempotently, so FE-001 has no dependency on FE-007 Java types.
+
+`InvitationDeliveryFacade.materialize(invitationId, version, requestId, attemptId, purpose)` returns typed `AVAILABLE(transientUrl, expiresAt)`, `STALE`, or `UNAVAILABLE`. Purpose is `SMTP_ATTEMPT` or `MANUAL_CONTENT`; the latter is valid only for an authenticated ADMIN after FE-007's two definite failures and terminal `FAILED`. It authorizes the current, unexpired, non-consumed version and exact request/attempt scope; an old version can never be delivered after rotation. `reportDeliveryState(invitationId, version, requestId, state, observedAt)` idempotently records safe `SENT`, `FAILED` or reconciled `UNKNOWN_OUTCOME` facts but never changes the creation-based `expiresAt`. FE-007 does not persist or log the transient URL; manual retrieval is audited without message content.
+
+The existing generic Notification facade remains separate. Module direction for this invitation is `notificationmanagement -> accountmanagement :: invitationdelivery`, with no Account-to-Notification import. See FE-007 [notification facade](../../007-notification-management/contracts/notification-facade.md) §6 and [R-INV design](../design/revision-2026-11-24.md).
