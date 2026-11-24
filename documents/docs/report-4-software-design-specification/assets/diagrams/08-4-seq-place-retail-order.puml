@@ -22,62 +22,13 @@ skinparam SequenceGroupHeaderFontStyle plain
 actor "Member" as Member
 participant "MemberCheckoutPage" as UI <<user interaction>>
 participant ":CheckoutController" as Ctl <<control>>
-participant ":RetailCheckoutQuotePreviewService" as Prev <<service>>
 participant ":RetailCheckoutAcceptanceService" as Acc <<service>>
-participant ":GhtkRetailShippingQuoteAdapter" as Ghtk <<adapter>>
 participant ":LoyaltyFacade" as Loyalty <<adapter>>
 participant ":RetailCheckoutQuoteRepository /\nGroupedCheckoutRepository" as Repo <<repository>>
 participant "MySQL Database" as DB <<database>>
 
-Member -> UI : Open checkout page with the ticked cart lines (or the "Mua Ngay" line)
-activate UI
-UI -> UI : Group the lines into one order per branch
-
-opt Branch Order Delivered by GHTK
-  Member -> UI : Choose "Giao tận nơi qua GHTK" and enter the address
-  UI -> Ctl : POST /api/v1/ready-ring-shipping-quotes (ShippingQuoteRequest {locationId, recipient, cartLineIds})
-  activate Ctl
-  Ctl -> Prev : quoteShipping(memberId, request)
-  activate Prev
-  Prev -> Ghtk : quote(memberId, locationId, lines, recipient)
-  activate Ghtk
-  Ghtk -> Ghtk : Request shipping fee from GHTK API and store RetailShippingQuote
-  Ghtk --> Prev : ShippingQuote (quoteId, charge, expiresAt)
-  deactivate Ghtk
-  Prev --> Ctl : ShippingQuoteView
-  deactivate Prev
-  Ctl --> UI : HTTP 200 ShippingQuoteView
-  deactivate Ctl
-end
-
-UI -> Ctl : POST /api/v1/ready-ring-benefit-previews (BenefitPreviewRequest {selection, branchOrders, cartLineIds, paymentMethod})
-activate Ctl
-Ctl -> Prev : preview(memberId, request)
-activate Prev
-Prev -> Loyalty : previewBenefits(sourceContext, selection)
-activate Loyalty
-Loyalty --> Prev : automatic discount, voucher discount, points discount and reasons
-deactivate Loyalty
-alt Voucher and Points Accepted
-  Prev -> Prev : Share the discounts between the branch orders
-  Prev -> Repo : saveAndFlush(quote)
-  activate Repo
-  Repo -> DB : INSERT retail_checkout_quotes, retail_checkout_quote_branches, retail_checkout_quote_items
-  activate DB
-  DB --> Repo : inserted rows
-  deactivate DB
-  Repo --> Prev : RetailCheckoutQuote
-  deactivate Repo
-else Voucher or Points Not Accepted
-  Prev -> Prev : Keep the reasons; no quote is stored (previewId = null)
-end
-Prev --> Ctl : BenefitPreviewView
-deactivate Prev
-Ctl --> UI : HTTP 200 BenefitPreviewView
-deactivate Ctl
-UI --> Member : Display "Chi tiết thanh toán" (product discount, voucher discount, points, shipping, payable)
-
 Member -> UI : Click "Đặt hàng"
+activate UI
 UI -> Ctl : POST /api/v1/ready-ring-orders (Idempotency-Key, CreateGroupedCheckoutRequest {branchOrders, benefitPreviewId, benefitSelection, benefitTermsAccepted})
 activate Ctl
 alt Not an Active Member
