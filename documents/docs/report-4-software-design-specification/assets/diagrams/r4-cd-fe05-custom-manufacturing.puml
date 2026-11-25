@@ -1,18 +1,19 @@
 @startuml
+!include r4-diagram-style.puml
 title FE-05 Personalized Design and Custom Manufacturing
 left to right direction
 skinparam classAttributeIconSize 0
-class CustomManufacturingController
-class CustomOrderService
-class CustomOrder
-class CustomOrderQuote
-class CustomOrderPaymentContext
-class CustomOrderPaymentFacade
-class CustomOrderRepository
-class CustomOrderQuoteRepository
-interface PaymentGatewayCheckoutPort
-interface DesignRequestFacade
-class ProductionFulfilmentFacade
+class CustomManufacturingController <<controller>>
+class CustomOrderService <<service>>
+class CustomOrder <<entity>>
+class CustomOrderQuote <<entity>>
+class CustomOrderPaymentContext <<entity>>
+class CustomOrderPaymentFacade <<facade>>
+class CustomOrderRepository <<repository>>
+class CustomOrderQuoteRepository <<repository>>
+interface PaymentGatewayCheckoutPort <<port>>
+interface DesignRequestFacade <<facade>>
+class ProductionFulfilmentFacade <<facade>>
 CustomManufacturingController --> CustomOrderService
 CustomOrderService --> DesignRequestFacade
 CustomOrderService --> CustomOrderRepository

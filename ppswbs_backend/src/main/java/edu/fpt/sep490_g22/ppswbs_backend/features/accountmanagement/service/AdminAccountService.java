@@ -595,7 +595,7 @@ public class AdminAccountService {
             .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ReplacementReviewResponse reviewMemberReplacement(Long accountId, Long adminId, String correlationId) {
         Account account = accountRepository.findById(accountId)
             .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + accountId));

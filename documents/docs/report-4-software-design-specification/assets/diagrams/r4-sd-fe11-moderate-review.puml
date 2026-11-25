@@ -1,24 +1,52 @@
 @startuml
+!include r4-sequence-style.puml
 title FE-11 Staff or Manager Moderates and Replies
-actor Staff
-actor Manager
-participant ReviewModerationController
-participant ReviewService
-database ReviewRepository
-database ReviewModerationEventRepository
-database ReviewReplyRepository
-Staff -> ReviewModerationController : hide review + version
-ReviewModerationController -> ReviewService : authorize Staff scope
-ReviewService -> ReviewRepository : set HIDDEN
-ReviewService -> ReviewModerationEventRepository : append audit
-Manager -> ReviewModerationController : remove or reply + version
-ReviewModerationController -> ReviewService : authorize Manager action
-ReviewService -> ReviewRepository : set REMOVED when requested
-ReviewService -> ReviewReplyRepository : create or edit current reply
-ReviewService -> ReviewModerationEventRepository : append audit
-ReviewModerationController --> Staff : result
-ReviewModerationController --> Manager : result
-note over Staff,Manager
+actor "Staff" as staff
+actor "Manager" as manager
+participant "ReviewModerationController" as moderationController
+participant "ReviewService" as reviewService
+database "ReviewRepository" as reviewRepository
+database "ReviewModerationEventRepository" as eventRepository
+database "ReviewReplyRepository" as replyRepository
+
+staff -> moderationController : hide review + version
+activate moderationController
+moderationController -> reviewService : authorize Staff scope
+activate reviewService
+reviewService -> reviewRepository : set HIDDEN
+activate reviewRepository
+reviewRepository --> reviewService : hidden review
+deactivate reviewRepository
+reviewService -> eventRepository : append audit
+activate eventRepository
+eventRepository --> reviewService : audit recorded
+deactivate eventRepository
+reviewService --> moderationController : moderation result
+deactivate reviewService
+moderationController --> staff : result
+deactivate moderationController
+manager -> moderationController : remove or reply + version
+activate moderationController
+moderationController -> reviewService : authorize Manager action
+activate reviewService
+reviewService -> reviewRepository : set REMOVED when requested
+activate reviewRepository
+reviewRepository --> reviewService : updated visibility
+deactivate reviewRepository
+reviewService -> replyRepository : create or edit current reply
+activate replyRepository
+replyRepository --> reviewService : current reply
+deactivate replyRepository
+reviewService -> eventRepository : append audit
+activate eventRepository
+eventRepository --> reviewService : audit recorded
+deactivate eventRepository
+reviewService --> moderationController : moderation result
+deactivate reviewService
+moderationController --> manager : result
+deactivate moderationController
+
+note over staff,manager
 Admin has technical/audit access only.
 end note
 @enduml
