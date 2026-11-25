@@ -66,9 +66,16 @@ migrations (T080, T082). Run on the uncommitted changes on top of `1ac7a86f`.
 | Backend unit tests | `mvnw test -Dtest=PickupCounterCashTest,PickupOperationsControllerTest,CarrierShipmentServiceTest,StaffRetailShipmentServiceTest` | 20 tests, 0 failures |
 | Module boundaries | `mvnw test -Dtest=ModulithArchitectureTests` (fulfilment now calls the readyringsales facade `RetailCounterCashFacade`) | 7 tests, 0 failures |
 
+## 2026-11-26 — Carrier portal with the real CARRIER account (T080)
+
+| Check | Evidence | Result |
+| --- | --- | --- |
+| `ghtk.test@mland.vn` is the system CARRIER account | `V190__carrier_role.sql` (FE-01, revision R-CAR) creates it with role `CARRIER`, status `ACTIVE` | Confirmed |
+| Courier pickup and delivery in the browser | `ppswbs-testing/master-e2e/E2E-DEPLOY-001--retail-order-voucher-shipping.md`, executed 2026-11-25 19:20 (+07:00) on the Vercel develop build, PASSED: order `ML2611256F91090C`, shipment `S4724552384`; Staff `staff.test@mland.vn` pressed "Đã chuẩn bị xong", then `ghtk.test@mland.vn` on `/carrier/orders` pressed "Đã lấy hàng" and "Giao thành công" (19:15); the Member saw the order under "Đã giao" | Pass |
+| Staff page without the courier simulation | Same run: on `/staff/retail-orders` Staff only prepared the order. `StaffRetailOrdersPage.jsx` shows only a waiting note (`staff.courierWaiting.*`) for `READY_FOR_CARRIER`, `HANDED_TO_CARRIER` and `IN_TRANSIT`; there is no Staff action for courier pickup or delivery | Pass |
+
 ## Still to record
 
 - Full backend suite, frontend suite and module checks on one commit (T056).
-- The carrier portal with the real FE-01 `CARRIER` account and the Staff page without the courier simulation (T080).
 - QS-01–QS-27 walkthrough with the timed QS-03 checkout review (T057).
 - Final security and scope review (T058).

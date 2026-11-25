@@ -33,9 +33,11 @@ health_urls:
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-26 (sau 00:18, giờ chính xác không ghi lại)
+- Executed at: 2026-11-26, đặt đơn lúc 02:36, local
 - Executed by: Bùi Trọng Thịnh
 - Browser tool: Chrome
-- Actual result: Giỏ 2 chi nhánh được tách đúng 2 đơn, mỗi đơn có phí GHTK riêng; hoàn tất dưới 180 giây (theo xác nhận của người chạy). Số giây chính xác không ghi lại; không lưu ảnh chụp.
+- Test data: Member `thinhbui732004`; giỏ 2 chi nhánh (Hoàn Kiếm: Nhẫn bạc hở tourmaline xanh 640.000 đ; Tây Hồ: Nhẫn bạc garnet tròn 480.000 đ); đơn `ML2611265F7D9792`, `ML2611268A8F9193`.
+- Actual result: Thời gian đo được khoảng 175 giây, dưới mục tiêu 180 giây (SC-08-004). Màn xem lại đơn tách 2 nhóm theo chi nhánh, mỗi nhóm có tạm tính và lựa chọn giao nhận riêng (Nhận tại cửa hàng / Giao tận nơi qua GHTK); lần chạy chọn nhận tại cửa hàng cho cả hai nên dòng phí GHTK không hiện. Đặt hàng tạo đúng 2 đơn theo chi nhánh.
+- Evidence: screenshots/E2E-008-001--checkout-points-two-branches.png, screenshots/E2E-008-001--member-orders.png
 - Bug reference: không có
 <!-- EXECUTION:END -->

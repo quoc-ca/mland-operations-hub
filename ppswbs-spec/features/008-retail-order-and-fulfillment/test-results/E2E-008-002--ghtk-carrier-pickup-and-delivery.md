@@ -37,9 +37,11 @@ health_urls:
 
 <!-- EXECUTION:START -->
 - Latest status: PASS
-- Executed at: 2026-11-26 (sau 00:18, giờ chính xác không ghi lại)
-- Executed by: Bùi Trọng Thịnh
+- Executed at: 2026-11-25 19:20:00 (+07:00), bản Vercel develop
+- Executed by: lần chạy E2E-DEPLOY-001 (ppswbs-testing/master-e2e); xác nhận tài khoản và trang Staff: Bùi Trọng Thịnh, 2026-11-26
 - Browser tool: Chrome
-- Actual result: Bước 1–4 đạt trên local bằng `ghtk.test@mland.vn` (theo xác nhận của người chạy). Bước 5 (trang Staff không có nút giả lập) chưa kiểm tra trong lần chạy này. Mã đơn không ghi lại; không lưu ảnh chụp. Lần chạy E2E-DEPLOY-001 (25/11, bản Vercel) cũng đã dùng tài khoản này giao thành công đơn ML2611256F91090C.
+- Test data: đơn `ML2611256F91090C`, vận đơn `S4724552384`; Staff `staff.test@mland.vn`; CARRIER `ghtk.test@mland.vn` (role CARRIER do migration V190 tạo)
+- Actual result: Bước 1–4: Staff bấm "Đã chuẩn bị xong"; CARRIER trên `/carrier/orders` bấm "Đã lấy hàng" rồi "Giao thành công" (19:15); Member thấy đơn ở tab "Đã giao". Bước 5: trên `/staff/retail-orders` Staff chỉ có thao tác chuẩn bị; ở các trạng thái chờ ĐVVC trang chỉ hiện dòng chờ, không có nút cập nhật giao hàng (StaffRetailOrdersPage.jsx). Chi tiết ghi trong verification.md mục 2026-11-26 (T080).
+- Evidence: ppswbs-testing/master-e2e/E2E-DEPLOY-001--retail-order-voucher-shipping.md (khối EXECUTION); ppswbs-spec/features/008-retail-order-and-fulfillment/verification.md
 - Bug reference: không có
 <!-- EXECUTION:END -->
