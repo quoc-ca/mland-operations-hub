@@ -1,5 +1,7 @@
 #### 3.4.3 Locations and Slots
 
+{{r3-locations-and-slots width=100% align=center}}
+
 This screen allows Managers to:
 
 - Create workshop branches and edit their name, address and active status.

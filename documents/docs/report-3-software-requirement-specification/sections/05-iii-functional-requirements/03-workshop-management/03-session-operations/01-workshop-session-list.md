@@ -1,6 +1,6 @@
 #### 3.3.1 Workshop Session List
 
-![](assets/screens/51-workshop-session-list.png)
+{{r3-workshop-session-list width=100% align=center}}
 
 This screen allows Staff and Managers to:
 

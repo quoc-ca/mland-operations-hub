@@ -1,5 +1,7 @@
 #### 3.5.2 Mland Remedy
 
+{{r3-mland-remedy width=100% align=center}}
+
 This screen allows the buyer of a workshop ticket (Member or Guest) to:
 
 - See that Mland cancelled a session of their ticket and the deadline to answer.

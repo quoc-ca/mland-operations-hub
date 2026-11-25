@@ -1,5 +1,7 @@
 #### 3.7.2 OTA Channels
 
+{{r3-ota-channels width=100% align=center}}
+
 This screen allows Managers to:
 
 - See every OTA channel mapping (for example Klook) with its state, commercial status, booking and sales-control badges.

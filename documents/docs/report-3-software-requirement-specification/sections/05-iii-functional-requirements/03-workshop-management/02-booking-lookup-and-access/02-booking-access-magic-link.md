@@ -1,5 +1,7 @@
 #### 3.2.2 Booking Access (Magic Link)
 
+{{r3-booking-access-magic-link width=100% align=center}}
+
 This screen allows Guests and Members to:
 
 - Open one booking group from the secure link in the booking email, without signing in.

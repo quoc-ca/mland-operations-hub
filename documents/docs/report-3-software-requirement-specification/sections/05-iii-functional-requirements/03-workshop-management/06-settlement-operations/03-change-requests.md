@@ -1,5 +1,7 @@
 #### 3.6.3 Change Requests
 
+{{r3-change-requests width=100% align=center}}
+
 This screen allows Staff and Managers to:
 
 - Review the queue of ticket change requests that are blocked only by a rule that Staff or a Manager may relax.

@@ -1,5 +1,7 @@
 #### 3.6.7 Settlement Reconciliation
 
+{{r3-settlement-reconciliation width=100% align=center}}
+
 This screen allows Managers to:
 
 - List the bank transfer, VNPay and booking-time payment collections of one branch and working day.

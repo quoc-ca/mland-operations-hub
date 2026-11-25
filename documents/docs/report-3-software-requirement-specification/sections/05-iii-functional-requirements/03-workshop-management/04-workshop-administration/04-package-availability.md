@@ -1,5 +1,7 @@
 #### 3.4.4 Package Availability
 
+{{r3-package-availability width=100% align=center}}
+
 This screen allows Managers to:
 
 - See a matrix of workshop packages against branches, showing where each package is sold.

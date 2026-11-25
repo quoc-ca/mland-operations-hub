@@ -1,5 +1,7 @@
 #### 3.7.4 OTA Finance
 
+{{r3-ota-finance width=100% align=center}}
+
 This screen allows Managers to:
 
 - Load the financial evidence of one OTA booking by its channel booking ID.

@@ -1,5 +1,7 @@
 #### 3.6.1 Settlement Workspace
 
+{{r3-settlement-workspace width=100% align=center}}
+
 This screen allows Staff and Managers to:
 
 - Open the folio of one ticket by its ticket code, or directly from a link such as the attendance roster.

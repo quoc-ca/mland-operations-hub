@@ -1,5 +1,7 @@
 #### 3.4.5 Late Payment Reviews
 
+{{r3-late-payment-reviews width=100% align=center}}
+
 This screen allows Managers to:
 
 - See the late payments that were not confirmed automatically and wait for a Manager decision.

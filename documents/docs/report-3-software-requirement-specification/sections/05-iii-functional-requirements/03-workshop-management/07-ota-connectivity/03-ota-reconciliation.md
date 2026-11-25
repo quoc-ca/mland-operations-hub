@@ -1,5 +1,7 @@
 #### 3.7.3 OTA Reconciliation
 
+{{r3-ota-reconciliation width=100% align=center}}
+
 This screen allows Managers to:
 
 - Review OTA reconciliation work items: synchronization gaps, mapping suspensions and discrepancies.

@@ -1,5 +1,7 @@
 #### 3.7.1 OTA Add-on Bills
 
+{{r3-ota-add-on-bills width=100% align=center}}
+
 This screen allows Staff and Managers to:
 
 - Create a shop add-on quote for an OTA booking at the workshop: free laser engraving or a paid catalogue option.

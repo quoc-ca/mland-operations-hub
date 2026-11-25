@@ -1,5 +1,11 @@
 #### 3.2.1 Booking Lookup
 
+{{r3-booking-lookup-guest width=100% align=center}}
+
+{{r3-booking-lookup-member width=100% align=center}}
+
+{{r3-booking-lookup-member-detail width=100% align=center}}
+
 This screen allows Members and Guests to:
 
 - As a Member, see the list of their own booking groups and open one.

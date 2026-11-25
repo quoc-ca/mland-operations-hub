@@ -1,5 +1,7 @@
 #### 3.4.2 Package Add-ons
 
+{{r3-package-add-ons width=100% align=center}}
+
 This screen allows Managers to:
 
 - Choose a workshop package and a branch to see the add-ons configured for that pair.

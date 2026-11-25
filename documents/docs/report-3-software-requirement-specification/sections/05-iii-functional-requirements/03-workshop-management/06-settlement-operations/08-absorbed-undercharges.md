@@ -1,5 +1,7 @@
 #### 3.6.8 Absorbed Undercharges
 
+{{r3-absorbed-undercharges width=100% align=center}}
+
 This screen allows Managers to:
 
 - List the undercharges Mland absorbed on finalized ticket folios for one branch and period.

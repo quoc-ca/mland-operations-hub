@@ -1,5 +1,7 @@
 #### 3.1.4 Workshop Booking Cart
 
+{{r3-workshop-booking-cart width=100% align=center}}
+
 This screen allows Guests and Members to:
 
 - Review the workshop cart lines added from package pages, each with its branch, sessions and number of tickets.
