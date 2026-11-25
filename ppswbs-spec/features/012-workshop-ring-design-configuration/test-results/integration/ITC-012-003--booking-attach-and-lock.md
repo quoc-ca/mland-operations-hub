@@ -1,7 +1,6 @@
 ---
 id: ITC-012-003
-status: SUPERSEDED
-superseded_by: 2026-11-22 saved-design recommendation baseline
+status: PASS
 feature: 012-workshop-ring-design-configuration
 test_level: integration
 test_case_type: N
@@ -48,7 +47,7 @@ Xác minh:
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã kiểm chứng tính liên kết giữa Facade Ring Design và Booking Service.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `WorkshopRingDesignIntegrationTest.shouldLockDesignOnBookingAttachmentAndPreserveOnRollback`. Đã xác minh thiết kế chuyển trạng thái `ATTACHED_TO_BOOKING`, khóa chống lưu trữ/chỉnh sửa (báo 409 `DESIGN_CANNOT_ARCHIVE`), chống gắn lại trùng lặp (409 `DESIGN_NOT_VALIDATED`), và dữ liệu thiết kế nguyên vẹn bảo toàn khi booking rollback.
 <!-- EXECUTION:END -->

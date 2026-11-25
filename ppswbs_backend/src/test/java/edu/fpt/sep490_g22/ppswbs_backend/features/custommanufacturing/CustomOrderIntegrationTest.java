@@ -203,7 +203,7 @@ public class CustomOrderIntegrationTest {
     }
 
     @Test
-    void whenStaffPreparesQuoteAndManagerApproves_thenTwoStepQuoteTransitionsCorrectly() throws Exception {
+    void shouldExecuteFullQuoteLifecycle() throws Exception {
         // Create fresh design request and custom order for two-step quote
         String drId = "DR-QUOTE-" + UUID.randomUUID().toString().substring(0, 8);
         DesignRequest dr = DesignRequest.builder()
@@ -254,7 +254,28 @@ public class CustomOrderIntegrationTest {
         CustomOrder updatedCo = customOrderRepository.findById(coId).orElseThrow();
         org.junit.jupiter.api.Assertions.assertEquals("QUOTE_PENDING", updatedCo.getStatus());
 
-        // Step 2: Manager approves quote -> quote status QUOTE_READY, approvedByManager = true, order FULL_PAYMENT_PENDING
+        // Step 2: Staff attempts approval -> forbidden 403 (Staff cannot self-approve)
+        mockMvc.perform(post("/api/v1/design-requests/" + drId + "/quote/approve")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
+
+        // Step 3: Member cannot modify quote or approve quote -> forbidden 403
+        mockMvc.perform(post("/api/v1/design-requests/" + drId + "/quote")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(quoteBody)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/design-requests/" + drId + "/quote/approve")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+
+        // Step 4: Manager approves quote -> quote status QUOTE_READY, approvedByManager = true, order FULL_PAYMENT_PENDING
         Map<String, String> approveBody = Map.of(
                 "managerReason", "Phê duyệt mức giá gia công 8.500.000 VND"
         );
@@ -272,34 +293,7 @@ public class CustomOrderIntegrationTest {
     }
 
     @Test
-    void whenStaffAttemptsToApproveQuote_thenForbidden403() throws Exception {
-        String drId = "DR-STAFF-APP-" + UUID.randomUUID().toString().substring(0, 8);
-        DesignRequest dr = DesignRequest.builder()
-                .id(drId)
-                .requestReference("DR-REF-" + drId)
-                .ownerAccountId(memberAccountId)
-                .ownershipType("MEMBER")
-                .description("Yêu cầu thử nghiệm staff tự duyệt")
-                .requestVersion(1)
-                .idempotencyKey("idemp-dr-" + UUID.randomUUID())
-                .requestStatus("ACTIVE")
-                .reviewStatus(edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus.NEED_REVIEW)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build();
-        designRequestRepository.save(dr);
-
-        // Staff attempts approval -> 403 Forbidden
-        mockMvc.perform(post("/api/v1/design-requests/" + drId + "/quote/approve")
-                        .header("Authorization", "Bearer " + staffToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
-    }
-
-    @Test
-    void whenMemberPaysFull100PercentViaVnpay_thenIdempotentlyTransitionsToPaidOnce() throws Exception {
+    void shouldEnforceFullPaymentAndPreventSplitOrCart() throws Exception {
         // Setup order in FULL_PAYMENT_PENDING with quote QUOTE_READY
         String orderId = "CO-PAY-" + UUID.randomUUID().toString().substring(0, 8);
         CustomOrder co = CustomOrder.builder()

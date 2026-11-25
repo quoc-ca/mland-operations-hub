@@ -207,7 +207,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 | Purpose | A ring designed in the configurator from material, shape, gemstones and attachments. |
 | Key business attributes | Owner, material, shape, ring size, selected components, estimated price and difficulty score. |
 | Business identity | Design reference and version together identify one immutable design version. |
-| Status / lifecycle | Draft → Saved → Validated; or Archived. Feature-012 no longer attaches a design to a workshop booking; its saved evaluation only produces an advisory workshop recommendation. |
+| Status / lifecycle | Draft → Saved → Archived. A saved evaluation only produces an advisory workshop recommendation; Feature-012 does not attach a design to a workshop booking. |
 
 **Entity: Loyalty Wallet (loyalty_wallet)**
 

@@ -100,18 +100,16 @@ The system records no partial decision (MSG04); a retry does not create a second
 
 #### Business Rules
 
-GBR-06, GBR-14, GBR-32, BR-15-01, BR-15-02, BR-15-03, BR-15-04, BR-15-05, BR-15-06
+GBR-14, GBR-32, BR-15-01, BR-15-02, BR-15-04, BR-15-05, BR-15-06
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| GBR-06 | Retired: AI price suggestions are no longer used. |
 | GBR-14 | Review, price and publication are separate states; a Manager's Change price sends the proposal, submission, approval and application as separate audited commands and never approves a pending Staff price in one click. |
 | GBR-32 | The submitter, the submitter's branches at submission and the decider are shown for information only and never change permissions. |
 | BR-15-01 | Only a Manager may approve, adjust or reject a product or price, including the Manager's own submission. |
 | BR-15-02 | A decision applies only to a pending item that is still the current version; a rejection requires a reason of 1–2,000 characters. |
-| BR-15-03 | Retired: AI price suggestions are no longer used; the Manager decides prices without AI input. |
 | BR-15-04 | Each decision records the Manager, time, version and inputs; approval does not apply the price or publish the product. The Manager may choose to apply the approved price right after the decision, which is a separate apply action under UC-16. |
 | BR-15-05 | A review submitted by Staff that is Pending is never approved by a one-click publish action; the Manager reviews it in the Initial review section, where each size price can be changed or the review rejected. |
 | BR-15-06 | The submitter, submitter's branches at submission and decider are shown for information only and do not change permissions or approval and apply conditions. Names are read from Account Management at the time of reading (full name only, otherwise "Account #{id}"); no email, sign-in identifier or token is shown, and these fields are never returned by public reads. Staff and Manager with internal read access see the same information. |

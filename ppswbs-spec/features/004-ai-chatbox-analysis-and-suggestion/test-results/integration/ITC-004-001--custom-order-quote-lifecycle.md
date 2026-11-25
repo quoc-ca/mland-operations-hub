@@ -51,7 +51,7 @@ Xác minh quy trình chuyển giao từ yêu cầu thiết kế `ACCEPTED` sang 
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã xác minh tính toàn vẹn dữ liệu trong bảng `custom_orders` và `custom_order_quotes`.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `CustomOrderIntegrationTest.shouldExecuteFullQuoteLifecycle`. Đã xác minh đầy đủ vòng đời báo giá: Staff soạn báo giá (`QUOTE_PENDING`), Staff tự duyệt bị chặn 403 (`REVIEW_NOT_AUTHORIZED`), Member duyệt/sửa bị chặn 403, Manager duyệt thành công chuyển `QUOTE_READY` và đơn hàng sang `FULL_PAYMENT_PENDING`.
 <!-- EXECUTION:END -->
