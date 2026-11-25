@@ -1,4 +1,6 @@
-#### 2.3.4 Role Catalogue
+#### 2.3.4 Role Catalogue (Retired)
+
+> **Retired (confirmed 2026-11-25):** the standalone role catalogue is removed (Feature-001 FR-010, screen 92). The page and its API are still in the code. The text below is kept only as history and must not be implemented.
 
 This screen allows Admins to:
 

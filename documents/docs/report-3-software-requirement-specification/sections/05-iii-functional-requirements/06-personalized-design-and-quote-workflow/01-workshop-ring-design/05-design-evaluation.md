@@ -1,13 +1,13 @@
 #### 6.1.5 Design Evaluation
 
-This screen allows Guests and Members to:
+This screen allows Members to:
 
 - View the saved design with its code, version and status, a read-only preview and a summary of all selected options.
 - Read the advisory estimated cost, estimated weight and crafting difficulty with its advice.
 - See one recommended workshop package: Wax Casting when difficulty is above 9, otherwise Silver Clay when there are more than 5 stones, otherwise Signature Workshop.
 - Explore the workshops, edit the design, open a design consultation or archive the design.
 
-Only the owner (the Member, or the Guest with the active design session) can open a design. The evaluation is advisory and never means Staff or Manager approval; the customer-facing lifecycle is Draft, Saved and Archived.
+The screen requires sign-in, and only the owning Member can open a design. The evaluation is advisory and never means Staff or Manager approval; the customer-facing lifecycle is Draft, Saved and Archived.
 
 | Field Name | Description |
 | --- | --- |

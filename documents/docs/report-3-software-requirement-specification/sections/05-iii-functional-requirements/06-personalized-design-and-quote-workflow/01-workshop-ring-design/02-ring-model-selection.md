@@ -8,7 +8,7 @@ This screen allows Guests and Members to:
 - Start from a blank ring instead when the package has no suggested models.
 - Go back to Ring Design Entry.
 
-The model list comes from the server option set of the package; no design is created until the customer saves it in Ring Configuration.
+The model list comes from the server option set of the package; no design is created until a signed-in Member saves it in Ring Configuration. A Guest may browse the models and preview them.
 
 | Field Name | Description |
 | --- | --- |

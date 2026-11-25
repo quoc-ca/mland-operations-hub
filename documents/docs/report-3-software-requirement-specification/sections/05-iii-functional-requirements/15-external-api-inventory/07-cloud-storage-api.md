@@ -3,7 +3,7 @@
 | Attr | Value |
 | --- | --- |
 | URL | TBD — approved HTTP method and endpoint pattern. |
-| Purpose | Stores catalogue media and eligible custom-manufacturing reference images outside the application database. Access and deletion follow the approved retention rules; rejected or withdrawn custom requests and independently classified AI images are deleted after processing. |
+| Purpose | Stores catalogue media and eligible custom-manufacturing reference images outside the application database. Access and deletion follow the approved retention rules; images of rejected or withdrawn custom requests are deleted after processing. |
 | Caller | System ↔ Cloud Storage Service |
 | Auth | Configured storage credentials and purpose-specific read/write/delete access; exact provider and access contract: TBD. |
 

@@ -1,4 +1,4 @@
-### 5.4 Submit Booking Design Image
+### 5.4 Submit Custom Design Request
 
 #### Primary Actors
 
@@ -6,65 +6,66 @@
 
 #### Secondary Actors
 
-- AI API
 - Cloud Storage Service
 
 #### Description
 
-This use case allows a member to submit a reference design image as part of a workshop booking. The system validates the image and the booking context, stores the file securely, and creates a design-analysis request for the AI image analysis workflow.
+This use case allows a Member to submit a custom design request with a description, up to five reference images, and/or a saved ring design of their own. The request is reviewed by Staff or a Manager. It is not attached to a workshop booking, and no AI assesses it.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The member has an active or draft workshop booking.
-3. The member has provided the required consent for image processing.
-4. The uploaded file complies with the supported file type and size limits.
+1. The Member is signed in and the account is active.
+2. The request has at least one of: a description, a reference image, or a saved ring design owned by the Member.
+3. When images are attached, the Member has consented to image processing.
 
 #### Normal Flow
 
-**Submit Booking Design Image**
+**Submit Custom Design Request**
 
-1. The member opens the image submission function from the workshop booking.
-2. The system displays the image-processing consent and upload requirements.
-3. The member grants consent and selects a reference image.
-4. The system validates the booking ownership, consent, file type, file size, and upload limit.
-5. The system uploads the image to the Cloud Storage Service.
-6. The system creates a design-analysis request linked to the workshop booking.
-7. The system sends the image reference and request context to the AI API for analysis.
-8. The system displays the submission status to the member.
+1. The Member opens the custom design request form.
+2. The system displays the description field, the saved-design choice, the image requirements and the image-processing consent.
+3. The Member enters a description, attaches a saved design and/or selects reference images, and gives consent for any image.
+4. The system checks each image's type, size and readable quality and shows the result.
+5. The Member submits the request.
+6. The system revalidates the account, ownership, consent, content, images and submission rate limit.
+7. The system stores the images in the Cloud Storage Service and, for an attached design, an immutable snapshot of it.
+8. The system creates the request with status Need Review and shows it to the Member.
 
 #### Alternative Flows
 
+**Step 1 — Actor is a Guest**
+
+The system asks the Guest to sign in and creates nothing. Staff and Managers cannot submit a request as a customer.
+
 **Step 3 — Consent is not granted**
 
-1. The member does not grant the required consent.
-2. The system cancels the submission and does not store or analyze the image.
+The system does not accept or store the images.
 
-**Step 4 — Invalid file**
+**Step 4 — Invalid or blurry image**
 
-1. The file type, size, or content does not meet the upload requirements.
-2. The system rejects the file and asks the member to select another image.
+The system rejects an unsupported, too large or too blurry image and asks the Member to replace it.
 
-**Step 4 — Invalid booking or ownership**
+**Step 6 — Empty request, more than five images or description too long**
 
-1. The booking is not owned by the member or is no longer eligible for image submission.
-2. The system rejects the request and does not create an analysis request.
+The system rejects the request and shows the reason.
 
-**Step 4 — Upload limit reached**
+**Step 6 — Image submission rate limit reached**
 
-1. The member has reached the permitted number of image submissions.
-2. The system informs the member and asks them to continue with the existing request or contact staff.
+The system rejects the request temporarily and shows when the Member may retry.
 
-**Step 7 — AI analysis is unavailable**
+**Step 6 — Duplicate submission**
 
-1. The image is stored successfully, but the AI API is unavailable.
-2. The system marks the analysis request as pending and allows a retry or staff follow-up.
+A repeated submission returns the original request and creates no second one.
+
+**Step 7 — Storage failure**
+
+The system creates no request and asks the Member to retry.
 
 #### Postconditions
 
-- A valid reference image is stored securely and linked to the member's workshop booking.
-- A design-analysis request is created with a pending, completed, or failed status.
-- The image is not treated as an automatic manufacturing order or final quotation.
+- A valid request with status Need Review exists, owned by the Member.
+- Later edits to the source ring design do not change the snapshot.
+- No booking, payment, quotation or manufacturing order is created.
 
 #### Business Rules
 
@@ -76,7 +77,6 @@ This use case allows a member to submit a reference design image as part of a wo
 
 | ID | Rule Definition |
 |---|---|
-| BR-35-01 | Image processing requires the member's consent before storage or AI analysis. |
-| BR-35-02 | The submitted image must be linked to an eligible workshop booking owned by the member. |
-| BR-35-03 | AI analysis provides reference information only and does not determine final manufacturing feasibility or price. |
-
+| BR-35-01 | Reference images require the Member's consent before they are stored. |
+| BR-35-02 | Only an active signed-in Member may submit a request, with a description, up to five images and/or a saved ring design that the Member owns. |
+| BR-35-03 | No AI assesses the request or its images, decides feasibility or sets a price. |

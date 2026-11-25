@@ -6,7 +6,7 @@ This screen allows Members to:
 - Keep the review public after the edit; each edit records a revision and an audit entry.
 - Return to the review's details after saving.
 
-The screen requires sign-in and opens only for the owner of the review; any other user sees a forbidden message instead of the form. The source, target and the anonymous choice cannot be changed. The spec also lets a Guest edit their own review, but this screen requires sign-in; how a Guest edits is TBD.
+The screen requires sign-in and opens only for the owner of the review; any other user sees a forbidden message instead of the form. The source, target and the anonymous choice cannot be changed.
 
 | Field Name | Description |
 | --- | --- |

@@ -1,4 +1,6 @@
-### 1.9 Configure Role-Based Access Control
+### 1.9 Configure Role-Based Access Control (Retired)
+
+> **Retired (confirmed 2026-11-25):** use case 9 is retired. The platform uses fixed roles only, with no configurable permissions, custom roles, multiple role assignment, RBAC administration or standalone role catalogue (Feature-001 FR-010). An Admin assigns a fixed role through use case 7. The text below is kept only as history and must not be implemented.
 
 #### Primary Actors
 

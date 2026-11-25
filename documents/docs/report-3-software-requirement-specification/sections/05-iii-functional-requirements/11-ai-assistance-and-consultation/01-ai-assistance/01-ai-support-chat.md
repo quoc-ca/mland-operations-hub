@@ -7,7 +7,7 @@ This screen allows Guests and Members to:
 - Read each AI answer in the chat history of the open page, under a notice that answers are advisory only and are not a quote or contract.
 - See how many questions they have left today; once the limit is reached, the input and **Gửi câu hỏi** are disabled until the reset.
 
-Staff, Manager, Admin and Carrier accounts are refused by the server. The chat history is kept only while the page is open. The current Feature-004 spec lists Basic AI Support as historical, but the page and its API are still in the code.
+Staff, Manager, Admin and Carrier accounts are refused by the server. The chat history is kept only while the page is open. Basic AI Support stays in scope (use case 33, confirmed by the Feature-004 owner), although the Feature-004 spec no longer owns it.
 
 | Field Name | Description |
 | --- | --- |

@@ -6,7 +6,7 @@ Manager.
 
 #### Secondary Actors
 
-AI Chatbox Analysis and Suggestion, which may provide an advisory price suggestion; Account Management, which supplies the names of submitters and deciders.
+Account Management, which supplies the names of submitters and deciders.
 
 #### Description
 
@@ -28,7 +28,7 @@ This use case includes the following sub-flows:
 
 1. The Manager opens the Products to review tab (reviews of never-published products) or the Prices to review tab (price proposals of published products, the Prices to Review screen) of the Product Management List. A product whose review is Pending shows Review first instead of a one-click publish button.
 2. The Manager selects a pending item, or decides a pending price directly on its row in the Prices to review tab with the Price Proposal Review form. On the product detail page, the Initial review section is shown to a Manager only while a review submitted by Staff is Pending, or when the review was Rejected (with its reason).
-3. The system displays the submitted product content, images and the proposed price of each size, and any AI price suggestion marked as advisory. For each price proposal version (including in the table for several sizes) and each review version, current and past, it shows the submitter and submission time, the submitter's branches at submission (UC-14), and the Manager who decided and the decision time once decided. A Draft that was never submitted shows no submitter.
+3. The system displays the submitted product content, images and the proposed price of each size. For each price proposal version (including in the table for several sizes) and each review version, current and past, it shows the submitter and submission time, the submitter's branches at submission (UC-14), and the Manager who decided and the decision time once decided. A Draft that was never submitted shows no submitter.
 4. For each size, the Manager accepts the proposed price or enters an adjusted final price as a positive whole VND amount; one shared final price can be filled in for the selected sizes.
 5. The Manager confirms the decision.
 6. The system checks that the item is still pending and is the current version.
@@ -68,10 +68,6 @@ The Manager may approve or reject their own product or proposal. When a Manager 
 
 If the account has no full name, cannot be read or no longer exists, the system shows "Account #{id}" and still shows the rest of the page. A system actor, such as seed data, is shown as "System".
 
-**Step 3 — No AI suggestion is available**
-
-The Manager can still decide manually. The AI suggestion never decides or blocks a decision.
-
 **Step 5 — Manager cancels**
 
 No decision is recorded.
@@ -110,12 +106,12 @@ GBR-06, GBR-14, GBR-32, BR-15-01, BR-15-02, BR-15-03, BR-15-04, BR-15-05, BR-15-
 
 | ID | Rule Definition |
 |---|---|
-| GBR-06 | AI price suggestions may support a Manager's price decision, but AI never decides or publishes a price. |
+| GBR-06 | Retired: AI price suggestions are no longer used. |
 | GBR-14 | Review, price and publication are separate states; a Manager's Change price sends the proposal, submission, approval and application as separate audited commands and never approves a pending Staff price in one click. |
 | GBR-32 | The submitter, the submitter's branches at submission and the decider are shown for information only and never change permissions. |
 | BR-15-01 | Only a Manager may approve, adjust or reject a product or price, including the Manager's own submission. |
 | BR-15-02 | A decision applies only to a pending item that is still the current version; a rejection requires a reason of 1–2,000 characters. |
-| BR-15-03 | AI price suggestions are advisory only; their absence does not block a valid manual decision. |
+| BR-15-03 | Retired: AI price suggestions are no longer used; the Manager decides prices without AI input. |
 | BR-15-04 | Each decision records the Manager, time, version and inputs; approval does not apply the price or publish the product. The Manager may choose to apply the approved price right after the decision, which is a separate apply action under UC-16. |
 | BR-15-05 | A review submitted by Staff that is Pending is never approved by a one-click publish action; the Manager reviews it in the Initial review section, where each size price can be changed or the review rejected. |
 | BR-15-06 | The submitter, submitter's branches at submission and decider are shown for information only and do not change permissions or approval and apply conditions. Names are read from Account Management at the time of reading (full name only, otherwise "Account #{id}"); no email, sign-in identifier or token is shown, and these fields are never returned by public reads. Staff and Manager with internal read access see the same information. |

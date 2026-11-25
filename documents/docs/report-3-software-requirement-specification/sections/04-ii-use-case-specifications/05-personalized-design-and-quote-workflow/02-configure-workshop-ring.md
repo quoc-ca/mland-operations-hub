@@ -2,7 +2,6 @@
 
 #### Primary Actors
 
-- Guest
 - Member
 
 #### Secondary Actors
@@ -11,48 +10,53 @@
 
 #### Description
 
-This use case allows the user to configure the selected ring model by choosing supported workshop options such as band material, gemstone, size, and engraving. The system validates the configuration against the approved product rules and keeps the configuration for the workshop booking flow.
+This use case allows a Member to configure a workshop ring from a published model, a blank ring or an own saved design, then save and evaluate it. Price and difficulty are advisory. The design is not attached to a workshop booking or ticket.
 
 #### Preconditions
 
-1. The user has selected an active ring model.
-2. The selected model has available configuration options.
-3. The user is in an active workshop session.
+1. The Member is signed in and the account is active.
+2. The catalogue options of the workshop package are available.
+3. When editing, the design belongs to the Member and is not archived.
 
 #### Normal Flow
 
 **Configure Workshop Ring**
 
-1. The system displays the selected ring model and its supported configuration options.
-2. The user selects the required options, such as material, gemstone, ring size, or engraving.
-3. The system validates each selected option against the model's compatibility rules.
-4. The system calculates and displays the current estimated workshop price.
-5. The user confirms the configuration.
-6. The system stores the valid configuration in the current workshop session.
-7. The system allows the user to continue to workshop registration or request staff consultation.
+1. The system displays the options supplied by the server for the starting point.
+2. The Member chooses material, shape, ring size, dimensions, gemstones, components, attachments and engraving.
+3. The system shows a local preview marked as a preview and flags invalid choices.
+4. The Member selects save and evaluate.
+5. The system validates ownership, version, options, package compatibility and limits.
+6. The system stores a new immutable design version and calculates the advisory estimated price and difficulty.
+7. The system displays the saved version, its summary, warnings and a workshop recommendation.
+8. The Member may edit the design, explore workshops, open a design consultation or attach the design to a custom design request.
 
 #### Alternative Flows
 
-**Step 3 — Incompatible option combination**
+**Step 1 — Actor is a Guest**
 
-1. The selected options are not compatible with the ring model.
-2. The system identifies the invalid combination and asks the user to select compatible options.
+The Guest sees the entry point and public options; a protected action prompts sign-in and creates nothing.
 
-**Step 2 — Required option is missing**
+**Step 5 — Invalid, inactive or incompatible option, or limit exceeded**
 
-1. The user attempts to confirm without selecting a required option.
-2. The system highlights the missing option and prevents confirmation.
+The system rejects the save, identifies the problem and keeps the Member's input.
 
-**Step 4 — Option becomes unavailable**
+**Step 5 — Design changed elsewhere**
 
-1. A selected option becomes unavailable during configuration.
-2. The system refreshes the available options and asks the user to choose a replacement.
+The system returns a version conflict and asks the Member to reload.
+
+**Step 6 — Rule service unavailable**
+
+The system saves no new version and asks the Member to retry.
+
+**Step 8 — Member archives or restores the design**
+
+Archiving hides the design without erasing its history; the Member may restore it.
 
 #### Postconditions
 
-- A valid ring configuration is stored in the current workshop session.
-- The system records the current estimated price for display and review.
-- No final quotation, order, payment, or custom manufacturing request is created.
+- A saved design version exists and belongs to the Member; earlier versions are retained.
+- No booking, ticket, payment, quotation, custom order or custom design request is created automatically.
 
 #### Business Rules
 
@@ -64,7 +68,6 @@ This use case allows the user to configure the selected ring model by choosing s
 
 | ID | Rule Definition |
 |---|---|
-| BR-33-01 | Configuration options must be supported by the selected approved ring model. |
-| BR-33-02 | The system must reject incompatible combinations and missing required options. |
-| BR-33-03 | The displayed price is an estimate until the applicable staff or manager review is completed. |
-
+| BR-33-01 | Only a signed-in Member may configure, save, evaluate, archive or restore a design, and only an own design. Options come from the server. |
+| BR-33-02 | The system rejects invalid or incompatible options. A design has at most 10 gemstones, 2 text engravings, 2 symbol engravings and 2 laser images. |
+| BR-33-03 | Estimated price, difficulty and the workshop recommendation are advisory; they change no package price, payment or quotation and hide no workshop. |

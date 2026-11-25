@@ -2,7 +2,7 @@
 
 This screen allows Staff and Managers to:
 
-- Inspect a design request: reference, version, request and review status, Guest or Member owner, description, catalogue reference and reference images.
+- Inspect a design request: reference, version, request and review status, owner type, description, catalogue reference and reference images.
 - Record a decision of accept, reject or request clarification, always with a written explanation of 1 to 2,000 characters, after a confirmation dialog.
 - For an accepted request, prepare the full custom quote (total amount, payment deadline in hours and pricing note) and send it to a Manager.
 - As a Manager, approve the prepared quote so that the Member can pay it in full from My Custom Orders.
@@ -11,7 +11,7 @@ A request that is accepted or rejected is final and the decision form is hidden.
 
 | Field Name | Description |
 | --- | --- |
-| Header | "Thẩm duyệt Yêu cầu Thiết kế #{id}", reference, design version, request status, review status and "Hội viên" or "Khách vãng lai". |
+| Header | "Thẩm duyệt Yêu cầu Thiết kế #{id}", reference, design version, request status, review status and "Hội viên" ("Khách vãng lai" only on older records). |
 | Final decision card | "Quyết định: Chấp thuận (ACCEPTED)" or "Từ chối (REJECTED)" with the reviewer's explanation. |
 | Description and images | Submitted idea, catalogue reference and image gallery; an image can be enlarged. |
 | Quyết định | Choice of "Chấp thuận (ACCEPTED)", "Từ chối (REJECTED)" or "Yêu cầu làm rõ thông tin (CLARIFICATION_REQUIRED)". |

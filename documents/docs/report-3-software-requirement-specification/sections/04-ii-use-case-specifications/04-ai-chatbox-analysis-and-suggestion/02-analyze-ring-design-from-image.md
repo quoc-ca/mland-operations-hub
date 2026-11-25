@@ -1,11 +1,6 @@
-### 4.2 Analyze Ring Design from Image
+### 4.2 Analyze Ring Design from Image (Retired)
 
-> **Independent-flow update (2026-10-28):** This use case is now an independent
-> Feature-004 Design Request flow. The legacy workshop package/location/session/
-> booking preconditions below are superseded by the Feature-004 handoff and spec.
-> The request must not create or mutate booking, payment, capacity, ticket or
-> custom-manufacturing state. Ownership, review policy, revision/withdrawal and
-> image-retention decisions remain Feature-004 implementation gates.
+> **Retired (confirmed 2026-11-25):** use case 34 is retired. AI no longer analyzes design images; a Member submits a custom design request (use case 39) and Staff or a Manager reviews it by hand (use case 40). The text below is kept only as history and must not be implemented.
 
 #### Primary Actors
 
