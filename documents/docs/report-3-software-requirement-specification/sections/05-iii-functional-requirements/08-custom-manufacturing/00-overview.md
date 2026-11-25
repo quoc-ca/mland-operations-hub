@@ -5,7 +5,10 @@ from ready-ring retail checkout and does not use a retail cart. After Staff or
 a Manager accepts a Member's design request, the reviewer prepares a quote for
 the complete custom-order amount and a Manager approves it. The Member must pay
 that amount in one VNPay payment before the quote deadline; there is no deposit
-and no later balance.
+and no later balance. Only a verified full payment starts production, after
+which Staff or Managers advance the order through production, handover and
+closure. Feature-012 may provide an optional immutable design snapshot, but it
+does not create a booking or payment when the design is saved.
 
 The customer-facing label is **Đơn hàng cá nhân** and each quote is shown as a
 **Phiên bản báo giá**. A Feature-012 design may be attached as an owner-checked

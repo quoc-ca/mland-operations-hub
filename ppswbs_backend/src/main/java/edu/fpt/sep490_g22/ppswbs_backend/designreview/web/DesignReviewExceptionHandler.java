@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(basePackages = "edu.fpt.sep490_g22.ppswbs_backend.designreview.web")
+@RestControllerAdvice(basePackages = {
+        "edu.fpt.sep490_g22.ppswbs_backend.designreview.web",
+        "edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.controller"
+})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DesignReviewExceptionHandler {
 

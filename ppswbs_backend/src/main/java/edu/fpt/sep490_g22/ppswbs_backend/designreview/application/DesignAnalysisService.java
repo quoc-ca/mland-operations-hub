@@ -187,20 +187,38 @@ public class DesignAnalysisService {
                     "Tài khoản không phải là hội viên hoạt động.");
         }
 
-        // Check duplicate idempotency for member
-        Optional<DesignRequest> existing = requestRepository
-                .findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(member.accountId(), version, idempotencyKey);
-        if (existing.isPresent()) {
-            log.info("Duplicate member idempotency key: returning existing design request {}", existing.get().getId());
-            return mapToViewDto(existing.get());
-        }
-
-        // 2. Request Content Validation
+        // 2. Request Content Extraction & Sanitization
         List<MultipartFile> validFiles = files != null ? files.stream().filter(f -> f != null && !f.isEmpty()).toList() : Collections.emptyList();
         boolean hasDescription = (description != null && !description.trim().isEmpty());
         boolean hasImages = !validFiles.isEmpty();
         boolean hasSnapshot = (designReference != null && !designReference.isBlank());
 
+        String sanitizedDescription = null;
+        if (hasDescription) {
+            sanitizedDescription = description.trim();
+        }
+
+        String sanitizedCatalogueRef = (catalogueReference != null && !catalogueReference.isBlank())
+                ? catalogueReference.trim()
+                : null;
+        String sanitizedDesignRef = hasSnapshot ? designReference.trim() : null;
+
+        // Check duplicate idempotency for member
+        Optional<DesignRequest> existing = requestRepository
+                .findByOwnerAccountIdAndRequestVersionAndIdempotencyKey(member.accountId(), version, idempotencyKey);
+        if (existing.isPresent()) {
+            DesignRequest existingReq = existing.get();
+            if (!isPayloadMatching(existingReq, sanitizedDescription, sanitizedCatalogueRef, sanitizedDesignRef, designRingVersion, validFiles)) {
+                log.warn("Idempotency key conflict: key={}, existingId={}, callerUid={}",
+                        idempotencyKey, existingReq.getId(), callerUid);
+                throw DesignReviewException.conflict("IDEMPOTENCY_KEY_CONFLICT",
+                        "Idempotency-Key đã được sử dụng với nội dung yêu cầu khác. Vui lòng sử dụng Idempotency-Key mới.");
+            }
+            log.info("Duplicate member idempotency key: returning existing design request {}", existingReq.getId());
+            return mapToViewDto(existingReq);
+        }
+
+        // 3. Validation
         if (!hasDescription && !hasImages && !hasSnapshot) {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID",
                     "Yêu cầu phải có mô tả thiết kế, mẫu thiết kế Feature-012 hoặc ít nhất một tệp hình ảnh đính kèm.");
@@ -211,9 +229,7 @@ public class DesignAnalysisService {
                     "Số lượng hình ảnh vượt quá giới hạn tối đa (tối đa 5 hình ảnh).");
         }
 
-        String sanitizedDescription = null;
         if (hasDescription) {
-            sanitizedDescription = description.trim();
             if (sanitizedDescription.length() > MAX_DESCRIPTION_LENGTH) {
                 throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
                         "Mô tả thiết kế không được vượt quá 4.000 ký tự.");
@@ -226,10 +242,6 @@ public class DesignAnalysisService {
                 }
             }
         }
-
-        String sanitizedCatalogueRef = (catalogueReference != null && !catalogueReference.isBlank())
-                ? catalogueReference.trim()
-                : null;
 
         // 3. Member Image Consent & Rate Limiting
         if (isMember && hasImages) {
@@ -730,5 +742,54 @@ public class DesignAnalysisService {
         requestRepository.save(request);
 
         return mapToViewDto(request);
+    }
+
+    private boolean isPayloadMatching(DesignRequest existing,
+                                       String incomingDescription,
+                                       String incomingCatalogueRef,
+                                       String incomingDesignRef,
+                                       Integer incomingDesignRingVersion,
+                                       List<MultipartFile> validFiles) {
+        if (!Objects.equals(incomingDescription, existing.getDescription())) {
+            return false;
+        }
+
+        if (!Objects.equals(incomingCatalogueRef, existing.getCatalogueReference())) {
+            return false;
+        }
+
+        if (!Objects.equals(incomingDesignRef, existing.getDesignReference())) {
+            return false;
+        }
+
+        Integer expectedDesignVersion = (incomingDesignRef != null)
+                ? (incomingDesignRingVersion != null ? incomingDesignRingVersion : 1)
+                : null;
+        if (!Objects.equals(expectedDesignVersion, existing.getDesignVersion())) {
+            return false;
+        }
+
+        List<DesignRequestImage> existingImages = designRequestImageRepository.findByDesignRequestId(existing.getId());
+        if (validFiles.size() != existingImages.size()) {
+            return false;
+        }
+
+        if (!validFiles.isEmpty()) {
+            List<String> incomingNames = validFiles.stream()
+                    .map(MultipartFile::getOriginalFilename)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList();
+            List<String> existingNames = existingImages.stream()
+                    .map(DesignRequestImage::getOriginalFilename)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList();
+            if (!incomingNames.equals(existingNames)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

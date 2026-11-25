@@ -17,3 +17,12 @@ cleanup: Retain conversation and audit history.
 Browser MCP: Staff opens a conversation in the active location, confirms Close,
 and asserts status becomes CLOSED, composer is disabled and audit evidence exists.
 Repeat with a stale version and assert `409 CHAT_STATE_CONFLICT`.
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-25 23:56:00
+- Executed by: Ngô Tiến Đạt
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Staff mở hội thoại trong phạm vi chi nhánh được phân công (in-scope active location), thực hiện đóng hội thoại thành công. Trạng thái hội thoại chuyển sang CLOSED, ô nhập tin nhắn (composer) bị vô hiệu hoá và bản ghi audit CLOSE được ghi nhận đầy đủ. Gửi lại yêu cầu đóng với version cũ trả về lỗi 409 CHAT_STATE_CONFLICT chính xác theo thiết kế optimistic locking.
+<!-- EXECUTION:END -->

@@ -40,11 +40,36 @@ if (Save/evaluate valid?) then (yes)
     :Create NEED_REVIEW request;
     |Staff or Manager|
     :Inspect request and reference material;
-    :Accept, reject or request clarification;
+    if (Decision?) then (clarification)
+      :Request clarification with explanation;
+      |Member|
+      :Update request context and submit clarification;
+      |System|
+      :Return request to NEED_REVIEW;
+      |Staff or Manager|
+      :Review clarified request;
+      :Accept or reject with explanation;
+    else (accept or reject)
+      :Accept or reject with explanation;
+    endif
     |System|
     :Persist mandatory explanation and audit event;
     |Member|
     :Read status and explanation;
+    if (Accepted?) then (yes)
+      |Staff or Manager|
+      :Prepare custom-order quote;
+      |Manager|
+      :Approve quote;
+      |Member|
+      :Pay the full approved amount before quote expiry;
+      |System|
+      :Verify payment and activate production;
+      |Staff or Manager|
+      :Advance production and fulfilment;
+      |Member|
+      :View handover or delivery completion;
+    endif
   endif
 else (no)
   :Show validation or version conflict;
@@ -54,5 +79,6 @@ stop
 note right
 There is no Feature-012 branch selection or booking attachment.
 AI does not analyze reference images or make design decisions.
+An accepted request is not an order until the quote is approved and paid in full.
 end note
 @enduml
