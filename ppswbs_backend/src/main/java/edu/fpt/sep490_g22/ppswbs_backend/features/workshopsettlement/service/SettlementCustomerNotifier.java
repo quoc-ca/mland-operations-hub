@@ -100,7 +100,6 @@ public class SettlementCustomerNotifier {
             case LATE_PAYMENT_NOT_RECONFIRMED -> "thanh toán đến sau thời hạn giữ chỗ và không thể xác nhận chỗ";
             case OVERCHARGE_AFTER_FINALIZED -> "điều chỉnh khoản thu sau khi chốt hóa đơn";
             case EXCESS_OR_DUPLICATE_MONEY -> "thanh toán thừa hoặc trùng";
-            case OTA_ADDON_OVERCHARGE -> "điều chỉnh khoản dịch vụ thêm";
         };
     }
 

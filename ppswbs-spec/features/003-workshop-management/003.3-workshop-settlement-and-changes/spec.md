@@ -1768,12 +1768,12 @@ task T143, fix A19.)*
   processing, it returns the VNPay JSON acknowledgement fields `RspCode` and
   `Message`. QueryDR is an outbound server-to-server reconciliation call and has
   no inbound public route.
-- **FR-009c**: 003.3 MUST consume redacted verified `FINAL_PAYMENT` or `REFUND` evidence *(`SHOP_ADDON`, the OTA shop add-on, removed 2026-11-25)* only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
+- **FR-009c**: 003.3 MUST consume redacted verified `FINAL_PAYMENT` or `REFUND` evidence *(`SHOP_ADDON`, the OTA shop add-on payment kind, removed 2026-11-25)* only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
   of deposit evidence. *(2026-11-15: `REFUND` evidence is legacy and no longer
   produced, because VNPay Refund and refund-QueryDR are not used and their code
-  was removed (bc39429c, FR-038); `FINAL_PAYMENT` and `SHOP_ADDON` evidence
-  still apply.)*
+  was removed (bc39429c, FR-038); `FINAL_PAYMENT` evidence
+  still applies.)*
 - **FR-010** *(superseded 2026-11-12 by FR-035)*: Settlement MUST require the final balance to be collected and
   verified before handing the workshop package output to the customer. It MUST
   NOT create credit, deferred-payment cases, reminders, or payment reissues.
@@ -1969,7 +1969,7 @@ ticket refund.)*
   business resources. Customer cancellation, required-session change, and
   Mland-caused remedy MUST each create or update an auditable case resource with
   its own reference and lifecycle; they MUST NOT be untracked action-only
-  operations. *(Superseded 2026-11-16 by FR-041–FR-045a, fix A28: customer cancellation, change and Mland remedy are now per-ticket records; the settlement case list still serves `FOLIO_CORRECTION`, Mland remedy and `ADDON_REFUND` cases.)*
+  operations. *(Superseded 2026-11-16 by FR-041–FR-045a, fix A28: customer cancellation, change and Mland remedy are now per-ticket records; the settlement case list still serves `FOLIO_CORRECTION`, Mland remedy and `ADDON_REFUND` cases; `ADDON_REFUND` removed 2026-11-25.)*
 - **FR-022b1**: Settlement cases MUST use `OPEN`, `RESOLVED`, `REJECTED`, or
   `FAILED`. Only cases that await verified refund evidence MAY use
   `PENDING_PROVIDER` *(wording changed 2026-11-15 from "awaiting gateway
@@ -1987,7 +1987,8 @@ ticket refund.)*
   `PENDING_PROVIDER` is kept, and its meaning is restated as "awaits verified
   refund evidence".** It no longer means "awaiting the gateway": since
   T098/T104 no Mland money goes to VNPay Refund (FR-038). The code creates
-  `FOLIO_CORRECTION`, `MLAND_CANCELLATION_REMEDY` and `ADDON_REFUND` cases as
+  `FOLIO_CORRECTION` and `MLAND_CANCELLATION_REMEDY` cases *(and, until
+  2026-11-25, OTA `ADDON_REFUND` cases)* as
   `PENDING_PROVIDER` and keeps them there while the allocation is
   `PENDING_BANK_REFUND`, until the Manager confirms `REFUNDED` and the case
   becomes `RESOLVED`. Retiring it was refused because

@@ -433,35 +433,6 @@ class PerTicketChangeIT {
                 .isEqualTo(holdsBefore);
     }
 
-    @Test
-    @DisplayName("T096-b/FR-036: cancel, replace and QR reissue refuse an OTA ticket with one typed failure")
-    void otaTicket_isRefusedByCancelReplaceAndReissue() {
-        WorkshopSession source = publishedSession(8, morning, 5);
-        WorkshopSession target = publishedSession(9, afternoon, 5);
-        // Nothing creates OTA tickets any more; rows sold before the removal keep this channel.
-        AttendanceTicket sold = confirmGroup(source, 1).getFirst();
-        sold.setSalesChannel(TicketSalesChannel.OTA);
-        ticketRepository.saveAndFlush(sold);
-        UUID ticket = UUID.fromString(sold.getReference());
-
-        TicketCancellationOutcome cancel = facade.cancelTicket(new CancelTicketCommand(ticket, "case-ota",
-                "op-" + UUID.randomUUID(), "corr-ota"));
-        TicketSessionReplacementOutcome replace = facade.replaceTicketSessions(new ReplaceTicketSessionsCommand(
-                List.of(new ReplaceTicketSessionsCommand.Line(ticket, List.of(UUID.fromString(target.getReference())))),
-                TicketReplacementType.CUSTOMER_ADVANCE, "op-" + UUID.randomUUID(), "corr-ota"));
-        TicketQrReissueOutcome reissue = facade.reissueTicketQr(new ReissueTicketQrCommand(ticket,
-                QrRevokeReason.RECIPIENT_CHANGED, "op-" + UUID.randomUUID(), "corr-ota"));
-
-        assertThat(cancel.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
-        assertThat(replace.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
-        assertThat(replace.failingLineIndexes()).containsExactly(0);
-        assertThat(reissue.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
-        AttendanceTicket stored = ticketRepository.findByReference(ticket.toString()).orElseThrow();
-        assertThat(stored.getValidityState()).isEqualTo(TicketValidityState.ACTIVE);
-        assertThat(stored.getSalesChannel()).isEqualTo(TicketSalesChannel.OTA);
-        assertThat(sessionOf(stored)).isEqualTo(source.getId());
-    }
-
     // ---- fixtures ----
 
     private Long sessionOf(AttendanceTicket ticket) {

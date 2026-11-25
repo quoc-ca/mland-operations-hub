@@ -274,8 +274,8 @@ guarantee.
 ### OTA-observable session projection *(removed 2026-11-25)*
 
 The snapshot projection, its event and resync query are no longer part of the
-design. Table `workshop_session_ota_snapshots` still exists in the database
-(keep/drop not decided; [record](../ota-removal-2026-11-25.md)).
+design. Flyway V203 dropped table `workshop_session_ota_snapshots`
+([record](../ota-removal-2026-11-25.md)).
 
 ### AttendanceTicket
 

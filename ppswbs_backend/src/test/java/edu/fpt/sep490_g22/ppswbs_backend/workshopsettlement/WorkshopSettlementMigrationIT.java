@@ -10,10 +10,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class WorkshopSettlementMigrationIT {
-    private static final List<String> TABLES = List.of("settlement_cancellation_cases", "settlement_handoff_idempotency", "settlement_final_bills", "settlement_charges", "settlement_cases", "settlement_evidence_conclusions", "settlement_business_audits", "settlement_idempotency_outcomes", "settlement_notification_handoffs", "settlement_refund_allocations", "settlement_folio_corrections", "settlement_addon_payment_attempts", "settlement_addon_refunds", "settlement_ticket_mland_remedies", "settlement_ticket_change_requests");
+    private static final List<String> TABLES = List.of("settlement_cancellation_cases", "settlement_handoff_idempotency", "settlement_final_bills", "settlement_charges", "settlement_cases", "settlement_evidence_conclusions", "settlement_business_audits", "settlement_idempotency_outcomes", "settlement_notification_handoffs", "settlement_refund_allocations", "settlement_folio_corrections", "settlement_ticket_mland_remedies", "settlement_ticket_change_requests");
     @Test void freshSchemaAppliesSettlementFoundation() throws Exception {
         MigrationTestSupport support = configuredSupport(); if (support == null) return;
-        try (support) { String database=support.createDatabase(); MigrateResult result=support.flyway(database,null).migrate(); assertThat(result.success).isTrue(); assertThat(result.migrations).extracting(m->m.version).contains("17","18","30","44","45","47","96","98","99","151","152","153","155"); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='44' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='96' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='98' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='99' AND success=1")).isEqualTo(1); assertColumns(c,database,"payment_owner_registrations",List.of("provider_create_date")); assertColumns(c,database,"settlement_evidence_conclusions",List.of("provider_transaction_number","original_provider_create_date")); assertColumns(c,database,"settlement_refund_allocations",List.of("original_payment_reference","original_provider_transaction_number","original_provider_create_date","allocated_amount_vnd","bank_refund_reference"));assertColumnsAbsent(c,database,"settlement_refund_allocations",List.of("provider_refund_transaction_number","provider_response_code","provider_transaction_type","provider_transaction_status","provider_accepted_at","last_query_at")); assertTablesAbsent(c,database,List.of("settlement_refund_policy_revisions","settlement_refund_policy_snapshots","settlement_booking_mland_refund_policy_snapshots","settlement_final_payment_attempts","settlement_customer_cancellation_snapshots","settlement_mland_remedy_snapshots")); assertColumns(c,database,"settlement_folio_corrections",List.of("correction_reference","case_reference","booking_reference","bill_reference","amount_vnd","currency_code","reason","manager_actor_reference","created_at","updated_at")); assertColumns(c,database,"settlement_addon_payment_attempts",List.of("attempt_reference","bill_reference","channel_booking_reference","operation_reference","merchant_reference","amount_vnd","currency_code","provider_create_date","payment_url_snapshot","lifecycle_status","expires_at")); assertColumns(c,database,"settlement_addon_refunds",List.of("refund_reference","case_reference","bill_reference","channel_booking_reference","amount_vnd","currency_code","reason","manager_actor_reference","created_at","updated_at")); assertColumns(c,database,"settlement_ticket_mland_remedies",List.of("replacement_session_references","replacement_options","selected_replacement_session_reference")); assertColumns(c,database,"settlement_ticket_change_requests",List.of("request_reference","idempotency_key","ticket_code","status","blocked_rules","expires_at","decision_reason","decided_by_account_id","decision_idempotency_key","applied_change_reference")); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('146','147','148') AND success=1")).isEqualTo(3);} }
+        try (support) { String database=support.createDatabase(); MigrateResult result=support.flyway(database,null).migrate(); assertThat(result.success).isTrue(); assertThat(result.migrations).extracting(m->m.version).contains("17","18","30","44","45","47","96","98","99","151","152","153","155"); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='44' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='96' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='98' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='99' AND success=1")).isEqualTo(1); assertColumns(c,database,"payment_owner_registrations",List.of("provider_create_date")); assertColumns(c,database,"settlement_evidence_conclusions",List.of("provider_transaction_number","original_provider_create_date")); assertColumns(c,database,"settlement_refund_allocations",List.of("original_payment_reference","original_provider_transaction_number","original_provider_create_date","allocated_amount_vnd","bank_refund_reference"));assertColumnsAbsent(c,database,"settlement_refund_allocations",List.of("provider_refund_transaction_number","provider_response_code","provider_transaction_type","provider_transaction_status","provider_accepted_at","last_query_at")); assertTablesAbsent(c,database,List.of("settlement_refund_policy_revisions","settlement_refund_policy_snapshots","settlement_booking_mland_refund_policy_snapshots","settlement_final_payment_attempts","settlement_customer_cancellation_snapshots","settlement_mland_remedy_snapshots")); assertColumns(c,database,"settlement_folio_corrections",List.of("correction_reference","case_reference","booking_reference","bill_reference","amount_vnd","currency_code","reason","manager_actor_reference","created_at","updated_at")); assertColumns(c,database,"settlement_ticket_mland_remedies",List.of("replacement_session_references","replacement_options","selected_replacement_session_reference")); assertColumns(c,database,"settlement_ticket_change_requests",List.of("request_reference","idempotency_key","ticket_code","status","blocked_rules","expires_at","decision_reason","decided_by_account_id","decision_idempotency_key","applied_change_reference")); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('146','147','148') AND success=1")).isEqualTo(3);} }
     }
     /**
      * 003.3 T144, T133, T135 (V170, V171, V172): the cash-reversal table, the branch/method/status/confirmed_at index of
@@ -115,6 +115,45 @@ class WorkshopSettlementMigrationIT {
                         + "AND lifecycle_status='FINALIZED'")).isEqualTo(1);
             }
         }
+    }
+
+    /**
+     * V203 removes the OTA objects. It refuses, before changing anything, a schema that still holds shared or money
+     * rows of the removed OTA flow, and drops every OTA table once they are gone.
+     */
+    @Test void v203RefusesLeftoverOtaMoneyRowsThenDropsEveryOtaObject() throws Exception {
+        MigrationTestSupport support = configuredSupport(); if (support == null) return;
+        try (support) {
+            String database = support.createDatabase();
+            support.flyway(database, "202").migrate();
+            try (Connection c = support.databaseConnection(database); Statement s = c.createStatement()) {
+                s.executeUpdate("INSERT INTO settlement_addon_bills (bill_reference,channel_booking_reference,"
+                        + "quote_reference,item_code,item_description,amount_minor,currency_code,"
+                        + "customer_consent_reference,staff_actor_reference,lifecycle_status,created_at) VALUES "
+                        + "('BILL-V203','CHB-1','Q-1','ITEM','Item',1000,'VND','C-1','STAFF-1','OPEN',CURRENT_TIMESTAMP(6))");
+            }
+            assertThatThrownBy(() -> support.flyway(database, null).migrate())
+                    .hasMessageContaining("ck_v203_no_leftover_ota_rows");
+            try (Connection c = support.databaseConnection(database); Statement s = c.createStatement()) {
+                assertThat(count(c, otaTables(database))).isEqualTo(21);
+                s.executeUpdate("DELETE FROM settlement_addon_bills");
+            }
+            support.flyway(database, null).repair();
+            assertThat(support.flyway(database, null).migrate().success).isTrue();
+            try (Connection c = support.databaseConnection(database)) {
+                assertThat(count(c, otaTables(database))).isZero();
+                assertColumnsAbsent(c, database, "attendance_tickets", List.of("sales_channel"));
+                assertThat(count(c, "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='" + database
+                        + "' AND table_name='settlement_refund_requests' AND column_name='reason' "
+                        + "AND column_type LIKE '%OTA%'")).isZero();
+            }
+        }
+    }
+
+    private static String otaTables(String database) {
+        return "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='" + database + "' AND ("
+                + "table_name LIKE 'ota\\_%' OR table_name LIKE 'settlement\\_addon\\_%' "
+                + "OR table_name='workshop_session_ota_snapshots')";
     }
 
     private static MigrationTestSupport configuredSupport(){var s=MigrationTestSupport.fromEnvironment(); Assumptions.assumeTrue(s.isPresent(),"Requires WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated local MySQL migration evidence"); return s.orElseThrow();}

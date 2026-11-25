@@ -65,6 +65,5 @@ disabled until all applicable inputs/evidence are approved.
 
 `paymentintegration` owns inbound checksum verification, deduplication, and
 owner-qualified dispatch. 003.1 consumes only verified `DEPOSIT` evidence;
-003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence (`SHOP_ADDON`
-has no producer since 2026-11-25, OTA removed). Neither feature
+003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence. Neither feature
 owns provider credentials or may expose a second callback endpoint.

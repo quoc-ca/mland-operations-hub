@@ -140,8 +140,8 @@ class FacadeOperationsMySqlIT {
     void completeCancellationWaitsForEveryTicket() {
         WorkshopSession session = session(SessionState.CANCELLATION_REQUESTED, 10, 3);
         String booking = "BK-" + UUID.randomUUID();
-        AttendanceTicket first = ticket(booking, 1, TicketSalesChannel.DIRECT, session);
-        AttendanceTicket second = ticket(booking, 2, TicketSalesChannel.DIRECT, session);
+        AttendanceTicket first = ticket(booking, 1, session);
+        AttendanceTicket second = ticket(booking, 2, session);
         CancellationHandoff handoff = handoffRepository.saveAndFlush(CancellationHandoff.builder()
                 .session(session).requesterId(1L).reasonCode("MLAND_CANCEL")
                 .cancellationCaseReference("CASE-" + UUID.randomUUID()).build());
@@ -186,7 +186,7 @@ class FacadeOperationsMySqlIT {
         assertThat(refused.reason()).isEqualTo(RejectionReason.INVALID_STATE);
         assertThat(stateOf(published)).isEqualTo(SessionState.PUBLISHED);
 
-        AttendanceTicket ticket = ticket("BK-" + UUID.randomUUID(), 1, TicketSalesChannel.DIRECT, empty);
+        AttendanceTicket ticket = ticket("BK-" + UUID.randomUUID(), 1, empty);
         openCheckIn(empty);
         assertThatThrownBy(() -> checkInService.checkIn("Bearer x", empty.getReference(),
                 CheckInRequest.builder().ticketCode(ticket.getTicketCode()).build()))
@@ -204,7 +204,7 @@ class FacadeOperationsMySqlIT {
         WorkshopSession second = session(SessionState.PUBLISHED, 10, 3);
         WorkshopSession third = session(SessionState.PUBLISHED, 10, 4);
         String booking = "BK-" + UUID.randomUUID();
-        AttendanceTicket ticket = ticket(booking, 1, TicketSalesChannel.DIRECT, attended, second, third);
+        AttendanceTicket ticket = ticket(booking, 1, attended, second, third);
         TicketSessionEntitlement record = entitlementRepository.findByTicketIdAndSessionId(ticket.getId(), attended.getId()).orElseThrow();
         record.setAttendanceState(AttendanceState.CHECKED_IN);
         record.setCheckedInAt(Instant.now().minusSeconds(3600));
@@ -277,7 +277,7 @@ class FacadeOperationsMySqlIT {
     @DisplayName("T134: cancelTicket replayed after the ledger row was cleaned up is REJECTED and releases nothing")
     void cancelTicketReplayAfterCleanup() {
         WorkshopSession session = session(SessionState.PUBLISHED, 10, 3);
-        AttendanceTicket ticket = ticket("BK-" + UUID.randomUUID(), 1, TicketSalesChannel.DIRECT, session);
+        AttendanceTicket ticket = ticket("BK-" + UUID.randomUUID(), 1, session);
         String opRef = "op-t134-" + UUID.randomUUID();
         assertThat(cancel(ticket, opRef).status()).isEqualTo(OutcomeStatus.ACCEPTED);
         int seatsAfter = remaining(session);
@@ -324,21 +324,6 @@ class FacadeOperationsMySqlIT {
         assertThat(remaining(session)).isEqualTo(seatsAfterRelease);
         assertThat(holdRepository.findByReference(other.holdReferences().getFirst().toString()).orElseThrow().getState())
                 .isEqualTo(CapacityHoldState.RELEASED);
-    }
-
-    // ---------------------------------------------------------------- T123
-
-    @Test
-    @DisplayName("T123: cancelTicket still refuses an OTA ticket for a general caller (FR-036)")
-    void otaTicketStillRefusedByCancelTicket() {
-        WorkshopSession session = session(SessionState.PUBLISHED, 10, 3);
-        AttendanceTicket ota = ticket("OTA-" + UUID.randomUUID(), 1, TicketSalesChannel.OTA, session);
-
-        TicketCancellationOutcome outcome = cancel(ota, "op-" + UUID.randomUUID());
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(outcome.reason()).isEqualTo(RejectionReason.OTA_TICKET_NOT_SUPPORTED);
-        assertThat(validity(ota)).isEqualTo(TicketValidityState.ACTIVE);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -447,13 +432,12 @@ class FacadeOperationsMySqlIT {
                 .checkInOpensAt(start.minusSeconds(1800)).capacity(capacity).state(state).build());
     }
 
-    private AttendanceTicket ticket(String booking, int sequenceNumber, TicketSalesChannel channel,
+    private AttendanceTicket ticket(String booking, int sequenceNumber,
                                     WorkshopSession... sessions) {
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase();
         AttendanceTicket ticket = AttendanceTicket.builder()
                 .bookingReference(booking).ticketSequence(sequenceNumber).ticketCode("S4-" + suffix)
                 .qrReference("QR-" + UUID.randomUUID()).validityState(TicketValidityState.ACTIVE).build();
-        ticket.setSalesChannel(channel);
         AttendanceTicket saved = ticketRepository.saveAndFlush(ticket);
         for (WorkshopSession session : sessions) {
             entitlementRepository.save(TicketSessionEntitlement.builder().ticket(saved).session(session)

@@ -109,11 +109,6 @@ public class TicketSessionReplacementService {
             ReplaceTicketSessionsCommand.Line line = command.lines().get(i);
             AttendanceTicket ticket = tickets.get(line.ticketReference());
             AttendanceTicket locked = ticketRepository.findByReferenceWithLock(ticket.getReference()).orElse(null);
-            if (locked != null && locked.getSalesChannel() == TicketSalesChannel.OTA) {
-                failing.add(i);
-                reason = RejectionReason.OTA_TICKET_NOT_SUPPORTED; // FR-036 outranks any other line's reason
-                continue;
-            }
             if (locked == null || locked.getValidityState() != TicketValidityState.ACTIVE) {
                 failing.add(i);
                 reason = reason == null ? RejectionReason.INVALID_STATE : reason;

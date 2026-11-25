@@ -1120,7 +1120,7 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-tickets/{ticketCode}/change-option-lookups:
     post:
@@ -1151,7 +1151,7 @@ paths:
         '200': {description: Options of the ticket, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOptions'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '429': {description: 'Rate limit of the 003.1 group lookup reached; retry later', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}/ticket-changes:
@@ -1478,8 +1478,8 @@ components:
         groupCode: {type: string, nullable: true}
         source:
           type: string
-          description: The stored refund reason (decision 2026-11-13; the five values the backend persists; OTA_ADDON_OVERCHARGE has no producer since 2026-11-25).
-          enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY, OTA_ADDON_OVERCHARGE]
+          description: The stored refund reason (decision 2026-11-13; the four values the backend persists).
+          enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY]
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}

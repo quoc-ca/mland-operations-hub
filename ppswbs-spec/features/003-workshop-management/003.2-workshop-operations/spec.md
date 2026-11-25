@@ -261,10 +261,9 @@ through this section.
   cancellation. The audit event `RESCHEDULE_QUOTA_SET` records that text.
 - **FR-036** *(removed 2026-11-25 with OTA)*: formerly refused customer change,
   cancellation and QR reissue for OTA-origin tickets and defined the OTA-only
-  revocation operation (T123). The revocation operation is removed. The
-  `OTA_TICKET_NOT_SUPPORTED` refusal still exists in code for the retained
-  `sales_channel` column until the database decision
-  ([record](../ota-removal-2026-11-25.md)); it is not a product requirement.
+  revocation operation (T123). The revocation operation, the refusal reason
+  `OTA_TICKET_NOT_SUPPORTED` and column `attendance_tickets.sales_channel`
+  (dropped by Flyway V203) are removed ([record](../ota-removal-2026-11-25.md)).
 
 ## Package availability per location (owner request 2026-11-17)
 
@@ -1027,7 +1026,7 @@ T167.)*
   no new decision): → A: `applyVerifiedRefundConsequence` is marked superseded
   for every non-OTA caller and the shared rejection reasons gain the ticket
   reasons (facade contract); `OTA_TICKET_NOT_SUPPORTED` is the fixed name
-  (FR-036); "scoped Manager" wording is superseded by the global Manager
+  (FR-036; removed 2026-11-25); "scoped Manager" wording is superseded by the global Manager
   (US1, SC-001, FR-012b, two 2026-10-24 answers); booking lookup without an
   eligible ticket is one generic `404 RESOURCE_NOT_FOUND` (FR-003d); the
   permitted callers of each ticket command are listed (facade contract);

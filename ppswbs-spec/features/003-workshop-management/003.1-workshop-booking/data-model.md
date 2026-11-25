@@ -310,7 +310,10 @@ append-only migrations:
   until the open 003.3 decision of 2026-11-13; `booking_audit_evidence` and
   `booking_idempotency_records`, shared with the group flow.
 
-*(2026-11-25: OTA bookings, the reason for keeping rows and tables above, are removed. Applied migrations V132/V133 describe the schema as built; no table is dropped by this document change.)*
+*(2026-11-25: OTA bookings are removed. Flyway V203 deletes no `workshop_bookings`
+row and keeps these tables, which the 003.3 booking-wide settlement, the Loyalty
+single-booking source, reporting and reviews still read; it refuses to run while an
+`OTA-` booking row exists.)*
 
 ~~This document does not authorize a migration.~~ *(updated 2026-11-14: the group
 migrations V113–V128 and V132/V133 are already applied in dev/test, FR-043/FR-051;

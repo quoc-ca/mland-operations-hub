@@ -61,10 +61,6 @@ public class TicketCancellationService {
         if (ticket == null) {
             return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.TICKET_NOT_FOUND));
         }
-        if (ticket.getSalesChannel() == TicketSalesChannel.OTA) {
-            return finish(claim, TicketCancellationOutcome.rejected(ticketRef,
-                    RejectionReason.OTA_TICKET_NOT_SUPPORTED));
-        }
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
             return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));
         }

@@ -24,15 +24,31 @@ code, spec và report.
 - Còn lại và vẫn đúng: Mland là nguồn duy nhất về session và sức chứa; booking
   trực tiếp (booking group), vé, folio và hoàn tiền ngân hàng không đổi.
 
-## Dấu vết còn trong code và database (rà lại sau bước 3)
+## Database và code còn lại (bước 3, 2026-11-25)
 
-Đối chiếu bằng cách đọc working tree nhánh `quoc-remove-ota` ngày 2026-11-25
-(backend đang được sửa, chưa commit). **Chưa chốt** giữ hay xoá bảng/cột.
+Chủ sở hữu chốt xoá toàn bộ dấu vết OTA trong database, kèm code chỉ để đọc dữ
+liệu cũ. Flyway `V203__remove_ota_database_objects.sql` (**làm mất dữ liệu**).
 
-| Thứ còn lại | Ghi chú |
+| Đã xoá | Ghi chú |
 | --- | --- |
-| Các bảng `ota_*`, `workshop_session_ota_snapshots` (migration V19, V22–V29, V48–V51, V61, V68–V74, V186) | Không còn chức năng dùng; migration đã áp dụng không sửa |
-| `attendance_tickets.sales_channel` (V154), `TicketSalesChannel.OTA`; `cancelTicket`, `replaceTicketSessions`, `reissueTicketQr` và change options vẫn từ chối bằng `OTA_TICKET_NOT_SUPPORTED` | Guard cho dữ liệu cũ; không còn đường tạo vé OTA |
-| `settlement_addon_bills`, bảng payment attempt/refund của nó (V99); entity bill và attempt, nhánh `SHOP_ADDON` của VNPay ingress | Chỉ để ghi nhận bằng chứng cho bill đã tồn tại; không còn route tạo/thu/hoàn |
-| `RefundReason.OTA_ADDON_OVERCHARGE` (cột ENUM V122), case type `ADDON_REFUND` | Không còn nơi phát sinh mới |
-| Folio correction từ chối booking mã `OTA-` | Guard cho dữ liệu cũ |
+| 17 bảng `ota_*` và `workshop_session_ota_snapshots` | Xoá cả dữ liệu trong bảng |
+| `settlement_addon_bills`, `settlement_addon_payment_attempts`, `settlement_addon_refunds` (V99, cả cột `mland_booking_reference` của V104) | Chỉ phục vụ hoá đơn add-on của booking OTA; kèm entity, repository, payment kind `SHOP_ADDON` |
+| `attendance_tickets.sales_channel`, `TicketSalesChannel`, `OTA_TICKET_NOT_SUPPORTED` | Mọi vé đều do Mland bán |
+| Giá trị `OTA_ADDON_OVERCHARGE` của `settlement_refund_requests.reason`, case type `ADDON_REFUND` |  |
+| Guard folio correction với booking mã `OTA-` (`OTA_BOOKING_NOT_SUPPORTED`) | Folio không thuộc booking group vẫn trả 404 |
+
+V203 dừng trước khi thay đổi bất cứ thứ gì (lỗi
+`ck_v203_no_leftover_ota_rows`) nếu còn dòng vé OTA, refund/case/evidence của
+add-on OTA, hoá đơn add-on hoặc booking mã `OTA-`. Cách xử lý: sao lưu, tạo lại
+database local (hoặc tự quyết định với các dòng đó), xoá dòng 203 lỗi trong
+`flyway_schema_history` rồi chạy lại.
+
+**Giữ lại** (còn luồng không phải OTA dùng):
+
+- `workshop_bookings`, `booking_session_commitments` và các bảng booking đơn đi
+  kèm: 003.3 booking-wide settlement, nguồn Loyalty single-booking, báo cáo doanh
+  thu và điều kiện review còn đọc (V133, quyết định 003.3 còn mở).
+- Giá trị vé `REVOKED`, `REFUNDED` (V7): thuộc vòng đời vé chung, hiện không có
+  nơi phát sinh.
+- Migration đã áp dụng và biến môi trường test `WORKSHOP_OTA_TEST_JDBC_*`, tiền tố
+  schema `ppswbs_ota_migration_` (chỉ là tên cấu hình test).
