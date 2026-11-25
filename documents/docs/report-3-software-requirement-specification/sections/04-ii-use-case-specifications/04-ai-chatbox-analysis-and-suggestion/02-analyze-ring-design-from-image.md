@@ -1,4 +1,6 @@
-### 4.2 Analyze Ring Design from Image
+### 4.2 Analyze Ring Design from Image — Retired
+
+> Retired from the current baseline. Feature-004 no longer sends reference images to an AI provider. The current workflow is documented in `05-personalized-design-and-quote-workflow/04-submit-booking-design-image.md` and uses image-quality validation followed by Staff/Manager human review. The remaining legacy steps below are retained only for historical traceability and must not be implemented.
 
 > **Independent-flow update (2026-10-28):** This use case is now an independent
 > Feature-004 Design Request flow. The legacy workshop package/location/session/

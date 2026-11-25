@@ -40,7 +40,7 @@
 | 36 | Point History | Loyalty and Promotion Management | Allows Members to review their own point transactions (earned, held, spent, released and refunded) with their source and balance changes. |
 | 37 | My Saved Vouchers | Loyalty and Promotion Management | Allows Members to review their saved vouchers by scope, separated into usable and expired or unusable, and go to products or workshops to use them. |
 | 38 | My Ring Designs | Workshop Ring Design | Lists the workshop ring designs the Member has saved. |
-| 39 | Design Request Workspace | Personalized Design and Quote Workflow | Allows a Member, or a Guest within a daily limit, to upload reference images, receive quality feedback and submit a custom design request for human review. |
+| 39 | Design Request Workspace | Personalized Design and Quote Workflow | Allows an authenticated Member to upload up to five reference images, receive quality feedback and submit a custom design request for human review; a Guest sees a sign-in prompt. |
 | 40 | Design Request Details | Personalized Design and Quote Workflow | Allows the owner to follow a design request's status and read the reviewer's written decision. |
 | 41 | My Custom Orders | Custom Manufacturing | Lists the Member's custom manufacturing orders and their status. |
 | 42 | Custom Order Details | Custom Manufacturing | Displays one custom order with its approved quote, the full-payment request and its fulfilment progress. |

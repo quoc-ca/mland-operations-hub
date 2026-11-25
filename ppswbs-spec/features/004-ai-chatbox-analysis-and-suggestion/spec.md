@@ -68,9 +68,10 @@ At least one description or image is required. Each image is validated in the
 browser for type, size and readable quality, then revalidated by the backend.
 `TOO_BLURRY` blocks submission. The backend owns all quality thresholds.
 
-Feature-012 design attachment is optional. If supplied, only a Member-owned,
-readable design snapshot may be used; Feature-004 stores its own immutable
-snapshot and later edits to the source design do not alter the request.
+Feature-012 design attachment is optional. If supplied, it must belong to the
+current Member and be in any non-`ARCHIVED` state. Feature-004 stores its own
+immutable snapshot at submission time; later edits to the source design do not
+alter the request. An archived design cannot be attached.
 
 ## 4. Human review lifecycle
 

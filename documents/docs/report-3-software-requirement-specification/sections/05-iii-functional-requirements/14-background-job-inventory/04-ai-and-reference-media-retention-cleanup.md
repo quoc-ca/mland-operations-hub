@@ -6,7 +6,7 @@
 
 **Processing steps**
 
-1. Remove Gemini text data beyond the maximum 30-day retention and AI image input after processing.
+1. Remove Basic AI text data beyond the maximum 30-day retention.
 2. Identify eligible rejected/withdrawn references or references reaching their approved retention boundary; do not treat catalogue media as AI input.
 3. Delete eligible data/copies safely, retain minimized cleanup evidence and record failures for retry; unspecified storage controls remain TBD.
 
