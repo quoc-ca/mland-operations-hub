@@ -59,7 +59,7 @@ The account operation remains recorded, while the notification failure is record
 
 - A valid account is created or updated according to the confirmed operation.
 - The system records the acting Admin, change time, and applicable audit information.
-- This use case does not assign roles or change account lock status; those actions belong to UC8 and UC9.
+- This use case does not assign roles or change account lock status; those actions belong to UC7 and UC8.
 - Sensitive credentials are not displayed or written to ordinary logs.
 
 #### Business Rules

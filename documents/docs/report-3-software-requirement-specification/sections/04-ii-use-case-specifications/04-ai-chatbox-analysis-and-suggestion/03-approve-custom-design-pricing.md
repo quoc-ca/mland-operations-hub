@@ -1,4 +1,6 @@
-### 4.3 Approve Custom Design Pricing
+### 4.3 Approve Custom Design Pricing (Retired)
+
+> **Retired (confirmed 2026-11-25):** use case 35 is retired. AI price suggestion is no longer used; the Manager decides published prices without AI input (use case 15). The text below is kept only as history and must not be implemented.
 
 #### Primary Actors
 

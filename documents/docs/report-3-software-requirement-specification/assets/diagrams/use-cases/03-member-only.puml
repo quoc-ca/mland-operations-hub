@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title Member-only Use Cases
+title 4.3.2 Use Cases for Member
 left to right direction
 skinparam shadowing false
 skinparam usecase {
@@ -9,29 +9,72 @@ skinparam usecase {
   ArrowColor #5B5E67
 }
 
+actor Guest
 actor Member
 
-rectangle "Personalized Product Sales and Workshop Booking System" {
-  usecase "Register / sign in" as Account
-  usecase "View participation,\ntransaction and upcoming-event history" as History
-  usecase "Browse ready rings" as Browse
-  usecase "Purchase ready ring" as Purchase
-  usecase "Review retail order\nand full amount due" as OrderSummary
-  usecase "Initiate full retail payment" as RetailPayment
-  usecase "Choose pickup or\nthird-party handoff" as Delivery
+actor "SSO Provider" as SSO
+actor "Payment Gateway" as Pay
+actor Staff
+actor Manager
+
+rectangle "Mland Operations System" {
+  usecase "Change Password" as UC04
+  usecase "Manage Personal Profile" as UC05
+  usecase "Select Available Ring Model" as UC36
+  usecase "Configure Workshop Ring" as UC37
+  usecase "Chat with Staff Consultant" as UC38
+  usecase "Submit Custom Design Request" as UC39
+  usecase "View Custom Design Request Decision" as UC41
+  usecase "View Loyalty Point Balance" as UC42
+  usecase "View Loyalty Point History" as UC43
+  usecase "Redeem Loyalty Points" as UC44
+  usecase "Apply Voucher to Order or Booking" as UC48
+  usecase "Add Product to Cart" as UC52
+  usecase "Manage Shopping Cart" as UC53
+  usecase "Checkout Retail Order" as UC54
+  usecase "Pay for Retail Order" as UC55
+  usecase "View Purchase Order History" as UC56
+  usecase "View Order Details" as UC57
+  usecase "Submit Custom Order" as UC67
+  usecase "Pay Custom Order Quote" as UC69
+  usecase "View Custom Order" as UC70
+  usecase "Create or Edit Own Review" as UC75
 }
 
-Member --> Account
-Member --> History
-Member --> Browse
-Member --> Purchase
-Member --> Delivery
-Purchase .> OrderSummary : <<include>>
-Purchase .> RetailPayment : <<include>>
-Purchase .> Delivery : <<extend>>\n[full payment confirmed]
+' Member inherits every Guest use case (see 4.3.1), including Create Workshop Booking.
+Member --|> Guest
 
-note bottom of Purchase
-Only a Member may purchase a ready ring.
+Member --> UC04
+Member --> UC05
+Member --> UC36
+Member --> UC37
+Member --> UC38
+Member --> UC39
+Member --> UC41
+Member --> UC42
+Member --> UC43
+Member --> UC52
+Member --> UC53
+Member --> UC54
+Member --> UC56
+Member --> UC57
+Member --> UC67
+Member --> UC70
+Member --> UC69
+Member --> UC75
+
+UC54 ..> UC55 : <<include>>
+UC44 ..> UC54 : <<extend>>
+UC48 ..> UC54 : <<extend>>
+
+UC04 -- SSO
+UC55 -- Pay
+UC69 -- Pay
+UC38 -- Staff
+UC38 -- Manager
+
+note bottom of UC44
+Points and vouchers can also be applied
+to a workshop booking (Create Workshop Booking, 4.3.1).
 end note
 @enduml
-

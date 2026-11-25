@@ -10,49 +10,41 @@ None
 
 #### Description
 
-Allows the Manager to assign qualified Staff members as instructors or goldsmith facilitators for a workshop slot.
+Allows the Manager to revoke or restore the assignment of Staff to a workshop session. Active Staff of the location are assigned to its sessions automatically.
 
 #### Preconditions
 
-1. The Manager is authenticated and authorized.
-2. The workshop slot exists.
-3. Candidate Staff accounts are active and eligible for workshop operations.
-
+1. The Manager is authenticated and active.
+2. The session is Draft, Published, Sales Paused, or In Progress.
+3. The assignee is an active Staff account with the session location in scope.
 
 #### Postconditions
 
-- The selected Staff assignment is saved for the workshop slot.
-- The assignment is visible to authorized operational users.
-- Conflicting or inactive assignments are not saved.
+- The assignment change is saved with history and takes effect immediately on Staff access.
 
 #### Normal Flow
 
 **Assign Staff to Workshop Slot**
 
-1. The Manager opens a workshop slot.
-2. The system displays the current assignments and eligible Staff.
-3. The Manager selects one or more Staff members and their operational role.
-4. The system validates Staff status, role eligibility, time overlap, and assignment limits.
-5. The Manager confirms the assignment.
-6. The system saves the assignment and displays the updated slot.
+1. The Manager opens a session.
+2. The system displays the assigned Staff.
+3. The Manager assigns or revokes a Staff member.
+4. The system validates the Staff account, location scope, and session state.
+5. The system saves the change and records it.
 
 #### Alternative Flows
 
-**Step 3 — eligible Staff is available**
+**Step 4 — Staff is not eligible**
 
-The system informs the Manager and leaves the slot unassigned.
+The system rejects the assignment.
 
-**Step 4 — Staff has an overlapping assignment or is inactive**
+**Step 5 — Removing the last assignment after check-in has opened**
 
-The system rejects that assignment and identifies the conflict.
+The system asks for confirmation.
 
-**Step 5 — Manager removes an existing assignment**
+**Automatic assignment**
 
-The system removes it only after confirmation and records the change.
-
-**Step 6 — Save fails**
-
-The system displays an error and preserves the previous assignment state.
+The system assigns active in-scope Staff to new and existing sessions; an assignment the Manager revoked is never added back automatically.
 
 #### Business Rules
 
@@ -62,5 +54,5 @@ BR-22-01, BR-22-02
 
 | ID | Rule Definition |
 |---|---|
-| BR-22-01 | Only active Staff accounts with the required operational role may be assigned to a workshop slot. |
-| BR-22-02 | A Staff member must not be assigned to overlapping workshop slots unless an authorized exception is supported. |
+| BR-22-01 | Only an active Staff account with the location in scope may be assigned. There is no operational role, time-overlap check, or assignment limit. |
+| BR-22-02 | Only a Manager assigns or revokes Staff; assignment gives Staff access to the session. |

@@ -265,6 +265,7 @@ provider-specific contract, security review, and feature approval.
 | `paymentintegration` | Inbound integration | `GET /api/v1/integrations/payments/vnpay/events` | VNPay | UC-01, UC-04 | One HTTPS ingress verifies the signed VNPay callback once, deduplicates delivery, resolves immutable owner-qualified merchant reference, and dispatches redacted evidence to exactly one owner facade. It never confirms business state itself. Canonical contract: `features/003-workshop-management/contracts/vnpay-payment-ingress.openapi.yaml`. | Confirmed 003 boundary; provider configuration TBD |
 | `designreview` | Historical outbound integration port | `ImageFeatureAnalysisPort.analyse(...)` | AI Vision API | Historical UC-03 | Retired from the current Feature-004 contract. No current Feature-004 request sends an image to an AI provider or treats an AI response as a business decision. | Historical only |
 | `workshopbooking`, `readyringsales` | Outbound integration port | `NotificationDeliveryPort.send(...)` | Email Sender | UC-01, UC-04 | Send requested booking/order notifications without leaking tokens or unnecessary PII. | TBD dependency |
+| Google Maps/Places (Retired) | None | Google Maps Embed and Places display | Google Maps/Places | Not used; removed from V1 (confirmed 2026-11-25). Feature-011 reviews are Mland reviews, not Google reviews. | Retired |
 
 Provider selection, signing/authentication scheme, payload schema, retry and
 reconciliation policy, dead-letter handling, rate limits, operational ownership,

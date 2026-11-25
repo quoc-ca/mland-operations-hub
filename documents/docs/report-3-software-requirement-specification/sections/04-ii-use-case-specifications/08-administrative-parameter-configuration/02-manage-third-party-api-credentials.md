@@ -57,12 +57,12 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 
 #### Business Rules
 
-BR-55-01, BR-55-02, BR-55-03
+BR-63-01, BR-63-02, BR-63-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-55-01 | Only an authorized Admin may create, update, activate, deactivate, or rotate third-party integration credentials. |
-| BR-55-02 | Credentials must be stored securely, masked from ordinary display, and excluded from application logs and error messages. |
-| BR-55-03 | An integration must not be activated when its required credentials or endpoint validation fails. |
+| BR-63-01 | Only an authorized Admin may create, update, activate, deactivate, or rotate third-party integration credentials. |
+| BR-63-02 | Credentials must be stored securely, masked from ordinary display, and excluded from application logs and error messages. |
+| BR-63-03 | An integration must not be activated when its required credentials or endpoint validation fails. |

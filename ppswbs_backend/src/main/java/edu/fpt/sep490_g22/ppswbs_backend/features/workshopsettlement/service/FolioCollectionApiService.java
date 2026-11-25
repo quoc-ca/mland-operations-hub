@@ -111,13 +111,13 @@ public class FolioCollectionApiService {
         return response(cashCloses.findByReference(outcome.outcomeReference()));
     }
 
-    /** Manager home (013 R-3): Manager only; the number of cash-close differences awaiting confirmation. */
+    /** navigation shell and dashboard (014 R-3): Manager only; the number of cash-close differences awaiting confirmation. */
     public WaitingCountResponse countCashClosesAwaitingConfirmation(CurrentAccountActor actor) {
         authorization.requireManager(actor);
         return new WaitingCountResponse(cashCloses.countAwaitingConfirmation());
     }
 
-    /** Manager home (013 R-3): Manager only; the differences the count above counts, so the card equals the list. */
+    /** navigation shell and dashboard (014 R-3): Manager only; the differences the count above counts, so the card equals the list. */
     public java.util.List<CashCloseResponse> listCashClosesAwaitingConfirmation(CurrentAccountActor actor) {
         authorization.requireManager(actor);
         return cashCloses.listAwaitingConfirmation().stream().map(FolioCollectionApiService::response).toList();

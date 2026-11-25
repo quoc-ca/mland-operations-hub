@@ -5,7 +5,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { roleHomePath } from '../../shared/auth/roleHome';
 import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
-import { HomeBlocks } from '../managerhome';
+import { HomeBlocks } from './operations';
 import { useT } from '../../shared/i18n/I18nProvider';
 import RevenueReport from './RevenueReport';
 import { managerDashboardMessages } from './messages';
@@ -13,7 +13,7 @@ import '../../ota-connectivity/ota-connectivity.css';
 import './managerDashboard.css';
 
 /**
- * Manager dashboard (spec 013 and 010, navigation decision of 2026-11-22): today's operations, the month's revenue with
+ * Manager dashboard (spec 010 and 014, navigation decision of 2026-11-22): today's operations, the month's revenue with
  * the branch table, and recent events to look at, each loading and failing on its own. The waiting-work counts are
  * badges on the navigation rail. The role check is navigation only; the backend decides every permission.
  */

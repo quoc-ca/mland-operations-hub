@@ -10,7 +10,7 @@
 
 #### Description
 
-This use case allows a member to view the status and decision of their submitted custom design request. The system displays the reviewer decision, reason or note, estimated value, and the next available action without allowing the member to modify the recorded decision.
+This use case allows a member to view the status and decision of their submitted custom design request. The system displays the reviewer decision, the written explanation and the next available action without allowing the member to modify the recorded decision.
 
 #### Preconditions
 
@@ -25,8 +25,8 @@ This use case allows a member to view the status and decision of their submitted
 1. The member opens the custom design request history.
 2. The system retrieves requests belonging to the member.
 3. The member selects a request.
-4. The system displays the request inputs, status, reviewer decision, mandatory explanation, and timestamp.
-5. The system displays the next action, such as waiting, clarifying the request, contacting staff, or continuing to custom-order quote preparation.
+4. The system displays the request description, images and other inputs, status, reviewer decision, mandatory explanation, and timestamp.
+5. The system displays the next action, such as waiting, replying to a clarification, contacting Staff, or continuing to custom-order quote preparation and following the quote in the custom order.
 
 #### Alternative Flows
 

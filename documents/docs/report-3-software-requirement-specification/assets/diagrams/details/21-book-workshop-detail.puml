@@ -35,7 +35,7 @@ endif
 :Submit booking;
 |System|
 :Create Booking and Invoice;
-:Set required deposit to 50% of package price;
+:Set the collection of each ticket to its final price up to 200,000 VND;
 :Set booking status to payment pending;
 |Guest or Member|
 :Start deposit payment;

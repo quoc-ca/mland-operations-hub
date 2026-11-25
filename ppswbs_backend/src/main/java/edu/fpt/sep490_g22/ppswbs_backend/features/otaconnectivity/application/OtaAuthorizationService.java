@@ -42,42 +42,11 @@ public class OtaAuthorizationService {
         return account;
     }
 
-    /** Read safe channel and mapping status; connection credentials are never returned here. */
-    public AccountSummary requireChannelView(String authorization) {
-        AccountSummary actor = authenticate(authorization);
-        if (!isManager(actor) && !isAdmin(actor)) {
-            throw new OtaForbiddenException("Access requires an active Manager or Admin");
-        }
-        return actor;
-    }
-
-    /** Create mapping: an active Manager or Admin may configure mapping data globally. */
-    public AccountSummary requireMappingAdministration(String authorization) {
-        return requireChannelView(authorization);
-    }
-
+    /** Every 003.4 Manager action (FR-004b): an active Manager, globally. An Admin has no authority (CHK026). */
     public AccountSummary requireManager(String authorization) {
         AccountSummary actor = authenticate(authorization);
         if (!isManager(actor)) {
             throw new OtaForbiddenException("Access requires an active Manager");
-        }
-        return actor;
-    }
-
-    /** Reconciliation work is available to active Managers and Admins globally. */
-    public AccountSummary requireManagerOrAdmin(String authorization) {
-        AccountSummary actor = authenticate(authorization);
-        if (!isManager(actor) && !isAdmin(actor)) {
-            throw new OtaForbiddenException("Access requires an active Manager or Admin");
-        }
-        return actor;
-    }
-
-    /** Provider connection/credential changes and booking enablement are Admin-only. */
-    public AccountSummary requireAdmin(String authorization) {
-        AccountSummary actor = authenticate(authorization);
-        if (!isAdmin(actor)) {
-            throw new OtaForbiddenException("Access requires an active Admin");
         }
         return actor;
     }
@@ -126,10 +95,6 @@ public class OtaAuthorizationService {
 
     public boolean isStaff(AccountSummary actor) {
         return actor != null && actor.role() == ActorRole.STAFF;
-    }
-
-    public boolean isAdmin(AccountSummary actor) {
-        return actor != null && actor.role() == ActorRole.ADMIN;
     }
 
     private String extractBearerToken(String authorization) {

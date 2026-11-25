@@ -12,6 +12,7 @@ Only draft versions can be edited or activated; active and archived versions are
 
 | Field Name | Description |
 | --- | --- |
+| ← Quay lại danh sách mẫu thư | Returns to Notification Templates. |
 | Header | Template name, "Mã mẫu" and "Phân hệ", with **+ Tạo bản nháp mới** and **Làm mới**. |
 | Mô tả nghiệp vụ & Biến cho phép | Business description ("Không có mô tả." when empty) and the list of allowed placeholders. |
 | Version history | Columns Phiên bản, Trạng thái ("Đang áp dụng", "Bản nháp" or "Lưu trữ"), Tiêu đề email (Subject), Tạo bởi / Ngày tạo and Kích hoạt lúc. |

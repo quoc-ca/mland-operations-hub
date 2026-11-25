@@ -6,51 +6,50 @@ Manager
 
 #### Secondary Actors
 
-External Registration System
+None
 
 #### Description
 
-Allows the Manager to create, view, modify, or cancel workshop calendar sessions, shifts, and branch allocations.
+Allows the Manager to create workshop sessions, one at a time or in bulk, change their capacity and check-in opening, publish or pause them, and cancel them.
 
 #### Preconditions
 
-1. The Manager is authenticated and authorized.
-2. Branches, standard time slots, and required operational configuration are available.
-3. The requested schedule change is within the configured planning rules.
-
+1. The Manager is authenticated and active.
+2. The location has configured active time slots.
 
 #### Postconditions
 
-- The schedule is created or updated with its branch, date, session, and operational state.
-- Existing bookings are protected from an unsafe schedule change.
-- An enabled schedule update may be synchronized through UC27.
+- The session is stored with its location, date, slot, capacity, and state.
+- Existing tickets and holds are never silently invalidated.
 
 #### Normal Flow
 
 **Manage Workshop Schedule**
 
-1. The Manager opens workshop schedule management.
-2. The system displays existing schedules and their capacity/booking state.
-3. The Manager creates or selects a schedule.
-4. The Manager enters or edits the branch, date, session, and open/closed state.
-5. The system validates conflicts, exceptions, capacity configuration, and existing bookings.
-6. The Manager submits the change.
-7. The system saves the schedule and recalculates its public availability.
-8. The system records the change and queues an enabled Klook synchronization.
+1. The Manager opens the session management screen.
+2. The Manager creates one session, or generates sessions for a location, slots, date range, and weekdays, entering the capacity.
+3. The system validates the slot, the date, uniqueness, and the capacity.
+4. The system saves the sessions as Draft by default, or Published when chosen, and reports created and skipped sessions.
+5. The Manager changes the state or capacity of a session when needed.
+6. The system records an audit entry. Enabled partner availability is published automatically.
 
 #### Alternative Flows
 
-**Step 5 — Schedule conflicts or required configuration is missing**
+**Step 3 — Slot start is in the past or more than 90 days ahead**
 
-The system rejects the change and identifies the conflicting or missing data.
+The system rejects the creation.
 
-**Step 5 — Existing confirmed bookings would be invalidated**
+**Step 3 — A session already exists for the location, date, and slot**
 
-The system blocks the change or requires an authorized operational handling path before saving.
+Bulk generation skips it without overwriting; single creation is rejected.
 
-**Step 6 — Manager cancelsNo schedule change is saved.**
+**Step 5 — Change of date, slot, or location**
 
-**Step 8 — Klook synchronization failsThe Mland schedule remains the source-of-truth update and the failed synchronization is queued for retry.**
+The system refuses the change. The Manager cancels the session and creates another.
+
+**Step 5 — Cancellation of a session with confirmed tickets or live holds**
+
+The session moves to Cancellation Requested and is handed to ticket settlement. A session without them is cancelled directly.
 
 #### Business Rules
 
@@ -60,5 +59,5 @@ BR-21-01, BR-21-02
 
 | ID | Rule Definition |
 |---|---|
-| BR-21-01 | A schedule must identify one branch, date, and configured daily session and must not conflict with an active closure or another schedule. |
-| BR-21-02 | Mland remains the source of truth for workshop schedule and capacity even when updates are synchronized to Klook. |
+| BR-21-01 | A session is unique for its location, date, and configured slot. |
+| BR-21-02 | Only a Manager creates, changes, or cancels sessions. Mland is the source of truth for capacity. |

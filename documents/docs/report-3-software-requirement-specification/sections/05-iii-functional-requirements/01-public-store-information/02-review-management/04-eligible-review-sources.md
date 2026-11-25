@@ -2,18 +2,18 @@
 
 This screen allows Members to:
 
-- See their own checked-in workshop attendances and their own retail order lines from orders that were picked up or delivered.
-- Open Create Review for a source that has not been reviewed.
-- Open the existing review of a source they already reviewed; each source can be reviewed only once.
+- See the "Chưa đánh giá" tab with their own checked-in workshop attendances and picked-up or delivered retail order lines that have no review.
+- See the "Đã đánh giá" tab with their own reviews, open one, and edit it when the server allows.
+- Start a review: a workshop ticket opens Create Review; a retail line opens one screen that reviews every not yet reviewed product of that order.
 
-The screen requires sign-in and lists only the signed-in Member's own sources. It is opened from **Viết đánh giá** on the Public Review List.
+The screen is the signed-in Member's view of `/reviews` and lists only that Member's own sources. Each source can be reviewed only once.
 
 | Field Name | Description |
 | --- | --- |
-| Title | "Các sản phẩm, trải nghiệm có thể đánh giá". |
-| Source label | Name of the workshop session or retail product, or "Buổi trải nghiệm Workshop" / "Sản phẩm bán lẻ" when no label is given. |
-| Source reference | Reference of the attendance or order line. |
-| Badge | "Nguồn đã xác minh" for a reviewable source; "Đã viết đánh giá" when a review already exists. |
-| Viết đánh giá / Xem chi tiết | Opens Create Review for the source, or the Review Details of its existing review. |
-| Empty message | "Không có nguồn đủ điều kiện." when the Member has no eligible source. |
+| Title | "Đánh giá từ khách hàng". |
+| Tabs | "Chưa đánh giá" and "Đã đánh giá", each with its count. |
+| Filters | Review target on both tabs; sort order and star rating on "Đã đánh giá". |
+| Pending item | Source information, completion time and the review button. |
+| Reviewed item | Source information, the review card, a notice when the review is not public, and the edit button when allowed. |
+| Empty messages | Shown when a tab has nothing to list or no review matches the filters. |
 | Error message | Load failure shown with a reload action. |

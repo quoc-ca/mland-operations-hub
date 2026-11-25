@@ -2,13 +2,13 @@
 
 **Trigger:** After an enabled schedule/capacity change, confirmed booking or eligible retry.
 
-**Purpose:** Synchronize approved Mland workshop availability and confirmed-booking information with Klook.
+**Purpose:** Synchronize approved Mland workshop availability and booking and cancellation information with the configured OTA channels (Klook, GetYourGuide). Provider transport is not yet configured.
 
 **Processing steps**
 
 1. Load the committed authorized change and enabled integration contract.
 2. Send permitted availability or booking data, validate the response and record its outcome.
-3. Keep Mland capacity and accepted bookings authoritative on remote failure; retry policy is TBD. Do not consume Klook cancellation events.
+3. Keep Mland capacity and accepted bookings authoritative on remote failure; only a cancellation confirmed by the partner releases tickets and capacity.
 
 **Failure behavior**
 

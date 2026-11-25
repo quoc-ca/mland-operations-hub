@@ -1,4 +1,6 @@
-### 1.9 Configure Role-Based Access Control
+### 1.9 Configure Role-Based Access Control (Retired)
+
+> **Retired (confirmed 2026-11-25):** use case 9 is retired. The platform uses fixed roles only, with no configurable permissions, custom roles, multiple role assignment, RBAC administration or standalone role catalogue (Feature-001 FR-010). An Admin assigns a fixed role through use case 7. The text below is kept only as history and must not be implemented.
 
 #### Primary Actors
 
@@ -63,12 +65,12 @@ The system rolls back the incomplete update, displays an error, and preserves th
 
 #### Business Rules
 
-BR-10-01, BR-10-02, BR-10-03
+BR-RBAC-01, BR-RBAC-02, BR-RBAC-03
 
 #### Business Rule Definitions
 
 | ID       | Rule Definition                                                                                                                        |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| BR-10-01 | Only an authorized Admin may configure role-based access-control policies.                                                             |
-| BR-10-02 | Every permission must be assigned through a supported role and permission definition.                                                  |
-| BR-10-03 | The system must not save an RBAC change that removes all authorized administrative access or creates an invalid permission dependency. |
+| BR-RBAC-01 | Only an authorized Admin may configure role-based access-control policies.                                                             |
+| BR-RBAC-02 | Every permission must be assigned through a supported role and permission definition.                                                  |
+| BR-RBAC-03 | The system must not save an RBAC change that removes all authorized administrative access or creates an invalid permission dependency. |

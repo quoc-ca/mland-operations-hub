@@ -1,30 +1,39 @@
 @startuml
 !pragma charset UTF-8
-title Admin Technical Use Cases
+title 4.3.5 Use Cases for Admin
 left to right direction
 skinparam shadowing false
+skinparam packageStyle rectangle
 skinparam usecase {
   BackgroundColor #FCF9F8
   BorderColor #807663
   ArrowColor #5B5E67
 }
 
-actor "Admin Technical" as Admin
+actor Admin
 
-rectangle "Personalized Product Sales and Workshop Booking System" {
-  usecase "Configure approved\ntechnical settings" as Configure
-  usecase "Monitor integration\nhealth and technical logs" as Monitor
-  usecase "Review technical audit" as TechAudit
-  usecase "Record technical\nconfiguration audit event" as ConfigAudit
+rectangle "Mland Operations System" {
+  package "Account administration" {
+    usecase "Manage User Account" as UC6
+    usecase "Assign User Role" as UC7
+    usecase "Lock or Unlock User Account" as UC8
+  }
+  package "System configuration" {
+    usecase "Configure System Operational Parameters" as UC62
+    usecase "Manage Third-Party API Credentials" as UC63
+    usecase "Configure Custom Queue" as UC68
+  }
 }
 
-Admin --> Configure
-Admin --> Monitor
-Admin --> TechAudit
-Configure .> ConfigAudit : <<include>>
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC62
+Admin --> UC63
+Admin --> UC68
 
 note bottom of Admin
-Admin Technical cannot change invoices, payments, orders or other business records.
+Admin has technical and audit access only to business records
+and does not replace Staff or Manager decisions.
 end note
 @enduml
-

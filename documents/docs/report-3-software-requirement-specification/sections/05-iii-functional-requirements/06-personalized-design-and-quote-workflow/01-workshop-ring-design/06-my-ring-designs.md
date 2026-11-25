@@ -9,15 +9,16 @@ This screen allows signed-in Members to:
 - Switch to the "Yêu cầu chế tác" tab to see their own design requests with status and reviewer feedback.
 - Look up a design request by its code.
 
-The page requires sign-in; signed-in Carrier accounts are masked from this route.
+The page requires only sign-in.
 
 | Field Name | Description |
 | --- | --- |
 | Title | "Lịch sử thiết kế nhẫn của bạn" with a subtitle about saved designs and versions. |
 | Quick lookup | "Tra cứu nhanh yêu cầu custom bằng mã" input and **Tra cứu**; opens Design Request Details for the code, or shows an error when empty. |
-| Tabs | "Mẫu nhẫn Workshop" and "Yêu cầu chế tác"; the selected tab is kept in the page address. |
+| Tabs | "Mẫu nhẫn đã lưu" and "Yêu cầu chế tác"; the selected tab is kept in the page address. |
 | Design card | Design code, status badge, version, package and option summary, and estimated price. |
 | Design actions | **Xem chi tiết** opens Design Evaluation, **Chỉnh sửa** opens Ring Configuration, **Yêu cầu chế tác** opens Design Request Workspace with the design attached, **Xóa** opens the deletion dialog. |
+| "Hiển thị cả thiết kế đã xóa/lưu kho" | Check box on the ring design tab that also lists archived designs; an archived design shows **Khôi phục thiết kế** instead of **Xóa**, which returns it to the saved designs. |
 | Deletion dialog | "Xác nhận xóa mẫu thiết kế" with **Hủy** and **Đồng ý xóa**; shows an error if archiving fails. |
 | Request card | Request code, review status ("Đang đợi phản hồi của nhân viên", "Đã được chấp thuận", "Đã từ chối" or "Cần làm rõ thêm"), "(Đã có phản hồi)" when an explanation exists, description, and **Xem chi tiết →**. |
-| Empty states and pager | "Bạn chưa có mẫu thiết kế nào." with **Tạo mẫu nhẫn đầu tiên**, or "Bạn chưa gửi yêu cầu thiết kế tùy chỉnh nào." with a link to a new request; a pager when there are more than five items. |
+| Empty states and pager | "Bạn chưa có mẫu thiết kế nào." with **Tạo mẫu nhẫn đầu tiên**, or "Bạn chưa gửi yêu cầu thiết kế tùy chỉnh nào." with a link to a new request; a pager whenever the tab has items. |

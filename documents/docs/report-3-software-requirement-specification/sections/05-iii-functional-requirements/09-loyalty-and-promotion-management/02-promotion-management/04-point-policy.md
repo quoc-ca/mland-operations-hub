@@ -9,10 +9,10 @@ This screen allows Managers to:
 
 | Field Name | Description |
 | --- | --- |
-| Amount for 1 point (₫) | Whole-VND amount that earns one point. |
-| Value of 1 point (₫) | Whole-VND value of one point when spent. |
-| Minimum points per use | Smallest number of points that can be spent at once. |
-| Maximum % payable with points | Highest percentage of an order's value that points may cover. |
+| Amount for 1 point (₫) | Positive whole-VND amount that earns one point. |
+| Value of 1 point (₫) | Positive whole-VND value of one point when spent. |
+| Minimum points per use | Smallest number of points that can be spent at once; a positive whole number. |
+| Maximum % payable with points | Highest percentage of an order's value that points may cover; above 0 and at most 100. |
 | Rounding | Read-only rounding rule: Round down (drop fractions). |
 | Version | Read-only policy version and effective time. |
 | Edit | Opens the **Change policy** form with the four editable values and **Save** / **Cancel**; existing orders and history keep the policy they were accepted under. |

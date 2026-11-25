@@ -458,6 +458,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   contact email). Settlement asks 003.1 to consume the proof inside the
   cancellation transaction, so a failed cancellation does not use it up. A
   recipient cannot cancel.
+  *(Amended 2026-11-25, owner decision Hồ Hoàng Quốc: an active Manager may also cancel at the counter on the
+  buyer's behalf, with the same reason and buyer proof as Staff, channel STAFF. A paid-up `FINALIZED` ticket
+  that is still unused may be cancelled before its first session; its folio stays `FINALIZED`.)*
 - **FR-042**: The 24-hour mark before the ticket's first session decides
   benefits: cancelling at least 24 hours before is a **valid cancellation** and
   returns the ticket's used points; cancelling later still releases capacity
@@ -482,7 +485,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
 
 ### Mland cancellation per ticket
 
-- **FR-043**: When Mland cancels or moves a session, only tickets with that
+- **FR-043**: *(Amended 2026-11-25, owner decision Hồ Hoàng Quốc: besides the buyer, an in-scope Staff member or
+  a Manager may submit the buyer's choice at the counter with the same single-use buyer proof, channel STAFF.)*
+  When Mland cancels or moves a session, only tickets with that
   session are affected; a two-session ticket losing one session is handled as a
   whole ticket. Mland first offers every valid equivalent replacement (same package and
   branch, starting after the cancellation, with capacity and quota left, package

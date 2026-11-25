@@ -66,11 +66,11 @@ public interface WorkshopSessionRepository extends JpaRepository<WorkshopSession
     @Query("SELECT s FROM WorkshopSession s WHERE s.id IN :ids ORDER BY s.id")
     List<WorkshopSession> findByIdsWithLock(@Param("ids") Collection<Long> ids);
 
-    /** Manager home (013 R-1): sessions of one day, every state, optionally one location. */
+    /** navigation shell and dashboard (014 R-1): sessions of one day, every state, optionally one location. */
     @Query("SELECT COUNT(s) FROM WorkshopSession s WHERE s.workshopDate = :day AND (:locationId IS NULL OR s.location.id = :locationId)")
     long countOfDay(@Param("day") LocalDate day, @Param("locationId") Long locationId);
 
-    /** Manager home (013 R-1): sessions of one day in one state, optionally one location. */
+    /** navigation shell and dashboard (014 R-1): sessions of one day in one state, optionally one location. */
     @Query("SELECT COUNT(s) FROM WorkshopSession s WHERE s.workshopDate = :day AND s.state = :state AND (:locationId IS NULL OR s.location.id = :locationId)")
     long countOfDayInState(@Param("day") LocalDate day, @Param("state") SessionState state, @Param("locationId") Long locationId);
 }

@@ -9,7 +9,7 @@ This screen allows Guests and Members to:
 - See a live preview with top and side views, and a summary with the estimated weight.
 - Save with **Lưu & Thẩm định**, which creates the design on first save, stores a new version and opens Design Evaluation.
 
-The save button stays disabled while the configuration fails validation. Price and difficulty are advisory; the official amount follows the selected workshop package. A Guest may change only the local preview; Save/Evaluate prompts sign-in and creates no server state.
+Both save buttons stay disabled while the configuration fails validation. Price and difficulty are advisory; the official amount follows the selected workshop package. A Guest may only change the local preview: either save button sends a Guest to sign-in, saves nothing and creates no server state. Editing a saved design is for its owning Member.
 
 | Field Name | Description |
 | --- | --- |
@@ -21,3 +21,4 @@ The save button stays disabled while the configuration fails validation. Price a
 | 5. Khắc chữ & Hình ảnh cá nhân hóa | Text and symbol engraving for a one-time fee of 80,000 VND (at most 2 placements, 50 characters each, inner or outer band) and up to 2 laser images at 100,000 VND each, cropped to a 160 × 160 px black-and-white frame. A warning recommends inner-band engraving on textured bands. |
 | Preview and summary | Ring preview, "Bản nháp" status, "Giá tham khảo" badge, an unsaved-changes notice and a summary of material, shape, size, dimensions, estimated weight (standard 3.0 g; each extra gram adds 120,000 VND), stones and engraving. |
 | **Lưu & Thẩm định** | Saves and evaluates the design, then opens Design Evaluation; shows "Đang lưu & thẩm định..." while saving and the server error message if saving fails. |
+| **Lưu & Xem danh sách đã lưu** | Saves the design in the same way, then opens My Ring Designs. |

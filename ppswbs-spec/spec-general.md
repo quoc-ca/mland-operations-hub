@@ -149,8 +149,8 @@ The following system-level requirements summarize Report 2/3 and their [business
 
 ### Public store information
 
-* Store information is served from Mland-owned catalogue/location data. Google Maps/Places, Google review/rating display, and Google review links are outside V1.
-* Feature-011 may persist only Mland reviews whose target is a workshop session or retail product and whose source eligibility has been verified; it SHALL NOT collect branch/location reviews.
+* Google Maps Embed and Places are not used: store information is served from Mland-owned catalogue/location data, and V1 shows no Google map, place or rating content and opens no Google review link (removed; confirmed by Hồ Hoàng Quốc, 2026-11-25).
+* Mland SHALL NOT display, persist, submit or write Google reviews. Feature-011 may persist only Mland reviews whose target is a workshop session or retail product and whose source eligibility has been verified; it SHALL NOT collect branch/location reviews.
 
 ## 4. Non-functional Requirements
 
@@ -212,7 +212,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 * [ ] A verified Firebase UID provisions at most one Member; repeated sign-in retains business history, and provider/email claims cannot grant Mland roles or merge different UIDs.
 * [ ] An authorized independent Design Request passes image-quality validation and is reviewed by the policy-appropriate human role with a mandatory written explanation; its owner can view the outcome, and the request has no booking, payment, capacity, or session side effect.
 * [ ] Member retail checkout revalidates the whole cart and requires verified full payment before completing the sale; loyalty/voucher application follows configured limits.
-* [ ] A Member custom order follows the configured deadline/queue, Manager-approved quote, one-time verified full payment, and pickup/manual-handoff flow. It is not added to a retail cart.
+* [ ] A Member custom order follows the Manager-approved quote, one-time verified full payment, and pickup/manual-handoff flow. It is not added to a retail cart.
 * [ ] Workshop VNPay payment links and capacity holds share one absolute deadline of at most 10 minutes; invalid/duplicate callbacks cannot confirm twice, and Return URL cannot confirm payment.
 * [ ] Google Maps/Places and Google review/rating integration are absent from the V1 implementation; Klook capacity exchange respects Mland as source of truth; GHTK handoff is manual and no courier tracking is claimed.
 * [ ] Custom-design images, delivery-address, payment-reference, and audit data follow the specified retention periods; no card data is stored and the current Feature-004 flow sends no image to an AI provider.
@@ -224,7 +224,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 Guest / Member ──browse package, choose design path──► Workshop booking
 Workshop booking ──50% deposit / verified VNPay──► Confirmed booking
 Member ──independent Design Request──► Staff / Manager human review ──► Member views outcome
-Member ──separate custom order──► deadline + queue validation ──full quote payment──► production ──► pickup / manual GHTK handoff
+Member ──separate custom order──► deadline validation ──full quote payment──► production ──► pickup / manual GHTK handoff
 Member ──retail cart──► whole-cart validation ──full VNPay payment──► pickup / manual GHTK handoff
 Basic AI Support ──public FAQ/catalogue answer──► Guest / Member
 Mland ──availability / enabled booking updates──► Klook (Mland retains capacity authority)
@@ -239,7 +239,7 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 * Guest retail checkout, address book, shipping quote, GHTK API integration/tracking, delivery-failure processing, returns, in-system cancellation, and refunds. Customers seeking cancellation/refund contact the shop directly.
 * Mland-managed passwords/password hashes, Mland-signed JWTs, automatic same-email account merging, or granting business roles from provider claims.
 * AI-generated final designs, automated feasibility/price/accept/reject decisions for custom manufacturing, AI publication of prices, or a standalone notification centre.
-* External map/review-provider integration, branch/location reviews, or external review write-back; automatic processing of Klook cancellations. Mland workshop-session and retail-product reviews are covered by Feature-011.
+* Google Maps/Places display, external map/review-provider integration, Google or other external review persistence or write-back, branch/location reviews; automatic processing of Klook cancellations. Mland workshop-session and retail-product reviews are covered by Feature-011 and are not Google reviews.
 * Selecting Firebase Test Lab as the application testing strategy merely because Firebase is used; frontend/backend verification is chosen by the affected design.
 * Firebase Hosting production deployment, Hosting rewrites, Cloud Run/VPS selection, production database deployment, production custom domain, or a production Firebase project decision.
 

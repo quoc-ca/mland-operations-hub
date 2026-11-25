@@ -77,9 +77,9 @@ The card shows the normal price without an error.
 
 The system excludes the product from the next public read. An earlier page view does not grant the right to buy.
 
-**Quick Add Step 1 — Guest selects the cart button**
+**Quick Add Step 3 — Guest selects Add to cart or Buy now**
 
-The system sends the Guest to sign in and then returns to the product detail page with the choices already made.
+After a size and a branch are chosen, the system sends the Guest to sign in and then returns to the product detail page with the choices kept.
 
 **Quick Add Step 2 — Branch source is unavailable**
 

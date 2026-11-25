@@ -7,7 +7,7 @@ This screen allows Admins and Managers to:
 - Open a template's details to manage its content versions.
 - Reload the list.
 
-Only Admins and Managers can open the `/admin/notifications/*` pages; other signed-in roles are sent to the not-found page. Templates are registered by the system; this screen does not create or delete them.
+Only Admins and Managers can open the `/admin/notifications/*` pages; other signed-in roles see an access-denied message (Feature-007 asks for the not-found page). Templates are registered by the system; this screen does not create or delete them.
 
 | Field Name | Description |
 | --- | --- |

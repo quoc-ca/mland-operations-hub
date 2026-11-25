@@ -60,9 +60,9 @@ Display only an informational return and the recorded order state. Without verif
 
 Reject as settlement authority and safely retain actual processing outcome. Do not repair mismatches, assert paid or allow manual Staff/Admin paid overrides.
 
-**Steps 5 to 7 — Missing valid IPN while hold remains active**
+**Steps 5 to 7 — No valid IPN recorded**
 
-If no valid IPN records a final outcome and the original attempt/hold remains eligible, run signed QueryDR at minutes 10, 12 and 14 after checkout acceptance. Apply the same signature, reference, amount, transaction-status and deadline checks; API success alone is insufficient. Stop after a final outcome or hold expiry.
+When the 10-minute hold ends, signed QueryDR checks an opened but unconfirmed payment about every 5 minutes for 60 minutes. A verified failure or expiry releases the order; a verified success goes to the Manager reconciliation queue; a still unresolved payment is also queued. API success alone is insufficient.
 
 **Steps 6 to 8 — Duplicate, reordered or concurrent IPN/QueryDR evidence**
 
@@ -72,9 +72,9 @@ Preserve an already accepted sale and record a duplicate/no-change processing re
 
 Treat as a minimized payment exception for manual shop follow-up even if VNPay's payment timestamp or Mland's receipt was earlier. Place it in the Manager reconciliation queue. Never revive the hold, automatically mark an unpaid order paid, fulfil, settle a replacement order or refund automatically.
 
-**Step 7 — No timely accepted success at original minute 15**
+**Step 7 — No timely accepted success when the hold ends**
 
-Expire the unpaid order/hold and release unpaid quantity/eligible benefit reservations without sale deduction, point debit or compensating refund credit. Earlier evidence still awaiting completed verification does not extend eligibility. At the original expiry boundary reservations cease contributing to logical held availability. Expiry-state processing completes within 60 seconds in normal operating conditions; that tolerance grants no payment/hold extension. Verified settlement and release remain mutually exclusive.
+For a checkout with no payment started, or with a verified failure or expiry, expire the unpaid order and release the held quantities, voucher and points without sale deduction or compensating refund credit. Verified settlement and release remain mutually exclusive.
 
 **Steps 6 to 8 — Catalogue price change or unpublish after a valid hold**
 
@@ -86,7 +86,9 @@ Preserve established evidence and show safe pending/retry guidance without parti
 
 **Steps 6 and 7 — Verified definitive terminal failure before paid acceptance**
 
-A matched, verified definitive terminal failure ends the attempt and releases all unpaid quantity/benefit reservations once. Nonterminal/unknown outcomes do not qualify. Later success after release becomes an exception; reordered failure never undoes an accepted sale. A new checkout creates a new order/attempt after revalidation.
+A matched, verified definitive terminal failure ends the attempt; the unpaid quantity and benefit reservations are released once when the hold ends. Nonterminal/unknown outcomes do not qualify. Later success after release becomes an exception; reordered failure never undoes an accepted sale. A new checkout creates a new order/attempt after revalidation.
+
+> **Open difference (checked 2026-11-25):** Feature-008 requires an unpaid VNPay hold to expire at its 10-minute deadline. The current code keeps an opened payment without verified failure evidence in QueryDR recovery and then queues it for the Manager.
 
 #### Business Rules
 

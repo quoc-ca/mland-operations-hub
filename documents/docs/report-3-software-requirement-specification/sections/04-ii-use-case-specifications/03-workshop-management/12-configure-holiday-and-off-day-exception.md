@@ -1,5 +1,7 @@
 ### 3.12 Configure Holiday and Off-Day Exception
 
+> **Retired (confirmed 2026-11-25):** use case 30 is not part of the platform; no specification or implementation exists for it. The text below is kept only as history and must not be implemented.
+
 #### Primary Actors
 
 Manager

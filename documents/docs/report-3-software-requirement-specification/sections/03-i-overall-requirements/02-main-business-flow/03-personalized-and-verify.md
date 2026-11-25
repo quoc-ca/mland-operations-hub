@@ -2,7 +2,7 @@
 
 _Trigger_:
 
-- A Member starts the personalized design process by entering finger parameters and selecting materials and a ring-design method, such as choosing an available design, configuring a design manually, or submitting an independent design request for human review.
+- A Member starts the personalized design process by entering finger parameters and selecting materials and a ring-design method, such as choosing an available design, configuring a design manually, or submitting an independent custom design request with a description or reference images for human review.
 
 
 _End condition_:

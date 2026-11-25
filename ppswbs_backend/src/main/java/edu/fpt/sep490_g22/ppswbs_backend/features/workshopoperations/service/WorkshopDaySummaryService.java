@@ -15,7 +15,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 
 /**
- * Manager home (013 R-1, T023): read-only counts for one Vietnam day. Manager only. "Sessions" counts every session of
+ * navigation shell and dashboard (014 R-1, T023): read-only counts for one Vietnam day. Manager only. "Sessions" counts every session of
  * the day in any state (the same set the session list returns for that day), "cancelled" those in state CANCELLED;
  * "expected" and "checked in" count people holding a valid ticket for the sessions that are not cancelled (the same
  * people the attendance roster lists), never the sessions' capacity. Writes nothing and writes no audit row.

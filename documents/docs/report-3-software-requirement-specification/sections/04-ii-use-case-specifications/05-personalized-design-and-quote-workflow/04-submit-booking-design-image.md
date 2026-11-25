@@ -1,4 +1,4 @@
-### 5.4 Submit Independent Design Request Images
+### 5.4 Submit Custom Design Request
 
 #### Primary Actors
 
@@ -10,55 +10,72 @@
 
 #### Description
 
-This use case allows a Member to submit up to five reference images as part of an independent custom design request. The system validates image quality and consent, stores the images securely for the approved human-review workflow, and does not send them to an AI provider.
+This use case allows a Member to submit a custom design request with a description, up to five reference images, and/or a saved ring design of their own. The system validates image quality and consent and stores the images securely. The request is reviewed by Staff or a Manager. It is not attached to a workshop booking, no AI assesses it, and its images are not sent to an AI provider.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The Member is creating or revising an independent design request.
-3. The member has provided the required consent for image processing.
-4. The uploaded file complies with the supported file type and size limits.
+1. The Member is signed in and the account is active.
+2. The request has at least one of: a description, a reference image, or a saved ring design owned by the Member.
+3. When images are attached, the Member has consented to image processing.
+4. Each attached image complies with the supported file type and size limits.
 
 #### Normal Flow
 
-**Submit Booking Design Image**
+**Submit Custom Design Request**
 
-1. The Member opens the image submission function from the independent design-request workspace.
-2. The system displays the image-processing consent and upload requirements.
-3. The member grants consent and selects a reference image.
-4. The system validates Member ownership, consent, file type, file size, image quality, and the five-image limit.
-5. The system uploads the image to the Cloud Storage Service.
-6. The system creates or updates the independent design request.
-7. The system routes the request to Staff or Manager human review.
-8. The system displays the submission status to the Member.
+1. The Member opens the custom design request form in the design request workspace.
+2. The system displays the description field, the saved-design choice, the image requirements and the image-processing consent.
+3. The Member enters a description, attaches a saved design and/or selects reference images, and gives consent for any image.
+4. The system checks each image's type, size and readable quality and shows the result.
+5. The Member submits the request.
+6. The system revalidates the account, ownership, consent, content, images (at most five) and submission rate limit.
+7. The system stores the images in the Cloud Storage Service and, for an attached design, an immutable snapshot of it.
+8. The system creates the request with status Need Review, routes it to Staff or Manager human review and shows it to the Member.
 
 #### Alternative Flows
 
+**Step 1 — Actor is a Guest**
+
+The system asks the Guest to sign in and creates nothing. Staff and Managers cannot submit a request as a customer.
+
 **Step 3 — Consent is not granted**
 
-1. The member does not grant the required consent.
-2. The system cancels the submission and does not store or analyze the image.
+The system does not accept or store the images.
 
-**Step 4 — Invalid file**
+**Step 4 — Invalid or blurry image**
 
-1. The file type, size, or content does not meet the upload requirements.
-2. The system rejects the file and asks the member to select another image.
+The system rejects an unsupported, too large or too blurry image and asks the Member to replace it.
 
-**Step 4 — Invalid ownership or request state**
+**Step 6 — Empty request, more than five images or description too long**
 
-1. The request is not owned by the Member or is no longer editable.
-2. The system rejects the request and does not create or update the design request.
+The system rejects the request and shows the reason.
 
-**Step 4 — Image limit reached**
+**Step 6 — Image submission rate limit reached**
 
-1. The Member has attached five images.
-2. The system informs the Member and prevents another image from being added.
+The system rejects the request temporarily and shows when the Member may retry.
+
+**Step 6 — Duplicate submission**
+
+A repeated submission returns the original request and creates no second one.
+
+**Step 7 — Storage failure**
+
+The system creates no request and asks the Member to retry.
+
+**Step 3 — Image limit reached**
+
+When five images are attached, the system informs the Member and prevents another image from being added.
+
+**Revision — Invalid ownership or request state**
+
+The system rejects a revision of a request that the Member does not own or that is not in Clarification Required, and does not update the request.
 
 #### Postconditions
 
-- A valid reference image is stored securely and linked to the Member's independent design request.
-- The request enters human review and can be accepted, rejected, or returned for clarification.
-- The image is not treated as an automatic manufacturing order or final quotation.
+- A valid request with status Need Review exists, owned by the Member; human review can accept it, reject it or return it for clarification.
+- Any reference image is stored securely and linked to the request.
+- Later edits to the source ring design do not change the snapshot.
+- No booking, payment, quotation or manufacturing order is created; an image is not treated as an automatic manufacturing order or final quotation.
 
 #### Business Rules
 
@@ -70,7 +87,6 @@ This use case allows a Member to submit up to five reference images as part of a
 
 | ID | Rule Definition |
 |---|---|
-| BR-35-01 | Image processing requires the Member's purpose-specific consent before storage or human review. |
-| BR-35-02 | The submitted image must be linked to an editable independent design request owned by the Member. |
-| BR-35-03 | Image quality validation is a submission gate; Staff or Manager, not AI, decides feasibility and review outcome. |
-
+| BR-35-01 | Reference images require the Member's purpose-specific consent before they are stored or reviewed. |
+| BR-35-02 | Only an active signed-in Member may submit a request, with a description, up to five images and/or a saved ring design that the Member owns; only the owning Member may revise it, while it is in Clarification Required. |
+| BR-35-03 | Image quality validation is a submission gate. No AI assesses the request or its images, decides feasibility or sets a price; Staff or a Manager decides feasibility and the review outcome. |

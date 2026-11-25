@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GROUPS, isShellPath, locate, pageActions, pageTitle, tabKey, tabLabel, visibleGroups, visibleTabs } from './navModel';
 
-// Every link of the old sidebar (spec 013, decision of 2026-11-22: no menu item is dropped).
+// Every link of the old sidebar (spec 014, decision of 2026-11-22: no menu item is dropped).
 const OLD_MANAGER_LINKS = [
   '/manager/dashboard', '/catalogue-management/products', '/catalogue-management/categories',
   '/promotion-management/programs', '/promotion-management/point-policy',

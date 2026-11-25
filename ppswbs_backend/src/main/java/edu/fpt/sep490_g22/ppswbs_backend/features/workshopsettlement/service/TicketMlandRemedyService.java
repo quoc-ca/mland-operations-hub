@@ -109,7 +109,7 @@ public class TicketMlandRemedyService {
         }
 
         SettlementFinalBill bill = bills.findByBookingReference(ticket).orElse(null);
-        if (bill == null || !SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+        if (bill == null || !isRemediable(bill)) {
             throw new WorkshopSettlementConflictException("FINAL_BILL_NOT_OPEN");
         }
 
@@ -197,7 +197,7 @@ public class TicketMlandRemedyService {
             return sameCancellation.get();
         }
         SettlementFinalBill bill = bills.findByBookingReference(ticket).orElse(null);
-        if (bill == null || !SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+        if (bill == null || !isRemediable(bill)) {
             throw new WorkshopSettlementConflictException("FINAL_BILL_NOT_OPEN");
         }
         var pending = remedyRepository.findByTicketCodeAndOutcome(ticket, "PENDING_ANSWER");
@@ -250,8 +250,14 @@ public class TicketMlandRemedyService {
             return true;
         }
         return bills.findByBookingReference(ticket)
-                .map(bill -> SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus()))
+                .map(TicketMlandRemedyService::isRemediable)
                 .orElse(false);
+    }
+
+    /** FR-043: an OPEN or FINALIZED folio gets the Mland remedy; a CLOSED one has nothing left to remedy. */
+    private static boolean isRemediable(SettlementFinalBill bill) {
+        return SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())
+                || SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(bill.getLifecycleStatus());
     }
 
     /** The current Mland offer of a ticket for the buyer, Staff or Manager (T112): every session and its state. */
