@@ -13,6 +13,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.Set
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementAuthorizationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.WorkshopSettlementValidationException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -47,18 +49,32 @@ public class RefundRequestController {
     private final SettlementIdempotencyService idempotency;
     private final RefundCounterEntryAuthorizer counterEntry;
     private final RefundReceiptImageService receiptImages;
+    private final WorkshopOperationsSettlementAdapter operations;
+    private final WorkshopBookingSettlementAdapter booking;
 
     @Autowired
     public RefundRequestController(BankRefundService bankRefunds,
                                    WorkshopSettlementAuthorizationService authorization,
                                    @Autowired(required = false) SettlementIdempotencyService idempotency,
                                    RefundCounterEntryAuthorizer counterEntry,
-                                   RefundReceiptImageService receiptImages) {
+                                   RefundReceiptImageService receiptImages,
+                                   WorkshopOperationsSettlementAdapter operations,
+                                   WorkshopBookingSettlementAdapter booking) {
         this.bankRefunds = bankRefunds;
         this.authorization = authorization;
         this.idempotency = idempotency;
         this.counterEntry = counterEntry;
         this.receiptImages = receiptImages;
+        this.operations = operations;
+        this.booking = booking;
+    }
+
+    public RefundRequestController(BankRefundService bankRefunds,
+                                   WorkshopSettlementAuthorizationService authorization,
+                                   SettlementIdempotencyService idempotency,
+                                   RefundCounterEntryAuthorizer counterEntry,
+                                   RefundReceiptImageService receiptImages) {
+        this(bankRefunds, authorization, idempotency, counterEntry, receiptImages, null, null);
     }
 
     public enum RefundTransition {APPROVE, RECORD_TRANSFER, CONFIRM_REFUNDED, CLOSE_UNREACHABLE, REOPEN, RETURN_TO_PENDING_ACCOUNT}
@@ -124,8 +140,11 @@ public class RefundRequestController {
     public List<RefundRequestResponse> list(
             @RequestParam(required = false) RefundRequestStatus status,
             Authentication authentication) {
-        authorization.requireManager(actor(authentication));
+        CurrentAccountActor current = authorization.requireManagerOrAnyStaff(actor(authentication));
         List<SettlementRefundRequest> rows = bankRefunds.list(status);
+        if (current.role() == edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole.STAFF) {
+            rows = rows.stream().filter(row -> isAssignedTicketRefund(current, row)).toList();
+        }
         Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
                 rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
         return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
@@ -139,11 +158,14 @@ public class RefundRequestController {
     public List<RefundRequestResponse> listWaiting(
             @RequestParam(required = false) RefundRequestStatus status,
             Authentication authentication) {
-        authorization.requireManager(actor(authentication));
+        CurrentAccountActor current = authorization.requireManagerOrAnyStaff(actor(authentication));
         if (status != null) {
             throw new WorkshopSettlementValidationException("WAITING_AND_STATUS_EXCLUSIVE");
         }
         List<SettlementRefundRequest> rows = bankRefunds.listWaiting();
+        if (current.role() == edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole.STAFF) {
+            rows = rows.stream().filter(row -> isAssignedTicketRefund(current, row)).toList();
+        }
         Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
                 rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
         return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
@@ -201,6 +223,7 @@ public class RefundRequestController {
             Authentication authentication) {
         requireIdempotencyKey(idempotencyKey);
         CurrentAccountActor actor = counterEntry.requireCounterEntry(actor(authentication), refundId);
+        requireAssignedTicketRefund(actor, refundId);
         String correlation = correlation(correlationId);
         if (idempotency == null) {
             return RefundRequestResponse.of(bankRefunds.submitAccountAtCounter(refundId, request.bankCode(),
@@ -228,6 +251,7 @@ public class RefundRequestController {
             Authentication authentication) {
         requireIdempotencyKey(idempotencyKey);
         CurrentAccountActor actor = authorization.requireManagerOrAnyStaff(actor(authentication));
+        requireAssignedTicketRefund(actor, refundId);
         String correlation = correlation(correlationId);
         if (idempotency == null) {
             bankRefunds.resendAccountLink(refundId, actor.accountId(), correlation);
@@ -287,5 +311,21 @@ public class RefundRequestController {
             return resolved;
         }
         throw new WorkshopSettlementAuthorizationException("ACTIVE_ACCOUNT_REQUIRED");
+    }
+
+    private void requireAssignedTicketRefund(CurrentAccountActor actor, String refundId) {
+        if (actor.role() != edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole.STAFF
+                || operations == null) return;
+        SettlementRefundRequest refund = bankRefunds.require(refundId);
+        if (!isAssignedTicketRefund(actor, refund)) {
+            throw new WorkshopSettlementAuthorizationException("SESSION_ASSIGNMENT_REQUIRED");
+        }
+    }
+
+    private boolean isAssignedTicketRefund(CurrentAccountActor actor, SettlementRefundRequest refund) {
+        if (refund.getBookingReference() == null || operations == null || booking == null) return false;
+        return booking.getTicketFolioContext(refund.getBookingReference())
+                .map(ticket -> operations.staffAssignedToBooking(actor.accountId(), ticket.lineReference()))
+                .orElse(false);
     }
 }
