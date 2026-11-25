@@ -331,43 +331,7 @@ Dữ liệu đầu ra của Phase 2 bàn giao cho **JOURNEY-PHASE-3**:
 
 ## 7. Mẫu Báo cáo Hiện tượng Bất thường (Unexpected Finding Template)
 
-```
-
----
-
-## 8. Kết quả Thực thi Kiểm thử Thực tế (Execution History)
-
-<!-- EXECUTION:START -->
-- Latest status: PASS (có 1 lỗi Hạ tầng / Redirect ngrok)
-- Executed at: 2026-11-17 19:04:30
-- Executed by: Senior QA & System Verification Engineer
-- Browser tools: 
-  + Client (Browser 1): Chrome (Profile `minikie456`)
-  + Backstage (Browser 2): Edge (Account `staff.test@mland.vn`)
-- Actual result:
-  + Chọn gói Signature Silver 925, chọn ca 18/11/2026, điền SĐT và kích hoạt giữ chỗ 10 phút thành công.
-  + Áp dụng voucher workshop giảm 100k, thanh toán cọc 200.000đ qua VNPay Sandbox (thẻ NCB) thành công.
-  + [BUG-E2E-0011] VNPay redirect về ngrok tunnel (`affront-copier-barrier.ngrok-free.dev`) vướng cảnh báo ERR_NGROK_6024 trước khi về lại web.
-  + Sinh mã đặt chỗ: `GRP-A7D055972BCC4DEAB803`, mã vé: `GRP-A7D055972BCC4DEAB803-L0-T1`, mã QR: `QR-27dd0ee5-6c1b-401c-9262-b4fcc6fc6c00`.
-  + Staff check-in: Vé giả bị chặn 409; vé thật ngày mai phản hồi `409 CHECK_IN_NOT_OPEN` (nghiệp vụ chính xác: chỉ mở check-in trước giờ học 30 phút).
-  + Staff quyết toán Folio (`/settlement`): Thu nốt 600.000đ tiền mặt, ghi nhận collection và Finalize Folio thành công (trạng thái `FINALIZED`, `Balance due: 0 VND`).
-- Evidence screenshots:
-  + [P2-01--workshop-list.jpg](screenshots/P2-01--workshop-list.jpg)
-  + [P2-02--workshop-detail.jpg](screenshots/P2-02--workshop-detail.jpg)
-  + [P2-03--booking-page.jpg](screenshots/P2-03--booking-page.jpg)
-  + [P2-04--payment-or-hold.jpg](screenshots/P2-04--payment-or-hold.jpg)
-  + [P2-05--vnpay-page.jpg](screenshots/P2-05--vnpay-page.jpg)
-  + [P2-06--ngrok-warning.jpg](screenshots/P2-06--ngrok-warning.jpg)
-  + [P2-07--after-ngrok.jpg](screenshots/P2-07--after-ngrok.jpg)
-  + [P2-08--staff-logged-in.jpg](screenshots/P2-08--staff-logged-in.jpg)
-  + [P2-09--staff-sessions.jpg](screenshots/P2-09--staff-sessions.jpg)
-  + [P2-10--staff-session-detail.jpg](screenshots/P2-10--staff-session-detail.jpg)
-  + [P2-11--staff-checked-in.jpg](screenshots/P2-11--staff-checked-in.jpg)
-  + [P2-12--ticket-folio.jpg](screenshots/P2-12--ticket-folio.jpg)
-  + [P2-13--folio-finalized.jpg](screenshots/P2-13--folio-finalized.jpg)
-- Bug references: BUG-E2E-0011
-<!-- EXECUTION:END -->
-markdown
+```markdown
 ### [UNEXPECTED-P2-xxx] <Tiêu đề ngắn gọn về hiện tượng bất thường / Điểm bế tắc>
 - Bước kiểm thử: P2-S0x
 - Màn hình / URL thực tế: https://mland-operations-hub-git-develop-mland-team.vercel.app/...
@@ -386,6 +350,43 @@ markdown
 ## 8. Kết quả Thực thi Kiểm thử Thực tế (Execution History)
 
 <!-- EXECUTION:START -->
+- Latest status: PASS_WITH_FINDINGS. 9/10 PASS (C1–C7 chạy lần này; W2, W3 theo các lần chạy trước của QuocHH), W1 khác kỳ vọng kịch bản (đúng spec 003.2, chờ Khương chốt). Lỗi mới: BUG-E2E-0024 (MAJOR), 0025, 0026 (MINOR)
+- Executed at: 2026-11-26 03:40–03:52 (giờ Việt Nam) cho W1, C1–C7; W2 ngày 26/11 00:10; W3 ngày 25/11 (loyalty ghi lúc 21:59)
+- Executed by: Hồ Hoàng Quốc (QuocHH)
+- Browser tool: khung trình duyệt tích hợp của Claude desktop app (không dùng `browsermcp`), viewport 1280x900; người chạy tự đăng nhập Firebase cho từng vai trò. Thanh toán qua trang giả lập `PAYMENT_SIMULATOR_ENABLED=true`, không dùng VNPay sandbox
+- Environment: local, frontend `http://localhost:5173`, backend `http://localhost:8080` (khởi động lại 03:38 từ develop `2826ce79`, có bản sửa BUG-E2E-0021/0022), DB `ppswbs_workshop_test_20261029` (MySQL 8.4), `APP_MAIL_ADAPTER=smtp`
+- Test data:
+  + Member `customer.test@mland.vn` (account 48), Staff `staff.test@mland.vn` (account 47, chi nhánh 1 Hoàn Kiếm), Manager `manager.test@mland.vn` (account 46), Admin `admin.test@mland.vn` (account 45). Gói 146 Signature Workshop - Brass
+  + Vé W1: `GRP-86AE0B241EAD430CAD15-L0-T1` (đặt mới, làm buổi 26/11 16:00 Hoàn Kiếm `bc2ff85a…` kín 8/8)
+  + Vé A: `GRP-F246349E9CC84E88BCFF-L0-T1` (C1) và `-L0-T2` (C4), đặt mới buổi 28/11 09:30 Hoàn Kiếm `bc2ff8bf…`
+  + Vé B: `GRP-9FBC6B68D4CF4244B1CE-L0-T2` (đã đổi 1 lần ngày 26/11 00:55, buổi 30/11 13:00 Hoàn Kiếm)
+  + Vé C: `GRP-960A60B3C5EF45148D37-L0-T4` (buổi 26/11 16:00, còn dưới 24 giờ)
+  + Email: kiểm qua bảng `notification_deliveries` (loại, trạng thái `SENT`, số dòng theo mã đổi/mã yêu cầu); không mở hộp thư thật
+- Actual result:
+  + **W1 — P2-S01(b) Buổi hết chỗ: KHÁC KỲ VỌNG KỊCH BẢN (đúng spec 003.2).** Trước khi đặt, buổi 26/11 16:00 hiện "Còn 1 chỗ". Đặt 1 vé (`GRP-86AE…`, cọc 200.000 ₫, CONFIRMED) thì buổi kín 8/8. Xem lại danh sách ca: buổi này **không còn hiển thị**, không có thẻ mờ và nhãn "Hết chỗ" như kịch bản đòi. Mở thẳng URL đặt chỗ với buổi đó: trang báo "Có ca bạn chọn không còn khả dụng. Vui lòng quay lại trang chi tiết gói để chọn ca khác.", không đặt được. Bộ chọn đổi lịch cũng không liệt kê buổi kín (FR-044a). Kỳ vọng "nhãn Hết chỗ" chờ Khương chốt; ghi đúng hành vi quan sát được. Phát hiện phụ BUG-E2E-0025: ở bề rộng 580px ảnh gói che danh sách ca, không bấm chọn được
+  + **C1 — P2-S05b nhánh 1: PASS.** Vé A T1 (28/11 09:30, chưa đổi) chọn "Đổi lịch trước buổi học" sang CN 29/11 13:00 Hoàn Kiếm (bộ chọn ghi "còn 8 chỗ · còn 2 lượt đổi"). Bấm "Xác nhận đổi lịch" → "Đã đổi lịch cho vé GRP-F246349E9CC84E88BCFF-L0-T1.", thẻ vé hiện buổi mới. Mã vé và QR `QR-89ef3c1e-9dba-4408-8fd9-bcf11bccbcd5` giữ nguyên trước/sau. DB: 1 dòng `TCHG-78012b5c…` ADVANCE counted=1, tăng giá 0; buổi mới `reschedule_quota_used` 0→1, buổi cũ nhả chỗ. Xem lại bộ chọn: buổi 29/11 13:00 thành "còn 7 chỗ · còn 1 lượt đổi". Email: đúng 1 `TICKET_CHANGED` SENT (id 319). Không có tăng giá nên không kiểm folio
+  + **C2 — P2-S05b nhánh 2: PASS.** Vé B mở form đổi: ghi chú "Vé này đã dùng hết lần đổi lịch; mọi lựa chọn cần quản lý duyệt.", mỗi dòng "Cần quản lý duyệt (đã dùng lần đổi của vé)", nút "Gửi yêu cầu đổi lịch". Gửi sang 01/12 13:00 → `POST …/changes` **202**, "Đã gửi yêu cầu đổi lịch cho quản lý duyệt. Mã yêu cầu: CHG-REQ-f0570237-e7f3-42e6-b034-d6d7840c063b". DB: 1 yêu cầu PENDING `CHANGE_ALLOWANCE_EXHAUSTED`, vé không có lần đổi mới
+  + **C3 — P2-S05b nhánh 3: PASS.** Vé C: ghi chú "Đã quá hạn đổi lịch trước buổi học (24 giờ); lựa chọn cần quản lý duyệt.", dòng "Cần quản lý duyệt (còn dưới 24 giờ)". Gửi sang 26/11 09:30 Hoàn Kiếm → **202**, mã `CHG-REQ-867a211b-c056-47cc-8700-795cb1b72c3a`, PENDING `ADVANCE_CHANGE_WINDOW_EXPIRED`, vé chưa đổi. Sau lần gửi đầu, giao diện ẩn nút "Đổi lịch" nên lần gửi thứ hai làm qua API bằng phiên Member (Idempotency-Key mới, đích khác) → **409 `CHANGE_REQUEST_PENDING`**
+  + **C4 — P2-S05b nhánh 4: PASS.** Vé A T2 chọn 28/11 13:00 Hoàn Kiếm, bấm đúp "Xác nhận đổi lịch": nút chuyển "Đang gửi…" và khóa, chỉ có **1** `POST …/L0-T2/changes` (200). DB: đúng 1 dòng đổi `TCHG-7c07d0c3…` counted=1, **0** yêu cầu chờ duyệt, 1 email `TICKET_CHANGED` (id 320)
+  + **C5 — P2-S05c nhánh 1 và 3: PASS.** Staff mở "Vé và hoàn tiền › Yêu cầu đổi vé": 2 yêu cầu PENDING (vé C, vé B), cột "Bị chặn bởi" hiện mã thô. Bấm "Duyệt" để trống lý do → hộp thoại báo "Cần nhập lý do." và không gửi. Nhập lý do, duyệt → "Đã duyệt và áp dụng thay đổi." DB: APPROVED, `decided_by_account_id=47`, lý do lưu đúng, `applied_change_reference=TCHG-6a649195…`; vé C sang 26/11 09:30, QR `QR-509857b4-0f00-4fc0-bf11-1942296f7240` giữ nguyên, điểm danh NOT_CHECKED_IN; 1 email `TICKET_CHANGED` (id 321). Trang hàng chờ nay là tiếng Việt (kịch bản ghi nhãn tiếng Anh "Change approved and applied." là hiện trạng cũ)
+  + **C6 — P2-S05c nhánh 2: PASS (kèm 2 lỗi phụ).** Staff "Từ chối" vé B có lý do → "Đã từ chối thay đổi."; DB REJECTED, lý do lưu đúng, vé B giữ 30/11 13:00; 1 email `TICKET_CHANGE_REJECTED` (id 322). Lỗi phụ: hộp thoại từ chối ghi câu của hộp thoại duyệt (BUG-E2E-0026); chọn bộ lọc "Đã duyệt"/"Đã từ chối" thì Staff bị đẩy về trang chủ "Bạn không có quyền truy cập chức năng này." (BUG-E2E-0024). Huy hiệu "Yêu cầu đổi vé" vẫn hiện 2 ngay sau khi hàng chờ trống (chưa kiểm lại sau khi tải trang)
+  + **C7 — P2-S05d nhánh 5: PASS.** Admin: menu không có mục "Yêu cầu đổi vé"; "Vé và hoàn tiền" chỉ có tab "Hủy"/"Đổi". Mở thẳng `/settlement/change-requests` → "Tài khoản Admin không tham gia xử lý đổi vé. Staff và Manager xử lý hàng đợi này." API: `GET /api/v1/workshop-change-requests?status=PENDING` → **403 `STAFF_OR_MANAGER_REQUIRED`**; `POST /api/v1/workshop-change-requests/CHG-REQ-f0570237…/decisions` → **403 `STAFF_OR_MANAGER_REQUIRED`**, yêu cầu giữ REJECTED
+  + **W2 — P2-S06(c) Check-in, không check-in 2 lần: PASS (QuocHH chạy nhiều lần trước, không chạy lại lần này).** Lần gần nhất: vé `GRP-960A60B3C5EF45148D37-L0-T1`, buổi 26/11 16:00 Hoàn Kiếm (`bc2ff85a…`), check-in lúc 00:10 ngày 26/11 (DB: `attendance_state=CHECKED_IN`); quét lần hai hiện "Vé đã check-in trước đó lúc 00:10 26 thg 11, 2026.", danh sách vẫn 1/8 (xem bước kiểm lại của BUG-E2E-0021, sửa ở `c2c8746c`). Lần chạy này không có ảnh mới
+  + **W3 — P2-S07 Quyết toán cuối buổi cộng điểm: PASS (QuocHH chạy nhiều lần trước, không chạy lại lần này).** App không có trang `/operator/workshop-settlement` và không có trạng thái buổi `COMPLETED`: chốt điểm danh ở trang điều hành buổi (buổi sang `ATTENDANCE_FINALIZED`), quyết toán theo folio từng vé ở `/settlement`; điểm danh của vé chỉ chốt sau `attendance_finalized_at` + 24 giờ, nên các lần chạy trước đã lùi mốc này trong DB. Dấu vết trong DB lúc 03:55 ngày 26/11: folio `SETTLE-BILL-f881ab23…` (`GRP-5E849940018F442D8C9C-L1-T1`), `SETTLE-BILL-2aec0bed…` (`GRP-D510B6FEF4094CD58F98-L0-T1`), `SETTLE-BILL-467cbf60…` (`GRP-796F5D8BA3AC49818D2E-L0-T1`) đều `FINALIZED`, `loyalty_processed_at` 25/11 21:59; `loyalty_point_ledger` có các dòng EARN tương ứng (id 40, 41: +79, +85 cho member 36; id 42: +80 cho member 50). Lần chạy này không có ảnh mới
+- Evidence (thư mục `screenshots/` cạnh file này):
+  + W1: [P2-W1-01--buoi-16h-con-1-cho.jpg](screenshots/P2-W1-01--buoi-16h-con-1-cho.jpg), [P2-W1-02--buoi-16h-kin-bi-an.jpg](screenshots/P2-W1-02--buoi-16h-kin-bi-an.jpg), [P2-W1-03--url-truc-tiep-buoi-kin-bi-chan.jpg](screenshots/P2-W1-03--url-truc-tiep-buoi-kin-bi-chan.jpg), [P2-W1-00--viewport-580-anh-goi-che-danh-sach-ca.jpg](screenshots/P2-W1-00--viewport-580-anh-goi-che-danh-sach-ca.jpg)
+  + C1: [P2-C1-01--ve-A-truoc-doi.jpg](screenshots/P2-C1-01--ve-A-truoc-doi.jpg), [P2-C1-02--chon-buoi-moi.jpg](screenshots/P2-C1-02--chon-buoi-moi.jpg), [P2-C1-03--da-doi-lich.jpg](screenshots/P2-C1-03--da-doi-lich.jpg)
+  + C2: [P2-C2-01--ve-B-het-luot-can-duyet.jpg](screenshots/P2-C2-01--ve-B-het-luot-can-duyet.jpg), [P2-C2-02--da-gui-yeu-cau.jpg](screenshots/P2-C2-02--da-gui-yeu-cau.jpg)
+  + C3: [P2-C3-01--ve-C-qua-24h-can-duyet.jpg](screenshots/P2-C3-01--ve-C-qua-24h-can-duyet.jpg), [P2-C3-02--da-gui-yeu-cau.jpg](screenshots/P2-C3-02--da-gui-yeu-cau.jpg)
+  + C4: [P2-C4-01--truoc-bam-dup.jpg](screenshots/P2-C4-01--truoc-bam-dup.jpg), [P2-C4-02--nut-khoa-dang-gui.jpg](screenshots/P2-C4-02--nut-khoa-dang-gui.jpg), [P2-C4-03--da-doi-1-lan.jpg](screenshots/P2-C4-03--da-doi-1-lan.jpg)
+  + C5: [P2-C5-01--hang-cho-staff-2-yeu-cau.jpg](screenshots/P2-C5-01--hang-cho-staff-2-yeu-cau.jpg), [P2-C5-02--ly-do-trong-bi-chan.jpg](screenshots/P2-C5-02--ly-do-trong-bi-chan.jpg), [P2-C5-03--da-duyet.jpg](screenshots/P2-C5-03--da-duyet.jpg)
+  + C6: [P2-C6-01--hop-thoai-tu-choi.jpg](screenshots/P2-C6-01--hop-thoai-tu-choi.jpg), [P2-C6-02--da-tu-choi-badge-van-2.jpg](screenshots/P2-C6-02--da-tu-choi-badge-van-2.jpg), [P2-C6-03--loc-da-tu-choi-bi-day-ve-trang-chu.jpg](screenshots/P2-C6-03--loc-da-tu-choi-bi-day-ve-trang-chu.jpg)
+  + C7: [P2-C7-01--admin-menu-khong-co-yeu-cau-doi-ve.jpg](screenshots/P2-C7-01--admin-menu-khong-co-yeu-cau-doi-ve.jpg), [P2-C7-02--admin-ve-va-hoan-tien-chi-co-huy-doi.jpg](screenshots/P2-C7-02--admin-ve-va-hoan-tien-chi-co-huy-doi.jpg), [P2-C7-03--admin-mo-thang-hang-cho-bi-chan.jpg](screenshots/P2-C7-03--admin-mo-thang-hang-cho-bi-chan.jpg)
+- Bug reference: BUG-E2E-0024 (C6, MAJOR, Frontend), BUG-E2E-0025 (W1, MINOR, Frontend), BUG-E2E-0026 (C6, MINOR, Frontend)
+<!-- EXECUTION:END -->
+
+### Lần chạy trước: 2026-11-17
+
 - Latest status: PASS (có 1 lỗi Hạ tầng / Redirect ngrok)
 - Executed at: 2026-11-17 19:04:30
 - Executed by: Senior QA & System Verification Engineer
@@ -414,5 +415,3 @@ markdown
   + [P2-12--ticket-folio.jpg](screenshots/P2-12--ticket-folio.jpg)
   + [P2-13--folio-finalized.jpg](screenshots/P2-13--folio-finalized.jpg)
 - Bug references: BUG-E2E-0011
-<!-- EXECUTION:END -->
-

@@ -750,7 +750,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Kết quả mong đợi: báo vé đã check-in kèm giờ check-in (spec 003.2, "Staff scans an already checked-in ticket").
 - Thực tế quan sát: hai request đều 200, thông báo "Đã ghi nhận check-in."; danh sách vẫn 1/8 và giờ 00:10 (backend không ghi check-in lần hai, trả `ALREADY_CHECKED_IN` theo `CheckInService`; `OperationsSessionPage.jsx` không phân biệt).
 - Ngày đóng: 2026-11-26
-- Sửa tại: `OperationsSessionPage.jsx` phân biệt `ALREADY_CHECKED_IN` và báo "Vé đã check-in trước đó lúc …" (chưa commit).
+- Sửa tại: `OperationsSessionPage.jsx` phân biệt `ALREADY_CHECKED_IN` và báo "Vé đã check-in trước đó lúc …" (commit `c2c8746c`, đã merge vào develop).
 - Kiểm lại: `npm test -- src/workshop-operations` 155/155 Passed; quét lại vé `GRP-960A60B3C5EF45148D37-L0-T1` trên trình duyệt hiện "Vé đã check-in trước đó lúc 00:10 26 thg 11, 2026."
 
 ## BUG-E2E-0022 — CLOSED
@@ -770,5 +770,56 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: tổng 650.000 ₫, đã thanh toán 175.000 ₫, còn nợ 475.000 ₫; dòng "Thanh toán lúc đặt chỗ" vẫn 200.000 ₫.
 - Nguyên nhân (đọc code): `TicketChangeService.recordAppliedChange` chỉ cộng mức tăng vào `remainingAmountVnd`; `TicketFolioApiService.toDto` (dòng 516–519) tính `totalAmount` không gồm mức tăng rồi suy `paidAmount = totalAmount − balanceDue`.
 - Ngày đóng: 2026-11-26
-- Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (chưa commit). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
+- Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (commit `58493f21`, đã merge vào develop). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
 - Kiểm lại: folio `…9FBC…-L0-T1` hiện Tổng 675.000, đã thanh toán 200.000, còn nợ 475.000; thẻ vé hiện đã thanh toán 200.000 ("Giá vé" 650.000 là giá lúc đặt). Test `workshopsettlement`: 576 ca, 5 ca lỗi về quyền yêu cầu hoàn tiền (`RefundRequestControllerTest`, `ManagerHomeWaitingCountsIT`, `WorkshopSettlementStatusContractIT`), không thuộc code vừa sửa.
+
+## BUG-E2E-0024 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S05c / P2-S05d nhánh 2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend 003.3 (hàng chờ yêu cầu đổi vé)
+- Mô tả lỗi: Staff chi nhánh 1 chọn bộ lọc "Đã duyệt" hoặc "Đã từ chối" ở `/settlement/change-requests` thì bị đẩy về trang chủ với thông báo "Bạn không có quyền truy cập chức năng này."; Staff không xem được lịch sử yêu cầu đã quyết.
+- Các bước tái hiện:
+  1. Đăng nhập `staff.test@mland.vn` (chi nhánh 1).
+  2. Mở `/settlement/change-requests`, đổi ô "Trạng thái" sang "Đã từ chối" (hoặc mở thẳng `?status=REJECTED` / `?status=APPROVED`).
+- Kết quả mong đợi: bảng hiện các yêu cầu đã quyết thuộc chi nhánh của Staff, không còn nút Duyệt/Từ chối (P2-S05d nhánh 2).
+- Thực tế quan sát: `GET /api/v1/workshop-change-requests?status=REJECTED` trả 200, sau đó trang chuyển về `/` kèm thông báo không có quyền. Danh sách có yêu cầu của chi nhánh 1 mà buổi đích ở chi nhánh 2 (`CHG-REQ-1cd04f59…` đích `7095a16d…`, `CHG-REQ-c91c7a90…` đích `70959ef0…`); trang gọi `GET /api/v1/workshop-sessions/{id}` cho buổi đó và nhận `403 LOCATION_SCOPE_DENIED`, rồi xử lý như cấm vào cả trang.
+- Bằng chứng:
+  - Screenshot: ![Bị đẩy về trang chủ](master-e2e/screenshots/P2-C6-03--loc-da-tu-choi-bi-day-ve-trang-chu.jpg)
+  - Network: list 200; `workshop-sessions/7095a16d-e1ad-11f1-989a-98bd80539bba` 403 `location-scope-denied`.
+
+## BUG-E2E-0025 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-booking
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S01(b)](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.2 (trang chi tiết gói)
+- Mô tả lỗi: Ở khung nhìn rộng 580px, khối ảnh gói (`.ring-visual`, cha `position: sticky`) đè lên danh sách ca; bấm vào thẻ ca không chọn được (đếm vẫn "đã chọn 0/1").
+- Các bước tái hiện:
+  1. Mở `/workshops/146?focus=schedule&locationId=1` ở cửa sổ rộng khoảng 580px.
+  2. Cuộn tới "Chọn 1 ca workshop", bấm một thẻ ca.
+- Kết quả mong đợi: thẻ ca được chọn; ảnh không che danh sách.
+- Thực tế quan sát: `document.elementFromPoint` tại giữa thẻ ca trả `DIV.ring-visual gold`; ở 1280px thì chọn được bình thường.
+- Bằng chứng:
+  - Screenshot: ![Ảnh gói che danh sách ca](master-e2e/screenshots/P2-W1-00--viewport-580-anh-goi-che-danh-sach-ca.jpg)
+
+## BUG-E2E-0026 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S05c nhánh 2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3 (hàng chờ yêu cầu đổi vé)
+- Mô tả lỗi: Hộp thoại "Từ chối thay đổi này" vẫn ghi "Duyệt sẽ áp dụng thay đổi ngay; máy chủ vẫn kiểm tra sức chứa và hạn mức.", là câu của hộp thoại Duyệt.
+- Các bước tái hiện:
+  1. Staff mở `/settlement/change-requests`, bấm "Từ chối" ở một yêu cầu đang chờ.
+- Kết quả mong đợi: câu mô tả nói rõ từ chối giữ nguyên lịch cũ của vé.
+- Thực tế quan sát: câu mô tả giống hộp thoại Duyệt.
+- Bằng chứng:
+  - Screenshot: ![Hộp thoại từ chối](master-e2e/screenshots/P2-C6-01--hop-thoai-tu-choi.jpg)
