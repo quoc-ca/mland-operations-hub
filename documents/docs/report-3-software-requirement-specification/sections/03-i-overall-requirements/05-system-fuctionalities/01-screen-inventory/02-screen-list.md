@@ -93,7 +93,6 @@
 | 89 | User Account List | Account Administration | Admin home that allows the Admin to search and filter user accounts and open one. |
 | 90 | New Internal Account | Account Administration | Allows the Admin to create a Staff, Manager or Carrier account. |
 | 91 | User Account Details | Account Administration | Allows the Admin to view an account, edit allowed fields, change its role and location, and suspend or restore it; only suspension asks for confirmation. |
-| 92 | Role Catalogue (Retired) | Account Administration | Retired: the standalone role catalogue is removed; roles are fixed (confirmed 2026-11-25). |
 | 93 | Notification Templates | Notification Management | Allows Admins and Managers to browse the email notification templates. |
 | 94 | Template Details | Notification Management | Allows Admins and Managers to view and edit one email notification template. |
 | 95 | Notification Requests | Notification Management | Displays the delivery log of notification requests with their sending status. |

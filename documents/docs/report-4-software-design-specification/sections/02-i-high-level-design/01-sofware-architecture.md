@@ -14,7 +14,7 @@
 |03|features (pages)|Screens grouped by business module (account, product management, retail order, workshops, loyalty and promotion, review, design review, OTA connectivity, operations home).|
 |04|shared/ui|Reusable UI components shared by all screens: top bar, operations sidebar, paginator, common controls and messages.|
 |05|shared/api|HTTP client that calls the backend REST API with JSON and attaches the signed-in user's Firebase ID token as a Bearer token.|
-|06|shared/auth|Sign-in and session handling with the Firebase JS SDK; resolves the user's role and home screen.|
+|06|shared/auth|Email/password and Google redirect sign-in through the Firebase JS SDK; resolves the current Account role and home screen. Pending internal identities cannot enter Member registration.|
 |07|shared/i18n|Vietnamese and English interface texts for domestic and international customers.|
 |08|shared/payment|Keeps and recovers the payment state when the customer returns from the VNPay payment page.|
 |**Application Tier**|||
@@ -24,7 +24,7 @@
 |04|Repository Layer|Spring Data JPA repositories (dao) that read and write the module's own tables.|
 |05|Entity Layer|JPA entities that map domain objects to MySQL tables.|
 |06|Scheduled Jobs|Background jobs (`@Scheduled`) such as expiring unpaid holds and retail orders, recovering deposit status with VNPay QueryDR, starting workshop sessions and cleaning up retained data.|
-|07|Domain Events|Spring Modulith application events used for loose coupling between modules (for example booking confirmed, attendance finalized, notification ready); the event publication registry stores them so they are not lost.|
+|07|Domain Events|Durable post-commit events connect business modules. Account creation records an invitation reference and intended recipient; Notification consumes it after commit. Booking and Retail provide their own approved notification recipients.|
 |08|Business Modules|Spring Modulith modular monolith: Account Management, Product Management, Ready-ring Sales, Fulfilment, Workshop Booking, Workshop Operations, Workshop Settlement, Payment Integration, Loyalty & Promotion, Review Management, Notification Management, OTA Connectivity, Reporting and Design Review (AI).|
 |09|Integration Adapters|Ports and adapters that isolate external services: Firebase Admin SDK, VNPay client, Cloudinary media storage adapter, SMTP mail adapter, Gemini REST client adapter, OTA adapters (Klook, GetYourGuide).|
 |10|Common Layer|Cross-cutting code shared by all modules: configuration (security, Firebase, timezone), validation, exception handling, DTOs and shared ports (booking, payment, workshop).|
@@ -34,7 +34,7 @@
 |01|Firebase Authentication|Identity provider: the browser signs in and gets an ID token; the backend verifies it with the Firebase Admin SDK.|
 |02|VNPay Payment Gateway|Online payment for deposits, final payments and retail orders: payment URL, IPN callback, QueryDR status check and refund, signed with HMAC-SHA512.|
 |03|Cloudinary|Stores and serves product and catalogue images.|
-|04|SMTP Mail Server|Sends booking and notification emails (Gmail SMTP by default).|
+|04|SMTP Mail Server|Configured Mland-domain service for internal invitations and business emails. Firebase sends Member verification and password-recovery emails.|
 |05|Google Gemini API|AI support for the design review module: analysing reference images, suggesting prices and answering AI chat requests.|
 |06|OTA Platforms|Klook and GetYourGuide: workshop inventory is pushed to the platforms and booking or cancellation events are received from them.|
 

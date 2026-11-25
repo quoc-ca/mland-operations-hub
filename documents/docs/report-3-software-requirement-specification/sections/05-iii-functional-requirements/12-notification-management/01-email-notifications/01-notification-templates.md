@@ -7,7 +7,8 @@ This screen allows Admins and Managers to:
 - Open a template's details to manage its content versions.
 - Reload the list.
 
-Only Admins and Managers can open the `/admin/notifications/*` pages; other signed-in roles see an access-denied message (Feature-007 asks for the not-found page). Templates are registered by the system; this screen does not create or delete them.
+Only Admins and Managers can open the `/admin/notifications/*` pages; other signed-in roles are routed to the not-found page. Templates are registered by the system; this screen does not create or delete them.
+The registered internal-account invitation is an Admin-initiated transactional template. It is separate from booking and retail confirmations; Member verification and password recovery are sent by Firebase.
 
 | Field Name | Description |
 | --- | --- |

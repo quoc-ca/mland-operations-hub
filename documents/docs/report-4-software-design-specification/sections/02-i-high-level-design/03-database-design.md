@@ -71,7 +71,7 @@
 
 ### 3.1 accounts
 
-Stores every system account linked to Firebase Authentication, with its role and status.
+Stores every system account linked to one Firebase UID, with one fixed role and its lifecycle status. A Staff or Manager remains PENDING_SETUP until the current invitation is consumed, the intended email is verified and current active location scope is valid. Invitation versions require a separate durable record of Account ID, intended email, secret digest, key version, created/expiry times and use state; the raw secret is never stored. The column-level invitation design remains to be finalized before implementation.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -81,7 +81,7 @@ Stores every system account linked to Firebase Authentication, with its role and
 |firebase_uid|VARCHAR(128)|NOT NULL, UNIQUE|Unique Firebase Authentication user identifier.|
 |login_email|VARCHAR(320)||Contact or authentication email address.|
 |email_verified_at|DATETIME(6)||Timestamp recording when email verified at.|
-|role|ENUM('MEMBER','STAFF','MANAGER','CARRIER','ADMIN')|NOT NULL, DEFAULT MEMBER|Assigned access control role in RBAC hierarchy.|
+|role|ENUM('MEMBER','STAFF','MANAGER','CARRIER','ADMIN')|NOT NULL, DEFAULT MEMBER|One fixed platform role; no configurable role hierarchy.|
 |status|ENUM('ACTIVE','PENDING_SETUP','SUSPENDED')|NOT NULL, DEFAULT ACTIVE|Operational lifecycle state (enum('active','pending_setup','suspended')).|
 |resume_status|ENUM('ACTIVE','PENDING_SETUP')||Stores resume status value.|
 |revocation_pending|TINYINT(1)|NOT NULL, DEFAULT 0|Stores revocation pending value.|
@@ -1023,7 +1023,7 @@ Stores vouchers saved by a Member and their usage counts.
 
 ### 3.41 notification_template_definition
 
-Stores the email templates the system can send.
+Stores the email templates the system can send, including the Admin-initiated internal invitation. An approved version is pinned to each delivery request. The version storage referred to below is not yet described column by column in this section and must be completed before the database design is implemented.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -1043,7 +1043,7 @@ Stores the email templates the system can send.
 
 ### 3.42 notification_request
 
-Stores email notification requests and their delivery state.
+Stores email notification requests and their delivery state. The invitation request keeps only an Account-owned invitation ID/version and safe recipient snapshot. Its stored rendition uses a placeholder for the setup URL. Account provides the current URL transiently for each SMTP attempt; no request, rendition or audit row stores the expanded link. Invitation requests allow at most two definite attempts and reject generic resend or cancel.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -1052,7 +1052,7 @@ Stores email notification requests and their delivery state.
 |id|BIGINT|PRIMARY KEY, AUTO_INCREMENT|Primary key, auto-increment identifier.|
 |business_event_reference|VARCHAR(128)|NOT NULL||
 |template_code|VARCHAR(64)|NOT NULL, FK → notification_template_definition(code) (logical)|Logical reference to notification_template_definition(code); no database constraint.|
-|template_version_id|BIGINT|NOT NULL, FK → notification_template_version(id)|References notification_template_version(id).|
+|template_version_id|BIGINT|NOT NULL, logical reference → notification_template_version(id)|Pins the approved template version; version-table column details remain TBD in this section.|
 |recipient_role|VARCHAR(32)|NOT NULL, DEFAULT CUSTOMER||
 |recipient_address_fingerprint|VARCHAR(64)|NOT NULL||
 |recipient_address_masked|VARCHAR(128)|NOT NULL||

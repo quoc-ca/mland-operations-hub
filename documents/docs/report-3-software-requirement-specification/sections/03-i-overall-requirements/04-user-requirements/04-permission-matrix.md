@@ -10,7 +10,6 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Account|Register, sign in, and recover account|Full|Full|No|No|Restricted|
 |Personal profile|View and update own profile|No|Full|No|No|Restricted|
 |User account|Create, view, update, lock, or unlock platform accounts|No|No|No|Restricted|Full|
-|Role-based access control (Retired)|Configure roles and permissions (UC 9; roles are fixed)|No|No|No|No|No|
 |Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|Restricted|No|Restricted|
 |Workshop payment|Pay a workshop deposit and view the payment result|Full|Full|No|No|Restricted|
 |Booking lookup|Look up booking details and QR check-in ticket|Full|Full|Restricted|Restricted|Restricted|

@@ -5,8 +5,7 @@ The following rules define data constraints, lifecycle restrictions, historical 
 | Rule | Description | Enforced On |
 |---|---|---|
 | DBR-01: External identity uniqueness | Each User must have a unique Firebase UID (`external_user_id`). Email is optional and is not used as a unique account identity. | `users` |
-| DBR-02: One role per user | Each User references exactly one Role. A Guest may use workshop services without a User record. | `users`, `roles` |
-| DBR-03: Role deactivation protection | A Role cannot be deactivated while any User, including a suspended User, still references it. | `roles`, `users` |
+| DBR-02: One fixed role per account | Each Account has exactly one fixed role. A Guest may use workshop services without an Account record. | `accounts` |
 | DBR-04: Append-only audit evidence | Audit Log records are append-only during normal operations. Each record keeps the actor, affected entity, action, outcome, reason, and occurrence time. | `audit_logs` |
 | DBR-05: Audit retention | Audit evidence is retained for five years. Privacy or expiry controls may restrict access without silently rewriting the original event. | `audit_logs` |
 | DBR-06: Catalogue publication boundary | Inactive Categories and unpublished Products cannot be selected for new public purchases. Unpublishing a Product must not modify historical Order Items. | `categories`, `products`, `order_items` |

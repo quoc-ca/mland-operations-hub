@@ -13,7 +13,7 @@ Only a `returnTo` path on this site is followed.
 
 | Field Name | Description |
 | --- | --- |
-| Sign in with Google | Shown only when Firebase is configured. Opens a Google pop-up and falls back to a redirect when the pop-up is blocked or closed. An email already registered with a password is refused with "This email is already registered with a password…". |
+| Sign in with Google | Shown when Firebase is configured. Redirects to Google and processes the returned sign-in result. An email already registered with a password is refused with guidance to use that method. |
 | Email address | Required; must be a valid email format. |
 | Password | Required, masked, at least 6 characters. |
 | Forgot password? | Link to Forgot Password. |

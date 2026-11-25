@@ -45,6 +45,6 @@ The system has two applications: a React single-page front-end (`ppswbs_frontend
 |06|`facade`|Declares the interfaces and views that a module exports to other modules. Other modules may only call a module through its facade; this rule is checked by Spring Modulith architecture tests.|
 |07|`dao`|Performs database operations (save, find, update, delete) using Spring Data JPA repositories.|
 |08|`entity`|Represents database tables as Java objects (JPA entities).|
-|09|`common`|Holds code shared by all modules: the correlation ID filter, the common error response, and shared events and ports for booking, payment, notification, settlement and workshop.|
+|09|`common`|Holds the correlation ID filter, common error response and typed cross-module contracts. Account owns pending identity, invitation versions and setup URLs; Notification owns the template, queue, attempts and delivery outcome. Notification requests a transient current URL from Account only when sending.|
 
 :::
