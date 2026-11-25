@@ -6,8 +6,8 @@ Scope follows Report 2 and Report 3's [External API Inventory](../03-i-overall-r
 
 | ID | Requirement | Verification criterion |
 | --- | --- | --- |
-| NFR-IF-01 | Public pages and authenticated Member/shop functions shall use the web interface, with server-enforced access rules on direct requests. | Public browsing requires no sign-in; protected direct requests receive the same checks as UI navigation. See UC1–UC14 and UC43–UC53. |
-| NFR-IF-02 | Workshop check-in shall support QR scanning and manual code entry; scanning alone shall not record attendance without Staff verification. | UC20 works with either input; invalid, unconfirmed or already checked-in bookings create no new attendance effect. |
+| NFR-IF-01 | Public pages and authenticated Member/shop functions shall use the web interface, with server-enforced access rules on direct requests. | Public browsing requires no sign-in; protected direct requests receive the same checks as UI navigation. See UC1–UC18 and UC52–UC61. |
+| NFR-IF-02 | Workshop check-in shall support QR scanning and manual code entry; scanning alone shall not record attendance without Staff verification. | UC24 works with either input; invalid, unconfirmed or already checked-in bookings create no new attendance effect. |
 
 V1 does not mandate a dedicated scanner, terminal, printer or native mobile application. QR scanning uses equipment supported by the selected browser environment; coverage remains NFR-OPEN-03. Card entry takes place at VNPay rather than through a Mland card-data interface.
 
@@ -16,19 +16,19 @@ V1 does not mandate a dedicated scanner, terminal, printer or native mobile appl
 | ID | Interface and direction | Required boundary | Verification criterion |
 | --- | --- | --- | --- |
 | NFR-IF-03 | VNPay: Mland → initiation/QueryDR; VNPay → signed IPN; browser → Return URL. | Sole provider for workshop deposits, retail full payment and one-time custom-order quote payment. Only validated signed IPN or eligible signed QueryDR authorizes success; Return URL is informational. | Tampered, mismatched, duplicate, unknown and late evidence follows NFR-SEC-06 and NFR-REL-02/03. Browser-only success changes no payment state. |
-| NFR-IF-04 | Klook: approved availability/hold and confirmed-booking exchange. | Mland owns capacity. Klook confirmation requires Mland availability/hold. Klook cancellation is not consumed and cannot automatically release capacity. | UC27/UC28 reject confirmation without eligible hold, deduplicate bookings and preserve Mland capacity on synchronization failure. |
+| NFR-IF-04 | Klook: approved availability/hold and confirmed-booking exchange. | Mland owns capacity. Klook confirmation requires Mland availability/hold. Klook cancellation is not consumed and cannot automatically release capacity. | UC91–UC93 and partner callbacks reject confirmation without eligible hold, deduplicate bookings and preserve Mland capacity on synchronization failure. |
 | NFR-IF-05 | Paid Gemini: Mland → permitted text prompt and public information; Gemini → text answer. | Basic text support only. No image analysis or price suggestion. AI cannot confirm transactions, publish prices or decide custom manufacturing. | UC33 rejects unsupported requests/unusable results; failure creates no business effect. Apply NFR-DAT-01 cleanup. |
 | NFR-IF-06 | Retired: Google Maps Embed/Places is not used. | Not applicable; removed from V1 (confirmed 2026-11-25). | None. |
 | NFR-IF-07 | Mland-domain SMTP / Mail Gateway: Mland → security/workflow messages. | Verification/recovery, QR tickets, payment requests/receipts, design-review results and order updates as required by workflows. No notification centre or email-driven approval. | Mandatory verification cannot be bypassed on delivery failure. Failed notices after committed payment/password change/fulfilment do not reverse results; see NFR-REL-05. |
 | NFR-IF-08 | Configured identity/SSO service: provider ↔ browser/application identity flow. | Provider establishes identity; Mland resolves current status, role, ownership, branch and delegation. | Invalid tokens/suspended accounts grant no protected access. SSO claims cannot assign Staff/Manager/Admin privileges. See UC1/UC2 and NFR-SEC-01/02. |
 | NFR-IF-09 | Cloud Storage: authorized media upload/read/delete. | Separate public catalogue assets and private custom references by disclosure/retention. | Unauthorized requests cannot read private media. NFR-DAT-02/03/07 govern deletion without deleting referenced catalogue/history media. |
-| NFR-IF-10 | GHTK: physical handoff outside the platform; shop actor → Mland record. | Manual handoff only; no GHTK API, quote, live delivery state, delivery-failure, return, cancellation or refund workflow. | UC53 requires actual custody, carrier/reference, actor and time. Packing alone cannot set `handed_to_carrier`. Apply NFR-DAT-04. |
+| NFR-IF-10 | GHTK: physical handoff outside the platform; shop actor → Mland record. | Manual handoff only; no GHTK API, quote, live delivery state, delivery-failure, return, cancellation or refund workflow. | UC61 requires actual custody, carrier/reference, actor and time. Packing alone cannot set `handed_to_carrier`. Apply NFR-DAT-04. |
 
 ### 1.3 Communication and configuration controls
 
 | ID | Requirement | Verification criterion |
 | --- | --- | --- |
 | NFR-IF-11 | Sensitive web/API exchanges shall use encrypted transport; SMTP shall use the approved protected connection. Validate untrusted input before state changes. | Inspect endpoint/transport configuration and submit invalid payloads. Payment signatures remain mandatory over encrypted transport. This is a derived protection criterion; protocol versions are not baselined here. |
-| NFR-IF-12 | Only authorized Admin may configure approved integration types/endpoints/credentials/activation. Failed required validation shall prevent activation. | UC55 rejects unsupported/invalid configuration, masks secrets, audits changes safely and creates no business transaction during a connection test. |
+| NFR-IF-12 | Only authorized Admin may configure approved integration types/endpoints/credentials/activation. Failed required validation shall prevent activation. | UC63 rejects unsupported/invalid configuration, masks secrets, audits changes safely and creates no business transaction during a connection test. |
 
 Production/sandbox credentials, callback URLs, contracts, billing and quotas are go-live prerequisites under Report 2 A-02. Provider access/UAT success is not claimed. Exact endpoints, schemas, identity setup, timeouts and retry budgets belong to approved interface/design configuration; pending values are NFR-OPEN-04/05.

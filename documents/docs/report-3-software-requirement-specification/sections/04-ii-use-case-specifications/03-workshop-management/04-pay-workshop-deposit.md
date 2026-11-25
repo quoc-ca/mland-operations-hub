@@ -70,13 +70,13 @@ The group stays confirmed and the delivery failure is recorded for retry.
 
 #### Business Rules
 
-BR-18-01, BR-18-02, BR-18-03, BR-18-04
+BR-41-01, BR-41-02, BR-41-03, BR-41-04
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-18-01 | One VNPay payment covers the whole group collection; a collection of 0 VND needs no VNPay. |
-| BR-18-02 | The group is confirmed only by one valid, signed, non-duplicate payment result with the expected reference and amount. |
-| BR-18-03 | A browser Return URL alone never confirms payment. |
-| BR-18-04 | The VNPay link expires at minute 10 and the group hold lasts 12 minutes. |
+| BR-41-01 | One VNPay payment covers the whole group collection; a collection of 0 VND needs no VNPay. |
+| BR-41-02 | The group is confirmed only by one valid, signed, non-duplicate payment result with the expected reference and amount. |
+| BR-41-03 | A browser Return URL alone never confirms payment. |
+| BR-41-04 | The VNPay link expires at minute 10 and the group hold lasts 12 minutes. |

@@ -57,12 +57,12 @@ The system excludes the package from refreshed results and informs the actor tha
 
 #### Business Rules
 
-BR-15-01, BR-15-02, BR-15-03
+BR-38-01, BR-38-02, BR-38-03
 
 #### Business Rule Definitions
 
 | ID       | Rule Definition                                                                                                        |
 | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| BR-15-01 | Only workshop packages with a published and active status are displayed to Guests and Members.                         |
-| BR-15-02 | Browsing workshop packages is read-only; it does not create a booking, invoice, payment, seat hold, or price snapshot. |
-| BR-15-03 | A workshop package must be selected before the actor proceeds to the workshop booking flow.                            |
+| BR-38-01 | Only workshop packages with a published and active status are displayed to Guests and Members.                         |
+| BR-38-02 | Browsing workshop packages is read-only; it does not create a booking, invoice, payment, seat hold, or price snapshot. |
+| BR-38-03 | A workshop package must be selected before the actor proceeds to the workshop booking flow.                            |

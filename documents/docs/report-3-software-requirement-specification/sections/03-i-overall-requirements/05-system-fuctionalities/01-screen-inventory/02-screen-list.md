@@ -20,7 +20,7 @@
 | 16 | Ring Design Entry | Workshop Ring Design | Starts the ring designer for the selected workshop package from a ring model or a blank ring; a Guest may only preview. |
 | 17 | Ring Model Selection | Workshop Ring Design | Allows visitors and Members to browse the base ring models and open one in the designer. |
 | 18 | Ring Configuration | Workshop Ring Design | Allows a Member to configure and save the supported ring options, such as material and pattern, on a chosen model or a blank ring; a Guest may only preview and is sent to sign-in on save. |
-| 19 | Branch Compatibility | Workshop Ring Design | Warns that the selected branch cannot make the design and offers ways to continue, such as changing the branch or the design. The route exists, but no current screen links to it. |
+| 19 | Branch Compatibility | Workshop Ring Design | Warns a Member that the selected branch cannot make their design and offers ways to continue, such as changing the branch or the design. The route exists, but no current screen links to it. |
 | 20 | Design Evaluation | Workshop Ring Design | Displays a Member the evaluation of their saved design with recommendations and a path to a consultation. |
 | 21 | Workshop Booking Cart | Workshop Booking | Allows the customer to review held workshop bookings, apply eligible benefits and go to the deposit payment. |
 | 22 | Workshop Payment Result | Payment | Displays the system-verified payment outcome and the current status of the booking group after the return from VNPay; the browser return alone does not confirm payment. |

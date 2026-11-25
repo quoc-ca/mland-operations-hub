@@ -63,13 +63,13 @@ The group is not confirmed and the held seats are released. Late payment evidenc
 
 #### Business Rules
 
-BR-17-01, BR-17-02, BR-17-03, BR-17-04
+BR-40-01, BR-40-02, BR-40-03, BR-40-04
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-17-01 | A booking line requires a package, its complete required-session set, and a participant count. |
-| BR-17-02 | All lines are validated and held together; if one fails, nothing is held. |
-| BR-17-03 | Each ticket collects the smaller of its final price and 200,000 VND at booking time. The remaining amount is collected later and is not multiplied by the number of sessions. |
-| BR-17-04 | The group has one 12-minute hold; editing or retrying payment never extends it. |
+| BR-40-01 | A booking line requires a package, its complete required-session set, and a participant count. |
+| BR-40-02 | All lines are validated and held together; if one fails, nothing is held. |
+| BR-40-03 | Each ticket collects the smaller of its final price and 200,000 VND at booking time. The remaining amount is collected later and is not multiplied by the number of sessions. |
+| BR-40-04 | The group has one 12-minute hold; editing or retrying payment never extends it. |

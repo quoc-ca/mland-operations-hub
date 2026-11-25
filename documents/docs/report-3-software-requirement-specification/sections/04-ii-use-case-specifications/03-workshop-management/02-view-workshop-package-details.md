@@ -57,12 +57,12 @@ The system displays an error message and allows the actor to retry or return to 
 
 #### Business Rules
 
-BR-16-01, BR-16-02, BR-16-03
+BR-39-01, BR-39-02, BR-39-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-16-01 | Only published and active workshop packages may be viewed through the public package-details page. |
-| BR-16-02 | Package details must reflect the currently published catalogue information; missing configuration must be shown as unavailable rather than inferred. |
-| BR-16-03 | Viewing package details is read-only and does not create a booking, invoice, payment, seat hold, or price snapshot. |
+| BR-39-01 | Only published and active workshop packages may be viewed through the public package-details page. |
+| BR-39-02 | Package details must reflect the currently published catalogue information; missing configuration must be shown as unavailable rather than inferred. |
+| BR-39-03 | Viewing package details is read-only and does not create a booking, invoice, payment, seat hold, or price snapshot. |
