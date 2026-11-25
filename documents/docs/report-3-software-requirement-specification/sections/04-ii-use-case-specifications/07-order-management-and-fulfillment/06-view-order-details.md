@@ -71,7 +71,7 @@ BR-57-01, BR-57-02, BR-57-03, BR-57-04, BR-57-05, BR-57-06, BR-57-07
 | BR-57-01 | Members read own orders; Staff reads assigned-branch orders and Manager requires explicit applicable action/branch delegation. Recheck current authority. |
 | BR-57-02 | Admin sees only shared-policy technical diagnostics, with no customer data, general detailed-order access, impersonation or business mutation. |
 | BR-57-03 | Keep purchase snapshots, payment, hold and fulfilment facts distinct; viewing never changes them or grants payment/completion authority. |
-| BR-57-04 | Preserve legacy snapshots without guessed options; new checkout requires configured variants. No public order lookup or GHTK provider tracking is provided; only the shipment step recorded in the platform is shown. |
+| BR-57-04 | Show the current catalogue name, SKU and size when readable and the accepted snapshot otherwise; preserve legacy snapshots without guessed options; new checkout requires configured variants. No public order lookup or GHTK provider tracking is provided; only the shipment step recorded in the platform is shown. |
 | BR-57-05 | Retain necessary carrier data until actual handoff, then retire private values/copies after 30 days while keeping minimized five-year evidence. |
 | BR-57-06 | Inactive branches block new checkout but retain accepted orders, deadlines and currently authorized processing; no automatic transfer occurs. |
 | BR-57-07 | Record each attempt and its actual outcome under the shared audit policy. |

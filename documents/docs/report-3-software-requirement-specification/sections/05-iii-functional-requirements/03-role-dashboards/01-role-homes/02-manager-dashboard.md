@@ -10,7 +10,7 @@ This screen allows Managers to:
 - Compare the figures by branch.
 - See up to five recent events worth a look and open the audit log.
 
-This is the Manager home after sign-in (the old Manager Home route redirects here). Only a Manager can open it; any other role is sent to its own home. The dashboard is read-only and each block loads and fails on its own, with a retry. Revenue counts only verified transactions: unpaid or cancelled orders and sessions without finalized attendance are not counted.
+This is the Manager home after sign-in (the old Manager Home route redirects here). Only a Manager can open it; any other signed-in role is taken to the not-found page, and a Manager without an active branch assignment is refused. The dashboard is read-only and each block loads and fails on its own, with a retry. Revenue counts only verified transactions: unpaid or cancelled orders and sessions without finalized attendance are not counted.
 
 | Field Name | Description |
 | --- | --- |

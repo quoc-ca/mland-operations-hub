@@ -16,7 +16,7 @@ This screen allows Members to:
 | Field Name | Description |
 | --- | --- |
 | Sản phẩm theo chi nhánh | Read-only lines with image, variant, quantity and amount; frozen once the order is accepted. |
-| Nhận hàng | Nhận tại cửa hàng (free) or Giao tận nơi qua GHTK; GHTK is refused for an address GHTK does not serve. |
+| Nhận hàng | Nhận tại cửa hàng (free) or Giao tận nơi qua GHTK; GHTK is refused for an address GHTK does not serve. The GHTK fee is quoted per branch order with a weight of 50 g per ring. |
 | Địa chỉ nhận hàng | Saved-address picker (Địa chỉ của tôi) with + Thêm địa chỉ mới; required for GHTK. |
 | Voucher giảm giá / Giảm bằng điểm | At most one voucher on the price after the automatic discount, then points on the remainder; on Mua Ngay the best eligible voucher is preselected. A "Phải lưu" voucher works only after the Member saved it in Kho Voucher. A voucher that does not combine with points sets the points line to 0 with Voucher {code} không dùng chung với điểm. Bỏ voucher để dùng điểm. |
 | Chọn voucher MLAND | Usable vouchers with Lựa chọn tốt nhất on the largest saving, a code field (at most 128 characters), then Chưa đủ điều kiện cho đơn này with each voucher's reason: Kho Voucher state (Chưa đến thời gian sử dụng, Voucher đang tạm dừng, Voucher đã hết hạn, Voucher không còn sản phẩm nào được áp dụng, Voucher đã hết lượt sử dụng, Bạn đã dùng hết lượt của voucher này), Mua thêm {amount} để sử dụng, or the reason from Loyalty and Promotion Management. Đồng ý applies the choice. |
