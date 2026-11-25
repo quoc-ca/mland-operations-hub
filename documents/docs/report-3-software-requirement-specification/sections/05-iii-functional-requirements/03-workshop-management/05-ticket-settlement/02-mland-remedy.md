@@ -8,7 +8,7 @@ This screen allows the buyer of a workshop ticket (Member or Guest) to:
 - Confirm the answer in a dialog; the answer cannot be changed afterwards.
 - See the final outcome (moved or being refunded) once the ticket has been answered.
 
-The buyer answers. The server also accepts an answer from an in-scope Staff member or a Manager with the buyer's code proof, but this screen offers the code step only to signed-out visitors, so it cannot send such a counter answer. Offers also apply to tickets whose folio is already finalized. Without an answer before the deadline the ticket is refunded. The offer carries no payment; a refund is paid to the bank account the buyer enters later through the emailed Refund Account link.
+The buyer answers. The server also accepts an answer from an in-scope Staff member or a Manager with the buyer's code proof, but this screen offers the code step only to signed-out visitors, so it cannot send such a counter answer. Offers also apply to tickets whose folio is already finalized. Without an answer before the deadline the ticket is refunded. The offer carries no payment; a refund is paid to the bank account the buyer enters later through the emailed Refund Account link. A Member's ticket refunded for an Mland cancellation also gets its used points back, and the voucher is restored if still valid.
 
 | Field Name | Description |
 | --- | --- |
