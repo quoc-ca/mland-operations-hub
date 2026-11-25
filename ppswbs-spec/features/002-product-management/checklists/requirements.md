@@ -47,7 +47,7 @@ Ký hiệu `USn.m` là kịch bản số m trong User Story n; các khoảng FR 
 | FR-008 | US4.5, US4.6, US4.9; Edge Cases | Ảnh, dung lượng, alt text, thứ tự, lỗi lưu và cleanup 24h/30 ngày có bảo vệ lịch sử. |
 | FR-009–FR-011 | US2.1–US2.7 | Gửi/duyệt/từ chối, phiên bản, hủy và lỗi. |
 | FR-012 | US4.1; US2.5 | Sửa trực tiếp sau lần công khai đầu, tách với duyệt lại hồ sơ mới. |
-| FR-013–FR-016 | US5.1–US5.5; US3.1, US3.2, US3.6 | Giá đề xuất/duyệt/áp dụng, AI không bắt buộc, giữ giá lịch sử. |
+| FR-013–FR-016 | US5.1–US5.5; US3.1, US3.2, US3.6 | Giá đề xuất/duyệt/áp dụng, quyết định thủ công không có gợi ý giá AI, giữ giá lịch sử. |
 | FR-017, FR-018 | US3.3–US3.6; US6.3 | Điều kiện công khai, số lượng 0, ẩn và công khai lại. |
 | FR-019, FR-020 | US4.2, US4.3; US8.3–US8.5 | Lượng chung, giữ hợp lệ, khả năng mua từng size/sản phẩm. |
 | FR-021 | US6.1, US6.2 | Ngừng bán/mở bán lại không đổi số lượng hay cờ công khai. |

@@ -131,7 +131,7 @@
 
 **Goal**: Draft/submit/revise/decide giá từng size, chỉ một pending revision; apply riêng và không ảnh hưởng giá giao dịch cũ.
 
-**Independent Test**: Product public có accepted hold, hai đề xuất đồng thời cùng size, sửa proposal thành revision mới, approve/reject/apply đúng sequence; FE-04 vắng vẫn quyết định thủ công. US5.1–6, V-03/04/11/14.
+**Independent Test**: Product public có accepted hold, hai đề xuất đồng thời cùng size, sửa proposal thành revision mới, approve/reject/apply đúng sequence; Manager quyết định thủ công, không có gợi ý giá AI. US5.1–6, V-03/04/11/14.
 
 - [x] T052 [US5] Sau US3/US4, viết proposal revision/decision/concurrency coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/CataloguePriceIT.java`: PENDING uniqueness kể cả initial review, reject second independent draft/submit khi pending, revision supersedes, Manager self-approval/manual decision khi AI không có, reject reason/amount fields, stale apply không overwrite. FR-013–016/026–028.
 - [x] T053 [US5] Tạo create/revise/submit service tại `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/service/PriceProposalService.java`: amount/size/terms/version theo T006/T012, draft không đổi applied price/publication. Lock variant/current pending pointer, chặn proposal độc lập thứ hai khi pending, revision mới là row mới và clear/supersede old effect; submit mới đặt đúng một pending. Trước firstPublishedAt gọi review invalidation T032; không inherit approval cũ. FR-011/013.
@@ -141,7 +141,7 @@
 - [x] T057 (bằng chứng 2026-11-01: blocker-report mục "Nền frontend và màn hình 002") [US5] Tạo màn hình đề xuất giá (chi tiết/nháp/revise/submit/decision/apply) trong `ppswbs_frontend/src/features/productmanagement/management/price/` (vị trí dự kiến; `ppswbs_frontend/` chưa khởi tạo, cấu trúc do kế hoạch frontend chốt), liên kết từ chi tiết sản phẩm. Hiện revision/terms/proposed/approved/applied, pending conflict hướng dẫn revise, Manager tự duyệt; không thêm AI flow hoặc amount field ở apply. Chạy lại T052. Cần T088, T089 hoàn tất.
 - [x] T058 [US5] (bằng chứng 2026-10-31: blocker-report mục "Thanh toán và hủy thật của FE-08") Sau dependency T003 có accepted hold thật, viết giá cũ/deadline/snapshot preservation và retention coverage tại `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/productmanagement/CatalogueAcceptedPriceIT.java`: price application mới chỉ tác động sale context mới, old accepted terms không đổi; “Business audit giữ 5 năm từ sự kiện theo Report 3”, receipt tối thiểu 5 năm từ commit không full request/token. Test clock trước/đúng mốc, không purge sớm hoặc replay resurrect; fixture-only không được nhận đã tích hợp FE-08. FR-016/024/027/028.
 
-**Checkpoint**: Quyết định giá luôn qua Manager và apply riêng; duyệt thủ công không bị chặn bởi FE-04.
+**Checkpoint**: Quyết định giá luôn qua Manager và apply riêng; duyệt thủ công, không có gợi ý giá AI.
 
 ## Phase 8: US6 — Ẩn, ngừng bán và xóa sản phẩm (P1)
 

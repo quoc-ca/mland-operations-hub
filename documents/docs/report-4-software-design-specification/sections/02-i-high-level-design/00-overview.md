@@ -1,5 +1,5 @@
 # I. High Level Design
 
-This part describes the high level design of the system. It is a web system with three tiers: a React single-page front-end, a Spring Boot back-end built as a Spring Modulith modular monolith on Java 21, and a MySQL database whose schema is managed with Flyway. The front-end calls the back-end through a REST API with JSON, and the back-end reaches external services (identity, payment, media storage, email, AI, shipping fee quote and OTA platforms) through integration adapters. The repository provides Docker and Docker Compose configuration to build and run the system.
+This section records the current high-level design baseline inferred from the approved feature specifications and the implemented repository structure. The product uses a React/Vite frontend and a Java 21/Spring Boot backend organised as a Spring Modulith modular monolith. Feature modules expose approved facades and do not access another module's private repositories or entities.
 
-The following sections present the software architecture, the package diagrams of both applications and the database design.
+Deployment topology, production hosting, operational SLA, some physical schema details and external-provider go-live configuration remain `TBD` where the feature specifications do not approve them. Those items must not be inferred from the diagrams in this report. The detailed design below distinguishes implemented slices from proposed or verification-pending slices and uses Drive asset placeholders for diagrams.

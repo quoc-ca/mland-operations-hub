@@ -114,7 +114,7 @@ ppswbs_frontend/        (React + Vite)
 2. Same actor/action/key + same digest trả receipt đã commit sau authorization; khác digest trả 409. Nếu chưa có receipt, lấy khóa theo contract, validate latest state, thay đổi aggregate + audit + receipt trong cùng transaction.
 3. Lock order: authorization owner prefix → categories tăng ID → products tăng ID → variants tăng ID → stable FE-08 guard tăng variant ID. Không giữ FE-08 guard rồi gọi productmanagement để lấy product lock. Category đổi hoạt động serialize bằng category lock; publication/delete/hold creation dùng product gate.
 4. Quantity edit giữ guard từ lúc lấy tổng giữ hợp lệ đến commit cập nhật; không chỉ đọc sum rồi unlock. New product chưa public có identity mới, chưa thể có hold nên khởi tạo lượng ban đầu không cần giả định mọi existing variant có held=0.
-5. Khóa ngắn; không gọi remote media/AI dưới khóa. Deadlock/timeout rollback và trả typed retryable error, không tự replay command mới không có key.
+5. Khóa ngắn; không gọi remote media dưới khóa. Deadlock/timeout rollback và trả typed retryable error, không tự replay command mới không có key.
 6. Media upload vào staging private trước attach; object sau DB rollback không public. Policy đã chốt: ảnh chưa gắn đủ 24h, ảnh gỡ không còn tham chiếu đủ 30 ngày mới eligible cleanup; ảnh lịch sử giữ theo owning record. Gắn ảnh/retain và cleanup dùng media-reference guard, đặt DELETE_PENDING trước remote delete ngoài transaction; lỗi provider retry idempotent, không xóa ảnh còn tham chiếu.
 
 ### Stateless and retained state

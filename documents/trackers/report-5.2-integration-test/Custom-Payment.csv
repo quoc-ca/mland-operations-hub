@@ -1,0 +1,4 @@
+﻿Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-CUS-001,Accepted request creates Manager-approved quote path,Staff prepares quote then Manager approves,Member sees one active quote with deadline,Feature-004 and custom manufacturing available,Passed,2026-11-25,QA Agent,,,,,,,,No deposit or cart
+IT-CUS-002,Custom order full payment is idempotent,Submit valid payment callback twice,One payment and one PAID transition are recorded,Payment sandbox/stub available,Passed,2026-11-25,QA Agent,,,,,,,,Full payment only
+IT-CUS-003,Expired quote cannot be paid,Advance deadline then submit payment,Payment is rejected and quote/order expires or cancels per policy,Clock control or expiry fixture available,Passed,2026-11-25,QA Agent,,,,,,,,Quote lifecycle

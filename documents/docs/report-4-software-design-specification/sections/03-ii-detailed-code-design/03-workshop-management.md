@@ -1,6 +1,10 @@
-## 3. Workshop Management
+## 3. Workshop Management (FE-03)
+
+**Implementation status:** Workshop booking, operations and settlement are separate backend boundaries under the FE-03 group. OTA connectivity remains gated by partner readiness.
 
 ### 3.1 Class Diagram
+
+The design groups package/session/location, booking/ticket, check-in and settlement concepts while preserving the one-way facade boundaries between booking, operations, settlement and payment.
 
 #### 3.1.1 Workshop Booking
 

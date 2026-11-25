@@ -1,4 +1,4 @@
-﻿### 2.2 Performance
+### 2.2 Performance
 
 The Reports 1–3 define business timing controls, but they do not approve a hosting size, concurrency target, throughput target, or page-latency SLO. The following requirements are therefore split between mandatory workflow timing and values to baseline before UAT.
 

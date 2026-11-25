@@ -1,0 +1,5 @@
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-CUS-001,Request is ACCEPTED,Staff creates quote with invalid or negative amount,Quote is rejected,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Custom order
+UT-CUS-002,Manager-approved active quote exists,Member creates full-payment command twice with same idempotency key,One payment context is created and retry returns same outcome,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,No cart or deposit
+UT-CUS-003,Quote deadline has passed,Member attempts payment,Payment is rejected and order becomes expired/cancelled per policy,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Quote expiry
+UT-CUS-004,Payment is PAID,Staff attempts an invalid lifecycle transition,Transition is rejected and audit state is unchanged,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Fulfilment lifecycle

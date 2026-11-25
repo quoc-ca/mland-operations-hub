@@ -1,0 +1,4 @@
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-NOT-001,Active notification template exists,Required placeholder is missing,Request records safe operational failure,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-007
+UT-NOT-002,Notification request is pending,Worker receives temporary SMTP failure,Retry is scheduled without duplicate business effect,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-007
+UT-FUL-001,Custom order is PAID,Staff records pickup twice,Second command is idempotent and history remains consistent,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-008

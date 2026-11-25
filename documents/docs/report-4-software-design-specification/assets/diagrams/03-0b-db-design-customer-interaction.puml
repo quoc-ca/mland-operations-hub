@@ -1,0 +1,46 @@
+@startuml
+title Report 4 Database Design — Design and Customer Interaction
+!pragma charset UTF-8
+top to bottom direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontSize 16
+skinparam nodesep 35
+skinparam ranksep 55
+skinparam entity {
+  FontSize 16
+  AttributeFontSize 14
+}
+entity accounts
+entity design_requests
+entity design_request_images
+entity reviews
+entity review_replies
+entity consultation_conversations
+entity consultation_messages
+entity ring_designs
+entity ring_materials
+entity ring_shapes
+entity ring_gemstones
+entity ring_attachments
+entity workshop_packages
+entity catalogue_products
+design_requests }o--|| accounts : owner
+design_requests ||--o{ design_request_images
+reviews }o--|| accounts : author
+review_replies }o--|| reviews
+consultation_conversations }o--|| accounts : member
+consultation_conversations ||--o{ consultation_messages
+consultation_messages }o--|| accounts : sender
+ring_designs }o--|| accounts : member owner
+ring_designs }o--|| ring_materials : material reference
+ring_designs }o--|| ring_shapes : shape reference
+ring_designs }o--o{ ring_gemstones : snapshot selection
+ring_designs }o--o{ ring_attachments : snapshot selection
+reviews ..> workshop_packages : public target reference
+reviews ..> catalogue_products : public target reference
+note "Feature-004 is Member-only. Guest has no private request or saved-design row." as N1
+N1 .. design_requests
+note "Feature-012 persists Member versions only; recommendation does not attach to booking." as N2
+N2 .. ring_designs
+@enduml
