@@ -39,7 +39,7 @@
 |29|003.4 Workshop OTA Connectivity|ota_channel_connections|Stores the connection configuration of each OTA provider.|
 |30|003.4 Workshop OTA Connectivity|ota_channel_mappings|Links Mland sessions to OTA provider products.|
 |31|003.4 Workshop OTA Connectivity|ota_channel_bookings|Stores bookings received from an OTA provider.|
-|32|004 Design Request and Custom Order|design_requests|Stores design requests submitted by a Member or Guest and their review status.|
+|32|004 Design Request and Custom Order|design_requests|Stores custom design requests submitted by an active Member and their human-review status. Guest users have no private request record.|
 |33|004 Design Request and Custom Order|design_request_images|Stores the reference images of a design request with their quality result.|
 |34|004 Design Request and Custom Order|custom_orders|Stores custom ring orders created from an accepted design request.|
 |35|004 Design Request and Custom Order|custom_order_quotes|Stores the quotes of a custom order and the Manager approval.|
@@ -815,7 +815,7 @@ Stores bookings received from an OTA provider.
 
 ### 3.32 design_requests
 
-Stores design requests submitted by a Member or Guest and their review status.
+Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -1351,7 +1351,7 @@ Stores immutable ring design versions created in the configurator.
 |currency|VARCHAR(3)|||
 |difficulty_score|DECIMAL(10,4)|||
 |rules_version|VARCHAR(64)|||
-|status|ENUM('DRAFT','SAVED','VALIDATED','ATTACHED_TO_BOOKING','LOCKED','ARCHIVED')|NOT NULL, DEFAULT DRAFT||
+|status|ENUM('DRAFT','SAVED','VALIDATED','ARCHIVED')|NOT NULL, DEFAULT DRAFT|Customer-facing lifecycle for a persisted Member design. Feature-012 no longer attaches designs to workshop bookings; recommendation is informational only.|
 |booking_reference|VARCHAR(128)|||
 |created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)||
 |updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)||
