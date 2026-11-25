@@ -28,8 +28,8 @@ else (Continue)
       :Calculate advisory evaluation;
       :Show workshop recommendation;
       |Member|
-      :Edit design, archive it, or open consultation;
-      if (Submit custom design request?) then (yes)
+      :Edit design, archive it, explore workshops or open consultation;
+      if (Use design as custom-order reference?) then (yes)
         :Select optional saved design snapshot;
         :Add description and/or up to five images;
         :Give purpose-specific image consent;
@@ -41,6 +41,18 @@ else (Continue)
         |System|
         :Record Accepted, Rejected or Clarification Required
         with mandatory explanation;
+        if (Accepted?) then (yes)
+          |Staff or Manager|
+          :Prepare custom-order quote;
+          |Manager|
+          :Approve quote;
+          |Member|
+          :Pay full amount before quote expiry;
+          |System|
+          :Verify payment and start production;
+          |Staff or Manager|
+          :Fulfil and close the custom order;
+        endif
       endif
     else (no)
       :Show validation or conflict error;
@@ -53,6 +65,7 @@ endif
 note right
 Feature-012 saved designs are independent from booking and payment.
 Feature-004 is Member-only and does not send images to an AI provider.
+The recommendation is advisory; other workshop packages remain discoverable.
 end note
 stop
 @enduml
