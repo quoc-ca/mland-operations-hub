@@ -1,0 +1,31 @@
+@startuml
+title FE-12 Evaluate Design and Produce Workshop Recommendation
+actor Member
+participant WorkshopRingDesignController
+participant WorkshopRingDesignApplicationService
+participant DesignRuleFacade
+participant WorkshopRecommendation
+participant WorkshopPackageDetails
+participant DesignRequestController
+Member -> WorkshopRingDesignController : evaluate saved design
+WorkshopRingDesignController -> WorkshopRingDesignApplicationService : load owned design
+WorkshopRingDesignApplicationService -> DesignRuleFacade : evaluate material, shape, stones and engraving
+DesignRuleFacade --> WorkshopRingDesignApplicationService : difficulty, estimate and warnings
+WorkshopRingDesignApplicationService -> WorkshopRecommendation : apply server thresholds
+WorkshopRecommendation --> WorkshopRingDesignApplicationService : package, reason and advisory note
+WorkshopRingDesignController --> Member : result + Recommended link + Explore workshops
+alt Member follows workshop recommendation
+  Member -> WorkshopPackageDetails : open recommended workshop package
+else Member uses design idea for custom product
+  Member -> DesignRequestController : start request with saved design reference
+  DesignRequestController --> Member : human review and quote flow
+end
+note over Member
+More than five stones recommends Silver Clay.
+Difficulty above nine recommends Wax Casting
+with two sessions on different days.
+Recommendation does not create a booking.
+Custom product purchase requires review,
+approved quote and full payment.
+end note
+@enduml

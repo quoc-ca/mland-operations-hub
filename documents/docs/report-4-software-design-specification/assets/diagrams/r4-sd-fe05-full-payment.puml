@@ -1,0 +1,21 @@
+@startuml
+title FE-05 Manager Approves Quote and Member Pays in Full
+actor Manager
+actor Member
+participant CustomOrderService
+participant CustomOrderPaymentFacade
+participant PaymentGatewayCheckoutPort
+database CustomOrderQuoteRepository
+Manager -> CustomOrderService : approve quote + version
+CustomOrderService -> CustomOrderQuoteRepository : save approved quote and expiry
+Member -> CustomOrderService : open My Custom Orders
+Member -> CustomOrderPaymentFacade : start full payment
+CustomOrderPaymentFacade -> PaymentGatewayCheckoutPort : create checkout URL
+PaymentGatewayCheckoutPort --> Member : payment redirect
+PaymentGatewayCheckoutPort --> CustomOrderPaymentFacade : verified callback
+CustomOrderPaymentFacade -> CustomOrderService : apply PAID outcome idempotently
+CustomOrderService --> Member : PAID and production pending
+note over Member
+Expired unpaid quote cannot be paid.
+end note
+@enduml

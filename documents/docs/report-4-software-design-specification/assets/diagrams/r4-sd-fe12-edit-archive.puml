@@ -1,0 +1,21 @@
+@startuml
+title FE-12 Edit or Archive Member Design
+actor Member
+participant WorkshopRingDesignController
+participant WorkshopRingDesignApplicationService
+database RingDesignRepository
+Member -> WorkshopRingDesignController : edit or archive owned design
+WorkshopRingDesignController -> WorkshopRingDesignApplicationService : command + If-Match-Version
+WorkshopRingDesignApplicationService -> RingDesignRepository : check owner, state and version
+alt edit valid saved version
+  WorkshopRingDesignApplicationService -> RingDesignRepository : create next immutable version
+else archive
+  WorkshopRingDesignApplicationService -> RingDesignRepository : set ARCHIVED soft state
+else stale or foreign
+  WorkshopRingDesignApplicationService --> WorkshopRingDesignController : 403/409 safe error
+end
+WorkshopRingDesignController --> Member : updated history projection
+note over Member
+No hard delete and no booking lock in current flow.
+end note
+@enduml

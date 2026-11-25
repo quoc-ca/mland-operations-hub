@@ -1,0 +1,29 @@
+@startuml
+title FE-05 Personalized Design and Custom Manufacturing
+left to right direction
+skinparam classAttributeIconSize 0
+class CustomManufacturingController
+class CustomOrderService
+class CustomOrder
+class CustomOrderQuote
+class CustomOrderPaymentContext
+class CustomOrderPaymentFacade
+class CustomOrderRepository
+class CustomOrderQuoteRepository
+interface PaymentGatewayCheckoutPort
+interface DesignRequestFacade
+class ProductionFulfilmentFacade
+CustomManufacturingController --> CustomOrderService
+CustomOrderService --> DesignRequestFacade
+CustomOrderService --> CustomOrderRepository
+CustomOrderService --> CustomOrderQuoteRepository
+CustomOrderService --> CustomOrderPaymentFacade
+CustomOrderPaymentFacade --> PaymentGatewayCheckoutPort
+CustomOrder "1" o-- "0..*" CustomOrderQuote
+CustomOrder "1" o-- "0..1" CustomOrderPaymentContext
+CustomOrderService --> ProductionFulfilmentFacade
+note right of CustomOrder
+One full-payment order lifecycle.
+No retail cart or deposit.
+end note
+@enduml

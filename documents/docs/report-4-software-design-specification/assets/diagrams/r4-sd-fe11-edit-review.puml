@@ -1,0 +1,18 @@
+@startuml
+title FE-11 Owner Edits Published Review
+actor Member
+participant ReviewController
+participant ReviewService
+database ReviewRepository
+database ReviewRevisionRepository
+Member -> ReviewController : PATCH own review + If-Match-Version
+ReviewController -> ReviewService : verify ownership and version
+ReviewService -> ReviewRepository : update rating/text keeping PUBLIC
+ReviewService -> ReviewRevisionRepository : append revision and audit
+ReviewRepository --> ReviewService : new version
+ReviewController --> Member : updated safe owner projection
+note over Member,ReviewController
+Another Member receives safe 403/404.
+REMOVED review is not hard-deleted.
+end note
+@enduml
