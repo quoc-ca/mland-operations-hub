@@ -1,14 +1,18 @@
-## 2. Product Management (FE-02)
-
-**Implementation status:** Backend and frontend slices exist; publication, price approval and branch stock remain server-authorized operations.
+## 2. Product Management
 
 ### 2.1 Class Diagram
 
-The module owns catalogue products, fixed-size variants, branch stock, images, categories and price proposals. Product and price decisions are separated from retail checkout.
+{{r4-cd-product-management width=100% align=center}}
 
-### 2.2 Sequence Diagram — Create Product and Manage Variants
+### 2.2 Sequence Diagram — Upload Product Image and Create Draft Product
 
-### 2.3 Sequence Diagram — Submit and Approve Price
+{{r4-sd-create-draft-product width=100% align=center}}
 
-### 2.4 Sequence Diagram — Publish Product and Read Public Catalogue
+### 2.3 Sequence Diagram — Submit and Approve Product Review
+
+{{r4-sd-submit-approve-review width=100% align=center}}
+
+### 2.4 Sequence Diagram — Apply Approved Price and Publish Product
+
+{{r4-sd-apply-price-publish width=100% align=center}}
 

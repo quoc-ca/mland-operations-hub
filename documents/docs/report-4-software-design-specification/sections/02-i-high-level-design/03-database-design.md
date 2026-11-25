@@ -1,5 +1,7 @@
 ## 3. Database Design
 
+{{r4-db width=100% align=center}}
+
 The ERD is intentionally divided into three focused diagrams so that table names, keys and relationships remain readable in the published report.
 
 ### 3.0a Core Catalogue and Workshop ERD
