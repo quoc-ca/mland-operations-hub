@@ -22,6 +22,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME:-mland}_backend
     restart: unless-stopped
+    mem_limit: 2048m
     depends_on:
       db:
         condition: service_healthy
@@ -32,6 +33,7 @@ services:
         required: false
     environment:
       SERVER_PORT: 8080
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseG1GC -Xms512m -Xmx1536m -Duser.timezone=Asia/Ho_Chi_Minh}
       JDBC_URL: jdbc:mysql://db:3306/${DB_NAME:-ppswbs_dev}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
       JDBC_USER: ${DB_USER:-root}
       JDBC_PASSWORD: ${DB_PASSWORD:-sa123123}

@@ -3,12 +3,26 @@ set -xeuo pipefail
 
 exec > >(tee -a /var/log/user-data.log) 2>&1
 
-echo "=== [1/4] Update Ubuntu and install deployment prerequisites ==="
+echo "=== [1/6] Update Ubuntu and install deployment prerequisites ==="
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y ca-certificates curl gnupg lsb-release git jq python3
 
-echo "=== [2/4] Install and enable Docker Engine ==="
+echo "=== [2/6] Configure 8GB swap space ==="
+if ! swapon --show | grep -q '/swapfile'; then
+    if [ ! -f /swapfile ]; then
+        echo "Allocating 8GB swap file at /swapfile..."
+        fallocate -l 8G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=8192
+        chmod 600 /swapfile
+        mkswap /swapfile
+    fi
+    swapon /swapfile || true
+    if ! grep -q '/swapfile' /etc/fstab; then
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    fi
+fi
+
+echo "=== [3/6] Install and enable Docker Engine ==="
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
@@ -23,7 +37,7 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl enable --now docker
 usermod -aG docker ubuntu
 
-echo "=== [3/5] Enable AWS Systems Manager Agent ==="
+echo "=== [4/6] Enable AWS Systems Manager Agent ==="
 if snap list | grep -q amazon-ssm-agent; then
     snap start amazon-ssm-agent || true
 else
@@ -32,7 +46,7 @@ fi
 systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 
-echo "=== [4/5] Install cloudflared package ==="
+echo "=== [5/6] Install cloudflared package ==="
 install -m 0755 -d /usr/share/keyrings
 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
 echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
@@ -40,7 +54,7 @@ apt-get update -y
 apt-get install -y cloudflared
 # Install the remotely managed tunnel token separately on EC2, never in user data.
 
-echo "=== [5/5] Prepare the single-user staging deploy script ==="
+echo "=== [6/6] Prepare the single-user staging deploy script ==="
 install -d -o ubuntu -g ubuntu -m 0750 /opt/mland-staging /opt/mland-staging-runtime
 install -o ubuntu -g ubuntu -m 0600 /dev/null /var/log/mland-deploy.log
 
@@ -58,6 +72,21 @@ echo "=================================================="
 echo " [$(date -u +'%Y-%m-%dT%H:%M:%SZ')] STAGING DEPLOY START"
 echo " Target branch: ${BRANCH}"
 echo "=================================================="
+
+echo "Verifying 8GB swap configuration..."
+if ! swapon --show | grep -q '/swapfile'; then
+    if [ ! -f /swapfile ]; then
+        echo "Allocating 8GB swap file at /swapfile..."
+        sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+    fi
+    sudo swapon /swapfile || true
+    if ! grep -q '/swapfile' /etc/fstab; then
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
+    fi
+fi
+free -h
 
 if [[ ! "${BRANCH}" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ || "${BRANCH}" == *..* || "${BRANCH}" == */ ]]; then
     echo "Invalid branch name" >&2
