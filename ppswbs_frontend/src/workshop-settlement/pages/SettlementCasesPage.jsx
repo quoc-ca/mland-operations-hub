@@ -27,9 +27,9 @@ export default function SettlementCasesPage() {
   return (
     <OpsPage title={t('cases.title')} intro={t('cases.intro')}>
       <ErrorNotice error={caseList.error} onRetry={() => caseList.reload()} />
-      <section className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('cases.all')}</h2><button className="button secondary" type="button" onClick={() => caseList.reload()}>{t('cases.refresh')}</button></div>
-        <div className="ota-inline-form">
+      <section className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('cases.all')}</h2><button className="button secondary" type="button" onClick={() => caseList.reload()}>{t('cases.refresh')}</button></div>
+        <div className="wsp-inline-form">
           <label>{t('cases.type')}
             <select value={filters.caseType} onChange={event => setFilters(v => ({ ...v, caseType: event.target.value }))}>
               <option value="">{t('cases.filterAll')}</option>

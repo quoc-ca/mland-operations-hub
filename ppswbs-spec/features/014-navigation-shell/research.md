@@ -1,5 +1,7 @@
 # Research: Manager Home
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25 (nhóm `ota`, hàng đợi đối soát OTA, read R-4 không còn): [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).*
+
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18
 **Author**: Hồ Hoàng Quốc

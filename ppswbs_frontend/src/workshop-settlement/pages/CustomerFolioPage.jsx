@@ -19,8 +19,8 @@ function FolioView({ folio }) {
   const collectionStatus = useEnumLabel(messages, 'collectionStatus');
   const methodLabel = useEnumLabel(messages, 'method');
   return (
-    <section className="ota-panel" aria-label={t('cf.folioAria')}>
-      <div className="ota-panel-head"><h2>{folio.ticketCode}</h2><span className="ops-status">{folioStatus(folio.status)}</span></div>
+    <section className="wsp-panel" aria-label={t('cf.folioAria')}>
+      <div className="wsp-panel-head"><h2>{folio.ticketCode}</h2><span className="ops-status">{folioStatus(folio.status)}</span></div>
       <dl className="ops-facts">
         <div><dt>{t('cf.total')}</dt><dd>{fmt.money(folio.totalAmount)}</dd></div>
         <div><dt>{t('cf.paid')}</dt><dd>{fmt.money(folio.paidAmount)}</dd></div>
@@ -76,7 +76,7 @@ export default function CustomerFolioPage() {
           <>
             <FolioView folio={own.data} />
             {/* T127 (FR-050): the owning Member reads a posted correction with the bearer; a Guest never gets this view. */}
-            <section className="ota-panel"><FolioCorrectionLookup api={api} ticketCode={ticketCode} /></section>
+            <section className="wsp-panel"><FolioCorrectionLookup api={api} ticketCode={ticketCode} /></section>
           </>
         )
           : own.error && (own.error.status === 404 || own.error.status === 403)
@@ -93,7 +93,7 @@ export default function CustomerFolioPage() {
           {error?.status === 404
             ? <div className="notice error" role="alert"><p>{t('cf.notFoundGuest')}</p></div>
             : <ProblemNotice error={error} onRetry={command.retry} />}
-          <form className="ota-form" aria-label={t('cf.findAria')} onSubmit={lookup}>
+          <form className="wsp-form" aria-label={t('cf.findAria')} onSubmit={lookup}>
             <label>{t('cf.email')}<input type="email" autoComplete="off" value={contact.contactEmail} onChange={event => setContact(v => ({ ...v, contactEmail: event.target.value }))} /></label>
             <label htmlFor="folio-contact-phone">{t('cf.phone')}</label>
             <PhoneInput

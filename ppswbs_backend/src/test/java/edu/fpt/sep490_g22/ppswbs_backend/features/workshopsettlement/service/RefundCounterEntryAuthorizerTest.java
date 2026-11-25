@@ -37,7 +37,7 @@ class RefundCounterEntryAuthorizerTest {
         when(booking.getTicketFolioContext(TICKET)).thenReturn(Optional.of(new TicketFolioContext(TICKET, "GRP-1",
                 "LINE-1", "PKG-1", 7L, List.of("S-1"), null)));
         when(operations.staffAssignedToBooking(11L, "LINE-1")).thenReturn(true);
-        givenRequest(RefundReason.OTA_ADDON_OVERCHARGE, TICKET, "GRP-1");
+        givenRequest(RefundReason.OVERCHARGE_AFTER_FINALIZED, TICKET, "GRP-1");
     }
 
     private void givenRequest(RefundReason reason, String bookingReference, String group) {

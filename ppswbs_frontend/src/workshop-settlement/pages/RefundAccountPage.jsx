@@ -55,7 +55,7 @@ export default function RefundAccountPage() {
       {reviewing ? (
         <AccountReviewStep details={form} confirmed={confirmed} onConfirmedChange={setConfirmed} onEdit={edit} pending={command.pending} submitLabel={t('ra.sendAccount')} onSubmit={submit} />
       ) : (
-        <form className="ota-form" aria-label={t('ra.formAria')} onSubmit={review}>
+        <form className="wsp-form" aria-label={t('ra.formAria')} onSubmit={review}>
           <Field label={t('ra.bank')}><input value={form.bankCode} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, bankCode: event.target.value }))} /></Field>
           <Field label={t('ra.accountNumber')}><input inputMode="numeric" value={form.accountNumber} maxLength={32} autoComplete="off" onChange={event => setForm(v => ({ ...v, accountNumber: event.target.value }))} /></Field>
           <Field label={t('ra.holder')} hint={t('ra.holderHint')}><input value={form.holderName} maxLength={128} autoComplete="off" onChange={event => setForm(v => ({ ...v, holderName: event.target.value }))} /></Field>

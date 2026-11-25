@@ -99,6 +99,34 @@ class TicketFolioApiServiceTest {
     }
 
     @Test
+    void readFolio_afterPriceIncrease_addsItToTheTotalAndKeepsThePaidAmount() {
+        TicketFolioContext ctx = new TicketFolioContext(
+                "TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L
+        );
+        // A 25,000 change increase was added to the checkout balance (FR-045); the frozen amount stays.
+        SettlementFinalBill folio = SettlementFinalBill.builder()
+                .billReference("BILL-1")
+                .bookingReference("TK-1")
+                .lifecycleStatus("OPEN")
+                .postPromotionAmountVnd(650_000L)
+                .acceptedDepositAmountVnd(200_000L)
+                .remainingAmountVnd(475_000L)
+                .build();
+
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReference("TK-1")).thenReturn(Optional.of(folio));
+        when(folioBalances.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(
+                475_000L, 0L, 475_000L
+        ));
+
+        TicketFolioDto dto = service.readFolio("TK-1", memberBuyer);
+
+        assertThat(dto.totalAmount()).isEqualTo("675000");
+        assertThat(dto.paidAmount()).isEqualTo("200000");
+        assertThat(dto.balanceDue()).isEqualTo("475000");
+    }
+
+    @Test
     void readFolioStatuses_returnsLifecycleOnlyForTicketsTheActorMayOpen() {
         TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
         TicketFolioContext other = new TicketFolioContext("TK-2", "GRP-1", "LINE-2", "PKG-1", 1L, List.of("SES-2"), 30L);

@@ -35,7 +35,7 @@ Global catalogue facts:
 | --- | --- | --- |
 | Gemstones | 50,000–200,000 VND | A price range; cannot be represented as one fixed-price add-on without selectable variants or an approved quote flow. |
 | Gold plating | 150,000 VND | Candidate fixed-price direct-shop add-on. |
-| Laser engraving | 100,000 VND | Candidate fixed-price direct-shop add-on. The separately approved OTA benefit of free engraving for an eligible OTA buyer is an eligibility/bundling rule, not a contradiction of this retail price. |
+| Laser engraving | 100,000 VND | Candidate fixed-price direct-shop add-on.  |
 | Extra S999 Silver Clay | 900,000 VND / 5g | Candidate fixed-price direct-shop add-on. |
 | Extra S925 Silver | Market price | No fixed catalogue price; requires an approved staff quote/price-snapshot rule before it can be sold through a fixed-price add-on flow. |
 
@@ -69,10 +69,6 @@ Global catalogue facts:
 3. Material limits, duration, included stones and pickup statements are only
    stored in the current public description. Structured fields would be a new
    data/API contract and need separate design approval.
-4. The V1 OTA mapping still names “Basic Ring” as its sellable offer. Whether
-   that legacy name maps to either Signature Workshop variant is unresolved;
-   do not rename an OTA mapping or publish a provider change from this
-   catalogue alone.
 
 ## Implementation and data-release boundary
 

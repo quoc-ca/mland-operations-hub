@@ -107,10 +107,6 @@ public class FolioCorrectionService {
 
         CurrentAccountActor manager = authorization.requireManager(actor);
 
-        if (bookingRef.startsWith("OTA-")) {
-            throw new WorkshopSettlementConflictException("OTA_BOOKING_NOT_SUPPORTED");
-        }
-
         // Lock the folio row FIRST: concurrent corrections (even with different Idempotency-Keys) must serialize,
         // otherwise both could allocate the same unrefunded collections and refund them twice. It must be the first
         // database access: under MySQL REPEATABLE READ the first plain read fixes the transaction snapshot, so a

@@ -137,7 +137,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Hết hạn chỗ giữ workshop: nhóm `GRP-A8C16842FA9C408EAFD3` hết hạn lúc 16:44:58 → `loyalty_accepted_benefit` id 3 voucher và điểm `RELEASED`, outcome `group-expired-GRP-A8C16842FA9C408EAFD3`. **Đạt**.
   - 003.3 đổi phiên: vẫn chưa chạy thật được — bộ giả lập thanh toán lỗi, xem BUG-INT-0004.
 
-## BUG-INT-0004 — OPEN
+## BUG-INT-0004 — CLOSED
 
 - Ngày phát hiện: 2026-11-23
 - Phát hiện bởi: Owner FE-06 (006) khi chạy thật 003.3 đổi phiên (backend 8087 bật `payment-simulator.enabled=true`, frontend 5179, Member `customer.test@mland.vn`)
@@ -152,7 +152,10 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Kết quả thực tế: HTTP 500 `INTERNAL_ERROR` (correlationId `a8de6830-ecbd-4633-b445-07bdee4b6312`); log: `SqlExceptionHelper - Data truncation: Data too long for column 'provider_transaction_number'`, rồi `UnexpectedRollbackException`.
 - Đề xuất sửa (owner payment-integration): mã giả lập tối đa 15 ký tự (ví dụ `"S" + 14 chữ số cuối của millis`, hoặc dãy số 8 chữ số như VNPay thật). VNPay sandbox cũng không dùng được trên máy dev (mã 72 "Không tìm thấy website" với cấu hình mặc định), nên hiện không có đường nào để booking qua bước đã cọc khi kiểm thử thật.
 - Dữ liệu test: nhóm `GRP-4C59D0C79D5245308D3E` chờ thanh toán (voucher `MLWSHK50` đang giữ, tự trả khi hết hạn 10 phút).
-- Trạng thái xử lý: **OPEN**
+- Trạng thái xử lý: **CLOSED**
+- Ngày đóng: 2026-11-26
+- Sửa tại: commit `3c11be2b` (2026-11-23); `VnpayPaymentSimulatorControllerTest` 5/5 Passed ngày 2026-11-25.
+- Kiểm lại chạy thật (2026-11-26, frontend 5173, backend 8080, Member): đặt vé `GRP-BCEC60CB1D7C4422B48F`, xác nhận ở bộ giả lập → "Thanh toán thành công", booking sang "Đã xác nhận"; đổi phiên lần 1 áp dụng ngay (27/11 16:00 → 28/11 09:30); lần 2 vào hàng chờ duyệt `CHG-REQ-5a60a32d-688e-4a1f-937a-83c340f76881` (`PENDING`, `CHANGE_ALLOWANCE_EXHAUSTED`).
 
 ## BUG-E2E-0018 — CLOSED
 
@@ -730,3 +733,42 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
     + Screenshot 1: ![Màn hình 403 chặn Admin Accounts](../ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-006--admin-accounts-guard-resolved.jpg)
     + Screenshot 2: ![Màn hình 403 chặn Admin Roles](../ppswbs-spec/features/001-account-management/test-results/screenshots/E2E-001-007--admin-roles-guard-resolved.jpg)
 - Trạng thái xử lý: **CLOSED**
+
+## BUG-E2E-0021 — CLOSED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: ST_WO_05 (check-in trong khung giờ, không check-in 2 lần)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Check-in lại một vé đã check-in, màn hình điều khiển ca vẫn báo "Đã ghi nhận check-in." giống lần đầu; Staff không biết đây là lần quét lặp.
+- Các bước tái hiện:
+  1. Manager mở `/operations/sessions/bc2ff85a-d92f-11f1-81a4-98bd80539bba` (giờ mở check-in đã đến).
+  2. Nhập mã vé `GRP-960A60B3C5EF45148D37-L0-T1`, bấm "Check-in".
+  3. Nhập lại đúng mã đó, bấm "Check-in".
+- Kết quả mong đợi: báo vé đã check-in kèm giờ check-in (spec 003.2, "Staff scans an already checked-in ticket").
+- Thực tế quan sát: hai request đều 200, thông báo "Đã ghi nhận check-in."; danh sách vẫn 1/8 và giờ 00:10 (backend không ghi check-in lần hai, trả `ALREADY_CHECKED_IN` theo `CheckInService`; `OperationsSessionPage.jsx` không phân biệt).
+- Ngày đóng: 2026-11-26
+- Sửa tại: `OperationsSessionPage.jsx` phân biệt `ALREADY_CHECKED_IN` và báo "Vé đã check-in trước đó lúc …" (chưa commit).
+- Kiểm lại: `npm test -- src/workshop-operations` 155/155 Passed; quét lại vé `GRP-960A60B3C5EF45148D37-L0-T1` trên trình duyệt hiện "Vé đã check-in trước đó lúc 00:10 26 thg 11, 2026."
+
+## BUG-E2E-0022 — CLOSED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: đổi phiên làm tăng giá (nhóm ST_TC; spec FR-045, FR-005)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend 003.3
+- Mô tả lỗi: Sau khi đổi vé làm tăng giá, folio và thẻ vé hiện "Tổng" không đổi và "Đã thanh toán" bị giảm đúng bằng mức tăng. Số còn nợ đúng.
+- Các bước tái hiện:
+  1. Member đặt 2 vé Brass tại Hoàn Kiếm với voucher "Workshop Hoàn Kiếm – giảm 50.000 ₫", cọc 400.000 ₫ (nhóm `GRP-9FBC6B68D4CF4244B1CE`).
+  2. Đổi vé T1 sang Tây Hồ 29/11 13:00, đồng ý mức tăng 25.000 ₫.
+  3. Mở `/workshop-tickets/GRP-9FBC6B68D4CF4244B1CE-L0-T1/folio`.
+- Kết quả mong đợi: đã thanh toán 200.000 ₫ (tổng các khoản đã xác minh), tổng gồm cả mức tăng 675.000 ₫, còn nợ 475.000 ₫.
+- Thực tế quan sát: tổng 650.000 ₫, đã thanh toán 175.000 ₫, còn nợ 475.000 ₫; dòng "Thanh toán lúc đặt chỗ" vẫn 200.000 ₫.
+- Nguyên nhân (đọc code): `TicketChangeService.recordAppliedChange` chỉ cộng mức tăng vào `remainingAmountVnd`; `TicketFolioApiService.toDto` (dòng 516–519) tính `totalAmount` không gồm mức tăng rồi suy `paidAmount = totalAmount − balanceDue`.
+- Ngày đóng: 2026-11-26
+- Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (chưa commit). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
+- Kiểm lại: folio `…9FBC…-L0-T1` hiện Tổng 675.000, đã thanh toán 200.000, còn nợ 475.000; thẻ vé hiện đã thanh toán 200.000 ("Giá vé" 650.000 là giá lúc đặt). Test `workshopsettlement`: 576 ca, 5 ca lỗi về quyền yêu cầu hoàn tiền (`RefundRequestControllerTest`, `ManagerHomeWaitingCountsIT`, `WorkshopSettlementStatusContractIT`), không thuộc code vừa sửa.

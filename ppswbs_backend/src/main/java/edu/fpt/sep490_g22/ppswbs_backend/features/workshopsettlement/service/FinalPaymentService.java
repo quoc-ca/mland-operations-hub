@@ -24,8 +24,6 @@ public class FinalPaymentService {
     public static final String FOLIO_VNPAY_EXCESS = "FOLIO_VNPAY_EXCESS";
     private final SettlementEvidenceConclusionRepository evidence;
     private final SettlementFinalBillRepository bills;
-    private final SettlementAddonBillRepository addonBills;
-    private final SettlementAddonPaymentAttemptRepository addonAttempts;
     private final SettlementCustomerNotifier notifier;
     private final SettlementFolioCollectionRepository collections;
     private final FolioCollectionService folioCollections;
@@ -33,15 +31,11 @@ public class FinalPaymentService {
     @Autowired
     public FinalPaymentService(SettlementEvidenceConclusionRepository evidence,
             SettlementFinalBillRepository bills,
-            SettlementAddonBillRepository addonBills,
-            SettlementAddonPaymentAttemptRepository addonAttempts,
             SettlementCustomerNotifier notifier,
             SettlementFolioCollectionRepository collections,
             FolioCollectionService folioCollections) {
         this.evidence = evidence;
         this.bills = bills;
-        this.addonBills = addonBills;
-        this.addonAttempts = addonAttempts;
         this.notifier = notifier;
         this.collections = collections;
         this.folioCollections = folioCollections;
@@ -53,10 +47,6 @@ public class FinalPaymentService {
         if (byOperation.isPresent()) return replay(byOperation.get(), command);
         var byEvidence = evidence.findByEvidenceReference(command.verifiedEvidenceReference().trim());
         if (byEvidence.isPresent()) return replay(byEvidence.get(), command);
-
-        if ("SHOP_ADDON".equals(command.paymentKind())) {
-            return applyShopAddon(command);
-        }
 
         SettlementFinalBill bill = bills.findByBookingReferenceForUpdate(command.bookingReference().trim()).orElse(null);
         if (bill == null) return SettlementPaymentEvidenceOutcome.rejected("FINAL_BILL_NOT_FOUND");
@@ -144,56 +134,6 @@ public class FinalPaymentService {
             notifier.notifyVerified(command.bookingReference().trim(), SettlementCustomerNotifier.FINAL_PAYMENT_VERIFIED,
                     command.amountVnd(), bill.getBillReference(), command.correlationReference().trim());
         }
-        return SettlementPaymentEvidenceOutcome.accepted();
-    }
-
-    private SettlementPaymentEvidenceOutcome applyShopAddon(ApplyVerifiedSettlementPaymentEvidenceCommand command) {
-        SettlementAddonPaymentAttempt attempt = addonAttempts.findByMerchantReference(command.merchantReference().trim()).orElse(null);
-        if (attempt == null) {
-            return SettlementPaymentEvidenceOutcome.rejected("ATTEMPT_NOT_FOUND");
-        }
-        SettlementAddonBill bill = addonBills.findByBillReferenceForUpdate(attempt.getBillReference()).orElse(null);
-        if (bill == null) {
-            return SettlementPaymentEvidenceOutcome.rejected("ADDON_BILL_NOT_FOUND");
-        }
-        if (!"VND".equals(command.currencyCode()) || !bill.getCurrencyCode().equals(command.currencyCode())) {
-            return SettlementPaymentEvidenceOutcome.rejected("CURRENCY_MISMATCH");
-        }
-        // The provider must have collected exactly what this attempt asked for.
-        if (!Objects.equals(attempt.getAmountVnd(), command.amountVnd())) {
-            return SettlementPaymentEvidenceOutcome.rejected("AMOUNT_MISMATCH");
-        }
-        if ("VERIFIED_PAID".equals(attempt.getLifecycleStatus())) {
-            return SettlementPaymentEvidenceOutcome.accepted(); // the same verified payment delivered again
-        }
-        boolean alreadyPaid = "PAID".equals(bill.getLifecycleStatus());
-        if (!alreadyPaid && !"OPEN".equals(bill.getLifecycleStatus())) {
-            return SettlementPaymentEvidenceOutcome.rejected("BILL_NOT_OPEN");
-        }
-
-        // A verified payment for a bill that another attempt already settled is real money collected twice.
-        // It is recorded like any other SHOP_ADDON payment so a Manager can refund it; the bill stays PAID.
-        if (!alreadyPaid) {
-            bill.setLifecycleStatus("PAID");
-            addonBills.saveAndFlush(bill);
-        }
-
-        attempt.setLifecycleStatus("VERIFIED_PAID");
-        attempt.setPaymentUrlSnapshot(null);
-        addonAttempts.saveAndFlush(attempt);
-
-        evidence.saveAndFlush(SettlementEvidenceConclusion.builder()
-                .evidenceReference(command.verifiedEvidenceReference().trim())
-                .bookingReference(bill.getChannelBookingReference().trim())
-                .providerTransactionReference(command.merchantReference().trim())
-                .providerTransactionNumber(command.providerTransactionNumber())
-                .originalProviderCreateDate(command.originalProviderCreateDate())
-                .conclusion("SHOP_ADDON_VERIFIED")
-                .amountVnd(command.amountVnd())
-                .currencyCode(command.currencyCode())
-                .operationReference(command.operationReference().trim())
-                .createdAt(Instant.now()).build());
-
         return SettlementPaymentEvidenceOutcome.accepted();
     }
 

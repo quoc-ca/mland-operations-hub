@@ -90,7 +90,7 @@ class WorkshopRefundServiceTest {
     // unknownWithoutRefundTransactionNumberStaysPendingWithoutRetry and
     // laterRejectedAllocationAfterVerifiedRefundRemainsPendingForManualRemediation exercised the VNPay refund
     // dispatch through a CUSTOMER_CANCELLATION case. Every case type is now either bank-routed (T098/T104:
-    // MLAND_CANCELLATION_REMEDY, FOLIO_CORRECTION, LATE_PAYMENT_REFUND, ADDON_REFUND) or refused above, so no
+    // MLAND_CANCELLATION_REMEDY, FOLIO_CORRECTION, LATE_PAYMENT_REFUND) or refused above, so no
     // case could reach the VNPay refund and those tests asserted an unreachable path. The VNPay refund code itself was
     // removed 2026-11-15 on the owner's decision.
 
@@ -194,47 +194,6 @@ class WorkshopRefundServiceTest {
         var auditCaptor = org.mockito.ArgumentCaptor.forClass(SettlementBusinessAudit.class);
         verify(audits, atLeastOnce()).save(auditCaptor.capture());
         assertThat(auditCaptor.getAllValues()).anyMatch(a -> "FOLIO_CORRECTION_REFUND_VERIFIED".equals(a.getActionCode()));
-    }
-
-    @Test
-    void addonRefundCaseDoesNotMutateFolioOrBookingOrConsequencesWhenFullyRefunded() {
-        String addonCaseRef = "CASE-ADDON-1";
-        SettlementCase addonCase = SettlementCase.builder().caseReference(addonCaseRef).bookingReference("ext-booking-ref-42")
-                .caseType("ADDON_REFUND").lifecycleStatus("PENDING_PROVIDER")
-                .correlationReference("CORR-ADDON-1").createdAt(Instant.now()).updatedAt(Instant.now()).build();
-        when(cases.findByCaseReference(addonCaseRef)).thenReturn(Optional.of(addonCase));
-        when(cases.findByCaseReferenceForUpdate(addonCaseRef)).thenReturn(Optional.of(addonCase));
-
-        SettlementRefundAllocation alloc = allocation("ALLOC-ADDON", "PAY-ADDON-1", 50_000, 50_000, "02");
-        alloc.setCaseReference(addonCaseRef);
-        when(allocations.findAllByCaseReferenceOrderByCreatedAtAsc(addonCaseRef)).thenReturn(List.of(alloc));
-        givenBankRefundOpens("REFUND-ADDON");
-
-        service.dispatchCase(addonCaseRef);
-
-        // T104: the add-on overcharge of an OTA booking is Mland money, so it leaves by bank transfer too.
-        // The OTA's own base ticket stays the OTA's process and was never handled here.
-        assertThat(alloc.getLifecycleStatus()).isEqualTo("PENDING_BANK_REFUND");
-        assertThat(alloc.getBankRefundReference()).isEqualTo("REFUND-ADDON");
-        assertThat(addonCase.getLifecycleStatus()).isNotEqualTo("RESOLVED");
-
-        service.onBankRefundConfirmed(
-                new edu.fpt.sep490_g22.ppswbs_backend.common.booking.MlandBankRefundConfirmedEvent(
-                        "REFUND-ADDON", BOOKING_REF, "ALLOC-ADDON", 50_000, Instant.now()));
-
-        assertThat(alloc.getLifecycleStatus()).isEqualTo("VERIFIED");
-        assertThat(addonCase.getLifecycleStatus()).isEqualTo("RESOLVED");
-
-        // Verify consequences were NEVER invoked
-        verifyNoInteractions(operations);
-        verify(booking, never()).recordBookingRefundStatus(anyString(), any(), anyString(), anyString(), anyString());
-        verify(booking, never()).recordBookingServiceOutcome(anyString(), any(), anyString(), anyString(), anyString());
-        verify(bills, never()).saveAndFlush(any());
-        verify(bills, never()).findByBookingReference(anyString());
-
-        var auditCaptor = org.mockito.ArgumentCaptor.forClass(SettlementBusinessAudit.class);
-        verify(audits, atLeastOnce()).save(auditCaptor.capture());
-        assertThat(auditCaptor.getAllValues()).anyMatch(a -> "ADDON_REFUND_VERIFIED".equals(a.getActionCode()));
     }
 
     /** The bank refund T097 opens when an allocation is routed away from the gateway. */

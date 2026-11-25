@@ -316,6 +316,7 @@ describe('Customer Mland remedy page', () => {
 
   it('lets a signed-in Member choose a refund with the bearer and no code', async () => {
     const calls = mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER),
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(200, {}),
     });
@@ -332,6 +333,7 @@ describe('Customer Mland remedy page', () => {
 
   it('explains a replacement session that just filled up and keeps the choice open', async () => {
     mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER),
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(409, { code: 'REPLACEMENT_SESSION_UNAVAILABLE', correlationId: 'c' }),
     });

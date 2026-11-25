@@ -10,7 +10,7 @@ const OLD_MANAGER_LINKS = [
   '/operations/sessions', '/operations/admin?tab=locations', '/operations/packages', '/operations/package-availability', '/operations/package-add-ons',
   '/settlement', '/settlement/cash-close', '/operations/late-payments', '/settlement/reconciliation', '/settlement/absorbed-undercharges',
   '/settlement/ticket-actions', '/settlement/change-requests', '/settlement/refunds', '/settlement/cases?tab=cases',
-  '/ota-connectivity/channels', '/ota-connectivity/reconciliation', '/ota-connectivity/finance', '/ota-connectivity/add-ons',
+  
   '/admin/notifications/templates', '/admin/notifications/requests', '/operations/audit',
 ];
 // Pages that became header buttons or sub-pages of a tab.
@@ -25,13 +25,12 @@ const FILTERED = {
   '/settlement/cash-close': '/settlement/cash-close?view=confirmation',
   '/settlement/change-requests': '/settlement/change-requests?status=PENDING',
   '/settlement/refunds': '/settlement/refunds?status=WAITING',
-  '/ota-connectivity/reconciliation': '/ota-connectivity/reconciliation?status=NEEDS_ATTENTION',
 };
 const filtered = link => FILTERED[link] || link;
 
 describe('navigation model', () => {
-  it('has the ten groups plus the two GHTK groups, each with at most five tabs, and unique ids', () => {
-    expect(GROUPS.map(group => group.id)).toEqual(['home', 'products', 'promotions', 'customers', 'retail', 'workshop', 'collect', 'tickets', 'ota', 'system', 'carrier-orders', 'carrier-stats']);
+  it('has the nine groups plus the two GHTK groups, each with at most five tabs, and unique ids', () => {
+    expect(GROUPS.map(group => group.id)).toEqual(['home', 'products', 'promotions', 'customers', 'retail', 'workshop', 'collect', 'tickets', 'system', 'carrier-orders', 'carrier-stats']);
     GROUPS.forEach(group => expect(group.tabs.length).toBeLessThanOrEqual(5));
     const keys = GROUPS.flatMap(group => group.tabs.map(tab => tabKey(group, tab)));
     expect(new Set(keys).size).toBe(keys.length);
@@ -50,10 +49,10 @@ describe('navigation model', () => {
     const shown = links('STAFF');
     expect(shown).toContain('/staff/home');
     expect(shown).not.toContain('/manager/dashboard');
-    ['/operations/sessions', '/catalogue-management/products', '/design-review-requests', '/staff/retail-orders', '/settlement', '/settlement/change-requests', '/ota-connectivity/add-ons']
+    ['/operations/sessions', '/catalogue-management/products', '/design-review-requests', '/staff/retail-orders', '/settlement', '/settlement/change-requests']
       .forEach(link => expect(shown).toContain(filtered(link)));
     ['/promotion-management/programs', '/operations/packages', '/operations/package-availability', '/operations/package-add-ons', '/operations/admin?tab=locations',
-      '/ota-connectivity/channels', '/settlement/cases?tab=cases', '/admin/notifications/templates', '/operations/audit', '/operations/late-payments']
+      '/settlement/cases?tab=cases', '/admin/notifications/templates', '/operations/audit', '/operations/late-payments']
       .forEach(link => expect(shown).not.toContain(link));
     const sessions = locate('/operations/sessions').tab;
     expect(tabLabel(sessions, 'vi', 'STAFF')).toBe('Ca của tôi');

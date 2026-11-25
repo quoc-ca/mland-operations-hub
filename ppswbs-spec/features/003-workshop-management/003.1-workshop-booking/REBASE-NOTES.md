@@ -1,5 +1,7 @@
 # Rebase notes — Workshop Booking Core
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../ota-removal-2026-11-25.md).*
+
 > **Superseded 2026-11-15:** this note predates the booking-group model; the current model is spec FR-030-FR-052 and data-model "Booking group".
 
 

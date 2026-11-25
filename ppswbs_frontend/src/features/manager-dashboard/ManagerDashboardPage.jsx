@@ -9,7 +9,7 @@ import { HomeBlocks } from './operations';
 import { useT } from '../../shared/i18n/I18nProvider';
 import RevenueReport from './RevenueReport';
 import { managerDashboardMessages } from './messages';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import './managerDashboard.css';
 
 /**
@@ -33,8 +33,8 @@ export default function ManagerDashboardPage() {
   if (role !== 'MANAGER') return <Navigate to={roleHomePath(role)} replace />;
 
   return (
-    <div className="ota-workspace">
-      <main className="ota-main manager-dashboard mh-page">
+    <div className="wsp-workspace">
+      <main className="wsp-main manager-dashboard mh-page">
         <HomeBlocks revenue={(
           <section aria-labelledby="mh-revenue" className="mh-section">
             <h2 id="mh-revenue" className="mh-section-title">{t('page.revenueTitle')}</h2>

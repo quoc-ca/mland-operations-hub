@@ -55,7 +55,7 @@ async function run() {
 
     // Check KPI summary cards
     const kpiElements = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('.ota-workspace strong')).map((s) => s.textContent.trim());
+      return Array.from(document.querySelectorAll('.wsp-workspace strong')).map((s) => s.textContent.trim());
     });
     console.log('KPI metric numbers displayed:', kpiElements);
 

@@ -7,7 +7,7 @@ import { useRole } from '../../shared/auth/useRole';
 import { Loading, useCommand } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { decideLatePaymentReview, listLatePaymentReviews } from '../../api/workshops';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
 // Same standardized reasons as the session page recovery panel (003.1 FR-040a decisions need a reason).
@@ -72,17 +72,17 @@ export default function LatePaymentReviewsPage() {
     }
   }
 
-  return <div className="ota-workspace"><main className="ota-main">
-    <div className="ota-topline">{t('topline.latePayments')} <span>· {t('authorized')}</span></div>
-    <header className="ota-page-heading">
+  return <div className="wsp-workspace"><main className="wsp-main">
+    <div className="wsp-topline">{t('topline.latePayments')} <span>· {t('authorized')}</span></div>
+    <header className="wsp-page-heading">
       <div>
         <p className="muted">
           {t('late.intro')}
         </p>
       </div>
     </header>
-    <article className="ota-panel">
-      <div className="ota-form-grid" style={{ marginBottom: '12px' }}>
+    <article className="wsp-panel">
+      <div className="wsp-form-grid" style={{ marginBottom: '12px' }}>
         <label className="full-width">
           {t('late.reasonLabel')}
           <select value={reasonCode} onChange={e => setReasonCode(e.target.value)}>

@@ -5,7 +5,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketS
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSalesChannel;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopSession;
@@ -62,9 +61,6 @@ public class TicketChangeOptionsService {
         AttendanceTicket ticket = ticketRepository.findByReference(query.ticketReference().toString()).orElse(null);
         if (ticket == null) {
             return TicketChangeOptions.refused(Status.TICKET_NOT_FOUND);
-        }
-        if (ticket.getSalesChannel() == TicketSalesChannel.OTA) {
-            return TicketChangeOptions.refused(Status.OTA_TICKET_NOT_SUPPORTED);
         }
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
             return TicketChangeOptions.refused(Status.TICKET_NOT_ACTIVE);

@@ -1,5 +1,7 @@
 # Feature Specification: Workshop Operations
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
@@ -58,11 +60,6 @@ where they conflict with the following V1 decisions:
   scheduler automatically transitions it to `IN_PROGRESS`. The existing
   state-transition command remains only for explicit early start or recovery;
   it is not the normal scheduled path.
-- OTA sale state is closed when the session enters `IN_PROGRESS`; the automatic
-  scheduled-start transition publishes the complete closed post-state snapshot
-  in the same Operations transaction. `ATTENDANCE_FINALIZED` remains closed,
-  but does not create a second snapshot/version when the observable snapshot is
-  otherwise unchanged. Manual early start follows the same publication rule.
 - Attendance correction remains Manager-only. An active Manager may correct
   attendance globally; Staff may not correct attendance.
 - A finalized session records its finalization timestamp. Manager attendance
@@ -150,8 +147,7 @@ assigned to that session** may …".
   Quốc 2026-11-15). *(Supersedes the earlier code behaviour of
   `409 INVALID_STATE` for an ineligible account and `403
   LOCATION_SCOPE_DENIED` for an assignee outside the location.)*
-- **Downstream**: Settlement (003.3) and the OTA shop add-on (003.4) apply the
-  same rule through the booking: a Staff member may act on a booking only while
+- **Downstream**: Settlement (003.3) applies the same rule through the booking: a Staff member may act on a booking only while
   assigned to a session the booking holds a valid ticket for.
 
 ## Per-ticket capacity, attendance, QR and changes (decision 2026-11-12)
@@ -176,7 +172,7 @@ through this section.
   sessions. For a booking group, 003.1 reserves all lines (any packages and
   sessions) in one command, all or none, and commits or releases the whole group
   together until confirmation; afterwards capacity is committed and released
-  per ticket. All channels (direct and OTA) consume the same session capacity.
+  per ticket. All bookings consume the same session capacity.
 - **FR-031**: Cancelling a ticket (customer, 003.3 FR-041; Mland, FR-043)
   releases the ticket's seats in every future session of that ticket and
   revokes its future entitlements; it never touches another ticket of the group
@@ -263,25 +259,11 @@ through this section.
   reason (required, at most 500 characters, as in `RescheduleQuotaRequest`); it is not a code of the
   FR-007a catalogue, which covers only check-in override, finalized-attendance correction and session
   cancellation. The audit event `RESCHEDULE_QUOTA_SET` records that text.
-- **FR-036**: OTA tickets keep the OTA's policy; these customer change and
-  cancellation rules do not apply to them.
-  **Decided 2026-11-14 (Hồ Hoàng Quốc, owner Feature 003): 003.2 refuses.**
-  `cancelTicket`, `replaceTicketSessions` and `reissueTicketQr` MUST refuse a
-  ticket of an OTA-origin booking with one typed failure of their own
-  (`REJECTED` with the single reason `OTA_TICKET_NOT_SUPPORTED`, implemented by
-  T096; name confirmed 2026-11-15, CHK013), whatever the caller is.
-  Operations owns the ticket and its sales channel, so one guard there protects
-  every caller — 003.3, Staff screens and any later OTA path — instead of each
-  caller repeating the check. Today no such guard exists (read-only grep of
-  `ppswbs_backend/src`, 2026-11-14: the only OTA reference in the first two
-  services is `WorkshopOtaSnapshotService` publishing the observable snapshot,
-  not a refusal), so adding it is part of the FR-036 work and T096's "OTA
-  ticket refused" case verifies it.
-  **Amended 2026-11-15 (owner Hồ Hoàng Quốc, via 003.4 Clarifications Session
-  2026-11-15):** the refusal stays for every general caller, but 003.2 also
-  provides one separate facade operation, callable only by 003.4, that revokes
-  named tickets of an OTA booking after the OTA has confirmed their
-  cancellation (task T123).
+- **FR-036** *(removed 2026-11-25 with OTA)*: formerly refused customer change,
+  cancellation and QR reissue for OTA-origin tickets and defined the OTA-only
+  revocation operation (T123). The revocation operation, the refusal reason
+  `OTA_TICKET_NOT_SUPPORTED` and column `attendance_tickets.sales_channel`
+  (dropped by Flyway V203) are removed ([record](../ota-removal-2026-11-25.md)).
 
 ## Package availability per location (owner request 2026-11-17)
 
@@ -336,13 +318,7 @@ and per location, whether it is sold there.
   atomic reserve decision (FR-030) MUST recheck, for every required session, that
   the Package is `ACTIVE` at that session's location and refuse the whole
   reserve with `PACKAGE_NOT_AVAILABLE_AT_LOCATION` otherwise. A stale discovery
-  result never authorizes a selection. The matrix does **not** block OTA
-  bookings: an OTA booking (003.4) is accepted as today even when the pair is
-  `INACTIVE` (owner decision Hồ Hoàng Quốc, 2026-11-17; an OTA listing is tied
-  to one Package and one location, e.g. the Klook listing for the 750,000 ₫
-  basic Package at Mã Mây, Hoàn Kiếm). Changing the matrix never updates an OTA
-  listing; doing so is a separate, explicit OTA step owned by 003.4 and is out
-  of scope here.
+  result never authorizes a selection. *(The former OTA exception to the matrix was removed 2026-11-25.)*
 - **FR-040** *(Existing commitments are untouched)*: Setting a pair `INACTIVE`
   MUST NOT cancel, move or refuse operation of any existing booking, ticket,
   session, attendance or already-unexpired capacity hold; holds created before
@@ -522,7 +498,7 @@ plus Manager and Staff operation of published workshop sessions: session/locatio
 capacity, optional Staff roster records, individual attendance-ticket check-in, audited
 exception handling and attendance finalization. It consumes confirmed direct
 bookings from feature 003.1; it does not create customer bookings, collect money,
-perform refunds or connect directly to external OTAs.
+perform refunds or connect to external sales channels.
 
 ## Clarifications
 
@@ -1050,7 +1026,7 @@ T167.)*
   no new decision): → A: `applyVerifiedRefundConsequence` is marked superseded
   for every non-OTA caller and the shared rejection reasons gain the ticket
   reasons (facade contract); `OTA_TICKET_NOT_SUPPORTED` is the fixed name
-  (FR-036); "scoped Manager" wording is superseded by the global Manager
+  (FR-036; removed 2026-11-25); "scoped Manager" wording is superseded by the global Manager
   (US1, SC-001, FR-012b, two 2026-10-24 answers); booking lookup without an
   eligible ticket is one generic `404 RESOURCE_NOT_FOUND` (FR-003d); the
   permitted callers of each ticket command are listed (facade contract);
@@ -2015,67 +1991,9 @@ correction, with before/after audit evidence.
   A true parallel pair is serialised by the lock; the loser receives (a) or (b),
   or `409 OPTIMISTIC_LOCK_CONFLICT` when the version check fires first. The UI
   SHOULD disable the control while a request is pending.
-- **FR-010l**: When this feature makes session availability available to 003.4,
-  its sellable capacity MUST equal total capacity minus confirmed ticket seats
-  and all active, unexpired direct-Mland capacity holds. Feature 003.4 MAY
-  consume that availability but MUST NOT calculate or write the capacity itself.
-- **FR-010m**: This feature MUST create an availability/sale-state notification
-  for 003.4 only after a completed local change alters the sellable-capacity or
-  sale-state snapshot. Active-hold creation, release, and expiry notify when
-  availability changes; sales pause/resume and session cancellation/closure
-  notify when sale state changes. Hold-to-ticket commitment MUST NOT create a
-  separate notification when that snapshot is unchanged.
-- **FR-010n**: The availability/sale-state snapshot provided to 003.4 MUST
-  contain only opaque session identity, location scope, sellable availability,
-  sale state, source change identity/version, and effective time. It MUST NOT
-  contain PII, Booking/payment data, ticket detail, or package/provider mapping.
-- **FR-010o**: Availability/sale-state notification delivery to 003.4 MUST be
-  treated as at-least-once. 003.4 MUST apply only a newer source version/change
-  identity and ignore duplicate or older snapshots; when it detects a gap or
-  cannot establish order, it MUST obtain an authoritative 003.2 snapshot resync.
-  This requirement MUST NOT depend on exactly-once delivery.
-- **FR-010p**: A failed 003.4 synchronization MUST close or suspend only the
-  affected OTA mapping and create its reconciliation work. It MUST NOT change
-  this feature's session sale state, capacity, or direct-Mland booking behaviour.
-- **FR-010q**: When 003.4 requests authoritative resync for a source-version
-  gap or uncertain order, this feature MUST return the current complete
-  OTA-observable snapshot of the one affected session at one source version:
-  schedule, sellable availability, and sale state. It MUST NOT require 003.4 to
-  merge separate schedule/availability reads or consume an entire location.
-- **FR-010r**: The per-session OTA source version MUST increase, and an
-  OTA-observable snapshot MUST be made available, only when that session's
-  schedule, sellable availability, or sale state changes. Internal-only changes,
-  including Staff assignment or audit evidence, MUST NOT increase that version
-  or produce an OTA snapshot.
-- **FR-010s**: The feature MUST NOT make an OTA-observable snapshot available
-  for a `DRAFT` session. It MUST make a snapshot available when a mapped Basic
-  Ring session is `PUBLISHED`, and publish the complete post-state whenever an
-  OTA-observable value changes. `IN_PROGRESS`, `ATTENDANCE_FINALIZED`,
-  `CANCELLATION_REQUESTED` and `CANCELLED` have closed OTA sale state. The
-  automatic `PUBLISHED` or `SALES_PAUSED` to `IN_PROGRESS` transition at `scheduledStartAt` MUST
-  persist the session transition, complete closed snapshot/version and
-  persistent Modulith publication in the same Operations transaction.
-  *(F04 reopened 2026-11-16, option B: the OTA `saleState` enum distinguishes `SALES_PAUSED` from
-  `CLOSED`; the automatic `SALES_PAUSED` to `IN_PROGRESS` transition therefore
-  publishes the complete closed snapshot and advances the version exactly once,
-  in the same Operations transaction.)* An
-  `ATTENDANCE_FINALIZED` transition MUST NOT create another snapshot/version
-  when the observable post-state is already closed and otherwise unchanged.
-- **FR-010t**: A completed local transaction that changes one or more
-  OTA-observable values of one session MUST increase that session's OTA source
-  version exactly once. The snapshot at that version MUST represent the complete
-  post-transaction schedule, sellable availability, and sale state; it MUST NOT
-  expose an intermediate combination of those values.
-- **FR-010u**: An authoritative resync that does not change the session's
-  OTA-observable post-state MUST return the current complete snapshot at its
-  existing source version. It MUST NOT increase that version or create a new
-  business change; 003.4 MAY retry or republish the returned snapshot under its
-  own mapping/delivery controls.
-- **FR-010v**: For V1, every OTA-observable session snapshot from this feature
-  to 003.4 MUST be carried by a persistent internal Spring Modulith event
-  publication recorded in the same local Operations transaction as its source
-  change. 003.4 consumes that publication at-least-once and owns separate
-  durable outbound delivery to providers. V1 MUST NOT require a message broker.
+- **FR-010l – FR-010v** *(removed 2026-11-25 with OTA)*: availability and
+  sale-state snapshot publication, versioning and resync for 003.4. IDs are kept
+  and not reused ([record](../ota-removal-2026-11-25.md)).
 - **FR-010w** *(superseded in part 2026-11-12 by FR-032)*: For a booking/package context requested by 003.3, this feature
   MUST provide only its authoritative settlement-readiness conclusion. It MUST
   be true only when every required session is `ATTENDANCE_FINALIZED`, and false
@@ -2359,7 +2277,7 @@ row above; T115 implements it and the contract test keeps the code in the closed
 ## Out of scope
 
 Workshop checkout/bills, payment collection, refund, customer self-service
-changes, OTA callbacks and ticket delivery to individual participants.
+changes and ticket delivery to individual participants.
 
 # Route masking synchronization (2026-11-20)
 

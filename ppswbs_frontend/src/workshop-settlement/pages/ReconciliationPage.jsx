@@ -67,8 +67,8 @@ export default function ReconciliationPage() {
           <div className="notice-actions"><button type="button" className="button outline" onClick={retry}>{t('problem.retry')}</button></div>
         </div>
       )}
-      <section className="ota-panel">
-        <form className="ota-inline-form" aria-label={t('recon.filtersAria')} onSubmit={load}>
+      <section className="wsp-panel">
+        <form className="wsp-inline-form" aria-label={t('recon.filtersAria')} onSubmit={load}>
           <label>{t('recon.branchId')}<input inputMode="numeric" value={filters.locationId} onChange={set('locationId')} /></label>
           <label>{t('recon.workingDay')}<input type="date" value={filters.workingDate} onChange={set('workingDate')} /></label>
           <label>{t('recon.method')}
@@ -90,8 +90,8 @@ export default function ReconciliationPage() {
       {command.pending ? <Loading /> : null}
       {rows && rows.length === 0 && <div className="empty-state"><p>{t('recon.empty')}</p></div>}
       {rows && rows.length > 0 && (
-        <section className="ota-panel">
-          <div className="ota-panel-head"><h2>{t('recon.collections')}</h2><span className="muted">{t('recon.confirmedTotal')}: <strong>{fmt.money(String(confirmedTotal))}</strong></span></div>
+        <section className="wsp-panel">
+          <div className="wsp-panel-head"><h2>{t('recon.collections')}</h2><span className="muted">{t('recon.confirmedTotal')}: <strong>{fmt.money(String(confirmedTotal))}</strong></span></div>
           <p className="muted small">{t('recon.totalNote')}</p>
           {hasMultiBranch && (
             <p className="notice warning" role="alert">{t('recon.multiBranch')}</p>

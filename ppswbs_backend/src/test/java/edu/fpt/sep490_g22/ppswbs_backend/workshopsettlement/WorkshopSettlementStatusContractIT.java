@@ -106,6 +106,21 @@ class WorkshopSettlementStatusContractIT {
         when(tokens.verify("expired")).thenThrow(new TokenExpiredException("expired"));
     }
 
+    @Test
+    @DisplayName("ST_TC_07: an Admin calling the change-request queue gets 403 STAFF_OR_MANAGER_REQUIRED")
+    void adminCannotReadTheChangeRequestQueue() throws Exception {
+        String uid = "settlement-admin-" + UUID.randomUUID();
+        accounts.save(Account.builder().firebaseUid(uid).loginEmail(uid + "@test.com")
+                .role(AccountRole.ADMIN).status(AccountStatus.ACTIVE).build());
+        when(tokens.verify("admin-token")).thenReturn(new VerifiedIdentity(uid, uid + "@test.com", true, Instant.now()));
+
+        MvcResult result = mvc.perform(MockMvcRequestBuilders.get("/api/v1/workshop-change-requests")
+                .header("Authorization", "Bearer admin-token")).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(403);
+        assertThat(result.getResponse().getContentAsString()).contains("STAFF_OR_MANAGER_REQUIRED");
+    }
+
     // ---- T171: the declared 401 and the real 401 ----
 
     @Test
@@ -180,7 +195,7 @@ class WorkshopSettlementStatusContractIT {
                         .param("locationId", "1").param("workingDate", "2026-11-16"),
                 MockMvcRequestBuilders.get("/api/v1/workshop-absorbed-undercharges")
                         .param("locationId", "1").param("from", "2026-11-01").param("to", "2026-11-16"),
-                MockMvcRequestBuilders.get("/api/v1/workshop-refund-requests"),
+                MockMvcRequestBuilders.get("/api/v1/workshop-refund-requests").param("waiting", "true"),
                 post("/api/v1/workshop-refund-requests/R-1/transitions", "{\"action\":\"APPROVE\",\"reason\":\"x\"}"),
                 MockMvcRequestBuilders.get("/api/v1/workshop-refund-requests/R-1/account-number"),
                 MockMvcRequestBuilders.get("/api/v1/workshop-refund-requests/R-1/receipt-image"),

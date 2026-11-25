@@ -60,7 +60,6 @@ TABLE_DESCRIPTIONS = {
     'settlement_cases': "Master settlement dispute and financial reconciliation case management aggregate.",
     'settlement_cancellation_cases': "Specialized settlement records handling booking cancellations and customer refunds.",
     'settlement_charges': "Records itemized service, material, and late cancellation charges assessed during settlement.",
-    'settlement_addon_bills': "Itemizes workshop add-on materials and tools consumed during a workshop session.",
     'settlement_shop_addon_bills': "Tracks additional in-shop merchandise purchased by attendees during the workshop.",
     'settlement_final_bills': "Summarizes final outstanding balance calculations required before customer release.",
     'settlement_final_payment_attempts': "Logs payment attempts for final workshop checkout balances and consumed addons.",
@@ -121,27 +120,7 @@ TABLE_DESCRIPTIONS = {
     'payment_ingress_receipts': "Logs raw incoming IPN and webhook callbacks from payment gateways for audit.",
     'vnpay_merchant_operations': "Maintains transaction logs, signature digests, and queryDR logs for VNPay operations.",
 
-    # 10. OTA Connectivity & Multi-channel Management
-    'ota_channel_connections': "Maintains API integration configurations for Online Travel Agencies (Klook, KKday, etc.).",
-    'ota_channel_mappings': "Maps internal workshop packages and slots to external OTA listing IDs.",
-    'ota_channel_price_snapshots': "Tracks syndicated pricing and commission schedules agreed with OTA channels.",
-    'ota_channel_bookings': "Stores booking reservations ingested from external OTA partners.",
-    'ota_booking_ticket_links': "Links ingested OTA bookings with internally issued admittance tickets.",
-    'ota_addon_bill_links': "Associates in-workshop add-on charges with external OTA booking references.",
-    'ota_customer_payment_evidence': "Records payment confirmation vouchers and settlement tokens provided by OTAs.",
-    'ota_delivery_attempts': "Logs outgoing webhook transmissions and API sync calls to OTA partner endpoints.",
-    'ota_inbound_events': "Ingests raw webhook events and payload messages received from OTA gateways.",
-    'ota_outbound_changes': "Queues schedule, capacity, and pricing changes to be published to OTA channels.",
-    'ota_control_outbox': "Transactional outbox for reliable dispatch of OTA management commands.",
-    'ota_payout_ledger_entries': "Tracks net payout receivables, partner commissions, and platform deductions.",
-    'ota_payout_positions': "Maintains aggregate financial balances receivable from each OTA channel.",
-    'ota_readiness_assessments': "Evaluates channel readiness and automated health checks before enabling bookings.",
-    'ota_readiness_check_evidence': "Stores diagnostic test logs and verification responses for OTA readiness checks.",
-    'ota_reconciliation_decisions': "Records automated and manual reconciliation resolutions for booking mismatches.",
-    'ota_reconciliation_work_items': "Tracks unresolved discrepancies between internal attendance and OTA reports.",
-    'workshop_session_ota_snapshots': "Maintains synchronized seat availability and lock state sent to OTA channels.",
-
-    # 11. System Infrastructure & Event Publication
+    # 10. System Infrastructure & Event Publication
     'event_publication': "Spring Modulith persistent event publication log guaranteeing at-least-once event delivery.",
     'facade_command_idempotency_records': "Global idempotency ledger for boundary API commands across architectural facades."
 }

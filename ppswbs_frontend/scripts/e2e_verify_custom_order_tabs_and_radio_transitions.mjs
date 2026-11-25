@@ -64,7 +64,7 @@ async function run() {
 
     // Verify KPI numbers
     const kpiMetrics = await page.evaluate(() => {
-      const numbers = Array.from(document.querySelectorAll('.ota-workspace strong')).map((el) => el.textContent.trim());
+      const numbers = Array.from(document.querySelectorAll('.wsp-workspace strong')).map((el) => el.textContent.trim());
       return numbers;
     });
     console.log('KPI Metrics (PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED):', kpiMetrics);
@@ -92,7 +92,7 @@ async function run() {
       await new Promise((r) => setTimeout(r, 600));
       const orderCountInTab = await page.evaluate(() => {
         // Count order cards
-        const cards = document.querySelectorAll('.ota-workspace > div > div[style*="border: 1px solid"]');
+        const cards = document.querySelectorAll('.wsp-workspace > div > div[style*="border: 1px solid"]');
         return cards.length;
       });
       console.log(`Tab index ${i} has ${orderCountInTab} order card(s).`);
@@ -168,7 +168,7 @@ async function run() {
 
     // Check success notification
     const notificationText = await page.evaluate(() => {
-      const alert = document.querySelector('[role="alert"], .ota-workspace div[style*="background: rgb(240, 253, 244)"], .ota-workspace div[style*="#f0fdf4"]');
+      const alert = document.querySelector('[role="alert"], .wsp-workspace div[style*="background: rgb(240, 253, 244)"], .wsp-workspace div[style*="#f0fdf4"]');
       return alert ? alert.textContent.trim() : '';
     });
     console.log(`Notification message: "${notificationText}"`);

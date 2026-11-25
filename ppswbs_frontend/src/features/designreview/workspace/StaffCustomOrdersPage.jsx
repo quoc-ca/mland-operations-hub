@@ -140,9 +140,9 @@ export default function StaffCustomOrdersPage() {
   };
 
   return (
-    <div className="ota-workspace" style={{ padding: '1.5rem 2rem', maxWidth: 1200, margin: '0 auto' }}>
+    <div className="wsp-workspace" style={{ padding: '1.5rem 2rem', maxWidth: 1200, margin: '0 auto' }}>
       {/* Top Breadcrumb & Heading */}
-      <div className="ota-topline" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div className="wsp-topline" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
           <Link to="/home" style={{ color: '#0284c7', textDecoration: 'none' }}>Trang chủ</Link>
           {' '}/ Quản lý đơn gia công tùy chỉnh (Custom Orders)

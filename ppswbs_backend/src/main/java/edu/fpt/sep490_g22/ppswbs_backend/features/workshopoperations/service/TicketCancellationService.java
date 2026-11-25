@@ -10,13 +10,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 003.2 FR-031 / T091: per-ticket cancellation. The ticket's seats in its future sessions are released and
@@ -37,7 +35,6 @@ public class TicketCancellationService {
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     @Transactional
     public TicketCancellationOutcome cancelTicket(CancelTicketCommand command) {
@@ -64,18 +61,13 @@ public class TicketCancellationService {
         if (ticket == null) {
             return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.TICKET_NOT_FOUND));
         }
-        if (ticket.getSalesChannel() == TicketSalesChannel.OTA) {
-            return finish(claim, TicketCancellationOutcome.rejected(ticketRef,
-                    RejectionReason.OTA_TICKET_NOT_SUPPORTED));
-        }
         if (ticket.getValidityState() != TicketValidityState.ACTIVE) {
             return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         List<UUID> released = releaseFutureSeats(ticket, command.cancellationCaseReference(),
-                command.operationReference(), command.correlationReference(), now, changedSessions);
+                command.operationReference(), command.correlationReference(), now);
         if (released == null) {
             return finish(claim, TicketCancellationOutcome.rejected(ticketRef, RejectionReason.INVALID_STATE));
         }
@@ -83,9 +75,6 @@ public class TicketCancellationService {
         ticket.setValidityState(TicketValidityState.CANCELLED);
         ticketRepository.save(ticket);
 
-        for (WorkshopSession changed : changedSessions.values()) {
-            otaSnapshotService.publishForObservableChange(changed, command.operationReference(), now);
-        }
         audit(command.correlationReference(), ticket, released.size(), "SUCCESS");
         log.info("Cancelled ticket {} and released {} future seats", ticket.getTicketCode(), released.size());
         return finish(claim, TicketCancellationOutcome.accepted(ticketRef, released));
@@ -93,24 +82,20 @@ public class TicketCancellationService {
 
     /**
      * Gives back the ticket's seats in every future untouched session and deletes those entitlements, keeping one
-     * release record each. Shared with the OTA revocation (003.2 T123). Returns the released session references, or
-     * {@code null} (nothing changed) when a session lacks its start time. Sessions that changed are added to
-     * {@code changedSessions} so the caller can publish the OTA snapshot.
+     * release record each. Returns the released session references, or {@code null} (nothing changed) when a
+     * session lacks its start time.
      */
-    List<UUID> releaseFutureSeats(AttendanceTicket ticket, String caseReference, String operationReference,
-                                  String correlationReference, Instant now,
-                                  Map<Long, WorkshopSession> changedSessions) {
+    private List<UUID> releaseFutureSeats(AttendanceTicket ticket, String caseReference, String operationReference,
+                                  String correlationReference, Instant now) {
         List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketIdWithLock(ticket.getId());
         List<TicketSessionEntitlement> releasable = new ArrayList<>();
         for (TicketSessionEntitlement entitlement : entitlements) {
             WorkshopSession session = entitlement.getSession();
             if (session == null || session.getScheduledStartAt() == null) {
-                changedSessions.clear();
                 return null;
             }
             if (isFutureAndUntouched(session, entitlement, now)) {
                 releasable.add(entitlement);
-                changedSessions.put(session.getId(), session);
             }
         }
 

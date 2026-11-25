@@ -5,7 +5,7 @@ import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/compone
 import { useRetailApi } from '../../application/useRetailApi';
 import { useDisplayTime } from '../orderCode';
 import { TrendChart } from '../../../manager-dashboard';
-import '../../../../ota-connectivity/ota-connectivity.css';
+import '../../../../shared/ui/workspace.css';
 import './carrier.css';
 import { messages as retailMessages } from '../../messages';
 

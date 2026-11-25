@@ -13,7 +13,7 @@ info:
     and a cart quote nests its tickets under `lines[].tickets[]` instead of one
     flat ticket list. Shared VNPay provider ingress is documented in
     ../../contracts/vnpay-payment-ingress.openapi.yaml.
-    OTA bookings (003.4) keep `WorkshopBooking` and are not described here.
+    
 paths:
   /api/v1/workshop-cart-quotes:
     post:

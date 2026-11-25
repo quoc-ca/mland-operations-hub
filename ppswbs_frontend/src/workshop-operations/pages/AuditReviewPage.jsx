@@ -14,7 +14,7 @@ import {
   activeFilterCount, emptyFilters, filtersKey, readFilters, tabOf, toQuery, writeFilters,
 } from '../components/auditReviewModel';
 import { useAuditFeed } from '../components/useAuditFeed';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
 const TAB_KEYS = ['operations', 'settlement'];
@@ -22,10 +22,10 @@ const TAB_KEYS = ['operations', 'settlement'];
 function Shell({ children }) {
   const t = useT(messages);
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
-        <div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div>
+      <main className="wsp-main">
+        <div className="wsp-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div>
         {children}
       </main>
     </div>
@@ -129,12 +129,12 @@ export default function AuditReviewPage() {
 
   return (
     <Shell>
-      <header className="ota-page-heading">
+      <header className="wsp-page-heading">
         <div>
           <p>{t('audit.readOnly')}{tab === 'operations' ? t('audit.readOnlyNote') : ''}</p>
         </div>
       </header>
-      <section className="ota-panel">
+      <section className="wsp-panel">
         <div className="audit-tabs" role="tablist" aria-label={t('audit.sourceAria')}>
           {TAB_KEYS.map(key => (
             <button

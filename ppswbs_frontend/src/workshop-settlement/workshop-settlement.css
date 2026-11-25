@@ -1,4 +1,4 @@
-.settlement-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);gap:16px}.settlement-grid .ota-panel:last-child{grid-column:span 2}.settlement-summary{min-height:240px}.settlement-amount{padding:18px 0;border-bottom:1px solid #e5e7eb}.settlement-amount span,.settlement-amounts span{display:block;color:#6b7280;font-size:12px}.settlement-amount strong{display:block;font-size:32px;margin-top:8px}.settlement-amounts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.settlement-amounts>div{background:#f7f8fa;padding:12px;border-radius:8px}.settlement-amounts strong{display:block;margin-top:6px}.settlement-form{margin-top:18px}@media(max-width:900px){.settlement-grid{grid-template-columns:1fr}.settlement-grid .ota-panel:last-child{grid-column:auto}}
+.settlement-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);gap:16px}.settlement-grid .wsp-panel:last-child{grid-column:span 2}.settlement-summary{min-height:240px}.settlement-amount{padding:18px 0;border-bottom:1px solid #e5e7eb}.settlement-amount span,.settlement-amounts span{display:block;color:#6b7280;font-size:12px}.settlement-amount strong{display:block;font-size:32px;margin-top:8px}.settlement-amounts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.settlement-amounts>div{background:#f7f8fa;padding:12px;border-radius:8px}.settlement-amounts strong{display:block;margin-top:6px}.settlement-form{margin-top:18px}@media(max-width:900px){.settlement-grid{grid-template-columns:1fr}.settlement-grid .wsp-panel:last-child{grid-column:auto}}
 .settlement-payment-result{margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #dbe4ef;border-radius:8px}.settlement-payment-result h3{margin:0}.settlement-payment-result .button{display:inline-block;margin-top:12px}
 .settlement-payment-state{margin-top:16px;padding:14px 16px;border:1px solid #dbe4ef;border-left-width:4px;border-radius:8px;background:#f8fafc}.settlement-payment-state strong{display:block}.settlement-payment-state p{margin:6px 0}.settlement-payment-state small{color:#4b5563}.settlement-payment-state.pending{border-left-color:#1d4ed8;background:#eff6ff}.settlement-payment-state.expired{border-left-color:#b45309;background:#fffbeb}.settlement-payment-state.unknown{border-left-color:#7c3aed;background:#f5f3ff}.settlement-payment-state.error{border-left-color:#b91c1c;background:#fef2f2}.settlement-payment-state.verified_paid,.settlement-payment-state.verified_unpaid{border-left-color:#047857;background:#ecfdf5}
 .settlement-customer{max-width:640px;margin:32px auto;padding:0 16px}.settlement-proof{margin:12px 0;padding:12px;border:1px solid #dbe4ef;border-radius:8px}.settlement-proof label{display:block;margin-top:8px}.settlement-row-form{display:inline-flex;gap:6px;margin-right:6px}.notice.warning{background:#fffbeb;border-left:4px solid #b45309;padding:10px 12px}.ops-table tr.selected{background:#eff6ff}
@@ -30,14 +30,14 @@
 .fl-table .fl-ref { font-size: 11px; font-family: ui-monospace, monospace; color: #4b5563; }
 
 /* Add-ons and charges: full width, catalogue add-on and variable charge side by side; options are rows, not stacked columns. */
-.settlement-grid .ota-panel.settlement-addons { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 40px; align-items: start; }
-.settlement-addons > .ota-panel-head { grid-column: 1 / -1; }
+.settlement-grid .wsp-panel.settlement-addons { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 40px; align-items: start; }
+.settlement-addons > .wsp-panel-head { grid-column: 1 / -1; }
 .settlement-addon-options { display: flex; flex-direction: column; gap: 8px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin: 0; }
-.ota-form label.settlement-addon-option, .ota-form label.settlement-addon-consent { flex-direction: row; align-items: center; gap: 10px; cursor: pointer; }
+.wsp-form label.settlement-addon-option, .wsp-form label.settlement-addon-consent { flex-direction: row; align-items: center; gap: 10px; cursor: pointer; }
 .settlement-addon-option input, .settlement-addon-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; }
 .settlement-addon-option span { flex: 1 1 auto; font-weight: 600; color: #374151; }
 .settlement-addon-option strong { flex: 0 0 auto; color: #111827; }
-@media (max-width: 900px) { .settlement-grid .ota-panel.settlement-addons { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .settlement-grid .wsp-panel.settlement-addons { grid-template-columns: 1fr; } }
 
 .cr-session { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
 .cr-table td { white-space: normal; }
@@ -45,9 +45,9 @@
 /* Ticket code (about 36 characters) must fit whole in the lookup box and in the folio title. */
 .settlement-lookup label { flex: 1 1 520px; max-width: 640px; }
 .settlement-lookup input { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
-.settlement-summary .ota-panel-head { gap: 8px 12px; flex-wrap: wrap; }
-.settlement-summary .ota-panel-head h2 { font-size: 17px; white-space: nowrap; min-width: 0; letter-spacing: 0; }
-.settlement-summary .ota-panel-head .ops-status { flex: 0 0 auto; }
+.settlement-summary .wsp-panel-head { gap: 8px 12px; flex-wrap: wrap; }
+.settlement-summary .wsp-panel-head h2 { font-size: 17px; white-space: nowrap; min-width: 0; letter-spacing: 0; }
+.settlement-summary .wsp-panel-head .ops-status { flex: 0 0 auto; }
 
 /* Change request detail row: label/value grid under the request. */
 .cr-actions { flex-wrap: wrap; }
@@ -59,4 +59,4 @@
 .settlement-sim-qr{display:flex;flex-direction:column;align-items:center;margin:12px 0}
 
 @media(max-width:600px){.settlement-amounts{grid-template-columns:1fr}.settlement-amount strong{font-size:26px}}
-@media(max-width:600px){.settlement-summary .ota-panel-head h2{white-space:normal}}
+@media(max-width:600px){.settlement-summary .wsp-panel-head h2{white-space:normal}}

@@ -135,14 +135,6 @@ class FolioCorrectionServiceTest {
     }
 
     @Test
-    void otaBookingIsRejected() {
-        assertThatThrownBy(() -> service.create("OTA-BK-999", "key-1", null,
-                new FolioCorrectionDtos.CreateRequest(10000L, "reason"), manager))
-                .isInstanceOf(WorkshopSettlementConflictException.class)
-                .hasMessageContaining("OTA_BOOKING_NOT_SUPPORTED");
-    }
-
-    @Test
     void concurrentPendingCorrectionIsRejected() {
         String bookingRef = "BK-600";
         SettlementFinalBill bill = SettlementFinalBill.builder()

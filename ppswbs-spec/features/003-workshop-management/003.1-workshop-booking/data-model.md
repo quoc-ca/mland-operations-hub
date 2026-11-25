@@ -1,5 +1,7 @@
 # Data Model: Workshop Booking Core
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-07
 **Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
@@ -9,14 +11,13 @@
 V113–V133); approved by Hồ Hoàng Quốc 2026-11-15 together with spec.md. *(Previous status: "Draft design — schema
 names and migrations require approval before implementation".)* The current
 direct-booking model is the section "Booking group and ticket bookings" below;
-the single-`WorkshopBooking` sections that follow it here are history for direct
-bookings and still describe OTA bookings (003.4).
+the single-`WorkshopBooking` sections that follow it here are history. *(Their last user, OTA bookings, was removed 2026-11-25.)*
 
-## Ownership and aggregate *(single `WorkshopBooking`: superseded for direct bookings by FR-044, 2026-11-13; still the OTA model)*
+## Ownership and aggregate *(single `WorkshopBooking`: superseded for direct bookings by FR-044, 2026-11-13; history only)*
 
 `WorkshopBooking` is one direct-Mland commercial aggregate for one package. It
 is not a cart and does not own session configuration, check-in, attendance,
-settlement, refund, reschedule, or OTA facts.
+settlement, refund, or reschedule facts.
 
 ```text
 WorkshopBooking (1) ── (1) BookingInvoice
@@ -309,8 +310,10 @@ append-only migrations:
   until the open 003.3 decision of 2026-11-13; `booking_audit_evidence` and
   `booking_idempotency_records`, shared with the group flow.
 
-An OTA booking has no invoice, ticket row, folio, Magic Link or notification
-intent, so dropping those tables does not touch it.
+*(2026-11-25: OTA bookings are removed. Flyway V203 deletes no `workshop_bookings`
+row and keeps these tables, which the 003.3 booking-wide settlement, the Loyalty
+single-booking source, reporting and reviews still read; it refuses to run while an
+`OTA-` booking row exists.)*
 
 ~~This document does not authorize a migration.~~ *(updated 2026-11-14: the group
 migrations V113–V128 and V132/V133 are already applied in dev/test, FR-043/FR-051;

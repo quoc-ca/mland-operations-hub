@@ -1,4 +1,7 @@
 # Implementation Design Approval: Manager Home
+
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25 (nhóm `ota`, hàng đợi đối soát OTA, read R-4 không còn): [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).*
+
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18

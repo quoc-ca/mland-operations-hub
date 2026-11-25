@@ -11,7 +11,6 @@ export default function AppLayout() {
   const isAuthPage = ['/sign-in', '/login', '/register', '/forgot-password'].includes(location.pathname);
   const isOperationsWorkspace =
     location.pathname.startsWith('/operations') ||
-    location.pathname.startsWith('/ota-connectivity') ||
     location.pathname.startsWith('/settlement') ||
     location.pathname.startsWith('/workshop-packages') ||
     location.pathname.startsWith('/staff/') ||

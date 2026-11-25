@@ -1,4 +1,7 @@
-# Policy Decision: Direct Booking Open Folio and OTA Financial Separation
+# Policy Decision: Direct Booking Open Folio
+
+> **2026-11-25:** OTA was removed; the former OTA financial-separation rules and
+> the 003.4 boundary are no longer in force ([record](ota-removal-2026-11-25.md)).
 
 **Date created**: 2026-11-05
 **Date updated**: 2026-11-05
@@ -9,8 +12,7 @@
 
 **Owner-confirmed cross-feature policy.** This decision is the source of truth
 for the direct-booking monetary lifecycle spanning 003.1 Workshop Booking,
-003.2 Workshop Operations, and 003.3 Workshop Settlement and Changes. It also
-defines the financial boundary with 003.4 Workshop OTA Connectivity.
+003.2 Workshop Operations, and 003.3 Workshop Settlement and Changes. It no longer defines a boundary with an external sales channel.
 
 This document records the approved business policy. It does not by itself
 claim that all backend, frontend, migrations, or acceptance tests have already
@@ -33,19 +35,17 @@ text is kept for history. Details: 003.1 FR-030–FR-043 and 003.3 FR-030–FR-0
 
 Unchanged: booking-time money is non-refundable on customer self-cancellation
 or no-show; add-ons only while the folio is OPEN; nothing changes after
-`FINALIZED` except the Manager overcharge correction (now refunded by bank); OTA
-financial isolation.
+`FINALIZED` except the Manager overcharge correction (now refunded by bank).
 
 ## Definitions
 
 | Term | Meaning |
 | --- | --- |
-| Direct booking | A workshop booking created on an Mland-owned channel, rather than through an OTA. |
+| Direct booking | A workshop booking created on an Mland-owned channel. |
 | Open folio | The single mutable financial aggregate for a direct booking while it remains open. It contains the immutable base-package charge, accepted on-site add-ons, verified collections, and the computed outstanding balance. |
 | Verified collection | A payment backed by trusted evidence from its payment owner. In V1 this is only a signed, verified VNPay IPN or QueryDR result; a browser return or a manually recorded counter payment is not a verified collection. |
 | Finalized folio (`FINALIZED`) | A direct-booking folio completed at checkout with `balanceDue = 0`. Its financial lines and totals are immutable. |
 | Closed folio (`CLOSED`) | A direct-booking folio ended by ordinary cancellation, full no-show, or a verified Mland-caused remedy refund, at the verified collected (and refunded) amount. Immutable; never grants Loyalty earn. |
-| OTA booking | A booking whose base workshop ticket was sold and collected by an OTA. |
 
 ## Confirmed policy
 
@@ -111,34 +111,18 @@ financial isolation.
    Member booking earns Loyalty points as for full attendance once the folio is
    `FINALIZED` (owner decision D6, 2026-11-05).
 
-### OTA financial isolation
-
-1. The OTA collects 100 percent of the workshop-ticket/base-package price.
-   Mland must not create a direct-booking folio or a VNPay collection for that
-   OTA ticket price.
-2. A paid add-on selected at the Mland shop for an OTA customer is an Mland
-   add-on bill separate from the OTA ticket and settlement. Its price comes
-   from the active 003.2 catalogue add-on for the package/location, derived by
-   the server (D17); in-scope Staff or any active Manager may quote, record
-   acceptance and bill it (D18).
-3. Free laser engraving is included for every OTA-origin booking at the Mland
-   shop, recorded at zero charge (owner decision D16, 2026-11-05; 003.4
-   FR-019). It creates no bill.
-4. OTA ticket refunds and payout adjustments are handled in the OTA/provider
-   process; they do not use the direct-booking VNPay refund lifecycle.
-
 ## Required lifecycle invariants
 
-| Event | Direct booking folio | OTA ticket / shop add-on |
-| --- | --- | --- |
-| Booking accepted (pending payment) | No folio yet; deposit and remaining amount are frozen by 003.1. | Do not create an Mland ticket folio. |
-| Deposit verified | Create one OPEN folio with the immutable base line and the verified deposit as its first collection. | OTA owns ticket collection. |
-| On-site paid add-on accepted | Append line to the same OPEN folio. | Create or update a separate Mland shop add-on bill. |
-| Checkout | Verify final collection if balance is positive; then FINALIZE. | Settle any Mland shop add-on bill independently. |
-| Finalized | Reject add-on mutation. | Preserve financial separation. |
-| Overcharge found after FINALIZED | Manager folio correction refunds it via VNPay partial refund; folio stays `FINALIZED` and unchanged. An undercharge is absorbed by Mland. | Not applicable. |
-| Cancellation/full no-show | Close as `CLOSED` at actual verified collection; no normal refund. | Follow provider/OTA process. |
-| Mland-caused remedy refund verified | Close as `CLOSED` with collected and refunded amounts. | Not applicable. |
+| Event | Direct booking folio |
+| --- | --- |
+| Booking accepted (pending payment) | No folio yet; deposit and remaining amount are frozen by 003.1. |
+| Deposit verified | Create one OPEN folio with the immutable base line and the verified deposit as its first collection. |
+| On-site paid add-on accepted | Append line to the same OPEN folio. |
+| Checkout | Verify final collection if balance is positive; then FINALIZE. |
+| Finalized | Reject add-on mutation. |
+| Overcharge found after FINALIZED | Manager folio correction refunds it via VNPay partial refund; folio stays `FINALIZED` and unchanged. An undercharge is absorbed by Mland. |
+| Cancellation/full no-show | Close as `CLOSED` at actual verified collection; no normal refund. |
+| Mland-caused remedy refund verified | Close as `CLOSED` with collected and refunded amounts. |
 
 ## Ownership boundaries
 
@@ -147,8 +131,7 @@ financial isolation.
 | Direct booking acceptance, deposit collection, base price snapshot | 003.1 Workshop Booking |
 | Capacity, attendance, no-show and handover facts | 003.2 Workshop Operations |
 | Booking service and financial status changes (`COMPLETED`, `CANCELLED`, `NO_SHOW`, `FULLY_PAID`, `REFUND_PENDING`, `REFUNDED`) on Settlement conclusions (D13/D14) | 003.1 Workshop Booking |
-| Direct open folio, on-site add-ons, checkout, finalization and closure; the separate Mland shop add-on bill of an OTA booking and its `SHOP_ADDON` collection (D12) | 003.3 Workshop Settlement and Changes |
-| OTA mapping, provider evidence, OTA finance/payout reconciliation, shop add-on quote and customer consent for an OTA booking | 003.4 Workshop OTA Connectivity |
+| Direct open folio, on-site add-ons, checkout, finalization and closure | 003.3 Workshop Settlement and Changes |
 | VNPay attempt, verified payment evidence, and exceptional provider remedy only | paymentintegration |
 
 ## Alignment required before implementation is declared complete
@@ -163,8 +146,7 @@ proved by integration tests before related tasks can be marked complete:
    finalization, and terminal cancellation/no-show closure.
 3. Existing designs that require a direct add-on bill only after a final bill is
    finalized must be replaced by this open-folio policy.
-4. 003.4 must retain its separate OTA ticket and shop-add-on boundary.
-5. Schema evolution, idempotency, authorization, audit evidence, and
+4. Schema evolution, idempotency, authorization, audit evidence, and
    cross-module tests must prove that no duplicate collection, add-on, or
    finalization can occur.
 

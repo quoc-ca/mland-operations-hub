@@ -11,7 +11,7 @@ import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import OperationsAuthWorkspace from '../../shared/ui/OperationsAuthWorkspace';
 import { createPackageAvailabilityApi } from '../api/packageAvailabilityApi';
 import PackageAvailabilityMatrix, { cellKey } from '../components/PackageAvailabilityMatrix';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
 const SUCCESS_VISIBLE_MS = 4000;
@@ -25,7 +25,7 @@ const replaceCell = (cells, next) => {
 function DeniedPanel() {
   const t = useT(messages);
   return (
-    <section className="ota-panel pam-denied">
+    <section className="wsp-panel pam-denied">
       <p className="pam-denied-code">403</p>
       <h2>{t('pam.deniedTitle')}</h2>
       <p>{t('pam.deniedBody')}</p>
@@ -37,10 +37,10 @@ function DeniedPanel() {
 function Shell({ children }) {
   const t = useT(messages);
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
-        <div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div>
+      <main className="wsp-main">
+        <div className="wsp-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div>
         {children}
       </main>
     </div>
@@ -171,7 +171,7 @@ export default function PackageAvailabilityMatrixPage() {
   }
 
   const heading = (
-    <header className="ota-page-heading">
+    <header className="wsp-page-heading">
       <div>
         <p>{t('pam.intro')}</p>
       </div>
@@ -230,8 +230,8 @@ export default function PackageAvailabilityMatrixPage() {
   return (
     <Shell>
       {heading}
-      <section className="ota-panel">
-        <div className="ota-panel-head">
+      <section className="wsp-panel">
+        <div className="wsp-panel-head">
           <div><h2>{t('pam.title')}</h2></div>
           <button type="button" className="button outline small" onClick={reloadAll}>{t('pam.reload')}</button>
         </div>

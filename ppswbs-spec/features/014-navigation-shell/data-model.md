@@ -1,5 +1,7 @@
 # Data Model: Manager Home
 
+> **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
+
 **Date created**: 2026-11-18
 **Date updated**: 2026-11-18
 **Author**: Hồ Hoàng Quốc
@@ -15,7 +17,7 @@ Each card is loaded on its own and is dropped on sign-out or session loss. Nothi
 
 | View | Fields | Source (owner) | Rules |
 | --- | --- | --- | --- |
-| **Waiting-work card** | `queue` (one of: late-payments, refund-queue, change-requests, cash-close-differences, ota-reconciliation, design-review), `state` (loading, ready, unavailable), `count` (whole number, only when ready), `target` (the owning list the card opens) | the owning feature (see research D1) | A card exists only if its queue has a count that matches its list (spec FR-004, Clarification 1). `count` is never shown when `state` is not ready. Zero is a valid ready count. |
+| **Waiting-work card** | `queue` (one of: late-payments, refund-queue, change-requests, cash-close-differences, design-review), `state` (loading, ready, unavailable), `count` (whole number, only when ready), `target` (the owning list the card opens) | the owning feature (see research D1) | A card exists only if its queue has a count that matches its list (spec FR-004, Clarification 1). `count` is never shown when `state` is not ready. Zero is a valid ready count. |
 | **Today strip** | `date` (Vietnam day), `branch` (all, or one branch the Manager may see), `sessions`, `cancelledSessions`, `checkedIn`, `expected`, `state` | Workshop operations (003.2) | `sessions` includes cancelled ones; `checkedIn` and `expected` cover non-cancelled sessions only (spec FR-007). `checkedIn` and `expected` are absent until read R-1 exists. |
 | **Revenue figure** | `periodLabel` (current month), `totalRevenue` (VND, may be absent), `status` (complete, empty, partial, unavailable), `isDemo` | Manager Dashboard reads (010) | Equals the dashboard figure for the same period and scope. Absent or partial is shown as such, never as a guessed value. |
 | **Recent event** | `time`, `actor` (id and name, or system), `kind` (refused attempt, package availability change), `source` (operations, settlement), `action` | Audit review (003.2 US7 and 003.3) | At most five, newest first, last 24 hours. Only what the audit read exposes; no personal data. |

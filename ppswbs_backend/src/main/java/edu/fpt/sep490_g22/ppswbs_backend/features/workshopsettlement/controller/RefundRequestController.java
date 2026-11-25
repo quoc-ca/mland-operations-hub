@@ -158,14 +158,11 @@ public class RefundRequestController {
     public List<RefundRequestResponse> listWaiting(
             @RequestParam(required = false) RefundRequestStatus status,
             Authentication authentication) {
-        CurrentAccountActor current = authorization.requireManagerOrAnyStaff(actor(authentication));
+        authorization.requireManager(actor(authentication));
         if (status != null) {
             throw new WorkshopSettlementValidationException("WAITING_AND_STATUS_EXCLUSIVE");
         }
         List<SettlementRefundRequest> rows = bankRefunds.listWaiting();
-        if (current.role() == edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole.STAFF) {
-            rows = rows.stream().filter(row -> isAssignedTicketRefund(current, row)).toList();
-        }
         Set<Long> withImage = receiptImages.requestIdsWithAttachedImage(
                 rows.stream().map(SettlementRefundRequest::getId).filter(Objects::nonNull).toList());
         return rows.stream().map(row -> RefundRequestResponse.of(row, withImage.contains(row.getId()))).toList();
