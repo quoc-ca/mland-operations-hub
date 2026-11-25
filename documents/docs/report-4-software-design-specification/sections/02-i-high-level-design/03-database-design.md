@@ -2,21 +2,7 @@
 
 {{r4-db width=100% align=center}}
 
-The ERD is intentionally divided into three focused diagrams so that table names, keys and relationships remain readable in the published report.
-
-### 3.0a Core Catalogue and Workshop ERD
-
-(Diagram pending upload to Drive: r4-db-01-core-catalogue-workshop)
-
-### 3.0b Design and Customer Interaction ERD
-
-(Diagram pending upload to Drive: r4-db-02-design-customer-interaction)
-
-### 3.0c Commerce and Operations ERD
-
-(Diagram pending upload to Drive: r4-db-03-commerce-operations)
-
-Each diagram uses orthogonal relationship routing. A relationship must not pass through an entity or label, and no more than two relationships may cross the same relationship line. Cross-context relationships are represented by a labelled external-reference node instead of repeated long crossing lines.
+The diagram shows the database tables, their primary and foreign keys and the relationships between them. The table inventory and the column descriptions follow.
 
 ### Table Inventory
 
@@ -34,7 +20,7 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 |8|002 Product Management|catalogue_variants|Stores the ring-size variants of a product with SKU, applied price and total stock.|
 |9|002 Product Management|catalogue_variant_branch_stock|Stores the stock of each variant at each branch.|
 |10|002 Product Management|catalogue_price_proposals|Stores price proposals for a variant and the Manager decision.|
-|11|003.1 Workshop Booking|booking_groups|Stores a direct booking group with its buyer, status, payment mode and hold expiry.|
+|11|003.1 Workshop Booking|booking_groups|Stores a booking group with its buyer, status, payment mode and hold expiry.|
 |12|003.1 Workshop Booking|group_payment_attempts|Stores the VNPay payment attempts of a booking group.|
 |13|003.1 Workshop Booking|booking_group_lines|Stores the package lines of a booking group.|
 |14|003.1 Workshop Booking|booking_group_line_sessions|Stores the sessions chosen for a booking line and their capacity hold.|
@@ -295,7 +281,7 @@ Stores price proposals for a variant and the Manager decision.
 
 ### 3.11 booking_groups
 
-Stores a direct booking group with its buyer, status, payment mode and hold expiry.
+Stores a booking group with its buyer, status, payment mode and hold expiry.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 

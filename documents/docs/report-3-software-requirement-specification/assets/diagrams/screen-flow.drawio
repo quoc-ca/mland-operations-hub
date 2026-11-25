@@ -70,9 +70,6 @@
         <mxCell id="review" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" value="Review Details" vertex="1">
           <mxGeometry height="44" width="140" x="600" y="260" as="geometry" />
         </mxCell>
-        <mxCell id="glookup" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" value="Guest Review Lookup" vertex="1">
-          <mxGeometry height="44" width="160" x="420" y="340" as="geometry" />
-        </mxCell>
         <mxCell id="newreview" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" value="Create Review" vertex="1">
           <mxGeometry height="44" width="160" x="420" y="420" as="geometry" />
         </mxCell>
@@ -89,7 +86,7 @@
           <mxGeometry height="50" width="160" x="30" y="900" as="geometry" />
         </mxCell>
         <mxCell id="fRing" parent="1" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fontSize=12;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Ring Design" vertex="1">
-          <mxGeometry height="210" width="200" x="230" y="740" as="geometry" />
+          <mxGeometry height="176" width="200" x="230" y="740" as="geometry" />
         </mxCell>
         <mxCell id="rEntry" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;fillColor=#ffffff;strokeColor=#666666;" value="Ring Design Entry" vertex="1">
           <mxGeometry height="28" width="176" x="242" y="768" as="geometry" />
@@ -100,11 +97,8 @@
         <mxCell id="rConfig" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;fillColor=#ffffff;strokeColor=#666666;" value="Ring Configuration" vertex="1">
           <mxGeometry height="28" width="176" x="242" y="836" as="geometry" />
         </mxCell>
-        <mxCell id="rRecovery" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;fillColor=#ffffff;strokeColor=#666666;" value="Branch Compatibility" vertex="1">
-          <mxGeometry height="28" width="176" x="242" y="870" as="geometry" />
-        </mxCell>
         <mxCell id="rEval" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;fillColor=#ffffff;strokeColor=#666666;" value="Design Evaluation" vertex="1">
-          <mxGeometry height="28" width="176" x="242" y="904" as="geometry" />
+          <mxGeometry height="28" width="176" x="242" y="870" as="geometry" />
         </mxCell>
         <mxCell id="wcart" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;" value="Workshop Booking Cart" vertex="1">
           <mxGeometry height="44" width="160" x="250" y="990" as="geometry" />
@@ -262,9 +256,6 @@
         <mxCell id="packages" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="Workshop Packages" vertex="1">
           <mxGeometry height="44" width="190" x="1416" y="780" as="geometry" />
         </mxCell>
-        <mxCell id="priceai" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="Price AI Suggestions" vertex="1">
-          <mxGeometry height="44" width="160" x="1056" y="850" as="geometry" />
-        </mxCell>
         <mxCell id="addons" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="Package Add-ons" vertex="1">
           <mxGeometry height="44" width="160" x="1236" y="850" as="geometry" />
         </mxCell>
@@ -309,9 +300,6 @@
         </mxCell>
         <mxCell id="adetail" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="User Account Details" vertex="1">
           <mxGeometry height="44" width="160" x="1242" y="1080" as="geometry" />
-        </mxCell>
-        <mxCell id="roles" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Role Catalogue" vertex="1">
-          <mxGeometry height="44" width="160" x="1062" y="1080" as="geometry" />
         </mxCell>
         <mxCell id="tpl" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Notification Templates" vertex="1">
           <mxGeometry height="44" width="160" x="1442" y="1000" as="geometry" />
@@ -390,12 +378,6 @@
         <mxCell id="e14" edge="1" parent="1" source="reviews" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="review" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e15" edge="1" parent="1" source="home" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="glookup" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e16" edge="1" parent="1" source="glookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="newreview" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="e17" edge="1" parent="1" source="home" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="ai" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -408,18 +390,12 @@
         <mxCell id="e20" edge="1" parent="1" source="wdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="wbook" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e21" edge="1" parent="1" source="wbook" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="fRing" value="">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="e22" edge="1" parent="1" source="wbook" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="wcart" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="110" y="1019.4" />
             </Array>
           </mxGeometry>
-        </mxCell>
-        <mxCell id="e23" edge="1" parent="1" source="fRing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="wcart" value="">
-          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e24" edge="1" parent="1" source="wcart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="vnpay1" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -481,7 +457,7 @@
               <mxPoint x="2117.8" y="152" />
               <mxPoint x="2117.8" y="1363.6" />
               <mxPoint x="682.6" y="1363.6" />
-              <mxPoint x="682.6" y="918" />
+              <mxPoint x="682.6" y="884" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -567,14 +543,6 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e55" edge="1" parent="1" source="packages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;dashed=1;" target="priceai" value="">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="1511" y="836.1" />
-              <mxPoint x="1136" y="836.1" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
         <mxCell id="e56" edge="1" parent="1" source="hAdmin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="anew" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -583,13 +551,6 @@
             <Array as="points">
               <mxPoint x="852" y="1063.5" />
               <mxPoint x="1322" y="1063.5" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="e58" edge="1" parent="1" source="hAdmin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;" target="roles" value="">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="852" y="1108.8" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -742,6 +703,12 @@
         </mxCell>
         <mxCell id="hManager" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="Manager Dashboard" vertex="1">
           <mxGeometry height="44" width="160" x="772" y="781" as="geometry" />
+        </mxCell>
+        <mxCell id="eRingEntry" edge="1" parent="1" source="home" target="fRing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="300" y="660" /><mxPoint x="210" y="660" /><mxPoint x="210" y="828" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="customOps" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Custom Order Operations" vertex="1">
+          <mxGeometry height="44" width="160" x="1446" y="563.5" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
