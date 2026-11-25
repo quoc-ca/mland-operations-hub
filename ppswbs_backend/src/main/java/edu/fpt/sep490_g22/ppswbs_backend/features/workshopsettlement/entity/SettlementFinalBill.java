@@ -34,6 +34,17 @@ public class SettlementFinalBill {
     @Column(name="debt_closed_at") private Instant debtClosedAt;
     @Column(name="created_at", nullable=false, updatable=false) private Instant createdAt;
 
+    /**
+     * The ticket price without add-ons: the frozen post-promotion amount plus every confirmed change increase
+     * (FR-045). An increase only raises {@code remainingAmountVnd}, so it is what deposit plus remaining exceed the
+     * frozen amount by.
+     */
+    public long ticketPriceVnd() {
+        long deposit = acceptedDepositAmountVnd == null ? 0L : acceptedDepositAmountVnd;
+        long remaining = remainingAmountVnd == null ? 0L : remainingAmountVnd;
+        return Math.max(postPromotionAmountVnd, Math.addExact(deposit, remaining));
+    }
+
     @PrePersist
     void onCreate() {
         requireKnownLifecycleStatus();
