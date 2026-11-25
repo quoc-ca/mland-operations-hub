@@ -89,9 +89,9 @@ export function TemplateDetailView() {
   const activeVersion = template?.versions?.find((v) => v.status === 'ACTIVE');
 
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
+      <main className="wsp-main">
         <div className="nm-container">
           <div style={{ marginBottom: '1rem' }}>
             <Link to="/admin/notifications/templates" className="nm-btn nm-btn-sm">

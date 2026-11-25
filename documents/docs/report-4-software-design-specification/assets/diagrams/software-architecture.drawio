@@ -61,7 +61,7 @@
         <mxCell id="n20" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;arcSize=3;verticalAlign=top;fontStyle=1;fontSize=12;spacingTop=2;align=left;spacingLeft=12;fillColor=#fbfdfb;strokeColor=#82b366;dashed=1;fontSize=11;" value="Business Modules (each module: Controller → Service/Facade → Repository → Entity)" vertex="1">
           <mxGeometry height="500" width="1070" x="40" y="410" as="geometry" />
         </mxCell>
-        <mxCell id="n21" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=top;spacingTop=6;" value="&lt;b&gt;Feature modules&lt;/b&gt;&lt;div style=&quot;text-align:left;font-size:10px;line-height:1.35&quot;&gt;• Account Management&lt;br&gt;• Product Management&lt;br&gt;• Ready-ring Sales&lt;br&gt;• Fulfilment&lt;br&gt;• Custom Manufacturing&lt;br&gt;• Ring Design Configuration&lt;br&gt;• Workshop Booking&lt;br&gt;• Workshop Operations&lt;br&gt;• Workshop Settlement&lt;br&gt;• Payment Integration&lt;br&gt;• Loyalty &amp;amp; Promotion&lt;br&gt;• Review Management&lt;br&gt;• Consultation Chat&lt;br&gt;• Notification Management&lt;br&gt;• OTA Connectivity&lt;br&gt;• Reporting&lt;br&gt;• Design Review (AI)&lt;/div&gt;" vertex="1">
+        <mxCell id="n21" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=top;spacingTop=6;" value="&lt;b&gt;Feature modules&lt;/b&gt;&lt;div style=&quot;text-align:left;font-size:10px;line-height:1.35&quot;&gt;• Account Management&lt;br&gt;• Product Management&lt;br&gt;• Ready-ring Sales&lt;br&gt;• Fulfilment&lt;br&gt;• Custom Manufacturing&lt;br&gt;• Ring Design Configuration&lt;br&gt;• Workshop Booking&lt;br&gt;• Workshop Operations&lt;br&gt;• Workshop Settlement&lt;br&gt;• Payment Integration&lt;br&gt;• Loyalty &amp;amp; Promotion&lt;br&gt;• Review Management&lt;br&gt;• Consultation Chat&lt;br&gt;• Notification Management&lt;br&gt;• Reporting&lt;br&gt;• Design Review (AI)&lt;/div&gt;" vertex="1">
           <mxGeometry height="290" width="160" x="55" y="450" as="geometry" />
         </mxCell>
         <mxCell id="n22" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="&lt;b&gt;Scheduled Jobs&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;@Scheduled: hold expiry, QueryDR recovery, data retention&lt;/font&gt;" vertex="1">
@@ -100,9 +100,6 @@
         <mxCell id="n33" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fillColor=#f3ecf6;" value="GeminiRestClientAdapter" vertex="1">
           <mxGeometry height="46" width="260" x="825" y="704" as="geometry" />
         </mxCell>
-        <mxCell id="n34" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fillColor=#f3ecf6;" value="OTA adapters&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;(Klook · GetYourGuide)&lt;/font&gt;" vertex="1">
-          <mxGeometry height="46" width="260" x="825" y="760" as="geometry" />
-        </mxCell>
         <mxCell id="n35" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;arcSize=3;verticalAlign=top;fontStyle=1;fontSize=12;spacingTop=2;" value="External Services" vertex="1">
           <mxGeometry height="640" width="270" x="1160" y="290" as="geometry" />
         </mxCell>
@@ -120,9 +117,6 @@
         </mxCell>
         <mxCell id="n40" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="&lt;b&gt;Google Gemini API&lt;/b&gt;" vertex="1">
           <mxGeometry height="46" width="230" x="1180" y="704" as="geometry" />
-        </mxCell>
-        <mxCell id="n41" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="&lt;b&gt;OTA Platforms&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;(Klook · GetYourGuide)&lt;/font&gt;" vertex="1">
-          <mxGeometry height="46" width="230" x="1180" y="760" as="geometry" />
         </mxCell>
         <mxCell id="n42" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;fontSize=11;arcSize=3;verticalAlign=top;fontStyle=1;fontSize=12;spacingTop=2;" value="Data Tier" vertex="1">
           <mxGeometry height="120" width="370" x="470" y="965" as="geometry" />
@@ -191,9 +185,6 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e61" edge="1" parent="1" source="n33" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;strokeColor=#666666;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="n40" value="REST · JSON">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e62" edge="1" parent="1" source="n34" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;labelBackgroundColor=#ffffff;strokeColor=#666666;strokeWidth=1.5;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;startArrow=block;startFill=1;" target="n41" value="API · webhooks">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="n63" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fillColor=#f3ecf6;" value="GHTK fee client&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;(shipping fee quote)&lt;/font&gt;" vertex="1">

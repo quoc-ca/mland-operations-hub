@@ -12,11 +12,11 @@ const REASONS = ['QUERY_UNRESOLVED', 'LATE_OR_INVALID_STATE'];
 
 export default function ManagerPaymentReconciliationPage() {
   const t = useT(retailMessages);
-  return <div className="ota-workspace">
+  return <div className="wsp-workspace">
     
-    <main className="ota-main payment-reconciliation">
-      <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">{t('common.home')}</Link> {t('recon.mlandRetailReconciliation')}</span><span>● {t('common.backendAuthorized')}</span></div>
-      <div className="ota-page-heading"><div><p>{t('recon.checkThePurchaseTransactionsThat')}</p></div></div>
+    <main className="wsp-main payment-reconciliation">
+      <div className="wsp-topline"><span className="retail-staff-crumb"><Link to="/home">{t('common.home')}</Link> {t('recon.mlandRetailReconciliation')}</span><span>● {t('common.backendAuthorized')}</span></div>
+      <div className="wsp-page-heading"><div><p>{t('recon.checkThePurchaseTransactionsThat')}</p></div></div>
       <RequireSession requiredText={t('recon.signInWithAManager')}><ManagerPaymentTabs /></RequireSession>
     </main>
   </div>;

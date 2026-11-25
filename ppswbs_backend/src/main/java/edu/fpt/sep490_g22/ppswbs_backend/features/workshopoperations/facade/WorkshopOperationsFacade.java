@@ -41,8 +41,6 @@ public interface WorkshopOperationsFacade {
 
     CapacityCommitOutcome commitBookingHolds(CommitBookingHoldsCommand command);
 
-    OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command);
-
     CapacityReleaseOutcome releaseBookingHolds(ReleaseBookingHoldsCommand command);
 
     DeliverySafeTicketSet getBookingTicketProjection(BookingTicketProjectionQuery query);
@@ -56,17 +54,7 @@ public interface WorkshopOperationsFacade {
     /** The terminal attendance outcome of one ticket of a booking group (003.2 T092, 003.3 FR-032). */
     TicketAttendanceOutcome getTicketAttendanceOutcome(TicketAttendanceOutcomeQuery query);
 
-    /**
-     * Whole-booking consequence of an OTA-confirmed refund (003.4 only). A refund is NOT an entitlement-revocation
-     * trigger for a direct-booking ticket (003.2 Q5, FR-010aa): that ticket is revoked when 003.3 calls
-     * {@link #cancelTicket}, which does not depend on any refund.
-     */
-    RefundConsequenceOutcome applyVerifiedRefundConsequence(ApplyVerifiedRefundConsequenceCommand command);
-
     CancellationCompletionOutcome completeCancellationHandoff(CompleteCancellationHandoffCommand command);
-
-    /** Revokes named tickets of an OTA-origin booking after the OTA confirmed their cancellation (003.2 T123; 003.4 only). */
-    OtaTicketRevocationOutcome revokeOtaTickets(RevokeOtaTicketsCommand command);
 
     java.util.Optional<WorkshopLocationSnapshot> findLocationByCode(String code);
 

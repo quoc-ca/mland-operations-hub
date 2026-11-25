@@ -101,20 +101,16 @@ public class WorkshopRefundService {
     /**
      * T098: Mland's own money — a remedy for a cancellation Mland caused, an overcharge corrected after the
      * folio was finalized, and a late payment that was not re-confirmed — is refunded by bank transfer, so
-     * these never reach the gateway. The overcharge refund of an OTA booking's separate Mland shop add-on
-     * bill is Mland money too, so T104 brought {@code ADDON_REFUND} here as well; only the OTA's own base
-     * ticket stays the OTA's process, which this service never touched.
+     * these never reach the gateway.
      */
     private static final java.util.Set<String> BANK_ROUTED_CASE_TYPES =
-            java.util.Set.of("MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "LATE_PAYMENT_REFUND",
-                    "ADDON_REFUND");
+            java.util.Set.of("MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "LATE_PAYMENT_REFUND");
 
     /** Hands one prepared allocation to the bank refund of T097 and leaves it waiting for a Manager. */
     private void routeToBankRefund(SettlementRefundAllocation allocation, SettlementCase settlementCase) {
         RefundReason reason = switch (settlementCase.getCaseType()) {
             case "FOLIO_CORRECTION" -> RefundReason.OVERCHARGE_AFTER_FINALIZED;
             case "LATE_PAYMENT_REFUND" -> RefundReason.LATE_PAYMENT_NOT_RECONFIRMED;
-            case "ADDON_REFUND" -> RefundReason.OTA_ADDON_OVERCHARGE;
             default -> RefundReason.MLAND_CANCELLATION;
         };
         var opened = bankRefunds.open(settlementCase.getBookingReference(), null, reason,
@@ -197,7 +193,7 @@ public class WorkshopRefundService {
         // Recovers the consequence of a case whose allocations are all VERIFIED (a Manager confirmed the bank refund).
         try {
             for (SettlementCase settlementCase : cases.findTop100ByCaseTypeInAndLifecycleStatusOrderByCreatedAtAsc(
-                    List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND"), CASE_PENDING)) {
+                    List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION"), CASE_PENDING)) {
                 List<SettlementRefundAllocation> caseAllocations = allocations
                         .findAllByCaseReferenceOrderByCreatedAtAsc(settlementCase.getCaseReference());
                 if (!caseAllocations.isEmpty()
@@ -249,18 +245,6 @@ public class WorkshopRefundService {
                 cases.save(latest);
                 saveAudit(latest, "FOLIO_CORRECTION_REFUND_VERIFIED", null);
                 notifyRefund(latest, caseAllocations);
-            });
-            return;
-        }
-        if ("ADDON_REFUND".equals(settlementCase.getCaseType())) {
-            transaction.executeWithoutResult(status -> {
-                SettlementCase latest = cases.findByCaseReferenceForUpdate(caseReference).orElse(null);
-                if (!isPendingRefundCase(latest)) return;
-                latest.setLifecycleStatus(CASE_RESOLVED);
-                latest.setReasonReference(null);
-                latest.setUpdatedAt(Instant.now());
-                cases.save(latest);
-                saveAudit(latest, "ADDON_REFUND_VERIFIED", null);
             });
             return;
         }
@@ -317,7 +301,7 @@ public class WorkshopRefundService {
         }
     }
 
-    /** Customer-facing refund notice for a direct booking; ADDON_REFUND (OTA bill) deliberately sends none. */
+    /** Customer-facing refund notice for a direct booking. */
     private void notifyRefund(SettlementCase resolved, List<SettlementRefundAllocation> verified) {
         long amount = verified.stream().mapToLong(a -> a.getAllocatedAmountVnd() == null ? 0L : a.getAllocatedAmountVnd()).sum();
         notifier.notifyVerified(resolved.getBookingReference(), SettlementCustomerNotifier.REFUND_VERIFIED, amount,
@@ -345,7 +329,7 @@ public class WorkshopRefundService {
     }
 
     private static boolean isPendingRefundCase(SettlementCase value) {
-        return value != null && List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION", "ADDON_REFUND").contains(value.getCaseType())
+        return value != null && List.of(CASE_TYPE, "MLAND_CANCELLATION_REMEDY", "FOLIO_CORRECTION").contains(value.getCaseType())
                 && CASE_PENDING.equals(value.getLifecycleStatus());
     }
 

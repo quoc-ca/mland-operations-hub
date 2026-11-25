@@ -32,7 +32,6 @@ const counts = (overrides = {}) => ({
   'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
   'GET /api/v1/workshop-refund-requests/waiting-count': json(200, { waiting: 4 }),
   'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(200, { waiting: 1 }),
-  'GET /api/v1/ota-reconciliation-work-items/needing-attention-count': json(200, { waiting: 2 }),
   ...overrides,
 });
 
@@ -57,10 +56,10 @@ describe('operations shell', () => {
     expect((await within(screen.getByRole('complementary', { name: 'Operations navigation' })).findAllByLabelText(/ waiting$/)).length).toBeGreaterThan(0);
   });
 
-  it('shows a Manager the ten groups on the rail with the current one marked', async () => {
+  it('shows a Manager the nine groups on the rail with the current one marked', async () => {
     open('MANAGER', '/settlement/refunds');
     await rail().findByRole('link', { name: /^Dashboard/ });
-    ['Dashboard', 'Sản phẩm', 'Ưu đãi', 'Khách hàng', 'Bán lẻ', 'Workshop', 'Thu tiền', 'Vé và hoàn tiền', 'Kết nối OTA', 'Hệ thống']
+    ['Dashboard', 'Sản phẩm', 'Ưu đãi', 'Khách hàng', 'Bán lẻ', 'Workshop', 'Thu tiền', 'Vé và hoàn tiền', 'Hệ thống']
       .forEach(name => expect(rail().getByRole('link', { name: new RegExp(`^${name}`) })).toBeInTheDocument());
     expect(rail().getByRole('link', { name: /^Vé và hoàn tiền/ })).toHaveAttribute('aria-current', 'true');
     expect(rail().getByRole('link', { name: /^Dashboard/ })).toHaveAttribute('href', '/manager/dashboard');
@@ -76,15 +75,14 @@ describe('operations shell', () => {
   });
 
   it('shows badges from the Manager counts on the rail and on the tabs, and none for a zero or failed count', async () => {
-    open('MANAGER', '/settlement/refunds', { 'GET /api/v1/ota-reconciliation-work-items/needing-attention-count': json(500, { code: 'X' }) });
+    open('MANAGER', '/settlement/refunds', { 'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(500, { code: 'X' }) });
     // Refund 4 + change requests 2 = 6 on the group; 4 on the refund tab; 2 on the change-request tab.
     expect(await rail().findByRole('link', { name: 'Vé và hoàn tiền, 6' })).toBeInTheDocument();
-    expect(rail().getByRole('link', { name: 'Thu tiền, 4' })).toBeInTheDocument();
+    expect(rail().getByRole('link', { name: 'Thu tiền' })).toBeInTheDocument();
     expect(rail().getByRole('link', { name: 'Khách hàng, 1' })).toBeInTheDocument();
     const tabs = within(screen.getByRole('navigation', { name: 'Trang trong nhóm' }));
     expect(tabs.getByRole('link', { name: /^Hàng đợi hoàn tiền/ })).toHaveTextContent('4');
-    // The OTA read failed: no badge, and the rail still works.
-    expect(rail().getByRole('link', { name: 'Kết nối OTA' })).toBeInTheDocument();
+    // The cash-close read failed: its group carries no badge, and the rail still works.
   });
 
   it('puts the tab actions and a page action in the header, and Staff see their own labels', async () => {

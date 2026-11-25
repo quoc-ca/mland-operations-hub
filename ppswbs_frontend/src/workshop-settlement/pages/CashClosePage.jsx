@@ -66,8 +66,8 @@ export default function CashClosePage() {
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={command.retry} />
       {showQueue && (
-        <section className="ota-panel" aria-label={t('cash.queueAria')}>
-          <div className="ota-panel-head"><h2>{t('cash.queueTitle')}</h2><span>{queue.data ? queue.data.length : ''}</span></div>
+        <section className="wsp-panel" aria-label={t('cash.queueAria')}>
+          <div className="wsp-panel-head"><h2>{t('cash.queueTitle')}</h2><span>{queue.data ? queue.data.length : ''}</span></div>
           <ProblemNotice error={queue.error} onRetry={queue.reload} onReload={queue.reload} />
           {queue.loading ? <Loading /> : queue.error ? null : (queue.data || []).length === 0
             ? <div className="empty-state"><p>{t('cash.queueEmpty')}</p></div>
@@ -86,8 +86,8 @@ export default function CashClosePage() {
             )}
         </section>
       )}
-      <section className="ota-panel">
-        <form className="ota-inline-form" aria-label={t('cash.expectedAria')} onSubmit={loadExpected}>
+      <section className="wsp-panel">
+        <form className="wsp-inline-form" aria-label={t('cash.expectedAria')} onSubmit={loadExpected}>
           <label>{t('cash.branchId')}<input inputMode="numeric" value={locationId} onChange={event => setLocationId(event.target.value)} /></label>
           <label>{t('cash.workingDay')}<input type="date" value={workingDate} onChange={event => setWorkingDate(event.target.value)} /></label>
           <button className="button outline" type="submit" disabled={command.pending || !/^[0-9]+$/.test(locationId.trim())}>{t('cash.showExpected')}</button>
@@ -100,8 +100,8 @@ export default function CashClosePage() {
         )}
       </section>
       {expected && !close && (
-        <section className="ota-panel">
-          <form className="ota-form" aria-label={t('cash.closeAria')} onSubmit={submitClose}>
+        <section className="wsp-panel">
+          <form className="wsp-form" aria-label={t('cash.closeAria')} onSubmit={submitClose}>
             <label>{t('cash.countedLabel')}<input inputMode="numeric" value={counted} onChange={event => setCounted(event.target.value)} /></label>
             <label>{t('cash.differenceReasonLabel')}<textarea value={differenceReason} maxLength={1000} onChange={event => setDifferenceReason(event.target.value)} /></label>
             <button className="button primary" type="submit" disabled={command.pending || !/^(0|[1-9][0-9]*)$/.test(counted.trim())}>{t('cash.closeBook')}</button>
@@ -109,8 +109,8 @@ export default function CashClosePage() {
         </section>
       )}
       {close && (
-        <section className="ota-panel">
-          <div className="ota-panel-head"><h2>{close.closeReference}</h2><span className="ops-status">{closeStatus(close.status)}</span></div>
+        <section className="wsp-panel">
+          <div className="wsp-panel-head"><h2>{close.closeReference}</h2><span className="ops-status">{closeStatus(close.status)}</span></div>
           <dl className="ops-facts">
             <div><dt>{t('cash.expected')}</dt><dd>{fmt.money(close.expectedCashVnd)}</dd></div>
             <div><dt>{t('cash.counted')}</dt><dd>{fmt.money(close.countedCashVnd)}</dd></div>

@@ -427,9 +427,6 @@ cọc và khoản còn lại tính theo package booking đó. Phụ phí phát s
 workshop gắn với booking/package và có thể liên kết ticket/người liên quan để
 truy vết.
 
-Đợt OTA đầu chỉ mở package theo giá mỗi participant. OTA không nhận hoặc đồng
-bộ group-pricing hay phụ phí người cùng làm.
-
 ## Khám phá package và tạo booking — Đã có phạm vi V1
 
 Guest hoặc Member chỉ thấy package được công khai và đang cho phép đặt. Chi tiết
@@ -640,8 +637,6 @@ trợ `CANCELLED` để release hold trước thanh toán. Cần quyết định
   check-in và đều còn trong hạn policy. Sau khi một item đã được dùng hoặc quá
   hạn, khách không dùng luồng hủy/refund thông thường; Manager chỉ xử lý ngoại
   lệ có audit.
-- Policy này không áp dụng cho OTA. Booking OTA đi theo điều kiện hủy/refund của
-  channel; Mland chỉ đồng bộ kết quả và xử lý ticket/capacity tương ứng.
 
 ### Policy hủy/refund booking trực tiếp Mland — Đề xuất đã chọn
 
@@ -682,185 +677,9 @@ không tạo quyền khách tự hủy/refund riêng item. Refund record phải 
 `scope = WORKSHOP_ITEM`, liên kết item và gateway reference; không chuyển cả
 booking sang `REFUNDED` khi các item khác vẫn giữ nguyên.
 
-## Đồng bộ kênh ngoài — Cần quyết định
+## Đồng bộ kênh ngoài — Đã loại
 
-Booking `CONFIRMED` có thể tạo handoff record cho một feature đồng bộ sau này.
-Mland vẫn là nguồn sự thật về booking và capacity. Contract sau này phải xác định
-identity mapping, idempotency, retry, reconciliation, dữ liệu được phép chia sẻ
-và cách xử lý remote failure; không tự áp dụng cancellation hoặc capacity từ
-kênh ngoài khi chưa có policy/contract.
-
-### Nguồn sự thật về session và capacity — Đề xuất đã chọn
-
-Mland là nguồn sự thật duy nhất cho package/session được mở bán, sức chứa và số
-chỗ còn lại. Manager chỉ tạo hoặc thay đổi các giá trị này tại Mland. Klook và
-GetYourGuide chỉ nhận availability đã được Mland công bố, rồi gửi yêu cầu booking
-vào Mland để Mland kiểm tra/trừ capacity nguyên tử. Không cho phép thay đổi
-capacity trực tiếp tại OTA tự ghi đè dữ liệu Mland; bất kỳ khác biệt nào phải đi
-qua quy trình đối soát và thao tác có quyền tại Mland.
-
-### Kiến trúc tích hợp booking OTA thời gian thực — Đề xuất đã chọn
-
-Mland dùng một core nội bộ duy nhất cho package/session, kiểm tra/trừ capacity,
-booking, ticket và audit. Klook và GetYourGuide có **adapter riêng** để chuyển
-đổi API, authentication, schema, voucher/ticket reference và quy tắc callback
-của từng bên; không nhét khác biệt của OTA vào domain core hoặc buộc hai OTA có
-cùng contract kỹ thuật.
-
-Khi OTA gửi yêu cầu reserve/booking, adapter phải chuyển external booking
-reference và idempotency key vào core Mland. Core kiểm tra capacity nguyên tử,
-tạo đúng một channel booking và ticket theo số participant, rồi trả kết quả xác
-nhận hoặc từ chối rõ ràng cho adapter/OTA. Gửi lặp cùng idempotency key phải trả
-kết quả đã có, không trừ thêm capacity, tạo booking hay ticket trùng.
-
-Webhook/callback về cancellation, refund và thay đổi booking đi qua adapter,
-được xác thực và lưu external event reference trước khi xử lý. Thông báo/gửi
-dữ liệu ra OTA dùng outbox có retry và backoff; lỗi tạm thời không được khiến
-Mland tạo lại booking hoặc tự đổi capacity. Lỗi hết retry, mapping không khớp
-hoặc khác biệt trạng thái phải vào hàng đợi đối soát để người có quyền xử lý,
-với actor, lý do và liên kết booking/event đầy đủ. Không khắc phục bằng cách tạo
-một booking Mland mới thủ công khi chưa xác minh external reference.
-
-Mỗi adapter chỉ được go-live sau test end-to-end: availability/capacity, create
-booking lặp, failure/retry, cancel/refund callback, ticket delivery và scan
-từng ticket tại Mland. Secret/authentication không ghi vào log hay ledger; chỉ
-lưu mã tham chiếu và metadata tối thiểu cần đối soát.
-
-### Phạm vi package mở bán OTA — Đề xuất đã chọn
-
-Đợt tích hợp OTA đầu chỉ publish package theo giá mỗi participant. Group-size
-pricing hoặc phụ phí người cùng làm không thuộc V1; nếu được đề xuất sau này,
-Mland phải thiết kế và xác thực riêng theo từng channel trước khi bật bán.
-
-### Giá theo channel và điều kiện publish — Đề xuất đã chọn
-
-Mland lưu giá riêng cho mỗi `package/channel`: giá website, `retail_price` khách
-trả tại OTA, `target_net_amount` Mland muốn nhận, currency, phiên bản quy tắc
-commission/fee và thời hạn hiệu lực. Mỗi OTA booking phải snapshot các giá trị
-này cùng commission/fee thực tế và payout thực tế để đối soát lịch sử; không dùng
-một trường tổng tiền chung cho mọi channel.
-
-Với GetYourGuide, Manager cấu hình `retail_price` tại Mland và đồng bộ qua Price
-over API khi integration được cấp quyền, hoặc nhập đúng giá này trên Supplier
-Portal khi dùng cấu hình thủ công. Với Klook, Manager có thể chuẩn bị retail price
-và target net nhưng package giữ `PENDING_COMMERCIAL_CONFIRMATION` và không được
-publish đến khi contract/onboarding xác nhận giá API là retail hay net, commission,
-thuế/phí, currency/FX và payout terms. Không suy ra retail price chỉ từ một tỷ lệ
-commission danh nghĩa.
-
-### Dịch vụ kèm theo OTA — Ghi nhận, chưa triển khai
-
-Với booking từ **bất kỳ OTA nào**, chỉ dịch vụ **khắc laser** được bao gồm miễn
-phí trong offer OTA hiện tại. Mọi material/design option, dịch vụ hoặc nâng cấp
-khác vẫn là phụ phí theo bảng giá Mland tại thời điểm áp dụng; không được suy ra
-chúng đã nằm trong `retail_price` OTA.
-
-**Policy đã chọn:** Staff phải báo giá và nhận xác nhận của khách **trước** khi
-dùng/nâng cấp lựa chọn có phí. Mland tạo bill phụ phí riêng tại quầy, liên kết
-OTA booking/ticket reference và thu trực tiếp bằng phương thức Mland cho phép.
-Bill phải snapshot hạng mục, giá, currency, thời điểm/xác nhận của khách, Staff
-và payment reference; khắc laser được ghi là hạng mục 0 đồng nếu cần hiển thị.
-
-Khoản này là doanh thu trực tiếp của Mland, không sửa `retail_price`, tiền khách
-đã trả OTA, commission hay payout/settlement OTA; cũng không gọi refund qua OTA.
-Không dùng luồng cọc của Mland cho booking OTA. Nếu khách chưa thanh toán phụ
-phí đã chọn, shop chỉ giao phần nâng cấp/sản phẩm liên quan sau khi bill riêng
-được thanh toán, trừ Manager exception có audit.
-
-### Điều kiện ticket để mở bán OTA — Đề xuất đã chọn
-
-Một package/session chỉ được bật bán trên Klook hoặc GetYourGuide sau khi test
-end-to-end xác nhận rằng booking `N` participant tạo và OTA giao đúng `N` QR/ticket
-riêng do Mland phát; Staff phải quét từng QR trên Mland. Không mở bán một option
-nếu channel chỉ giao một voucher/order code chung thay cho ticket-per-person.
-
-Voucher/order code chung chỉ là fallback sự cố sau go-live: người có quyền
-`workshop.checkin.override` tra cứu channel booking, chọn đúng ticket active chưa
-check-in theo số người thực tế đến, nêu lý do và lưu audit. Nó không được tự động
-check-in toàn bộ booking và không phải luồng check-in hay điều kiện go-live mặc
-định.
-
-### Dữ liệu khách từ OTA — Đề xuất đã chọn
-
-Mland chỉ lưu dữ liệu tối thiểu cần thiết để vận hành channel booking: channel,
-external booking reference, package/option/session mapping, participant count,
-ticket mapping, trạng thái và contact được OTA/contract cho phép dùng khi thật sự
-cần hỗ trợ vận hành. Không tự tạo Member Mland, Magic Link, participant profile
-hoặc dùng contact OTA cho newsletter, CRM/remarketing hay mục đích marketing.
-
-Nếu sau này cần tên/email từng participant cho waiver, kiểm tra tuổi, chứng nhận
-hay giao ticket riêng, phải tạo feature participant-registration riêng với
-purpose/consent, quyền truy cập, retention, sửa/xóa và audit rõ ràng. Không suy
-ra quyền thu/lưu các dữ liệu đó chỉ vì OTA có gửi chúng.
-
-### Chính sách hủy/refund theo kênh — Đề xuất đã chọn
-
-Tách hai lớp chính sách, không ép chúng phải giống nhau:
-
-1. **Chính sách trực tiếp của Mland:** áp dụng duy nhất cho booking được tạo và
-   thanh toán trên website Mland. Mland có thể cấu hình số tiền hoặc tỷ lệ hoàn
-   khác nhau theo các mốc thời gian của session và thực hiện refund qua gateway
-   của Mland.
-2. **Chính sách OTA:** áp dụng cho booking tạo trên Klook hoặc GetYourGuide.
-   Khách thanh toán và nhận refund từ OTA theo policy đã công bố trên trang
-   OTA/voucher; Mland không gọi refund qua gateway của mình cho khoản tiền OTA
-   đã thu. Policy này vẫn phải được Mland xác nhận khi onboarding/publish, vì
-   nó quyết định quyền hủy, capacity và số tiền net Mland được đối soát.
-
-Mỗi booking phải snapshot `sales_channel`, mã/phiên bản policy đã hiển thị,
-cutoff và timezone tại thời điểm xác nhận. Không dùng policy đang hiệu lực ở
-hiện tại để quyết định một booking cũ.
-
-Mland V1 không có nghiệp vụ partial refund theo item/ticket: khách chỉ yêu cầu
-hủy/refund toàn bộ booking, không hoàn riêng từng ticket hoặc participant. Số
-tiền refund của toàn bộ booking vẫn có thể là một tỷ lệ cọc theo policy thời
-gian. Với OTA, yêu cầu hủy và kết quả hoàn là các sự kiện riêng. Trong bản ghi
-**tiền khách trả cho OTA** (có `sales_channel`), Mland ghi nhận tối thiểu `PAID_ON_CHANNEL`,
-`REFUND_REQUESTED`, `PARTIALLY_REFUNDED` hoặc `REFUNDED`, số tiền OTA đã hoàn
-và external reference.
-`PARTIALLY_REFUNDED` nghĩa là OTA thực tế đã hoàn một phần tiền khách đã trả
-OTA; `REFUNDED` nghĩa là OTA đã hoàn toàn bộ khoản đó. Đây không phải trạng thái
-tổng của booking, cũng không mở workflow Mland tự tạo partial refund. Không suy
-từ trạng thái service rằng khách đã được hoàn tiền. Chỉ khi cancellation được
-OTA xác nhận thì Mland mới revoke ticket và giải phóng capacity, tránh bán lại
-chỗ trong khi yêu cầu hoàn vẫn đang chờ xử lý.
-
-Báo cáo/đối soát OTA phải tách tiền khách trả OTA, số OTA hoàn khách,
-commission/fee, `target_net_amount`, payout dự kiến và payout thực nhận. Nội
-dung confirmation/voucher luôn hiển thị policy của đúng channel đặt chỗ, không
-đưa bảng refund trực tiếp của Mland cho khách OTA.
-
-### Công nợ OTA và sổ đối soát bất biến — Đề xuất đã chọn
-
-Tách trạng thái **tiền khách trả OTA** ở trên khỏi trạng thái **OTA phải thanh
-toán cho Mland**. Mỗi booking OTA (hoặc từng dòng payout được OTA trả về) có
-vòng đời công nợ:
-
-```text
-NOT_ELIGIBLE → ACCRUED → INVOICED → PAYOUT_PENDING → PAID_OUT
-```
-
-- `NOT_ELIGIBLE`: chưa đủ điều kiện ghi nhận công nợ theo contract, ví dụ còn
-  trong thời hạn cancellation/no-show hoặc service chưa diễn ra;
-- `ACCRUED`: Mland ước tính được khoản net phải nhận từ booking, dựa vào snapshot
-  giá và commission/fee đã biết;
-- `INVOICED`: khoản đó đã nằm trong invoice/statement của OTA;
-- `PAYOUT_PENDING`: invoice/statement đã chốt nhưng Mland chưa nhận tiền;
-- `PAID_OUT`: Mland đã đối chiếu được tiền OTA thực nhận với payout reference.
-
-Không ghi đè số tiền đã ghi nhận. Mỗi gross sale, commission/fee, customer
-refund, payout received, chênh lệch FX hay điều chỉnh phải là một dòng ledger
-bất biến, có số tiền, currency, thời điểm, external reference, lý do và liên
-kết tới booking/invoice/payout liên quan. Các loại bút toán tối thiểu gồm
-`EXPECTED_NET`, `CHANNEL_COMMISSION`, `PAYOUT_RECEIVED`, `REFUND_REVERSAL`,
-`CANCELLATION_COMPENSATION`, `FX_VARIANCE` và `MANUAL_ADJUSTMENT`.
-
-`ADJUSTED` và `REVERSED` là tính chất/loại bút toán mới để điều chỉnh hoặc đảo
-một bút toán cũ, không sửa trực tiếp lịch sử cũng không là một trạng thái chung
-thay cho payout. `DISPUTED` là hồ sơ tranh chấp tách riêng, liên kết các bút
-toán và giữ trạng thái xử lý của tranh chấp; nó không tự kết luận rằng OTA đã
-hoặc chưa trả tiền. Báo cáo gross sales, net expected, payout received, refund
-và công nợ phải được tổng hợp từ ledger này.
+> **Gỡ 2026-11-25:** OTA đã bị loại ([record](features/003-workshop-management/ota-removal-2026-11-25.md)). Toàn bộ đề xuất về kênh bán ngoài (nguồn sức chứa, tích hợp, package, giá, dịch vụ kèm, vé, dữ liệu khách, hủy/refund theo kênh, công nợ) đã được gỡ. Mland vẫn là nguồn sự thật duy nhất về session và sức chứa.
 
 ## State model
 
@@ -883,8 +702,7 @@ Ticket/booking → cancellation/refund workflow theo policy
 ### Diễn giải ngắn các trạng thái
 
 Tên trạng thái chỉ có nghĩa trong **phạm vi** ghi dưới đây; ví dụ `REFUNDED`
-của payment trực tiếp khác với `REFUNDED` của khoản tiền khách trả OTA. Các
-trạng thái check-in, cancellation/refund sau xác nhận và OTA đều là đề xuất cho
+chỉ áp dụng cho payment trực tiếp. Các trạng thái check-in và cancellation/refund sau xác nhận là đề xuất cho
 feature sau, chưa phải transition triển khai của V1.
 
 | Phạm vi | Trạng thái | Nghĩa ngắn gọn |
@@ -905,15 +723,6 @@ feature sau, chưa phải transition triển khai của V1.
 | Dòng phụ phí theo workshop item | `PENDING_ASSESSMENT` | Phụ phí có thể phát sinh nhưng chưa được Staff/Manager chốt. |
 | Dòng phụ phí theo workshop item | `ASSESSED` | Phụ phí đã được chốt số tiền, chưa được thu. |
 | Dòng phụ phí theo workshop item | `PAID` | Phụ phí đã được thu trong khoản thanh toán sau session của item. |
-| Tiền khách trả OTA | `PAID_ON_CHANNEL` | OTA đã thu tiền khách cho booking. |
-| Tiền khách trả OTA | `REFUND_REQUESTED` | Yêu cầu hoàn qua OTA đang chờ OTA xử lý/xác nhận. |
-| Tiền khách trả OTA | `PARTIALLY_REFUNDED` | OTA thực tế đã hoàn một phần tiền khách trả; chỉ để ghi nhận/đối soát, không mở partial refund Mland V1. |
-| Tiền khách trả OTA | `REFUNDED` | OTA thực tế đã hoàn toàn bộ tiền khách trả. |
-| Công nợ OTA với Mland | `NOT_ELIGIBLE` | Chưa đủ điều kiện ghi nhận khoản OTA phải trả Mland. |
-| Công nợ OTA với Mland | `ACCRUED` | Đã tính được khoản net Mland dự kiến nhận. |
-| Công nợ OTA với Mland | `INVOICED` | Khoản phải thu đã có trong invoice/statement OTA. |
-| Công nợ OTA với Mland | `PAYOUT_PENDING` | Statement đã chốt nhưng Mland chưa nhận tiền. |
-| Công nợ OTA với Mland | `PAID_OUT` | Mland đã nhận và đối chiếu được payout OTA. |
 | Hồ sơ tranh chấp | `DISPUTED` | Có tranh chấp cần theo dõi riêng; không tự kết luận refund hay payout. |
 
 <a id="fe-04"></a>

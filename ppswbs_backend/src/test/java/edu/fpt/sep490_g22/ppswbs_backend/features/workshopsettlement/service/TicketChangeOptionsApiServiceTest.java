@@ -239,7 +239,7 @@ class TicketChangeOptionsApiServiceTest {
     }
 
     @Test
-    @DisplayName("a folio that is not OPEN is 409, an OTA ticket is 409, a from session of another ticket is 422")
+    @DisplayName("a folio that is not OPEN is 409, an inactive ticket is 409, a from session of another ticket is 422")
     void conflictsAndValidation() {
         when(finalBills.findByBookingReference(TICKET))
                 .thenReturn(Optional.of(folio(SettlementFinalBillLifecycleStatus.FINALIZED)));
@@ -249,10 +249,10 @@ class TicketChangeOptionsApiServiceTest {
 
         when(finalBills.findByBookingReference(TICKET)).thenReturn(Optional.of(folio(SettlementFinalBillLifecycleStatus.OPEN)));
         when(operations.ticketChangeOptions(eq(opsTicket), any(), any()))
-                .thenReturn(TicketChangeOptions.refused(TicketChangeOptions.Status.OTA_TICKET_NOT_SUPPORTED));
+                .thenReturn(TicketChangeOptions.refused(TicketChangeOptions.Status.TICKET_NOT_ACTIVE));
         assertThatThrownBy(() -> service.forActor(TICKET, TicketChangeType.ADVANCE, null,
                 actor(BUYER, ActorRole.MEMBER, 10L)))
-                .isInstanceOf(WorkshopSettlementConflictException.class).hasMessageContaining("OTA_TICKET_NOT_SUPPORTED");
+                .isInstanceOf(WorkshopSettlementConflictException.class).hasMessageContaining("TICKET_NOT_ACTIVE");
 
         assertThatThrownBy(() -> service.forActor(TICKET, TicketChangeType.ADVANCE, List.of(UUID.randomUUID()),
                 actor(BUYER, ActorRole.MEMBER, 10L)))

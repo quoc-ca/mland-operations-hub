@@ -1,5 +1,7 @@
 # Research: Direct-Mland Workshop Booking Core
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../ota-removal-2026-11-25.md).*
+
 > **Superseded in part 2026-11-15:** research input only, predates the booking-group model (spec FR-030-FR-052).
 
 

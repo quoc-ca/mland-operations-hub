@@ -205,14 +205,5 @@ public class ModulithArchitectureTests {
         assertOnlyCalledBy("completeCancellationHandoff", "..features.workshopsettlement..");
         // 003.1 only: QR reissue for a recipient change.
         assertOnlyCalledBy("reissueTicketQr", "..features.workshopbooking..");
-        // 003.4 only: OTA ticket revocation (T123).
-        assertOnlyCalledBy("revokeOtaTickets", "..features.otaconnectivity..");
-    }
-
-    @Test
-    @DisplayName("T123/T168: applyVerifiedRefundConsequence is called by 003.4 only")
-    void applyVerifiedRefundConsequenceHasNoNewCaller() {
-        // 003.3 T168 removed the settlement and booking adapter wrappers; only 003.4 may call it.
-        assertOnlyCalledBy("applyVerifiedRefundConsequence", "..features.otaconnectivity..");
     }
 }

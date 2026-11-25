@@ -168,7 +168,7 @@ export function VoucherNotRestoredNotice({ voucherRestoration }) {
 export function AccountReviewStep({ details, confirmed, onConfirmedChange, onEdit, pending, submitLabel, onSubmit }) {
   const t = useT(messages);
   return (
-    <form className="ota-form" aria-label={t('review.aria')} onSubmit={event => { event.preventDefault(); if (confirmed) onSubmit(); }}>
+    <form className="wsp-form" aria-label={t('review.aria')} onSubmit={event => { event.preventDefault(); if (confirmed) onSubmit(); }}>
       <p className="muted">{t('review.check')}</p>
       <dl className="ops-facts">
         <div><dt>{t('review.bank')}</dt><dd>{details.bankCode}</dd></div>

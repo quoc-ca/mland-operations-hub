@@ -54,5 +54,5 @@ BR-85-01, BR-85-02, BR-85-03, BR-85-04
 |---|---|
 | BR-85-01 | Each ticket allows one customer change, plus any extra change granted by a Manager. |
 | BR-85-02 | A change never lowers the price or creates a refund. |
-| BR-85-03 | Several tickets of one group change all or none; OTA tickets follow the partner policy. |
+| BR-85-03 | Several tickets of one group change all or none. |
 | BR-85-04 | Changing to another location is marked draft in one part of the spec and approved in another; to be confirmed. |

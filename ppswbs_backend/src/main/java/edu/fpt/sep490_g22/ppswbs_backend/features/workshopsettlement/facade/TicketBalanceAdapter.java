@@ -28,7 +28,7 @@ public class TicketBalanceAdapter implements TicketBalancePort {
             SettlementFinalBill folio = bills.findByBookingReference(code).orElse(null);
             if (folio == null) continue;
             long addOn = balances.confirmedCharges(folio.getBillReference());
-            long total = Math.addExact(folio.getPostPromotionAmountVnd(), addOn);
+            long total = Math.addExact(folio.ticketPriceVnd(), addOn);
             long due = balances.balanceOf(folio).balanceDue();
             result.put(code, new TicketBalance(total, addOn, Math.max(0L, total - due), due));
         }

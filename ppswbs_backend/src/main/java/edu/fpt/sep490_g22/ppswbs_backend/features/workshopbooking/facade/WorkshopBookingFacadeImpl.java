@@ -25,10 +25,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -425,8 +421,8 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
         log.info("WorkshopBookingFacade.requestBookingTicketRedelivery: bookingReference={}, ticketsCount={}, opRef={}",
                 command.bookingReference(), command.activeUnusedTicketReferences().size(), command.operationReference());
 
-        // Decision 2026-11-13: single direct bookings are gone and an OTA booking has no Mland contact, so there is
-        // no single booking to redeliver to. A group ticket is resent with PUT /workshop-tickets/{code}/recipient
+        // Decision 2026-11-13: single direct bookings are gone, so there is no single booking
+        // to redeliver to. A group ticket is resent with PUT /workshop-tickets/{code}/recipient
         // (same email) and the buyer confirmation with POST /workshop-booking-groups/{code}/confirmation-deliveries.
         return TicketRedeliveryOutcome.rejected(BookingRejectionReason.NOT_READY);
     }
@@ -461,63 +457,6 @@ public class WorkshopBookingFacadeImpl implements WorkshopBookingFacade, Worksho
                             .eligibleForDesign(eligible)
                             .build();
                 });
-    }
-
-    @Override
-    @Transactional
-    public OtaBookingOutcome createOrReturnOtaBooking(OtaBookingCommand command) {
-        final String bookingCode = deterministicOtaBookingCode(command.providerReference(), command.externalBookingReference());
-        final long packageId;
-        try {
-            packageId = Long.parseLong(command.packageReference());
-        } catch (NumberFormatException ex) {
-            return OtaBookingOutcome.rejected("PACKAGE_REFERENCE_INVALID");
-        }
-        WorkshopBooking existing = bookingRepository.findLockedByBookingCode(bookingCode).orElse(null);
-        if (existing != null && !sameOtaSelection(existing, command, packageId)) {
-            return OtaBookingOutcome.rejected("IDEMPOTENCY_CONFLICT");
-        }
-        var eligibility = operationsAdapter.getSaleEligibility(command.sessionReference());
-        if (eligibility == null || !eligibility.customerSelectable()) {
-            return OtaBookingOutcome.rejected("SESSION_NOT_AVAILABLE");
-        }
-        var capacity = operationsAdapter.acceptOtaBooking(bookingCode, command.packageReference(),
-                command.sessionReference(), command.participantCount(), command.operationReference(),
-                command.correlationReference());
-        if (capacity == null || capacity.status() != edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OutcomeStatus.ACCEPTED) {
-            return OtaBookingOutcome.rejected(capacity == null || capacity.reason() == null
-                    ? "OPERATIONS_REJECTED" : capacity.reason().name());
-        }
-        if (existing == null) {
-            existing = bookingRepository.save(WorkshopBooking.builder()
-                    .bookingCode(bookingCode).packageId(packageId)
-                    .packageNameSnapshot("OTA-" + command.packageReference())
-                    .contactEmail("ota-booking@redacted.invalid").contactPhone("OTA-NO-CONTACT")
-                    .participantCount(command.participantCount()).bookingStatus(BookingStatus.CONFIRMED)
-                    .paymentStatus(PaymentStatus.FULLY_PAID).confirmedAt(Instant.now()).build());
-            commitmentRepository.save(BookingSessionCommitment.builder().booking(existing)
-                    .sessionReference(command.sessionReference().toString())
-                    .locationId(eligibility.locationReference()).ordinal(1)
-                    .seatCount(command.participantCount()).build());
-        }
-        return OtaBookingOutcome.accepted(existing.getBookingCode(), capacity.ticketReferences());
-    }
-
-    private boolean sameOtaSelection(WorkshopBooking booking, OtaBookingCommand command, long packageId) {
-        if (!Long.valueOf(packageId).equals(booking.getPackageId())
-                || !Integer.valueOf(command.participantCount()).equals(booking.getParticipantCount())) return false;
-        return commitmentRepository.findByBookingIdOrderByOrdinalAsc(booking.getId()).stream()
-                .anyMatch(c -> command.sessionReference().toString().equals(c.getSessionReference()));
-    }
-
-    private static String deterministicOtaBookingCode(String provider, String externalReference) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
-                    (provider.trim() + ":" + externalReference.trim()).getBytes(StandardCharsets.UTF_8));
-            return "OTA-" + HexFormat.of().formatHex(digest).substring(0, 28);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 algorithm is unavailable", ex);
-        }
     }
 
     @Override

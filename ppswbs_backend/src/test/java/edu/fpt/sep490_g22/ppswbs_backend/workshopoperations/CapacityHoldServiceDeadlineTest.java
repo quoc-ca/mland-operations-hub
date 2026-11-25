@@ -13,7 +13,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.CapacityHoldService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -34,7 +33,6 @@ class CapacityHoldServiceDeadlineTest {
         var entitlements = mock(TicketSessionEntitlementRepository.class);
         var audit = mock(OperationsAuditEventRepository.class);
         var idempotency = mock(FacadeCommandIdempotencyManager.class);
-        var ota = mock(WorkshopOtaSnapshotService.class);
         var firstRef = UUID.randomUUID();
         var secondRef = UUID.randomUUID();
         var first = session(11L, firstRef);
@@ -47,7 +45,7 @@ class CapacityHoldServiceDeadlineTest {
         when(entitlements.countActiveConfirmedSeatsForSession(anyLong())).thenReturn(0);
 
         var service = new CapacityHoldService(sessions, holds, policySnapshots, entitlements, audit, idempotency,
-                new ObjectMapper(), ota);
+                new ObjectMapper());
         var command = new ReserveBookingCapacityCommand("BK-1", "PK-1", List.of(firstRef, secondRef),
                 1, "reserve-1", "corr-1");
         Instant startedAt = Instant.now();
@@ -76,7 +74,6 @@ class CapacityHoldServiceDeadlineTest {
         var policySnapshots = mock(WorkshopBookingPackagePolicySnapshotRepository.class);
         var entitlements = mock(TicketSessionEntitlementRepository.class);
         var idempotency = mock(FacadeCommandIdempotencyManager.class);
-        var ota = mock(WorkshopOtaSnapshotService.class);
         var ref = UUID.randomUUID();
         when(idempotency.acquireClaim(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(FacadeCommandIdempotencyManager.ClaimResult.acquired(2L, 1L));
@@ -85,7 +82,7 @@ class CapacityHoldServiceDeadlineTest {
         when(holds.sumConfirmedHoldsForSession(anyLong())).thenReturn(0);
         when(entitlements.countActiveConfirmedSeatsForSession(anyLong())).thenReturn(0);
         var service = new CapacityHoldService(sessions, holds, policySnapshots, entitlements,
-                mock(OperationsAuditEventRepository.class), idempotency, new ObjectMapper(), ota);
+                mock(OperationsAuditEventRepository.class), idempotency, new ObjectMapper());
 
         var outcome = service.reserveBookingCapacity(
                 new ReserveBookingCapacityCommand("BK-2", "PK-1", List.of(ref), 11, "reserve-2", "corr-2"),

@@ -60,8 +60,8 @@ export default function AbsorbedUnderchargesPage() {
     <OpsPage title={t('under.title')} intro={t('under.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={retry} onReload={() => load()} />
-      <section className="ota-panel">
-        <form className="ota-inline-form" aria-label={t('under.filtersAria')} onSubmit={load}>
+      <section className="wsp-panel">
+        <form className="wsp-inline-form" aria-label={t('under.filtersAria')} onSubmit={load}>
           <label>{t('under.branchId')}<input inputMode="numeric" value={filters.locationId} onChange={set('locationId')} /></label>
           <label>{t('under.from')}<input type="date" value={filters.from} onChange={set('from')} /></label>
           <label>{t('under.to')}<input type="date" value={filters.to} onChange={set('to')} /></label>
@@ -72,8 +72,8 @@ export default function AbsorbedUnderchargesPage() {
       {command.pending && !result ? <Loading /> : null}
       {result && records.length === 0 && <div className="empty-state"><p>{t('under.empty')}</p></div>}
       {result && records.length > 0 && (
-        <section className="ota-panel">
-          <div className="ota-panel-head"><h2>{t('under.records')}</h2><span className="muted">{t('under.total')}: <strong>{fmt.money(result.totalVnd)}</strong></span></div>
+        <section className="wsp-panel">
+          <div className="wsp-panel-head"><h2>{t('under.records')}</h2><span className="muted">{t('under.total')}: <strong>{fmt.money(result.totalVnd)}</strong></span></div>
           <table className="ops-table">
             <thead><tr><th>{t('under.col.reference')}</th><th>{t('under.col.ticket')}</th><th>{t('under.col.amount')}</th><th>{t('under.col.reason')}</th><th>{t('under.col.status')}</th><th>{t('under.col.recorded')}</th><th /></tr></thead>
             <tbody>

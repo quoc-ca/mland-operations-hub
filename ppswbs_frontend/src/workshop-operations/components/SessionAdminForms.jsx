@@ -70,14 +70,14 @@ export function BulkSessionForm({ api, locations, onDone }) {
   };
 
   return (
-    <section className="ota-panel" aria-labelledby="bulk-session-title">
-      <div className="ota-panel-head">
+    <section className="wsp-panel" aria-labelledby="bulk-session-title">
+      <div className="wsp-panel-head">
         <div>
           <h2 id="bulk-session-title">{t('bulk.title')}</h2>
           <p className="muted small">{t('bulk.subtitle')}</p>
         </div>
       </div>
-      <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('bulk.title')}>
+      <form className="wsp-evidence-grid" onSubmit={submit} aria-label={t('bulk.title')}>
         <Field label={t('admin.location')}>
           <select value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value, slotIds: [] })}>
             <option value="">{t('admin.selectLocation')}</option>
@@ -180,7 +180,7 @@ export function SessionEditForm({ api, session, onSaved, onReload, onClose }) {
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('sessionEdit.aria', { id: session.id })}>
+    <form className="wsp-evidence-grid" onSubmit={submit} aria-label={t('sessionEdit.aria', { id: session.id })}>
       <Field label={t('sessionEdit.capacity')}><input type="number" min="1" value={capacity} onChange={e => setCapacity(e.target.value)} /></Field>
       <Field label={t('sessionEdit.opensAt')} hint={session.checkInOpeningSource === 'MANAGER_SET' ? t('sessionEdit.hintManager') : t('sessionEdit.hintDefault')}>
         <input type="datetime-local" value={opening} onChange={e => setOpening(e.target.value)} />

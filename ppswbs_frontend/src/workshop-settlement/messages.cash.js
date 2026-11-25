@@ -106,7 +106,6 @@ export const messagesCash = {
     'refundSource.LATE_PAYMENT_NOT_RECONFIRMED': 'Thanh toán muộn không được xác nhận lại',
     'refundSource.OVERCHARGE_AFTER_FINALIZED': 'Thu thừa sau khi chốt folio',
     'refundSource.EXCESS_OR_DUPLICATE_MONEY': 'Tiền thừa hoặc trùng',
-    'refundSource.OTA_ADDON_OVERCHARGE': 'Thu thừa add-on OTA',
     // ReconciliationPage
     'recon.title': 'Danh sách đối soát',
     'recon.introShort': 'Các khoản thu chuyển khoản, VNPay và thanh toán lúc đặt chỗ của một chi nhánh trong một ngày.',
@@ -297,7 +296,6 @@ export const messagesCash = {
     'refundSource.LATE_PAYMENT_NOT_RECONFIRMED': 'Late payment not reconfirmed',
     'refundSource.OVERCHARGE_AFTER_FINALIZED': 'Overcharge after finalization',
     'refundSource.EXCESS_OR_DUPLICATE_MONEY': 'Excess or duplicate money',
-    'refundSource.OTA_ADDON_OVERCHARGE': 'OTA add-on overcharge',
     'recon.title': 'Reconciliation list',
     'recon.introShort': 'Transfer, VNPay and booking-time collections of one branch and day.',
     'recon.intro': 'Read-only list of transfer, VNPay and booking-time collections of one branch and day. Compare it with the bank statement and VNPay Merchant Admin; nothing is marked reconciled here.',

@@ -78,10 +78,7 @@ class WorkshopSettlementContractIT {
                 "GET /api/v1/workshop-cash-closes/awaiting-confirmation-count",
                 "GET /api/v1/workshop-cash-closes",
                 "POST /api/v1/workshop-cash-closes",
-                "POST /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations",
-                "GET /api/v1/ota-addon-bills/{billReference}",
-                "POST /api/v1/ota-addon-bills/{billReference}/payment-attempts",
-                "POST /api/v1/ota-addon-bills/{billReference}/refunds"));
+                "POST /api/v1/workshop-cash-closes/{cashCloseId}/difference-confirmations"));
 
         actual.forEach((operation, method) -> {
             if (operation.startsWith("POST ") && !operation.endsWith("/folio-lookups") && !operation.endsWith("/change-option-lookups")) {
@@ -136,7 +133,7 @@ class WorkshopSettlementContractIT {
         List<Class<?>> controllers = List.of(TicketFolioController.class,
                 TicketCancellationController.class, TicketChangeController.class,
                 TicketMlandRemedyController.class,
-                SettlementCaseListController.class, OtaAddonPaymentController.class,
+                SettlementCaseListController.class,
                 FolioCollectionController.class, TicketPreviousLocationAddOnController.class);
         return controllers.stream()
                 .flatMap(controller -> {

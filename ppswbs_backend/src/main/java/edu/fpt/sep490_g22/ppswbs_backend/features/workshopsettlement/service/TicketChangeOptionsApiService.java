@@ -121,7 +121,6 @@ public class TicketChangeOptionsApiService {
         switch (found.status()) {
             case OK -> { }
             case TICKET_NOT_FOUND -> throw new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND");
-            case OTA_TICKET_NOT_SUPPORTED -> throw new WorkshopSettlementConflictException("OTA_TICKET_NOT_SUPPORTED");
             case TICKET_NOT_ACTIVE -> throw new WorkshopSettlementConflictException("TICKET_NOT_ACTIVE");
             case FROM_SESSION_NOT_OF_TICKET ->
                     throw new WorkshopSettlementValidationException("FROM_SESSION_NOT_OF_TICKET");

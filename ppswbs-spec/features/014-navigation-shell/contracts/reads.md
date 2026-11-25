@@ -1,4 +1,7 @@
 # Contract: Reads used by Manager Home
+
+> **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../../003-workshop-management/ota-removal-2026-11-25.md).
+
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
@@ -38,7 +41,7 @@ Common rules for every proposed count:
 | R-1 | 003.2 | `GET /api/v1/workshop-day-summaries?date=<yyyy-MM-dd>[&locationId=]` | Counts for one Vietnam day. "Expected" is proposed as the participants holding a valid ticket for the non-cancelled sessions of the day (not the sessions' capacity, which is what the dashboard's utilization uses); the owner confirms it. | Response `{ "date", "sessions", "cancelledSessions", "checkedIn", "expected" }`. `sessions` includes cancelled sessions; `checkedIn` and `expected` cover non-cancelled sessions only. |
 | R-2 | 003.3 | Count of refund requests waiting | Which of `PENDING_ACCOUNT`, `PENDING_APPROVAL`, `PENDING_TRANSFER`, `PENDING_RECONCILIATION` mean the Manager has to act | Proposal: the four `PENDING_*` statuses; the card opens the refund queue filtered to the same set. |
 | R-3 | 003.3 | Count of cash closes awaiting Manager confirmation | State `PENDING_MANAGER_CONFIRMATION` | The card opens the cash-close screen on its confirmation view. |
-| R-4 | 003.4 | Count of reconciliation items needing attention | Which of `OPEN`, `IN_PROGRESS`, `ESCALATED` | Proposal: `OPEN` and `ESCALATED`; the card opens the queue filtered to the same set. |
+| R-4 | — | *(Removed 2026-11-25 with OTA.)* | — | — |
 | R-5 | 003.3 | Denied-only filter on `GET /api/v1/workshop-audit/settlement-records` | Rows whose action code starts with `DENIED_` | Add an optional boolean filter for denied rows; the existing response is unchanged. |
 
 ## C. Rules for the home as a consumer
@@ -57,5 +60,5 @@ The owners' reads, as built (owner agreement and definitions: Hồ Hoàng Quốc
 | R-1 | `GET /api/v1/workshop-day-summaries?date=&locationId=` (Manager only) | `{ date, sessions, cancelledSessions, checkedIn, expected }` | the session list for the same day and branch (`sessions`, `cancelledSessions`) |
 | R-2 | `GET /api/v1/workshop-refund-requests/waiting-count` | `{ waiting }` | `GET /api/v1/workshop-refund-requests?waiting=true` (screen `/settlement/refunds?status=WAITING`) |
 | R-3 | `GET /api/v1/workshop-cash-closes/awaiting-confirmation-count` | `{ waiting }` | `GET /api/v1/workshop-cash-closes?awaitingConfirmation=true` (Manager only), shown on the cash-close screen as `/settlement/cash-close?view=confirmation`, where a Manager can also confirm each difference (decision "làm luôn", Hồ Hoàng Quốc, 2026-11-18) |
-| R-4 | `GET /api/v1/ota-reconciliation-work-items/needing-attention-count` (active Manager only, owner decision 2026-11-18: an Admin gets 403 and no number; the filtered list keeps the existing Manager-or-Admin guard) | `{ waiting }` | `GET /api/v1/ota-reconciliation-work-items?needsAttention=true` (screen `/ota-connectivity/reconciliation?status=NEEDS_ATTENTION`) |
+| R-4 | *(Removed 2026-11-25 with OTA; the route no longer exists.)* | — | — |
 | R-5 | `GET /api/v1/workshop-audit/settlement-records?denied=true` | the existing page | the same read |

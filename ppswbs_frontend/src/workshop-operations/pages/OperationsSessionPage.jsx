@@ -11,11 +11,10 @@ import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '..
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { sessionTimeRange } from './OperationsDashboardPage';
-import { useOtaConnectivityApi } from '../../ota-connectivity/api/useOtaConnectivityApi';
 import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
 import { RescheduleQuotaPanel } from '../components/RescheduleQuotaPanel';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
 // The codes are the values sent to the API; their wording is in the dictionary (ses.reason.*).
@@ -69,7 +68,7 @@ const DEFAULT_STAFF_OPTIONS = [
 function ReasonFields({ ticketCode, setTicketCode, reasonCode, setReasonCode, reasonNote, setReasonNote, evidenceReference, setEvidenceReference }) {
   const t = useT(messages);
   return (
-    <div className="ota-form-grid">
+    <div className="wsp-form-grid">
       <label>
         {t('ses.corr.ticketCode')}
         <input
@@ -165,7 +164,6 @@ export default function OperationsSessionPage() {
   const { status, user } = useAuth();
   const http = useHttp();
   const api = createOperationsApi(http);
-  const otaApi = useOtaConnectivityApi();
   const resource = useResource(() => api.getSession(sessionId), [sessionId]);
   const roster = useResource(() => api.attendanceRoster(sessionId), [sessionId]);
   // Folio lifecycle per ticket for the payment badge; a failed read only hides the badge.
@@ -192,7 +190,6 @@ export default function OperationsSessionPage() {
   const [checkInNotOpen, setCheckInNotOpen] = useState(null);
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
   const [lookup, setLookup] = useState(null);
-  const [otaBooking, setOtaBooking] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [reasonCode, setReasonCode] = useState('CUSTOMER_DEVICE_UNAVAILABLE');
@@ -251,7 +248,7 @@ export default function OperationsSessionPage() {
     );
   }
   if (resource.loading) return <Loading />;
-  if (resource.error) return <div className="ota-container"><ErrorNotice error={resource.error} onRetry={resource.reload} /></div>;
+  if (resource.error) return <div className="wsp-container"><ErrorNotice error={resource.error} onRetry={resource.reload} /></div>;
   const session = resource.data;
   const authorization = user?.token || user?.accessToken;
   const rosterRows = Array.isArray(roster.data) ? roster.data : [];
@@ -291,7 +288,12 @@ export default function OperationsSessionPage() {
     setMessage('');
     setCheckInNotOpen(null);
     const result = await command.run(key => api.checkIn(sessionId, body, key));
-    if (result.ok) { setMessage(success); resource.reload(); roster.reload(); return; }
+    if (result.ok) {
+      // A repeat scan answers 200 ALREADY_CHECKED_IN: say so, with the recorded check-in time only.
+      const repeat = result.result?.checkInResult === 'ALREADY_CHECKED_IN';
+      setMessage(repeat ? t('ses.alreadyCheckedIn', { when: formatDateTime(result.result.checkedInAt, language) }) : success);
+      resource.reload(); roster.reload(); return;
+    }
     if (checkInNotOpenText(result.error, language)) { setCheckInNotOpen(result.error); command.reset(); }
   }
 
@@ -367,11 +369,11 @@ export default function OperationsSessionPage() {
     return incidentNote.trim() ? `${recoveryReasonCode}: ${incidentNote.trim()}` : recoveryReasonCode;
   };
 
-  return <div className="ota-workspace"><main className="ota-main">
-    <div className="ota-topline">{t('topline.session')} <span>· {t('authorized')}</span></div>
-    <header className="ota-page-heading session-hero">
+  return <div className="wsp-workspace"><main className="wsp-main">
+    <div className="wsp-topline">{t('topline.session')} <span>· {t('authorized')}</span></div>
+    <header className="wsp-page-heading session-hero">
       <div>
-        <p className="ota-eyebrow">{t('ses.eyebrow')}</p>
+        <p className="wsp-eyebrow">{t('ses.eyebrow')}</p>
         <h1>{session.workshopDate ? t('ses.title', { date: session.workshopDate, time: sessionTimeRange(session) ? `, ${sessionTimeRange(session)}` : '' }) : (session.slotId || session.id)}</h1>
         <p>{t('ses.locationLine', { id: session.locationId || '—' })} · <code>{session.id}</code></p>
       </div>
@@ -380,10 +382,10 @@ export default function OperationsSessionPage() {
     <SuccessNotice>{message}</SuccessNotice><ErrorNotice error={command.error} onRetry={command.retry} onReload={resource.reload} />
     {isManager && session.missingStaff && <div className="notice error" role="alert">{t('ses.missingStaff')}</div>}
     <section className="ops-detail-grid">
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.desk')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.desk')}</h2></div>
         <form
-          className="ota-form"
+          className="wsp-form"
           onSubmit={e => {
             e.preventDefault();
             if (ticketCode.trim()) runCheckIn({ ticketCode: ticketCode.trim() }, t('ses.ok.checkIn'));
@@ -425,23 +427,16 @@ export default function OperationsSessionPage() {
             {t('ses.lookupTitle')}
           </p>
           <form
-            className="ota-inline-form ops-lookup"
+            className="wsp-inline-form ops-lookup"
             onSubmit={async e => {
               e.preventDefault();
               if (!lookupBookingCode.trim()) return;
               setLookupLoading(true);
               setLookupError('');
               setLookup(null);
-              setOtaBooking(null);
               try {
                 const res = await api.lookupBooking(sessionId, lookupBookingCode.trim());
                 setLookup(res);
-                try {
-                  const otaRes = await otaApi.lookupBookingByMlandReference(lookupBookingCode.trim());
-                  setOtaBooking(otaRes);
-                } catch {
-                  // Not an OTA booking
-                }
               } catch (err) {
                 setLookupError(err?.message || t('ses.lookupNone'));
               } finally {
@@ -467,24 +462,8 @@ export default function OperationsSessionPage() {
 
           {lookup && Array.isArray(lookup) && (
             <div style={{ marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px', background: '#f9fafb' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>
-                  {t('ses.lookupFound', { count: lookup.length, code: lookupBookingCode })}
-                  {otaBooking && (
-                    <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: '#e0f2fe', color: '#0369a1' }}>
-                      {t('ses.ota', { provider: otaBooking.providerCode })}
-                    </span>
-                  )}
-                </span>
-                {otaBooking && (
-                  <Link
-                    to={`/ota-connectivity/add-ons?channelBookingId=${encodeURIComponent(otaBooking.channelBookingId)}`}
-                    className="button primary"
-                    style={{ padding: '3px 8px', fontSize: '11px', textDecoration: 'none' }}
-                  >
-                    {t('ses.addOn')}
-                  </Link>
-                )}
+              <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
+                {t('ses.lookupFound', { count: lookup.length, code: lookupBookingCode })}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {lookup.map((ticket, idx) => (
@@ -513,9 +492,9 @@ export default function OperationsSessionPage() {
           )}
         </div>
       </article>
-      <article className="ota-panel"><div className="ota-panel-head"><h2>{t('ses.facts')}</h2></div><dl className="ops-facts"><div><dt>{t('ses.capacity')}</dt><dd>{session.capacity}</dd></div><div><dt>{t('ses.checkInOpens')}</dt><dd>{session.checkInOpensAt ? fmt.dateTime(session.checkInOpensAt) : '—'}</dd></div><div><dt>{t('ses.assignedStaff')}</dt><dd>{assignedStaffLabel}</dd></div></dl>{transitionError && (<div className="notice error" role="alert"><p>{transitionError.text}</p>{transitionError.error.code && <p className="muted small">{t('ses.codeLine', { code: transitionError.error.code })}</p>}{transitionError.error.correlationId && <p className="muted small">{t('ses.correlation', { id: transitionError.error.correlationId })}</p>}<div className="notice-actions"><button type="button" className="button outline" onClick={() => { setTransitionError(null); resource.reload(); }}>{t('ses.reloadState')}</button></div></div>)}<div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state, t)) || command.pending} title={transitionBlockedReason(session.state, state, t)} onClick={() => runTransition(state)}>{stateLabel(state)}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? t('ses.finalizeTitle') : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), t('ses.ok.finalized'))}>{t('ses.finalize')}</button></div></article>
-      <article className="ota-panel roster-panel" aria-label={t('ses.roster')}>
-        <div className="ota-panel-head">
+      <article className="wsp-panel"><div className="wsp-panel-head"><h2>{t('ses.facts')}</h2></div><dl className="ops-facts"><div><dt>{t('ses.capacity')}</dt><dd>{session.capacity}</dd></div><div><dt>{t('ses.checkInOpens')}</dt><dd>{session.checkInOpensAt ? fmt.dateTime(session.checkInOpensAt) : '—'}</dd></div><div><dt>{t('ses.assignedStaff')}</dt><dd>{assignedStaffLabel}</dd></div></dl>{transitionError && (<div className="notice error" role="alert"><p>{transitionError.text}</p>{transitionError.error.code && <p className="muted small">{t('ses.codeLine', { code: transitionError.error.code })}</p>}{transitionError.error.correlationId && <p className="muted small">{t('ses.correlation', { id: transitionError.error.correlationId })}</p>}<div className="notice-actions"><button type="button" className="button outline" onClick={() => { setTransitionError(null); resource.reload(); }}>{t('ses.reloadState')}</button></div></div>)}<div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state, t)) || command.pending} title={transitionBlockedReason(session.state, state, t)} onClick={() => runTransition(state)}>{stateLabel(state)}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? t('ses.finalizeTitle') : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), t('ses.ok.finalized'))}>{t('ses.finalize')}</button></div></article>
+      <article className="wsp-panel roster-panel" aria-label={t('ses.roster')}>
+        <div className="wsp-panel-head">
           <h2>{t('ses.roster')}</h2>
           <span className="muted">{rosterRows.length ? t('ses.rosterProgress', { checked: checkedInCount, total: rosterRows.length }) : ''}</span>
         </div>
@@ -538,14 +517,14 @@ export default function OperationsSessionPage() {
         {roster.error ? <p className="muted" role="status">{t('ses.rosterError', { code: roster.error.status || roster.error.code || t('ses.errorWord') })} <button type="button" className="button outline small" onClick={roster.reload}>{ts('retry')}</button></p>
           : rosterRows.length === 0 ? <p className="muted">{roster.loading ? ts('loading') : t('ses.rosterEmpty')}</p>
             : visibleRosterRows.length === 0 ? <p className="muted">{t('ses.rosterNoMatch')}</p> : (
-              <div className="ota-ledger roster-list">
-                <div className="ota-ledger-row roster-row roster-head" aria-hidden="true">
+              <div className="wsp-ledger roster-list">
+                <div className="wsp-ledger-row roster-row roster-head" aria-hidden="true">
                   <span>{t('ses.col.ticket')}</span><span>{t('ses.col.booking')}</span><span>{t('ses.col.status')}</span><span>{t('ses.col.checkedInAt')}</span><span>{t('ses.col.actions')}</span>
                 </div>
                 {visibleRosterRows.map(row => {
                   const pay = paymentBadge(folioStatuses.data?.statuses?.[rosterCodes(row).ticket], session.state, language);
                   return (
-                  <div className="ota-ledger-row roster-row" key={`${row.ticketCode}`}>
+                  <div className="wsp-ledger-row roster-row" key={`${row.ticketCode}`}>
                     <strong title={rosterCodes(row).internal || undefined}>{rosterCodes(row).ticket}</strong>
                     <code>{rosterCodes(row).booking}</code>
                     <span className="roster-badges">
@@ -562,8 +541,8 @@ export default function OperationsSessionPage() {
       </article>
       {isManager && (<>
       <RescheduleQuotaPanel api={api} session={session} onSaved={resource.reload} onReload={resource.reload} />
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.staff.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.staff.title')}</h2></div>
         <p className="muted">
           {t('ses.staff.intro')}
         </p>
@@ -583,7 +562,7 @@ export default function OperationsSessionPage() {
             </ul>
           )}
         </section>
-        <div className="ota-form-grid" style={{ marginBottom: '16px' }}>
+        <div className="wsp-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
             {t('ses.staff.pick')}
             <select
@@ -652,8 +631,8 @@ export default function OperationsSessionPage() {
       <details className="ops-exceptions" open={exceptionsOpen} onToggle={e => setExceptionsOpen(e.currentTarget.open)}>
         <summary>{t('ses.exceptions')} <small>{t('ses.exceptionsHint')}</small></summary>
         <div className="ops-detail-grid">
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.corr.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.corr.title')}</h2></div>
         <p className="muted" style={{ margin: '0 0 12px', fontSize: '13px' }}>
           {t('ses.corr.intro')}
         </p>
@@ -664,10 +643,10 @@ export default function OperationsSessionPage() {
           <button className="button danger" disabled={command.pending || !ticketCode.trim() || !reasonCode.trim()} onClick={() => run(key => api.reverseCheckIn(sessionId, { ticketCode: ticketCode.trim(), ...reasonPayload() }, key), t('ses.ok.reversal'))}>{t('ses.corr.reverse')}</button>
         </div>
       </article>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.delivery.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.delivery.title')}</h2></div>
         <p className="muted">{t('ses.delivery.intro')}</p>
-        <div className="ota-inline-form">
+        <div className="wsp-inline-form">
           <input
             value={resendBookingCode}
             onChange={e => setResendBookingCode(e.target.value)}
@@ -684,10 +663,10 @@ export default function OperationsSessionPage() {
         {resendError && <div className="notice error" role="alert"><p>{resendRefusalText(resendError, t)}</p></div>}
       </article>
       {isManager && (<>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.recovery.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.recovery.title')}</h2></div>
         <p className="muted">{t('ses.recovery.intro')}</p>
-        <div className="ota-form-grid" style={{ marginBottom: '16px' }}>
+        <div className="wsp-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
             {t('ses.recovery.bookingCode')}
             <input
@@ -736,8 +715,8 @@ export default function OperationsSessionPage() {
         </div>
         {incidentResult && <pre className="ops-result">{JSON.stringify(incidentResult, null, 2)}</pre>}
       </article>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.late.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.late.title')}</h2></div>
         <p className="muted">
           {t('ses.late.intro')}
         </p>
@@ -780,10 +759,10 @@ export default function OperationsSessionPage() {
           </ul>
         )}
       </article>
-      <article className="ota-panel">
-        <div className="ota-panel-head"><h2>{t('ses.cancel.title')}</h2></div>
+      <article className="wsp-panel">
+        <div className="wsp-panel-head"><h2>{t('ses.cancel.title')}</h2></div>
         <p className="muted">{t('ses.cancel.intro')}</p>
-        <div className="ota-form-grid" style={{ marginBottom: '12px' }}>
+        <div className="wsp-form-grid" style={{ marginBottom: '12px' }}>
           <label className="full-width">
             {t('ses.cancel.reason')}
             <select value={cancelReasonCode} onChange={e => setCancelReasonCode(e.target.value)}>

@@ -266,9 +266,9 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const isClaimedByMe = activeConversation?.claimantRole !== null; // claimant is set
 
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
 
-      <main className="ota-main">
+      <main className="wsp-main">
         <div className="consultation-layout">
           {/* Sidebar */}
           <div className="consultation-sidebar">

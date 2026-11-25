@@ -1,5 +1,7 @@
 # Open-folio lifecycle boundaries — proposal
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
+
 **Date created**: 2026-11-05
 **Date updated**: 2026-11-05
 **Author**: Hồ Hoàng Quốc

@@ -6,7 +6,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketSessionReplacementService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageReservationPolicy;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -25,8 +24,7 @@ class TicketSessionReplacementReplayTest {
     private final TicketSessionReplacementService service = new TicketSessionReplacementService(
             mock(AttendanceTicketRepository.class), mock(TicketSessionEntitlementRepository.class),
             mock(TicketSessionReplacementRepository.class), mock(CapacityHoldRepository.class),
-            mock(WorkshopSessionRepository.class), mock(OperationsAuditEventRepository.class), idempotency,
-            mock(WorkshopOtaSnapshotService.class), mock(WorkshopPackageReservationPolicy.class),
+            mock(WorkshopSessionRepository.class), mock(OperationsAuditEventRepository.class), idempotency, mock(WorkshopPackageReservationPolicy.class),
             new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketReplacementRules());
 
     private static ReplaceTicketSessionsCommand command() {
