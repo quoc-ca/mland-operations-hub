@@ -17,7 +17,7 @@ The password route is open to Members, Staff, Managers, Admins and the Carrier; 
 | New password | Required, at least 6 characters. |
 | Confirm new password | Must match the new password, otherwise "The confirmation password does not match." |
 | Update password | Enabled only when all three password fields are filled (on the Carrier page it is disabled only while the change is processing); shows "Password changed successfully." and clears the fields. |
-| Current password (email section) | Optional; shown for password accounts. When filled, it is used to confirm the user again before the email change. |
+| Current password (email section) | Required for password accounts and used to reauthenticate with Firebase before requesting the email change. An incorrect value clears only this field. |
 | New email address | Required and must contain "@"; an address used by another account shows "This email address is already used by another account." |
 | Request email change | Sends the verification email and shows "A confirmation email was sent to {email}. Your current email stays unchanged until verification is complete." |
 | Google account notice | Replaces the email form for a Google-only account. |

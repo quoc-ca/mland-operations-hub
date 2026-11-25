@@ -24,19 +24,19 @@
 |04|Repository Layer|Spring Data JPA repositories (dao) that read and write the module's own tables.|
 |05|Entity Layer|JPA entities that map domain objects to MySQL tables.|
 |06|Scheduled Jobs|Background jobs (`@Scheduled`) such as expiring unpaid holds and retail orders, recovering deposit status with VNPay QueryDR, starting workshop sessions and cleaning up retained data.|
-|07|Domain Events|Spring Modulith application events used for loose coupling between modules (for example booking confirmed, attendance finalized, notification ready); the event publication registry stores them so they are not lost.|
+|07|Domain Events|Durable post-commit events connect modules. Account records the intended recipient and invitation version with the pending account; Notification consumes the event after commit. Booking and Retail supply their own approved recipients. The event publication registry preserves pending handoffs.|
 |08|Business Modules|Spring Modulith modular monolith: Account Management, Product Management, Ready-ring Sales, Fulfilment, Custom Manufacturing, Workshop Ring Design Configuration, Workshop Booking, Workshop Operations, Workshop Settlement, Payment Integration, Loyalty & Promotion, Review Management, Staff Consultation Chat, Notification Management, OTA Connectivity, Reporting and Human Design Review.|
-|09|Integration Adapters|Ports and adapters that isolate external services: Firebase Admin SDK, VNPay client, GHTK shipping fee client, Cloudinary storage adapters, SMTP mail adapter, Gemini REST client adapter, OTA adapters (Klook, GetYourGuide).|
+|09|Integration Adapters|Ports and adapters isolate Firebase, VNPay, Cloudinary, SMTP, Gemini and OTA services. The GHTK fee-query adapter is subject to the unresolved V1 delivery scope.|
 |10|Common Layer|Cross-cutting code: configuration (security, Firebase, scheduling, time zone), the correlation ID filter, the common error response, and shared events and ports (booking, payment, notification, settlement, workshop).|
 |**Data Tier**|||
 |01|MySQL|Relational database for all modules, accessed through Spring Data JPA / Hibernate; schema versions are managed with Flyway migrations.|
 |**External Services**|||
 |01|Firebase Authentication|Identity provider: the browser signs in and gets an ID token; the backend verifies it with the Firebase Admin SDK.|
-|02|VNPay Payment Gateway|Online payment for deposits, final payments and retail orders: payment URL, IPN callback, QueryDR status check and refund, signed with HMAC-SHA512.|
+|02|VNPay Payment Gateway|Online payment for deposits, final payments and retail orders: payment URL, signed IPN callback and QueryDR status check. Workshop refunds use the separate approved bank-transfer flow.|
 |03|Cloudinary|Stores and serves product and catalogue images, and stores refund receipt images.|
-|04|SMTP Mail Server|Sends booking and notification emails (Gmail SMTP by default). Real sending is switched on by configuration; otherwise emails are only captured inside the application.|
-|05|Google Gemini API|Basic AI Support text capability: it answers approved public-information questions. Reference image analysis is not used. The code still contains an AI price suggestion endpoint, which is outside the current specification.|
+|04|SMTP Mail Server|The configured Mland-domain service sends internal invitations and approved business emails. Firebase sends Member verification and password-recovery emails. Non-production delivery is controlled by configuration.|
+|05|Google Gemini API|Basic AI Support answers approved public-information questions. It does not analyze reference images, suggest prices or make business decisions.|
 |06|OTA Platforms|Klook and GetYourGuide: booking and cancellation events are received through signed callbacks, and workshop inventory changes are prepared for delivery to the platforms. The outbound provider connection is not configured yet, so no real call is made to the platforms.|
-|07|GHTK|Giao Hang Tiet Kiem: the delivery fee of a retail branch order is quoted by API (50 g per ring). V1 does not create shipments or receive webhooks; the shipment record is kept in the platform and its courier steps are recorded by the Carrier account.|
+|07|GHTK|Giao Hang Tiet Kiem is the retail delivery partner. The Carrier account records pickup and delivery in the platform. A delivery-fee API is described elsewhere but remains a V1 scope decision; no provider shipment creation or webhook is assumed here.|
 
 :::

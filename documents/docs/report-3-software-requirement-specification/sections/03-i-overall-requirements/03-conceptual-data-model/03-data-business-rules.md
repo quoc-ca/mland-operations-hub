@@ -5,8 +5,8 @@ The following rules define data constraints, lifecycle restrictions, historical 
 | Rule | Description | Enforced On |
 |---|---|---|
 | DBR-01: Account identity | Each Account has a unique Firebase UID. The login email is not used as the account identity. A Guest customer does not need an Account. | `accounts` |
-| DBR-02: One role per account | Each Account holds exactly one role: Member, Staff, Manager, Carrier or Admin. | `accounts`, `account_profiles` |
-| DBR-03: Account lifecycle | An Account is Active, Pending setup (internal account not yet activated) or Suspended. A Suspended Account loses protected access, but its history is kept. | `accounts` |
+| DBR-02: One fixed role per account | Each Account holds exactly one fixed role: Member, Staff, Manager, Carrier or Admin. V1 has no configurable roles or permissions. | `accounts` |
+| DBR-03: Account lifecycle | An Account is Active, Pending setup or Suspended. Staff and Manager remain pending until their current invitation is used, the intended email is verified and assigned location scope is valid. A suspended Account loses protected access, but its history is kept. | `accounts` |
 | DBR-04: Branch identity and availability | Each Branch has a unique branch code. An inactive Branch cannot receive new workshop sessions or new orders. | `workshop_locations`, `workshop_sessions`, `retail_orders` |
 | DBR-05: Category uniqueness and visibility | A Product Category name is unique, ignoring case. An inactive Category is hidden from the public catalogue. | `catalogue_categories` |
 | DBR-06: Product publication | A Product becomes Published only after a Manager approves its content and price. Deleting a Product is a soft delete that keeps its history. | `catalogue_products` |
@@ -37,7 +37,8 @@ The following rules define data constraints, lifecycle restrictions, historical 
 | DBR-31: Append-only point ledger | Point Transactions are never edited. A mistake is corrected by a reversing entry. | `loyalty_point_ledger` |
 | DBR-32: Promotion uniqueness and revisions | A voucher code is unique, ignoring case. Every change to a Promotion creates a new immutable revision; total and per-Member usage limits apply across revisions. | `promotion_program` |
 | DBR-33: One review per eligible purchase | A Member may write one Review per eligible purchase or workshop booking. Staff or a Manager may hide a Review and only a Manager may remove it; a hidden Review can be restored. | `reviews` |
-| DBR-34: Notification deduplication | The business event reference and template together identify one Notification, so the same event does not send the same email twice. The recipient is stored masked. | `notification_request` |
+| DBR-34: Notification deduplication | One original request is accepted for each business event, template, recipient role and recipient fingerprint. An eligible resend is a separate request linked to the original. Recipient display is masked. | `notification_request` |
 | DBR-35: Consultation identity and lifecycle | Each Consultation Conversation has a unique reference, one Member and an assigned Branch, and moves from Open to Closed. | `consultation_conversations`, `consultation_messages` |
 | DBR-36: Append-only audit evidence | Audit records of business actions are append-only during normal operations and are retained for five years. Privacy controls may restrict access without rewriting the original event. | Audit records for all entities above |
 | DBR-37: AI chat retention | Basic AI (Gemini) chat prompts and responses are retained for at most 30 days. Design-request images are never sent to the AI provider. | AI chat records (outside the conceptual ERD) |
+| DBR-38: Internal invitation version | Each Staff or Manager invitation belongs to one pending Account and bound Firebase UID. A resend creates a new version, invalidates the old single-use link and starts a new 48-hour period. Only a secret digest and key version are retained; the raw setup link is not stored in notification records or audit. | `accounts`, invitation records, `notification_request` |

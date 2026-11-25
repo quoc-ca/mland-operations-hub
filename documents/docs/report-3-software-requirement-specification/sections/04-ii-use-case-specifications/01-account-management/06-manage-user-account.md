@@ -30,10 +30,12 @@ As an Admin, I want to create, view, and update platform user accounts so that t
 5. The system validates the account data and checks for duplicate identity information.
 6. The Admin reviews and confirms the operation.
 7. The system creates or updates the account record and records the acting Admin and change time.
-8. If the operation requires an account notification, the system sends it through the Mail Gateway.
-9. The system displays the saved account result.
+8. For a new Staff or Manager account, the system records a mandatory invitation with the pending Account before queuing its email after commit.
+9. The system displays the saved account and the invitation's actual delivery state; creation alone does not mean the email was sent.
 
 #### Alternative Flows
+
+**Email belongs to a Member:** Admin may review and export a JSON preview of the Member's retail and workshop obligations. Current preview records are marked DEMO and cannot prove that accepted work is clear. Live retirement and email release remain deferred; creation stops until real obligation checks and a separate approval are available. An Admin or Carrier identity cannot be replaced through this flow.
 
 **Step 3 — Account cannot be found**
 
@@ -71,5 +73,5 @@ BR-07-01, BR-07-02, BR-07-03
 | ID | Rule Definition |
 |---|---|
 | BR-07-01 | Only an authorized Admin may create or update platform user-account records through this use case. |
-| BR-07-02 | Account identity data must be unique according to the configured email and external-identity rules. |
+| BR-07-02 | A new Staff or Manager requires an intended email, a bound Firebase UID, and active location assignment. The Admin cannot supply its password or skip the invitation. |
 | BR-07-03 | Role assignment and account locking are separate controlled operations and must not be changed implicitly by account editing. |

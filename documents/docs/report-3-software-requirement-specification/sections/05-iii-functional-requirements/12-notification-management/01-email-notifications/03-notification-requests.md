@@ -11,6 +11,8 @@ This screen allows Admins and Managers to:
 
 Recipient addresses are always shown masked. A request in PROCESSING cannot be resent or cancelled. Only an Admin may resend a request in UNKNOWN_OUTCOME, after explicitly accepting the risk of a duplicate email; a Manager is refused. Every action requires a reason and is recorded in the audit trail.
 
+Internal account invitations have a separate recovery path in User Account Details. Their delivery log may be viewed here, but the generic resend, cancel and new-link actions reject this message type. An invitation makes at most two definite SMTP attempts. UNKNOWN_OUTCOME requires provider/operator reconciliation; it is not treated as a definite failure. Only Admin may retrieve the current unexpired message after two definite failures, without changing FAILED to SENT.
+
 | Field Name | Description |
 | --- | --- |
 | Trạng thái gửi | Filter: PENDING, PROCESSING, RETRY_SCHEDULED, SENT, FAILED, UNKNOWN_OUTCOME or CANCELLED, or all states. |
@@ -19,7 +21,7 @@ Recipient addresses are always shown masked. A request in PROCESSING cannot be r
 | Request table | ID, Mã sự kiện, Mẫu thư, Người nhận (đã che), Trạng thái, Lần thử and Thời gian tạo; clicking a row or **Xem chi tiết** opens the detail drawer. |
 | Detail drawer | Event reference, state, template code and version, masked recipient, attempt count, created, next-attempt and terminal times, and the original request for a resend. |
 | Attempts and audit trail | "Lịch sử các lần gửi thư (Attempts)" with start, result and message, and "Lịch sử thao tác & kiểm toán (Audit Trail)" with the time and reason of each operator action. |
-| Gửi lại thư | Enabled for SENT or FAILED, and for UNKNOWN_OUTCOME to an Admin; the dialog requires a reason of at least 10 characters and, for UNKNOWN_OUTCOME, a duplicate-risk confirmation. |
-| Hủy gửi | Enabled only for PENDING or RETRY_SCHEDULED; the dialog requires a reason. |
-| Gửi lại với link/vé mới | Opens "Cấp lại liên kết và gửi lại" with a required reason; the owning booking or retail feature supplies the new credential. |
+| Gửi lại thư | For eligible non-invitation requests: enabled for SENT or FAILED, and for UNKNOWN_OUTCOME to an Admin after evidence review. Requires a reason and, for UNKNOWN_OUTCOME, duplicate-risk confirmation. |
+| Hủy gửi | For non-invitation requests only: enabled for PENDING or RETRY_SCHEDULED and requires a reason. |
+| Gửi lại với link/vé mới | For eligible booking or retail requests only: the owning feature supplies a new credential and the operator supplies a reason. |
 | Pager | Shown only when there is more than one page: "Tổng cộng {n} yêu cầu • Trang x / y" with **Trang trước** and **Trang sau**. |
