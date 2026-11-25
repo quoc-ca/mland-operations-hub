@@ -1,6 +1,6 @@
 ## 1. Context Diagram
 
-The Personalized Product Sales and Workshop Booking System is an operations platform for a ring atelier. It supports public discovery, workshop booking and settlement, workshop ring-design configuration, retail sales with store pickup or GHTK delivery, Member custom design requests, and shop-side fulfilment. It is not a warehouse-management, ERP or accounting system. The governing V1 scope and decision evidence are in [Report 2: Scope and Purpose](../../../report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md) and [Evidences](../../../report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md).
+The Personalized Product Sales and Workshop Booking System is an operations platform for a ring atelier. It supports public discovery, workshop booking and settlement, workshop ring-design configuration, retail sales with store pickup or GHTK delivery, Member custom design requests, and shop-side fulfilment. It is not a warehouse-management, ERP or accounting system.
 
 The platform serves five roles and one partner account:
 
@@ -23,7 +23,5 @@ For retail delivery, the platform obtains a GHTK fee quote at checkout (the only
 The Mail Gateway delivers account invitations, workshop booking confirmations with QR tickets, and retail order confirmations. Firebase Authentication provides sign-in, verification and password recovery; the platform decides account status, role and authorization from its own database. Cloudinary stores product images and uploaded files. Provider connections and credentials are environment configuration.
 
 Mland uses the paid Gemini API only for basic AI chat support: the platform sends the Guest's or Member's chat request and returns the response. Answers are limited to approved public information and FAQs; the AI cannot confirm transactions or make business decisions. AI is not used to analyze design images, suggest prices or review design requests; design-request images are reviewed by Staff or Manager and are never sent to an AI provider.
-
-V1 has no AI pricing, no Google Maps/Places or external review integration, and no enabled OTA channel. Klook and GetYourGuide are OTA candidates that stay disabled until their go-live gates are met; Mland remains the workshop-capacity source of truth.
 
 {{r3-context-diagram width=100% align=center}}
