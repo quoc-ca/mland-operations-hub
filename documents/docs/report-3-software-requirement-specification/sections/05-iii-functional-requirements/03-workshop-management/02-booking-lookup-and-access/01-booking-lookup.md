@@ -27,5 +27,5 @@ This screen allows Members and Guests to:
 | Ticket actions | On a confirmed ticket without an attendance record: **Gửi vé cho người đi cùng**, **Hủy vé** and **Đổi lịch** ("Đổi lịch trước buổi học" or "Tôi đến muộn hoặc đã lỡ buổi"; some choices need Manager approval and a price increase needs consent). A Guest first verifies a 6-digit code sent to the booking email. Cancelling 24 hours or more before the first session returns the points used on the ticket; a later cancellation does not. The booking-time payment is not refunded, and the group voucher is restored only when every ticket ended validly and the voucher has not expired. The result states what was returned. |
 | Xem hóa đơn thanh toán của vé / Chọn buổi thay thế hoặc hoàn tiền | Opens the ticket folio (confirmed or completed ticket), or the remedy page when Mland cancelled or moved a session. |
 | Viết đánh giá | Member only; "Đánh giá sau khi tham dự" is disabled before attendance. |
-| Gửi lại email xác nhận | Resends the confirmation to the booking email, within a resend limit. |
+| Gửi lại email xác nhận | Resends the confirmation to the booking email, within a resend limit. This action is available from Booking Lookup; the read-only Magic Link view does not offer it. |
 | Hủy giữ chỗ | Releases the whole pending group after a reason; not available while a payment is in progress. |

@@ -41,6 +41,10 @@ The Manager records a correction up to the unrefunded collected money; the folio
 
 The void is refused; on an OPEN folio with no refund of that money, the Manager records a negative reversal entry on the current day.
 
+**Step 2 — The selected collection is the booking-time allocation**
+
+The booking-time allocation is immutable and is not offered for voiding. The Manager selects an eligible ticket-level collection or uses the applicable refund or correction flow.
+
 **Step 3 — Folio is closed**
 
 The system refuses the correction.
@@ -55,5 +59,5 @@ BR-82-01, BR-82-02, BR-82-03, BR-82-04
 |---|---|
 | BR-82-01 | A wrongly recorded line is voided whole; this is not a customer right to cancel a used service. |
 | BR-82-02 | An undercharge found after finalization is absorbed by Mland and never collected. |
-| BR-82-03 | Confirmed cash of a closed day is never edited or deleted. |
-| BR-82-04 | The use-case list states that closed-day cash reversal is not yet built, but the current backend and tasks include it; to be confirmed. |
+| BR-82-03 | Confirmed cash of a closed day is never edited or deleted; an allowed reversal is a separate negative entry on the current day. |
+| BR-82-04 | The booking-time allocation is immutable and cannot be voided from the ticket folio. |

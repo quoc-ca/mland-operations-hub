@@ -31,6 +31,7 @@ As a Guest or Member, I want to open my booking group so that I can see its tick
 2. The system verifies ownership, the contact proof, or the link.
 3. The system displays the group and each ticket with status, attendance, collected and remaining amounts.
 4. The buyer also sees each ticket QR code.
+5. From Booking Lookup, the buyer may request the confirmation email again; the Magic Link view is read-only and does not offer this action.
 
 #### Alternative Flows
 
@@ -40,7 +41,7 @@ The system refuses without saying which value was wrong. Guest attempts are rate
 
 **Step 2 — Magic Link is expired or revoked**
 
-The system refuses the link; the buyer may request the confirmation again.
+The system refuses the link; the buyer returns to Booking Lookup and verifies the booking before requesting another confirmation email.
 
 **Step 3 — Group is still awaiting payment**
 

@@ -10,7 +10,7 @@ This screen allows Managers to:
 - Return a refund awaiting approval, transfer or reconciliation to the account-entry step, close a refund as unreachable after 30 days without an account, or reopen a closed one.
 - Attach an optional receipt image to a transfer and view it later.
 
-Every Mland refund is a bank transfer and only counts as done when a Manager confirms "Đã hoàn tiền". The server lets Staff enter the payer's account (assigned session only) and resend the link, but only a Manager can load this queue, so Staff cannot do either from this screen. All other steps are Manager-only. A refund for a whole booking group cannot be entered at the counter by any role; it is answered only through the account link. The list shows only a masked account number; the full number is kept in screen memory only while revealed and is never stored or logged. After the refund is completed only the masked number remains.
+Every Mland refund is a bank transfer and only counts as done when a Manager confirms "Đã hoàn tiền". Managers can load the full queue and perform the approval, transfer, reconciliation and closure steps. Staff can load only refunds for tickets on sessions assigned to them, and can enter or resend the recipient-account link for those refunds; they cannot approve, record transfers, reveal full account numbers or confirm completion. Group-level refunds without an assigned ticket are visible only to Managers. The list shows only a masked account number; the full number is kept in screen memory only while revealed and is never stored or logged. After the refund is completed only the masked number remains.
 
 | Field Name | Description |
 | --- | --- |

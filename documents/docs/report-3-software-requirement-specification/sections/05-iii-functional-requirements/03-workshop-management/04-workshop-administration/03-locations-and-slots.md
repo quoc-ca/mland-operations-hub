@@ -20,5 +20,5 @@ The page has three tabs: Chi nhánh, Khung giờ and Ca. Slots and sessions are 
 | Ca tab: create | Chi nhánh, Khung giờ, Ngày workshop and Sức chứa (above 0), with **Tạo ca mới**. |
 | Tạo hàng loạt ca | Branch, Từ / Đến dates, Sức chứa mỗi ca, Trạng thái ban đầu, slots and weekdays; **Tạo ca** reports "Đã tạo {created} ca; bỏ qua {skipped} ca trùng." |
 | Session filters | Từ, Đến, Trạng thái and Chi nhánh, with **Xóa lọc**. |
-| Session list | Ngày, Giờ, Ca, Chi nhánh, Sức chứa, Trạng thái, "Chuyển trạng thái" ("Đang mở bán", "Tạm dừng bán" or "Đã hủy") with **Áp dụng**, and **Sửa**. The server refuses "Đã hủy" here; a session is cancelled from Session Details / Check-in. |
+| Session list | Ngày, Giờ, Ca, Chi nhánh, Sức chứa and Trạng thái, with **Chuyển trạng thái** options "Đang mở bán" and "Tạm dừng bán" and **Áp dụng**. A session cancellation must be submitted from Session Details / Check-in with its required reason; it is not a direct state transition. |
 | Sửa ca | Sức chứa and Mở check-in lúc; the default opening is 60 minutes before the start. |

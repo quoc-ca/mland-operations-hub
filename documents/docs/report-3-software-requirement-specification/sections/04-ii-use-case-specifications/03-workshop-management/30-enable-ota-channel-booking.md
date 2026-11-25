@@ -28,7 +28,7 @@ As a Manager, I want to record a readiness decision for a channel mapping so tha
 **Enable OTA Channel Booking**
 
 1. The Manager opens a sales-closed mapping.
-2. The Manager enters the readiness record reference, the outcome and evidence reference of each check, and a reason.
+2. The Manager enters the readiness record reference, the outcome and evidence reference of each check, and a reason. Each check's generated evidence reference is stable and does not change when its outcome changes.
 3. The system verifies the actor, the mapping state, and all twelve checks.
 4. The system records an approved decision and enables booking for the mapping.
 
@@ -70,3 +70,4 @@ BR-92-01, BR-92-02, BR-92-03, BR-92-04
 | BR-92-02 | The checks are contract onboarding, commercial terms, connection ownership, callback authentication, quota delivery, product-session mapping, data allowlist, preparation synchronization, ticket delivery and scan, cancellation and refund, late booking and capacity, and failure reconciliation. |
 | BR-92-03 | Every check must be verified; the option must deliver one Mland-scannable ticket per participant. |
 | BR-92-04 | Production partner callbacks are refused unless the provider is approved after its callback authentication is approved and implemented; provider go-live evidence is still outstanding. |
+| BR-92-05 | Each readiness check has a stable generated evidence reference independent of the selected outcome; the reference is not manually editable. |
