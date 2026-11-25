@@ -13,16 +13,16 @@ skinparam ArrowColor #5B5E67
 package "Guest" as guest {
   rectangle "Home / public entry" as guest_home
   rectangle "Ring design preview" as guest_ring
-  rectangle "Custom request entry" as guest_custom
+  rectangle "Custom request entry / sign-in" as guest_custom
   rectangle "Public review list/detail" as guest_reviews
-  rectangle "Consultation entry" as guest_chat
+  rectangle "Consultation entry / sign-in" as guest_chat
   rectangle "Sign in" as guest_signin
 }
 
 guest_home --> guest_ring : browse ring design
-guest_home --> guest_custom : custom request
+guest_home --> guest_custom : public entry only
 guest_home --> guest_reviews : reviews
-guest_home --> guest_chat : consultation
+guest_home --> guest_chat : public entry only
 guest_ring --> guest_signin : protected action
 guest_custom --> guest_signin : protected action
 guest_reviews --> guest_signin : write review
@@ -34,12 +34,15 @@ package "Member" as member {
   rectangle "Ring configuration" as member_config
   rectangle "Save / evaluate" as member_evaluate
   rectangle "Workshop recommendation" as member_recommend
+  rectangle "Explore workshop packages" as member_workshops
   rectangle "My ring designs" as member_designs
   rectangle "Design request workspace" as member_request
   rectangle "Consent and image quality checks" as member_quality
   rectangle "Design request details" as member_details
   rectangle "Human review status and explanation" as member_review
   rectangle "Clarification submission" as member_clarification
+  rectangle "Quote and full-payment status" as member_quote
+  rectangle "Custom-order production / fulfilment" as member_fulfilment
   rectangle "Eligible review sources" as member_sources
   rectangle "Create or edit own review" as member_create_review
   rectangle "General or context-linked chat" as member_chat
@@ -49,8 +52,10 @@ member_home --> member_model : ring design
 member_model --> member_config
 member_config --> member_evaluate
 member_evaluate --> member_recommend
-member_recommend --> member_designs
+member_recommend --> member_workshops : recommendation only
+member_recommend --> member_designs : save design
 member_designs --> member_chat : consult with design reference
+member_designs --> member_request : use design snapshot
 
 member_home --> member_request : design request
 member_request --> member_quality
@@ -58,6 +63,8 @@ member_quality --> member_details
 member_details --> member_review
 member_review --> member_clarification : clarification required
 member_clarification --> member_details : resubmit clarification
+member_review --> member_quote : accepted
+member_quote --> member_fulfilment : Manager approved and Member paid in full
 
 member_home --> member_sources : review
 member_sources --> member_create_review
@@ -69,6 +76,9 @@ package "Staff / Manager" as operations {
   rectangle "Design review details" as design_details
   rectangle "Accept, reject or clarify" as design_decision
   rectangle "Mandatory explanation and audit" as design_audit
+  rectangle "Quote preparation" as quote_preparation
+  rectangle "Manager quote approval" as quote_approval
+  rectangle "Production and fulfilment operations" as fulfilment_operations
   rectangle "Review moderation queue" as moderation_queue
   rectangle "Moderation details" as moderation_details
   rectangle "Staff hide / Manager hide-remove-reply" as moderation_action
@@ -81,6 +91,11 @@ design_queue --> design_details
 design_details --> design_decision
 design_decision --> design_audit
 design_audit --> member_review : status and explanation
+design_audit --> quote_preparation : accepted request
+quote_preparation --> quote_approval : quote ready
+quote_approval --> member_quote : payment request
+member_quote --> fulfilment_operations : payment verified
+fulfilment_operations --> member_fulfilment : status updates
 
 role_home --> moderation_queue : review moderation
 moderation_queue --> moderation_details
@@ -94,5 +109,6 @@ note bottom
 Feature-012 design is not attached to booking.
 Feature-012 recommends a workshop package or provides an optional reference for Feature-004 custom manufacturing.
 Feature-004 uses human review only. Feature-011 is public-read and member-write.
+Custom manufacturing is not a cart item: the approved quote must be paid in full before production.
 end note
 @enduml

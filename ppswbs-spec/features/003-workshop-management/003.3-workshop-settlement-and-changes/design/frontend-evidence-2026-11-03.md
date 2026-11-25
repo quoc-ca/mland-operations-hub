@@ -1,5 +1,7 @@
 # Feature 003.3 frontend evidence — 2026-11-03
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
+
 **Date created**: 2026-11-03  
 **Date updated**: 2026-11-03  
 **Author**: Hồ Hoàng Quốc  

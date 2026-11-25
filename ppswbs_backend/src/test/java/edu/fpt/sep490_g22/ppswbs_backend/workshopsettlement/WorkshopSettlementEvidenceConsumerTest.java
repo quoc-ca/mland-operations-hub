@@ -36,7 +36,6 @@ class WorkshopSettlementEvidenceConsumerTest {
     private final SettlementFolioCollectionRepository collections = mock(SettlementFolioCollectionRepository.class);
     private final FolioCollectionService folioCollections = mock(FolioCollectionService.class);
     private final FinalPaymentService finalPayments = new FinalPaymentService(evidence, bills,
-            mock(SettlementAddonBillRepository.class), mock(SettlementAddonPaymentAttemptRepository.class),
             notifier, collections, folioCollections);
     private final WorkshopSettlementFacadeImpl facade = new WorkshopSettlementFacadeImpl(cases, handoffs,
             new ObjectMapper(), finalPayments, mock(SettlementNotificationHandoffRepository.class));

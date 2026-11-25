@@ -6,10 +6,10 @@
 
 *End condition*:
 
-- The workshop booking is confirmed after successful verification of the booking-time collection (each ticket up to 200,000 VND), or immediately when nothing has to be collected. The system generates a booking reference and QR check-in ticket, sends a confirmation email, updates the available capacity in the external registration system, and displays the confirmation to the customer.
+- The workshop booking is confirmed after successful verification of the booking-time collection (each ticket up to 200,000 VND), or immediately when nothing has to be collected. The system generates a booking reference and QR check-in ticket, sends a confirmation email, updates the available capacity, and displays the confirmation to the customer.
 
 *Alternative end conditions*:
 
-- If payment fails or the 15-minute payment window expires, the booking is cancelled or marked as expired, the temporarily held seat is released, and the system displays an appropriate notification.
+- The booking group is held for 12 minutes and its VNPay link expires 2 minutes before the hold ends. If no valid payment confirmation exists when the hold ends, the booking group expires, the held seats are released, and the system displays an appropriate notification.
 
 {{r3-swl-booking-workshop width=100% align=center}}

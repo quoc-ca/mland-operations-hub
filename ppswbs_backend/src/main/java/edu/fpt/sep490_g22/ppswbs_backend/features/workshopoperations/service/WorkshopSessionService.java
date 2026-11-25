@@ -10,13 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Scoped Workshop Session management service adapting to canonical WorkshopLocation.
@@ -34,7 +34,6 @@ public class WorkshopSessionService {
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final OperationsAuditEventRepository auditEventRepository;
     private final CapacityHoldService capacityHoldService;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final StaffAutoAssignmentService staffAutoAssignmentService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
@@ -115,11 +114,6 @@ public class WorkshopSessionService {
             recordAudit(saved.getId(), actor.accountId(), "CHECK_IN_OVERRIDE_CONFIGURED", "SUCCESS",
                     "{\"checkInOpensAt\":\"" + checkInOpensAt + "\"}");
         }
-        if (saved.getState() == SessionState.PUBLISHED) {
-            // Same observable change as publishing through bulk generation.
-            otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
-        }
-
         return toSessionResponse(saved);
     }
 
@@ -186,9 +180,6 @@ public class WorkshopSessionService {
                         WorkshopSession saved = sessionRepository.save(session);
                         recordSessionCreated(saved, actor.accountId());
                         staffAutoAssignmentService.assignRosterToNewSession(saved, actor.accountId());
-                        if (saved.getState() == SessionState.PUBLISHED) {
-                            otaSnapshotService.publishForObservableChange(saved, "SESSION_PUBLISHED", Instant.now());
-                        }
                         createdSessionIds.add(saved.getReference());
                     }
                 }
@@ -303,9 +294,6 @@ public class WorkshopSessionService {
         }
 
         WorkshopSession updated = sessionRepository.saveAndFlush(session);
-        if (updated.getState() != SessionState.DRAFT) {
-            otaSnapshotService.publishForObservableChange(updated, "SESSION_UPDATED", Instant.now());
-        }
         return toSessionResponse(updated);
     }
 

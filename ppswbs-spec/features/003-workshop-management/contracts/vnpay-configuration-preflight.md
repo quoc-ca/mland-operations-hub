@@ -37,8 +37,8 @@ deployment process, never Git, specifications, logs, tickets, or screenshots:
    initiation and QueryDR.
 5. Approved QueryDR access/operation authority for the Merchant. VNPay Refund and
    refund-QueryDR are not used (decided 2026-11-15): every refund is the manual
-   bank refund of 003.3 FR-038a. Direct Mland deposit cancellation does not
-   consume QueryDR; OTA refunds are external to this direct-payment flow.
+   bank refund of 003.3 FR-038a.  Direct Mland deposit cancellation does not
+   consume QueryDR.
 6. The approved browser Return URL origin/path. It is display-only and must not
    be registered as an IPN substitute.
 
@@ -65,6 +65,5 @@ disabled until all applicable inputs/evidence are approved.
 
 `paymentintegration` owns inbound checksum verification, deduplication, and
 owner-qualified dispatch. 003.1 consumes only verified `DEPOSIT` evidence;
-003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence, plus
-`SHOP_ADDON` for the separate Mland shop add-on bill of an OTA booking. Neither feature
+003.3 consumes only verified `FINAL_PAYMENT`/`REFUND` evidence. Neither feature
 owns provider credentials or may expose a second callback endpoint.

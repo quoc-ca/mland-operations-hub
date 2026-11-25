@@ -46,8 +46,6 @@ export function createHomeReads(http) {
     countRefundWaiting: async () => waitingOf(await http('/api/v1/workshop-refund-requests/waiting-count')),
     /** Cash-close differences awaiting a Manager (state PENDING_MANAGER_CONFIRMATION); the card opens the confirmation view. */
     countCashCloseDifferences: async () => waitingOf(await http('/api/v1/workshop-cash-closes/awaiting-confirmation-count')),
-    /** OTA reconciliation items needing attention (OPEN and ESCALATED). */
-    countOtaNeedingAttention: async () => waitingOf(await http('/api/v1/ota-reconciliation-work-items/needing-attention-count')),
 
     /**
      * Sessions of one Vietnam day, optionally for one branch. The day summary (owner 003.2) also gives check-in

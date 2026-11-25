@@ -16,7 +16,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Rese
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.GroupCapacityService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageReservationPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +49,6 @@ class GroupCapacityServiceTest {
     private final OperationsAuditEventRepository audits = mock(OperationsAuditEventRepository.class);
     private final FacadeCommandIdempotencyManager idempotency = mock(FacadeCommandIdempotencyManager.class);
     private final WorkshopPackageReservationPolicy policy = mock(WorkshopPackageReservationPolicy.class);
-    private final WorkshopOtaSnapshotService ota = mock(WorkshopOtaSnapshotService.class);
     private GroupCapacityService service;
 
     private final UUID sessionA = UUID.randomUUID();
@@ -60,7 +58,7 @@ class GroupCapacityServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GroupCapacityService(sessions, holds, snapshots, entitlements, audits, idempotency, policy, ota,
+        service = new GroupCapacityService(sessions, holds, snapshots, entitlements, audits, idempotency, policy,
                 new ObjectMapper().findAndRegisterModules());
         a = session(1L, sessionA, 5);
         b = session(2L, sessionB, 5);

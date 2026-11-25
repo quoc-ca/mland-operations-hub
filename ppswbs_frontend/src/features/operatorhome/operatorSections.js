@@ -9,7 +9,6 @@ const dailyWork = {
   items: [
     mySessions,
     item('/settlement', 'menu.settlement', 'menu.settlementDesc'),
-    item('/ota-connectivity/add-ons', 'menu.otaAddOns', 'menu.otaAddOnsDesc'),
     item('/staff/retail-orders', 'menu.retailOrders', 'menu.retailOrdersDesc'),
     item('/review-moderation', 'menu.reviews', 'menu.reviewsDesc'),
   ],

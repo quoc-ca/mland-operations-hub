@@ -27,15 +27,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
-import java.util.UUID;
 
 /**
  * Group capacity reservation (003.2 FR-030, decision 2026-11-12). All lines of a booking group are validated and
@@ -57,7 +57,6 @@ public class GroupCapacityService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final ObjectMapper objectMapper;
 
     @Value("${workshop.booking.group-hold-minutes:12}")
@@ -167,9 +166,6 @@ public class GroupCapacityService {
                 holdRefs.add(UUID.fromString(holdRef));
             }
             lineHolds.add(holdRefs);
-        }
-        for (WorkshopSession session : sessions.values()) {
-            otaSnapshotService.publishForObservableChange(session, UUID.randomUUID().toString(), now);
         }
         audit(command.correlationReference(), "SUCCESS", locked.isEmpty() ? null : locked.getFirst().getId());
         return finish(claim, GroupCapacityOutcome.accepted(lineHolds, expiresAt));

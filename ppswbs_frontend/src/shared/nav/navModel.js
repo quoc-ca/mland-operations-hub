@@ -1,4 +1,4 @@
-// Navigation model of the operations shell (spec 014, decision of 2026-11-22): 10 groups on a rail, each with at most
+// Navigation model of the operations shell (spec 014, decision of 2026-11-22): 9 groups on a rail, each with at most
 // five tabs. Group ids and tab ids are a contract: `useNavBadges` keys its counts by `groupId` and `groupId/tabId`.
 // Visibility mirrors the old sidebar and is navigation only; the backend decides every permission. A tab that carries a
 // waiting-work badge links to the list filtered to exactly the counted set (spec 014 FR-005).
@@ -107,15 +107,6 @@ export const GROUPS = [
       { id: 'refunds', vi: 'Hàng đợi hoàn tiền', en: 'Refund queue', to: '/settlement/refunds?status=WAITING', match: ['/settlement/refunds*'], visible: manager },
       { id: 'cases', vi: 'Sự vụ và bồi hoàn', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
       { id: 'refund-key', vi: 'Thay khóa hoàn tiền', en: 'Refund key', to: '/settlement/refund-account-key', match: ['/settlement/refund-account-key*'], visible: manager },
-    ],
-  },
-  {
-    id: 'ota', icon: 'plug', vi: 'Kết nối OTA', en: 'OTA',
-    tabs: [
-      { id: 'channels', vi: 'Kênh đối tác', en: 'Channel mappings', to: '/ota-connectivity/channels', match: ['/ota-connectivity/channels*'], visible: manager },
-      { id: 'reconciliation', vi: 'Đối soát đồng bộ', en: 'Reconciliation', to: '/ota-connectivity/reconciliation?status=NEEDS_ATTENTION', match: ['/ota-connectivity/reconciliation*'], visible: manager },
-      { id: 'finance', vi: 'Bằng chứng tài chính', en: 'Finance evidence', to: '/ota-connectivity/finance', match: ['/ota-connectivity/finance*'], visible: manager },
-      { id: 'add-ons', vi: 'Add-on tại xưởng', en: 'Shop add-ons', to: '/ota-connectivity/add-ons', match: ['/ota-connectivity/add-ons*'], visible: staffOrManager },
     ],
   },
   {

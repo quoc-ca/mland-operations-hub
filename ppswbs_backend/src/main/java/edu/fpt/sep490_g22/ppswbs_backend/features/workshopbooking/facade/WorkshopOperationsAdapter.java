@@ -1,6 +1,5 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ApplyVerifiedRefundConsequenceCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingSettlementReadinessQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.BookingTicketProjectionQuery;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityCommitOutcome;
@@ -8,7 +7,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.Capa
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CapacityReleaseOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.CommitBookingHoldsCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.DeliverySafeTicketSet;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.RefundConsequenceOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReleaseBookingHoldsCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveBookingCapacityCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.PublishedPackageSelectionQuery;
@@ -104,15 +102,6 @@ public class WorkshopOperationsAdapter {
                 return workshopOperationsFacade.reserveGroupCapacity(
                                 new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.ReserveGroupCapacityCommand(
                                                 groupReference, lines, operationReference, correlationReference));
-        }
-
-        public edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.OtaBookingCapacityOutcome acceptOtaBooking(
-                        String bookingReference, String packageReference, UUID sessionReference, int participantCount,
-                        String operationReference, String correlationReference) {
-                return workshopOperationsFacade.acceptOtaBooking(
-                                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.AcceptOtaBookingCommand(
-                                                bookingReference, packageReference, sessionReference, participantCount,
-                                                operationReference, correlationReference));
         }
 
         public CapacityCommitOutcome commitBookingHolds(

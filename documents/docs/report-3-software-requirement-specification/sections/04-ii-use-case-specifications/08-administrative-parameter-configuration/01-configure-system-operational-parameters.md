@@ -10,7 +10,7 @@ None
 
 #### Description
 
-Allows the Admin to configure operational values used by checkout workflows. The loyalty point policy (earning rate, point value, minimum points per use and point-discount cap) is not part of this use case; only the Manager manages it (use case 51). Custom-order queue configuration is retired from V1 (see section 10.2).
+Allows the Admin to configure operational values used by checkout workflows. The loyalty point policy (earning rate, point value, minimum points per use and point-discount cap) is not part of this use case; only the Manager manages it (use case 51).
 
 #### Preconditions
 

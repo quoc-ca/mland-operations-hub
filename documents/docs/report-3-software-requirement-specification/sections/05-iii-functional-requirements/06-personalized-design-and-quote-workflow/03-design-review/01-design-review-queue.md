@@ -15,7 +15,7 @@ The route requires only sign-in; the server refuses other roles and the page sho
 | **Làm mới** | Reloads the list. |
 | Mã tham chiếu | Request reference, with the internal request ID below it when they differ. |
 | Thời gian gửi | Date and time the request was submitted. |
-| Người gửi | The sender's email; "Khách" when there is none. |
+| Người gửi | The authorized Member owner projection; this queue has no Guest-owned request. |
 | Mô tả ý tưởng | First line of the description, with the full text on hover; "—" when empty. |
 | Số ảnh | Number of reference images, or "—". |
 | Trạng thái | "Đang chờ nhân viên thẩm duyệt", "Đã chấp nhận thiết kế", "Từ chối thiết kế" or "Cần làm rõ thêm". |

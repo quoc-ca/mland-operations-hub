@@ -2,21 +2,7 @@
 
 {{r4-db width=100% align=center}}
 
-The ERD is intentionally divided into three focused diagrams so that table names, keys and relationships remain readable in the published report.
-
-### 3.0a Core Catalogue and Workshop ERD
-
-(Diagram pending upload to Drive: r4-db-01-core-catalogue-workshop)
-
-### 3.0b Design and Customer Interaction ERD
-
-(Diagram pending upload to Drive: r4-db-02-design-customer-interaction)
-
-### 3.0c Commerce and Operations ERD
-
-(Diagram pending upload to Drive: r4-db-03-commerce-operations)
-
-Each diagram uses orthogonal relationship routing. A relationship must not pass through an entity or label, and no more than two relationships may cross the same relationship line. Cross-context relationships are represented by a labelled external-reference node instead of repeated long crossing lines.
+The diagram shows the database tables, their primary and foreign keys and the relationships between them. The table inventory and the column descriptions follow.
 
 ### Table Inventory
 
@@ -34,7 +20,7 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 |8|002 Product Management|catalogue_variants|Stores the ring-size variants of a product with SKU, applied price and total stock.|
 |9|002 Product Management|catalogue_variant_branch_stock|Stores the stock of each variant at each branch.|
 |10|002 Product Management|catalogue_price_proposals|Stores price proposals for a variant and the Manager decision.|
-|11|003.1 Workshop Booking|booking_groups|Stores a direct booking group with its buyer, status, payment mode and hold expiry.|
+|11|003.1 Workshop Booking|booking_groups|Stores a booking group with its buyer, status, payment mode and hold expiry.|
 |12|003.1 Workshop Booking|group_payment_attempts|Stores the VNPay payment attempts of a booking group.|
 |13|003.1 Workshop Booking|booking_group_lines|Stores the package lines of a booking group.|
 |14|003.1 Workshop Booking|booking_group_line_sessions|Stores the sessions chosen for a booking line and their capacity hold.|
@@ -52,36 +38,33 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 |26|003.3 Workshop Settlement and Changes|settlement_ticket_cancellations|Stores ticket cancellations and their benefit outcome.|
 |27|003.3 Workshop Settlement and Changes|settlement_ticket_changes|Stores session changes applied to a ticket.|
 |28|003.3 Workshop Settlement and Changes|settlement_refund_requests|Stores refund requests and their approval, transfer and confirmation steps.|
-|29|003.4 Workshop OTA Connectivity|ota_channel_connections|Stores the connection configuration of each OTA provider.|
-|30|003.4 Workshop OTA Connectivity|ota_channel_mappings|Links Mland sessions to OTA provider products.|
-|31|003.4 Workshop OTA Connectivity|ota_channel_bookings|Stores bookings received from an OTA provider.|
-|32|004 Design Request and Custom Order|design_requests|Stores custom design requests submitted by an active Member and their human-review status. Guest users have no private request record.|
-|33|004 Design Request and Custom Order|design_request_images|Stores the reference images of a design request with their quality result.|
-|34|004 Design Request and Custom Order|custom_orders|Stores custom ring orders created from an accepted design request.|
-|35|004 Design Request and Custom Order|custom_order_quotes|Stores the quotes of a custom order and the Manager approval.|
-|36|006 Loyalty and Promotion|loyalty_wallet|Stores the point balance and held points of a Member.|
-|37|006 Loyalty and Promotion|loyalty_point_ledger|Stores every point movement (earn, hold, consume, release, reverse) of a wallet.|
-|38|006 Loyalty and Promotion|loyalty_policy|Stores immutable revisions of the earn and redeem policy.|
-|39|006 Loyalty and Promotion|promotion_program|Stores voucher and automatic-discount programs.|
-|40|006 Loyalty and Promotion|promotion_member_program|Stores vouchers saved by a Member and their usage counts.|
-|41|007 Notification Management|notification_template_definition|Stores the email templates the system can send.|
-|42|007 Notification Management|notification_request|Stores email notification requests and their delivery state.|
-|43|007 Notification Management|notification_delivery_attempt|Stores each attempt to send a notification email.|
-|44|008 Retail Order and Fulfillment|retail_carts|Stores the shopping cart of a Member.|
-|45|008 Retail Order and Fulfillment|retail_cart_lines|Stores the variants, branch and quantity in a cart.|
-|46|008 Retail Order and Fulfillment|retail_grouped_checkouts|Stores one Member payment that covers one or more branch orders.|
-|47|008 Retail Order and Fulfillment|retail_orders|Stores a retail order fulfilled by one branch.|
-|48|008 Retail Order and Fulfillment|retail_order_items|Stores the frozen variant, quantity and price of an order line.|
-|49|008 Retail Order and Fulfillment|retail_shipments|Stores the carrier shipment of a delivery order.|
-|50|011 Review Management|reviews|Stores customer reviews of a workshop or product.|
-|51|011 Review Management|review_replies|Stores the Manager reply to a review.|
-|52|011 Review Management|review_revisions and review_moderation_events|Stores immutable review revisions and moderation audit history.|
-|53|013 Consultation Chat|consultation_conversations and consultation_messages|Stores Member consultation conversations and immutable messages.|
-|54|012 Workshop Ring Design Configuration|ring_designs|Stores Member design versions; legacy Guest/session/booking columns may remain for compatibility but are not part of the current flow.|
-|55|012 Workshop Ring Design Configuration|ring_materials|Stores the ring material options.|
-|56|012 Workshop Ring Design Configuration|ring_shapes|Stores the ring shape options.|
-|57|012 Workshop Ring Design Configuration|ring_gemstones|Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.|
-|58|012 Workshop Ring Design Configuration|ring_attachments|Stores the attachment options; selected attachments are kept in ring_designs.component_snapshot.|
+|29|004 Design Request and Custom Order|design_requests|Stores custom design requests submitted by an active Member and their human-review status. Guest users have no private request record.|
+|30|004 Design Request and Custom Order|design_request_images|Stores the reference images of a design request with their quality result.|
+|31|004 Design Request and Custom Order|custom_orders|Stores custom ring orders created from an accepted design request.|
+|32|004 Design Request and Custom Order|custom_order_quotes|Stores the quotes of a custom order and the Manager approval.|
+|33|006 Loyalty and Promotion|loyalty_wallet|Stores the point balance and held points of a Member.|
+|34|006 Loyalty and Promotion|loyalty_point_ledger|Stores every point movement (earn, hold, consume, release, reverse) of a wallet.|
+|35|006 Loyalty and Promotion|loyalty_policy|Stores immutable revisions of the earn and redeem policy.|
+|36|006 Loyalty and Promotion|promotion_program|Stores voucher and automatic-discount programs.|
+|37|006 Loyalty and Promotion|promotion_member_program|Stores vouchers saved by a Member and their usage counts.|
+|38|007 Notification Management|notification_template_definition|Stores the email templates the system can send.|
+|39|007 Notification Management|notification_request|Stores email notification requests and their delivery state.|
+|40|007 Notification Management|notification_delivery_attempt|Stores each attempt to send a notification email.|
+|41|008 Retail Order and Fulfillment|retail_carts|Stores the shopping cart of a Member.|
+|42|008 Retail Order and Fulfillment|retail_cart_lines|Stores the variants, branch and quantity in a cart.|
+|43|008 Retail Order and Fulfillment|retail_grouped_checkouts|Stores one Member payment that covers one or more branch orders.|
+|44|008 Retail Order and Fulfillment|retail_orders|Stores a retail order fulfilled by one branch.|
+|45|008 Retail Order and Fulfillment|retail_order_items|Stores the frozen variant, quantity and price of an order line.|
+|46|008 Retail Order and Fulfillment|retail_shipments|Stores the carrier shipment of a delivery order.|
+|47|011 Review Management|reviews|Stores customer reviews of a workshop or product.|
+|48|011 Review Management|review_replies|Stores the Manager reply to a review.|
+|49|011 Review Management|review_revisions and review_moderation_events|Stores immutable review revisions and moderation audit history.|
+|50|013 Consultation Chat|consultation_conversations and consultation_messages|Stores Member consultation conversations and immutable messages.|
+|51|012 Workshop Ring Design Configuration|ring_designs|Stores Member design versions; legacy Guest/session/booking columns may remain for compatibility but are not part of the current flow.|
+|52|012 Workshop Ring Design Configuration|ring_materials|Stores the ring material options.|
+|53|012 Workshop Ring Design Configuration|ring_shapes|Stores the ring shape options.|
+|54|012 Workshop Ring Design Configuration|ring_gemstones|Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.|
+|55|012 Workshop Ring Design Configuration|ring_attachments|Stores the attachment options; selected attachments are kept in ring_designs.component_snapshot.|
 
 :::
 
@@ -298,7 +281,7 @@ Stores price proposals for a variant and the Manager decision.
 
 ### 3.11 booking_groups
 
-Stores a direct booking group with its buyer, status, payment mode and hold expiry.
+Stores a booking group with its buyer, status, payment mode and hold expiry.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -560,7 +543,6 @@ Stores the operations ticket used for QR check-in of one participant.
 |created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record creation timestamp (UTC).|
 |updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record last update timestamp (UTC).|
 |qr_generation|INT|NOT NULL, DEFAULT 1||
-|sales_channel|VARCHAR(16)|NOT NULL, DEFAULT DIRECT||
 
 :::
 
@@ -723,7 +705,7 @@ Stores refund requests and their approval, transfer and confirmation steps.
 |request_reference|VARCHAR(128)|NOT NULL, UNIQUE||
 |booking_reference|VARCHAR(128)|NOT NULL||
 |group_reference|VARCHAR(128)|FK → booking_groups(group_code) (logical)|Logical reference to booking_groups(group_code); no database constraint.|
-|reason|ENUM('MLAND_CANCELLATION','LATE_PAYMENT_NOT_RECONFIRMED','OVERCHARGE_AFTER_FINALIZED','EXCESS_OR_DUPLICATE_MONEY','OTA_ADDON_OVERCHARGE')|NOT NULL||
+|reason|ENUM('MLAND_CANCELLATION','LATE_PAYMENT_NOT_RECONFIRMED','OVERCHARGE_AFTER_FINALIZED','EXCESS_OR_DUPLICATE_MONEY')|NOT NULL||
 |source_reference|VARCHAR(128)|NOT NULL||
 |amount_vnd|BIGINT|NOT NULL||
 |currency_code|VARCHAR(3)|NOT NULL, DEFAULT VND||
@@ -756,80 +738,7 @@ Stores refund requests and their approval, transfer and confirmation steps.
 
 :::
 
-### 3.29 ota_channel_connections
-
-Stores the connection configuration of each OTA provider.
-
-::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
-
-|Column|Type|Constraints|Notes|
-|---|---|---|---|
-|id|BIGINT|PRIMARY KEY, AUTO_INCREMENT|Primary key, auto-increment identifier.|
-|provider_code|VARCHAR(32)|NOT NULL|Stores provider code value.|
-|environment|VARCHAR(16)|NOT NULL|Stores environment value.|
-|status|VARCHAR(24)|NOT NULL|Operational lifecycle state (varchar(24)).|
-|credential_reference|VARCHAR(255)||Stores credential reference value.|
-|created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record creation timestamp (UTC).|
-|updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record last update timestamp (UTC).|
-|public_reference|VARCHAR(36)|NOT NULL, UNIQUE|Unique external public reference identifier.|
-
-:::
-
-### 3.30 ota_channel_mappings
-
-Links Mland sessions to OTA provider products.
-
-::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
-
-|Column|Type|Constraints|Notes|
-|---|---|---|---|
-|id|BIGINT|PRIMARY KEY, AUTO_INCREMENT|Primary key, auto-increment identifier.|
-|connection_id|BIGINT|NOT NULL, FK → ota_channel_connections(id)|Foreign key referencing ota_channel_connections(id).|
-|offer_reference|VARCHAR(128)|NOT NULL|Stores offer reference value.|
-|session_reference|VARCHAR(128)|NOT NULL, FK → workshop_sessions(reference) (logical)|Logical reference to workshop_sessions(reference); no database constraint.|
-|location_reference|VARCHAR(128)|NOT NULL|Stores location reference value.|
-|external_product_id|VARCHAR(255)|NOT NULL|Stores external product id value.|
-|external_option_id|VARCHAR(255)|NOT NULL|Stores external option id value.|
-|status|VARCHAR(32)|NOT NULL|Operational lifecycle state (varchar(32)).|
-|created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record creation timestamp (UTC).|
-|updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record last update timestamp (UTC).|
-|public_reference|VARCHAR(36)|NOT NULL, UNIQUE|Unique external public reference identifier.|
-|version|BIGINT|NOT NULL, DEFAULT 1|Optimistic concurrency locking version counter.|
-
-:::
-
-### 3.31 ota_channel_bookings
-
-Stores bookings received from an OTA provider.
-
-::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
-
-|Column|Type|Constraints|Notes|
-|---|---|---|---|
-|id|BIGINT|PRIMARY KEY, AUTO_INCREMENT|Primary key, auto-increment identifier.|
-|mapping_id|BIGINT|NOT NULL, FK → ota_channel_mappings(id)|Foreign key referencing ota_channel_mappings(id).|
-|external_booking_reference|VARCHAR(255)|NOT NULL|Stores external booking reference value.|
-|provider_status|VARCHAR(32)|NOT NULL|Stores provider status value.|
-|participant_count|INT|NOT NULL|Numerical count, quota, or capacity (participant count).|
-|mland_booking_reference|VARCHAR(128)||Stores mland booking reference value.|
-|sales_channel_snapshot|VARCHAR(32)|NOT NULL|Serialized JSON or snapshot data for sales channel snapshot.|
-|displayed_policy_reference|VARCHAR(128)|NOT NULL|Stores displayed policy reference value.|
-|displayed_policy_version|VARCHAR(64)|NOT NULL|Stores displayed policy version value.|
-|booking_cutoff_at|DATETIME(6)||Timestamp recording when booking cutoff at.|
-|booking_cutoff_timezone|VARCHAR(64)||Stores booking cutoff timezone value.|
-|retail_amount_minor|BIGINT|NOT NULL|Monetary value or calculated fee (retail amount minor).|
-|target_net_amount_minor|BIGINT|NOT NULL|Monetary value or calculated fee (target net amount minor).|
-|commission_amount_minor|BIGINT||Monetary value or calculated fee (commission amount minor).|
-|fee_amount_minor|BIGINT||Monetary value or calculated fee (fee amount minor).|
-|accepted_amount_minor|BIGINT||Monetary value or calculated fee (accepted amount minor).|
-|currency_code|VARCHAR(3)|NOT NULL|ISO-4217 standard currency code (e.g., VND).|
-|created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record creation timestamp (UTC).|
-|updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)|Record last update timestamp (UTC).|
-|public_reference|VARCHAR(36)|NOT NULL, UNIQUE|Unique external public reference identifier.|
-
-:::
-
-### 3.32 design_requests
+### 3.29 design_requests
 
 Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record. Legacy Guest proof/tracking and AI-analysis columns are retained only as code/database compatibility evidence and must not be used by the current Feature-004 flow.
 
@@ -865,7 +774,7 @@ Stores design requests submitted by an active Member and their human-review stat
 
 :::
 
-### 3.33 design_request_images
+### 3.30 design_request_images
 
 Stores the reference images of a design request with their quality result.
 
@@ -887,7 +796,7 @@ Stores the reference images of a design request with their quality result.
 
 :::
 
-### 3.34 custom_orders
+### 3.31 custom_orders
 
 Stores custom ring orders created from an accepted design request.
 
@@ -908,7 +817,7 @@ Stores custom ring orders created from an accepted design request.
 
 :::
 
-### 3.35 custom_order_quotes
+### 3.32 custom_order_quotes
 
 Stores the quotes of a custom order and the Manager approval.
 
@@ -934,7 +843,7 @@ Stores the quotes of a custom order and the Manager approval.
 
 :::
 
-### 3.36 loyalty_wallet
+### 3.33 loyalty_wallet
 
 Stores the point balance and held points of a Member.
 
@@ -949,7 +858,7 @@ Stores the point balance and held points of a Member.
 
 :::
 
-### 3.37 loyalty_point_ledger
+### 3.34 loyalty_point_ledger
 
 Stores every point movement (earn, hold, consume, release, reverse) of a wallet.
 
@@ -971,7 +880,7 @@ Stores every point movement (earn, hold, consume, release, reverse) of a wallet.
 
 :::
 
-### 3.38 loyalty_policy
+### 3.35 loyalty_policy
 
 Stores immutable revisions of the earn and redeem policy.
 
@@ -991,7 +900,7 @@ Stores immutable revisions of the earn and redeem policy.
 
 :::
 
-### 3.39 promotion_program
+### 3.36 promotion_program
 
 Stores voucher and automatic-discount programs.
 
@@ -1019,7 +928,7 @@ Stores voucher and automatic-discount programs.
 
 :::
 
-### 3.40 promotion_member_program
+### 3.37 promotion_member_program
 
 Stores vouchers saved by a Member and their usage counts.
 
@@ -1037,7 +946,7 @@ Stores vouchers saved by a Member and their usage counts.
 
 :::
 
-### 3.41 notification_template_definition
+### 3.38 notification_template_definition
 
 Stores the email templates the system can send, including the Admin-initiated internal invitation. An approved version is pinned to each delivery request. The version storage referred to below is not yet described column by column in this section and must be completed before the database design is implemented.
 
@@ -1057,7 +966,7 @@ Stores the email templates the system can send, including the Admin-initiated in
 
 :::
 
-### 3.42 notification_request
+### 3.39 notification_request
 
 Stores email notification requests and their delivery state. The invitation request keeps only an Account-owned invitation ID/version and safe recipient snapshot. Its stored rendition uses a placeholder for the setup URL. Account provides the current URL transiently for each SMTP attempt; no request, rendition or audit row stores the expanded link. Invitation requests allow at most two definite attempts and reject generic resend or cancel.
 
@@ -1090,7 +999,7 @@ Stores email notification requests and their delivery state. The invitation requ
 
 :::
 
-### 3.43 notification_delivery_attempt
+### 3.40 notification_delivery_attempt
 
 Stores each attempt to send a notification email.
 
@@ -1109,7 +1018,7 @@ Stores each attempt to send a notification email.
 
 :::
 
-### 3.44 retail_carts
+### 3.41 retail_carts
 
 Stores the shopping cart of a Member.
 
@@ -1125,7 +1034,7 @@ Stores the shopping cart of a Member.
 
 :::
 
-### 3.45 retail_cart_lines
+### 3.42 retail_cart_lines
 
 Stores the variants, branch and quantity in a cart.
 
@@ -1143,7 +1052,7 @@ Stores the variants, branch and quantity in a cart.
 
 :::
 
-### 3.46 retail_grouped_checkouts
+### 3.43 retail_grouped_checkouts
 
 Stores one Member payment that covers one or more branch orders.
 
@@ -1174,7 +1083,7 @@ Stores one Member payment that covers one or more branch orders.
 
 :::
 
-### 3.47 retail_orders
+### 3.44 retail_orders
 
 Stores a retail order fulfilled by one branch.
 
@@ -1204,7 +1113,7 @@ Stores a retail order fulfilled by one branch.
 
 :::
 
-### 3.48 retail_order_items
+### 3.45 retail_order_items
 
 Stores the frozen variant, quantity and price of an order line.
 
@@ -1221,7 +1130,7 @@ Stores the frozen variant, quantity and price of an order line.
 
 :::
 
-### 3.49 retail_shipments
+### 3.46 retail_shipments
 
 Stores the carrier shipment of a delivery order.
 
@@ -1249,7 +1158,7 @@ Stores the carrier shipment of a delivery order.
 
 :::
 
-### 3.50 reviews
+### 3.47 reviews
 
 Stores customer reviews of a workshop or product.
 
@@ -1277,7 +1186,7 @@ Stores customer reviews of a workshop or product.
 
 :::
 
-### 3.51 review_replies
+### 3.48 review_replies
 
 Stores the Manager reply to a review.
 
@@ -1295,7 +1204,7 @@ Stores the Manager reply to a review.
 
 :::
 
-### 3.52 consultation_conversations
+### 3.49 consultation_conversations
 
 Stores consultation conversations between a Member and Staff.
 
@@ -1322,7 +1231,7 @@ Stores consultation conversations between a Member and Staff.
 
 :::
 
-### 3.53 consultation_messages
+### 3.50 consultation_messages
 
 Stores the immutable messages of a conversation.
 
@@ -1341,7 +1250,7 @@ Stores the immutable messages of a conversation.
 
 :::
 
-### 3.54 ring_designs
+### 3.51 ring_designs
 
 Stores ring design versions created in the configurator. The current supported path is Member persistence with `DRAFT`, `SAVED` and `ARCHIVED` states; legacy Guest-session, `VALIDATED` and booking-reference fields are retained only for compatibility tracing and do not create a booking or ticket.
 
@@ -1374,7 +1283,7 @@ Stores ring design versions created in the configurator. The current supported p
 
 :::
 
-### 3.55 ring_materials
+### 3.52 ring_materials
 
 Stores the ring material options.
 
@@ -1397,7 +1306,7 @@ Stores the ring material options.
 
 :::
 
-### 3.56 ring_shapes
+### 3.53 ring_shapes
 
 Stores the ring shape options.
 
@@ -1419,7 +1328,7 @@ Stores the ring shape options.
 
 :::
 
-### 3.57 ring_gemstones
+### 3.54 ring_gemstones
 
 Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.
 
@@ -1445,7 +1354,7 @@ Stores the gemstone options; selected gemstones are kept in ring_designs.compone
 
 :::
 
-### 3.58 ring_attachments
+### 3.55 ring_attachments
 
 Stores the attachment options; selected attachments are kept in ring_designs.component_snapshot.
 

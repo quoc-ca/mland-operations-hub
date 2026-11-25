@@ -246,6 +246,44 @@ public class DesignRequestIT {
     }
 
     @Test
+    void whenDuplicateIdempotencyKeyWithDifferentPayload_thenReturns409Conflict() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile("image", "ring1.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
+        MockMultipartFile file2 = new MockMultipartFile("image", "ring2.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
+
+        // First call creates the request
+        mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file1)
+                        .param("description", "Mẫu nhẫn đúc sáp ban đầu")
+                        .param("consentVersion", "v1.0.0")
+                        .param("designVersion", "1")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-conflict-test"))
+                .andExpect(status().isAccepted());
+
+        // Second call with same idempotency key but different description -> 409 Conflict
+        mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file1)
+                        .param("description", "Mẫu nhẫn vàng 18k khác hoàn toàn")
+                        .param("consentVersion", "v1.0.0")
+                        .param("designVersion", "1")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-conflict-test"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_CONFLICT"));
+
+        // Third call with same idempotency key but different file -> 409 Conflict
+        mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file2)
+                        .param("description", "Mẫu nhẫn đúc sáp ban đầu")
+                        .param("consentVersion", "v1.0.0")
+                        .param("designVersion", "1")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-conflict-test"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_CONFLICT"));
+    }
+
+    @Test
     void whenImageRateLimitExceeded_thenReturns429WithRetryAfter() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "valid-jpeg-bytes".getBytes());
 

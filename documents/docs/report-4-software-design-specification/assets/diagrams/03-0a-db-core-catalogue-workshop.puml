@@ -33,9 +33,6 @@ entity group_payment_attempts
 entity booking_group_lines
 entity booking_group_line_sessions
 entity ticket_bookings
-entity ota_channel_connections
-entity ota_channel_mappings
-entity ota_channel_bookings
 accounts ||--o| account_profiles
 accounts ||--o{ account_location_assignments
 accounts ||--o{ member_addresses
@@ -58,10 +55,6 @@ booking_groups ||--o{ booking_group_lines
 booking_group_lines ||--o{ booking_group_line_sessions
 booking_group_line_sessions }o--|| workshop_sessions
 booking_groups ||--o{ ticket_bookings
-ota_channel_connections ||--o{ ota_channel_mappings
-ota_channel_mappings }o--|| workshop_sessions
-ota_channel_connections ||--o{ ota_channel_bookings
-ota_channel_bookings }o--|| booking_groups
 note "Cross-context links use public references; private repositories are not shared." as N1
 N1 .. workshop_sessions
 @enduml

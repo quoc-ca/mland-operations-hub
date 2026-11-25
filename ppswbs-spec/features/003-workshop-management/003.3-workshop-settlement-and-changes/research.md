@@ -1,5 +1,7 @@
 # Research: Workshop Settlement and Changes
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../ota-removal-2026-11-25.md).*
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-15
 **Author**: Hồ Hoàng Quốc
@@ -79,7 +81,7 @@ patterns such as [Bookwhen cancellation guidance](https://support.bookwhen.com/e
 ## Owner decision — direct-booking open folio (2026-11-05)
 
 The canonical policy is
-[Direct Booking Open Folio and OTA Financial Separation](../direct-booking-open-folio-policy.md).
+[Direct Booking Open Folio](../direct-booking-open-folio-policy.md).
 
 Normal add-ons extend the OPEN folio and are settled at checkout. T040 only covers an exceptional post-finalized correction/remedy case.
 

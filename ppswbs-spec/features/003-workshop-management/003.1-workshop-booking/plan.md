@@ -1,5 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-07
 **Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
@@ -22,7 +24,7 @@ confirmed, creates one booking group and one ticket booking per person. One
 person is a group with one ticket (FR-043, FR-044). The single
 `WorkshopBooking` flow (one Package per booking, `ceil(post/2)` deposit,
 rejection of every late payment) is removed for direct bookings (FR-046,
-V132/V133) and survives only for OTA bookings received through 003.4.
+V132/V133).
 
 The implemented flow is:
 
@@ -67,7 +69,7 @@ The implemented flow is:
 
 003.1 still stops at ticket issuance, delivery, recovery and the per-ticket
 facts other features read; check-in and attendance (003.2), folios,
-cancellation, refund and changes (003.3) and OTA (003.4) are outside it.
+cancellation, refund and changes (003.3) are outside it.
 
 ## Technical Context
 
@@ -293,7 +295,7 @@ migration, no new module dependency: `workshopbooking` already reads
    | `GroupPaymentAttemptRepository` query, `BookingTimePaymentQueryService` (T150) | Booking-time payment list by location | Payments would move with the ticket | Keep the copy: Q5 |
    | `LatePaymentReviewService` (workshop date, location, audit, re-hold) | Group not yet confirmed, or its first confirmation | No ticket has moved | No change |
    | `BookingGroupProjectionService.sessions` | Group view | Already prefers the current Operations entitlement and falls back to the copy | No change |
-   | `BookingSessionCommitment.locationId` | Written only by `acceptOtaBooking`; no reader found in `workshopbooking` | OTA tickets are not changeable (003.2 FR-036) | No change |
+   | `BookingSessionCommitment.locationId` | No reader found in `workshopbooking`; its writer `acceptOtaBooking` was removed 2026-11-25 | None | No change |
    | `WorkshopCartPricingService`, `WorkshopCartBenefitService`, `WorkshopCartQuoteService` | Cart, benefits at quote time | None (before booking) | No change |
 4. **Cart refusal (FR-055).** The Operations rejection reaches Booking
    unchanged through `WorkshopOperationsAdapter.reserveGroupCapacity`; the
@@ -317,7 +319,7 @@ migration, no new module dependency: `workshopbooking` already reads
    empty-list state. `cartStorage.js` keeps `locationId` only; the name is
    re-read. No new route and no new client library.
 6. **Not in scope here:** the Manager matrix screen and the location name in
-   003.3 ticket-change options (003.2 and 003.3); the OTA listing (003.4).
+   003.3 ticket-change options (003.2 and 003.3).
 
 **Verification:** MySQL integration for FR-053 and FR-055 (a ticket moved by
 `replaceTicketSessions` reads the new location; the old copy is untouched; a
@@ -428,8 +430,7 @@ resend, Manager Magic-Link incidents and Manager late-payment follow-up on
 `/workshop-bookings/{bookingCode}`; booking states `PENDING_PAYMENT`,
 `CONFIRMED`, `EXPIRED`, `CANCELLED`, plus `COMPLETED`/`NO_SHOW` from 003.3 (D13)
 and financial `UNPAID`/`DEPOSIT_PAID`/`FULLY_PAID`/`REFUND_PENDING`/`REFUNDED`
-(D14). *(routes removed by FR-046; the D13/D14 statuses remain on OTA
-`WorkshopBooking` and on ticket bookings)*
+(D14). *(routes removed by FR-046; the D13/D14 statuses remain on ticket bookings)*
 
 **Former verification plan.** Quickstart checks of each one-session offer,
 two-session Wax Casting, odd/even post-promotion amount with rounded-up deposit,

@@ -1,4 +1,7 @@
 # Tasks: Manager Home
+
+> **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
+
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 ## Split map (2026-11-25)
@@ -66,10 +69,10 @@
 
 - [x] T014 [US1] **Owner 003.3**: add the refund-queue waiting count, `{ "waiting": <integer ≥ 0> }`, Manager only, read-only, writing no audit row, in `BE/workshopsettlement/` with a JUnit test and a MySQL integration test proving the count equals the size of the list the card link opens. The owner decides which `PENDING_*` statuses mean "waiting" (proposal in [contracts/reads.md](contracts/reads.md) R-2). Blocks T017.
 - [x] T015 [US1] **Owner 003.3**: add the count of cash closes in state `PENDING_MANAGER_CONFIRMATION`, same response shape and rules as T014 (R-3), with the same tests. Blocks T018.
-- [x] T016 [US1] **Owner 003.4**: add the OTA reconciliation items-needing-attention count, same response shape and rules (R-4); the owner decides among `OPEN`, `IN_PROGRESS`, `ESCALATED` (proposal: `OPEN` and `ESCALATED`), with the same tests, in `BE/otaconnectivity/`. Blocks T019.
+- [x] T016 *(Gỡ 2026-11-25: OTA đã bị loại.)* [US1] **Owner 003.4**: add the OTA reconciliation items-needing-attention count, same response shape and rules (R-4); the owner decides among `OPEN`, `IN_PROGRESS`, `ESCALATED` (proposal: `OPEN` and `ESCALATED`), with the same tests, in `BE/otaconnectivity/`. Blocks T019.
 - [x] T017 [US1] Register the refund-queue card in `FE/application/queues.js`, link filtered to the same set as T014 (needs T014).
 - [x] T018 [US1] Register the cash-close card, link to the cash-close screen's confirmation view (needs T015).
-- [x] T019 [US1] Register the OTA reconciliation card, link filtered to the same set as T016 (needs T016).
+- [x] T019 *(Gỡ 2026-11-25: OTA đã bị loại.)* [US1] Register the OTA reconciliation card, link filtered to the same set as T016 (needs T016).
 - [ ] T020 [US1] DROPPED by owner decision (Hồ Hoàng Quốc, 2026-11-18): feature 011 has no "awaiting moderation" concept, so no review-moderation card and no R-6 read are built; the home does not wait for the 011 owner.
 
 **Checkpoint**: wave 1 shows three cards; each owner read adds one card without changing the others.

@@ -13,7 +13,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Cap
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopForbiddenException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLocationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOperationsAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSessionService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopSlotService;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,6 @@ class StaffSeesOnlyAssignedSessionsTest {
     private final SessionStaffAssignmentRepository assignments = mock(SessionStaffAssignmentRepository.class);
     private final WorkshopSessionService service = new WorkshopSessionService(sessions, locations, mock(WorkshopSlotService.class),
             authorization, mock(OperationsAuditEventRepository.class), mock(CapacityHoldService.class),
-            mock(WorkshopOtaSnapshotService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.StaffAutoAssignmentService.class),
             assignments);
 

@@ -12,7 +12,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.Work
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopLifecycleService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOperationsAuthorizationService;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopResponsibilityService;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +26,7 @@ class WorkshopLifecycleFinalizeTransitionTest {
     private final WorkshopOperationsAuthorizationService authorization = mock(WorkshopOperationsAuthorizationService.class);
     private final WorkshopSessionRepository sessions = mock(WorkshopSessionRepository.class);
     private final WorkshopLifecycleService service = new WorkshopLifecycleService(authorization, sessions,
-            mock(WorkshopResponsibilityService.class), mock(OperationsAuditEventRepository.class), mock(WorkshopOtaSnapshotService.class));
+            mock(WorkshopResponsibilityService.class), mock(OperationsAuditEventRepository.class));
 
     /** The plain transition would skip marking no-shows and the finalization time, so only the dedicated action may finalize. */
     @Test

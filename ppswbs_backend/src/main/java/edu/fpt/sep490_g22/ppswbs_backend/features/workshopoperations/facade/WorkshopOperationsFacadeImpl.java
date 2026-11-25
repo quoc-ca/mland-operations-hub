@@ -11,7 +11,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.Gro
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimResult;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.FacadeCommandIdempotencyManager.ClaimStatus;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOtaSnapshotService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageReservationPolicy;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopAddOnService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceCorrectionWindowPolicy;
@@ -22,15 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
-
-    private static final String ACTION_OTA_ACCEPT = "FACADE_ACCEPT_OTA_BOOKING";
 
     private final WorkshopSessionRepository sessionRepository;
     private final CapacityHoldRepository capacityHoldRepository;
@@ -48,13 +44,11 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService equivalentReplacementSessionService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService ticketChangeOptionsService;
     private final AttendanceTicketService attendanceTicketService;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService packageAvailabilityService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.BookingAttendanceOutcomeService bookingAttendanceOutcomeService;
     private final WorkshopAddOnService addOnService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
-    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OtaTicketRevocationService otaTicketRevocationService;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private WorkshopLocationRepository locationRepository;
 
@@ -143,11 +137,6 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
     }
 
     @Override
-    public OtaTicketRevocationOutcome revokeOtaTickets(RevokeOtaTicketsCommand command) {
-        return otaTicketRevocationService.revoke(command);
-    }
-
-    @Override
     public TicketSessionReplacementOutcome replaceTicketSessions(ReplaceTicketSessionsCommand command) {
         return ticketSessionReplacementService.replace(command);
     }
@@ -178,96 +167,6 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             attendanceTicketService.issueTicketsForBooking(command.bookingReference(), command.expectedHoldReferences());
         }
         return outcome;
-    }
-
-    @Override
-    @Transactional
-    public OtaBookingCapacityOutcome acceptOtaBooking(AcceptOtaBookingCommand command) {
-        String fingerprint = command.bookingReference() + "|" + command.packageReference() + "|"
-                + command.sessionReference() + "|" + command.participantCount();
-        ClaimResult claim = idempotencyManager.acquireClaim(
-                ACTION_OTA_ACCEPT, command.operationReference(), command.correlationReference(), fingerprint);
-
-        if (claim.getStatus() == ClaimStatus.MISMATCH) {
-            return OtaBookingCapacityOutcome.rejected(RejectionReason.INVALID_STATE);
-        }
-        if (claim.getStatus() == ClaimStatus.IN_PROGRESS) {
-            return OtaBookingCapacityOutcome.inProgress();
-        }
-        if (claim.getStatus() == ClaimStatus.ALREADY_COMPLETED) {
-            return reconstructOtaBookingOutcome(claim.getCompletedRecord());
-        }
-
-        if (!ticketRepository.findByBookingReferenceWithLock(command.bookingReference()).isEmpty()) {
-            return completeOtaBookingClaim(claim,
-                    OtaBookingCapacityOutcome.rejected(RejectionReason.INVALID_STATE));
-        }
-
-        RejectionReason validation = packageReservationPolicy.validateOtaBooking(
-                command.packageReference(), command.sessionReference(), command.participantCount());
-        if (validation != null) {
-            return completeOtaBookingClaim(claim, OtaBookingCapacityOutcome.rejected(validation));
-        }
-
-        String reserveOperationReference = otaSubOperationReference("reserve", command.operationReference());
-        ReserveBookingCapacityCommand reserveCommand = new ReserveBookingCapacityCommand(
-                command.bookingReference(),
-                command.packageReference(),
-                List.of(command.sessionReference()),
-                command.participantCount(),
-                reserveOperationReference,
-                command.correlationReference());
-        CapacityHoldOutcome holdOutcome = capacityHoldService.reserveBookingCapacity(
-                reserveCommand,
-                // 003.2 FR-039: an OTA booking is never refused at an INACTIVE Package x location pair.
-                () -> packageReservationPolicy.validate(reserveCommand, false),
-                () -> packageReservationPolicy.snapshotForBooking(reserveCommand));
-
-        if (holdOutcome.status() == OutcomeStatus.IN_PROGRESS) {
-            return OtaBookingCapacityOutcome.inProgress();
-        }
-        if (holdOutcome.status() != OutcomeStatus.ACCEPTED) {
-            return completeOtaBookingClaim(claim, OtaBookingCapacityOutcome.rejected(holdOutcome.reason()));
-        }
-
-        String commitOperationReference = otaSubOperationReference("commit", command.operationReference());
-        CapacityCommitOutcome commitOutcome = capacityHoldService.commitBookingHolds(
-                new CommitBookingHoldsCommand(
-                        command.bookingReference(),
-                        holdOutcome.holdReferences(),
-                        commitOperationReference,
-                        command.correlationReference()));
-        if (commitOutcome.status() == OutcomeStatus.IN_PROGRESS) {
-            throw new IllegalStateException("OTA booking capacity commit is still in progress");
-        }
-        if (commitOutcome.status() != OutcomeStatus.ACCEPTED) {
-            CapacityReleaseOutcome releaseOutcome = capacityHoldService.releaseBookingHolds(
-                    new ReleaseBookingHoldsCommand(
-                            command.bookingReference(),
-                            holdOutcome.holdReferences(),
-                            otaSubOperationReference("release", command.operationReference()),
-                            command.correlationReference()));
-            if (releaseOutcome.status() != OutcomeStatus.ACCEPTED) {
-                throw new IllegalStateException("OTA booking capacity compensation did not complete");
-            }
-            return completeOtaBookingClaim(claim, OtaBookingCapacityOutcome.rejected(commitOutcome.reason()));
-        }
-
-        List<AttendanceTicket> tickets = attendanceTicketService.issueTicketsForBooking(
-                command.bookingReference(), holdOutcome.holdReferences());
-        // FR-036: an OTA-origin ticket is never cancelled, replaced or QR-reissued by Operations.
-        tickets.forEach(ticket -> ticket.setSalesChannel(TicketSalesChannel.OTA));
-        ticketRepository.saveAll(tickets);
-        List<UUID> ticketReferences = tickets.stream()
-                .sorted(Comparator.comparing(AttendanceTicket::getTicketSequence))
-                .map(ticket -> UUID.fromString(ticket.getReference()))
-                .toList();
-        if (ticketReferences.size() != command.participantCount()
-                || new HashSet<>(ticketReferences).size() != command.participantCount()) {
-            throw new IllegalStateException("OTA booking did not produce one unique ticket per participant");
-        }
-
-        return completeOtaBookingClaim(claim, OtaBookingCapacityOutcome.accepted(ticketReferences));
     }
 
     @Override
@@ -307,53 +206,6 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             return TicketAttendanceOutcome.pending();
         }
         return bookingAttendanceOutcomeService.evaluateTicket(query.ticketReference(), Instant.now()).outcome();
-    }
-
-    @Override
-    @Transactional
-    public RefundConsequenceOutcome applyVerifiedRefundConsequence(ApplyVerifiedRefundConsequenceCommand command) {
-        String action = "FACADE_APPLY_REFUND";
-        String fingerprint = command.bookingReference() + "|" + command.verifiedRefundReference();
-
-        ClaimResult claim = idempotencyManager.acquireClaim(
-            action, command.operationReference(), command.correlationReference(), fingerprint
-        );
-
-        if (claim.getStatus() == ClaimStatus.MISMATCH) {
-            return RefundConsequenceOutcome.rejected(RejectionReason.INVALID_STATE);
-        }
-        if (claim.getStatus() == ClaimStatus.IN_PROGRESS) {
-            return RefundConsequenceOutcome.inProgress();
-        }
-        if (claim.getStatus() == ClaimStatus.ALREADY_COMPLETED) {
-            return reconstructRefundOutcome(claim.getCompletedRecord());
-        }
-
-        List<AttendanceTicket> tickets = ticketRepository.findByBookingReferenceWithLock(command.bookingReference());
-        if (tickets.isEmpty()) {
-            RefundConsequenceOutcome outcome = RefundConsequenceOutcome.rejected(RejectionReason.INVALID_STATE);
-            idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), null);
-            return outcome;
-        }
-
-        Instant now = Instant.now();
-        Map<String, WorkshopSession> affectedSessions = new HashMap<>();
-        for (AttendanceTicket ticket : tickets) {
-            for (TicketSessionEntitlement entitlement : entitlementRepository.findByTicketIdWithLock(ticket.getId())) {
-                affectedSessions.put(entitlement.getSession().getReference(), entitlement.getSession());
-            }
-            ticket.setValidityState(TicketValidityState.REFUNDED);
-            ticketRepository.save(ticket);
-        }
-
-        affectedSessions.values().forEach(session -> otaSnapshotService.publishForObservableChange(
-                session, command.operationReference(), now));
-
-        recordBusinessAudit(action, command.correlationReference(), "SUCCESS", null);
-
-        RefundConsequenceOutcome outcome = RefundConsequenceOutcome.accepted();
-        idempotencyManager.completeClaim(claim.getRecordId(), claim.getClaimVersion(), outcome.status(), null, null);
-        return outcome;
     }
 
     @Override
@@ -427,53 +279,6 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             .metadata(null)
             .build();
         auditEventRepository.save(event);
-    }
-
-    private OtaBookingCapacityOutcome completeOtaBookingClaim(
-            ClaimResult claim, OtaBookingCapacityOutcome outcome) {
-        String payload = null;
-        if (outcome.status() == OutcomeStatus.ACCEPTED) {
-            try {
-                payload = objectMapper.writeValueAsString(outcome);
-            } catch (JsonProcessingException e) {
-                throw new IllegalStateException("Could not persist OTA booking outcome", e);
-            }
-        }
-        idempotencyManager.completeClaim(
-                claim.getRecordId(), claim.getClaimVersion(), outcome.status(), outcome.reason(), payload);
-        return outcome;
-    }
-
-    private OtaBookingCapacityOutcome reconstructOtaBookingOutcome(FacadeCommandIdempotencyRecord record) {
-        if (record.getOutcomeStatus() == OutcomeStatus.ACCEPTED) {
-            if (record.getResponsePayload() == null || record.getResponsePayload().isBlank()) {
-                throw new IllegalStateException("Completed OTA booking outcome is missing its ticket references");
-            }
-            try {
-                OtaBookingCapacityOutcome outcome = objectMapper.readValue(
-                        record.getResponsePayload(), OtaBookingCapacityOutcome.class);
-                if (outcome.status() != OutcomeStatus.ACCEPTED || outcome.ticketReferences().isEmpty()) {
-                    throw new IllegalStateException("Completed OTA booking outcome is invalid");
-                }
-                return outcome;
-            } catch (JsonProcessingException e) {
-                throw new IllegalStateException("Could not read completed OTA booking outcome", e);
-            }
-        }
-        RejectionReason reason = RejectionReason.INVALID_STATE;
-        if (record.getRejectionReason() != null && !record.getRejectionReason().isBlank()) {
-            try {
-                reason = RejectionReason.valueOf(record.getRejectionReason());
-            } catch (IllegalArgumentException ignored) {
-                // Keep the boundary outcome safe if an old or malformed record is encountered.
-            }
-        }
-        return OtaBookingCapacityOutcome.rejected(reason);
-    }
-
-    private static String otaSubOperationReference(String action, String operationReference) {
-        return UUID.nameUUIDFromBytes(("OTA_ACCEPT_" + action + "|" + operationReference)
-                .getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     private String buildHoldPayload(List<UUID> holdReferences, Instant expiresAt) {
@@ -560,19 +365,6 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
             } catch (IllegalArgumentException ignored) {}
         }
         return CapacityReleaseOutcome.rejected(reason);
-    }
-
-    private RefundConsequenceOutcome reconstructRefundOutcome(FacadeCommandIdempotencyRecord record) {
-        if (record.getOutcomeStatus() == OutcomeStatus.ACCEPTED) {
-            return RefundConsequenceOutcome.accepted();
-        }
-        RejectionReason reason = RejectionReason.INVALID_STATE;
-        if (record.getRejectionReason() != null && !record.getRejectionReason().isBlank()) {
-            try {
-                reason = RejectionReason.valueOf(record.getRejectionReason());
-            } catch (IllegalArgumentException ignored) {}
-        }
-        return RefundConsequenceOutcome.rejected(reason);
     }
 
     private CancellationCompletionOutcome reconstructCancellationOutcome(FacadeCommandIdempotencyRecord record) {

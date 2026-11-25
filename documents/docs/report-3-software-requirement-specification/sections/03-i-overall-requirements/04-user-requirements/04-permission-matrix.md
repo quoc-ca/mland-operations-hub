@@ -2,7 +2,7 @@
 
 Full = unrestricted  ·  Restricted = conditions apply (see footnotes)  ·  No = denied
 
-The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
+The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
 
 |Entity / Function|Action|Guest|Member|Staff|Manager|Admin|
 |---|---|---|---|---|---|---|
@@ -28,8 +28,6 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Mland cancellation|Choose a replacement session or refund (UC 88); Staff and Manager only with the buyer proof|Restricted|Restricted|Restricted|Restricted|No|
 |Refund|Submit the receiving refund account (UC 89)|Restricted|Restricted|Restricted|Restricted|No|
 |Refund|Process a refund request (UC 90); Staff may only resend the refund-account link|No|No|Restricted|Full|No|
-|OTA channel|Manage mappings, enable partner booking, resolve reconciliation, and reconcile payouts (UC 91 to 94)|No|No|No|Full|No|
-|OTA shop add-on|Record and bill a shop add-on for an OTA booking (UC 95)|No|No|Restricted|Full|No|
 |Product catalogue|Create and update products, images, stock and proposed prices|No|No|Restricted|Full|No|
 |Product publication|Publish, hide or show again a product (UC 17)|No|No|No|Full|No|
 |Product category|Create, update, activate, or deactivate product categories|No|No|Full|Full|No|
@@ -53,10 +51,8 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Retail payment and cash|View daily retail cash and the VNPay checkouts that need manual reconciliation (read-only)|No|No|No|Restricted|No|
 |Retail shipment|Record the courier pickup and the delivery of a GHTK shipment|No|No|No|No|No|
 |Custom manufacturing|Submit and view own custom order|No|Full|No|No|No|
-|Custom manufacturing|Configure queue rules and unavailable deadline dates|Retired|Retired|Retired|Retired|Retired|
 |Custom manufacturing|Prepare a quote (Staff or Manager) and approve it (Manager only)|No|No|Restricted|Full|No|
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
-|Operational parameters|Configure custom-order deadlines and queue values|Retired|Retired|Retired|Retired|Retired|
 |Notification|Manage notification templates, and resend or cancel delivery requests|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
 |Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|
@@ -71,7 +67,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 5. Admin manages technical configuration, accounts, fixed-role assignment, and approved integration credentials. Admin has no promotion or loyalty-point permission (GBR-18) and no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK shipments are recorded in the platform; V1 calls GHTK only for the delivery-fee quote and has no shipment-creation, tracking, or webhook integration. Staff packs the order and marks it ready for the courier. The GHTK partner account (role `CARRIER`) records only "Đã lấy hàng" (courier pickup) and "Giao thành công" (delivery) for the GHTK shipments of every branch, and sees the pickup branch, recipient name, phone and address, item count, and shipping fee, never product prices, vouchers, points, or Member account data. Only that account records the Retail shipment row; the platform roles cannot.
 7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public Mland reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
-8. For ticket settlement and changes (Feature-003.3) and OTA shop add-ons (Feature-003.4), `Restricted` for a Guest or Member means only their own ticket after the required ownership, contact, one-time-code, or single-use-link proof; `Restricted` for Staff means the assigned location and, where the owning feature requires it, a session assignment.
+8. For ticket settlement and changes (Feature-003.3), `Restricted` for a Guest or Member means only their own ticket after the required ownership, contact, one-time-code, or single-use-link proof; `Restricted` for Staff means the assigned location and, where the owning feature requires it, a session assignment.
 9. Retail operations (Feature-008) and the executive dashboard (Feature-010) differ from footnote 1: a Manager reaches only the branches assigned to them, and Staff only their own branch. Recording customer pickup and collecting cash at the counter belong to Staff of the branch only (decision of 2026-11-25, Feature-008 T089); a Manager has no retail-order screen for them. Admin has no retail-order business authority.
 10. Account (Feature-001): Staff and Manager sign in and recover their account but cannot self-register; they complete an Admin invitation. They may view their own profile and change their own email and password; only an Admin edits their full name and phone. Account administration (`/admin/accounts`) is Admin only.
 11. Staff consultation chat (Feature-013): a Member uses only their own conversations, Staff works within its current Workshop Location, and a Manager has global authority including assignment; Admin has no business chat access. Ring-design catalogue (Feature-012): Staff is denied unless separately granted. Notification (Feature-007): Admin and Manager act at global scope, and only an Admin may authorize a resend from an unknown delivery outcome.

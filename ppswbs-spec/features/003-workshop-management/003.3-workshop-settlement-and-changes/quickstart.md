@@ -1,5 +1,7 @@
 # Quickstart Validation: Workshop Settlement and Changes
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-16
 **Author**: Hồ Hoàng Quốc
@@ -44,9 +46,7 @@ credentials, provider calls, schema changes or deployment.
    Verify in-scope Staff/Manager records customer-consented eligible catalogue
    add-ons with a server-derived price (including priced laser engraving for a direct Mland booking), rejects arbitrary price and stale/duplicate
    input, appends a direct add-on only to the OPEN direct folio, rejects a
-   direct add-on on a `FINALIZED` folio without mutation, and routes every OTA
-   shop add-on to a separate direct-Mland bill (free OTA laser engraving
-   creates no bill). Verify variable-charge reason/audit behavior.
+   direct add-on on a `FINALIZED` folio without mutation. Verify variable-charge reason/audit behavior.
 3. **Finalization and client retries**: verify in-scope Staff finalizes only a
    zero-balance bill. Verify Manager cannot override an outstanding amount and
    package output remains withheld until signed matching payment evidence
@@ -69,8 +69,7 @@ credentials, provider calls, schema changes or deployment.
    cancellation case. Verify an eligible future booking is handed to Operations,
    the case resolves with `DIRECT_DEPOSIT_FORFEITED`, and the direct deposit is
    retained. Ineligible or Operations-rejected requests remain `REJECTED`; no
-   VNPay refund/QueryDR request or refund allocation is created. OTA refunds are
-   tested separately through 003.4 evidence reconciliation.
+   VNPay refund/QueryDR request or refund allocation is created. 
 7. **Replacement and Mland remedy**: submit a complete target session set and
    reason for a Manager change. Verify Operations applies all capacity/entitlement
    changes or none and QR persists. For Mland cancellation, require the same
@@ -122,11 +121,7 @@ credentials, provider calls, schema changes or deployment.
    first, never exceeds unrefunded collections, completes only on signed
    QueryDR, and changes neither folio lines/state nor Booking status nor
    Loyalty earn. Verify no undercharge collection route exists.
-16. **OTA shop add-on bill (D12/D16)**: for an OTA booking verify laser
-   engraving is recorded at zero charge with no bill, and a paid shop add-on
-   from an accepted 003.4 quote creates one separate Mland bill paid only by
-   verified `SHOP_ADDON` evidence, with no change to OTA payment, payout,
-   commission or refund facts.
+16. *(Removed 2026-11-25: OTA shop add-on bill.)*
 
 ## Per-ticket validation (current)
 

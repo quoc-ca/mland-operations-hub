@@ -1,21 +1,38 @@
 @startuml
+!include r4-sequence-style.puml
 title FE-12 Edit or Archive Member Design
-actor Member
-participant WorkshopRingDesignController
-participant WorkshopRingDesignApplicationService
-database RingDesignRepository
-Member -> WorkshopRingDesignController : edit or archive owned design
-WorkshopRingDesignController -> WorkshopRingDesignApplicationService : command + If-Match-Version
-WorkshopRingDesignApplicationService -> RingDesignRepository : check owner, state and version
+actor "Member" as member
+participant "WorkshopRingDesignController" as designController
+participant "WorkshopRingDesignApplicationService" as designService
+database "RingDesignRepository" as designRepository
+
+member -> designController : edit or archive owned design
+activate designController
+designController -> designService : command + If-Match-Version
+activate designService
+designService -> designRepository : check owner, state and version
+activate designRepository
+designRepository --> designService : current design state
+deactivate designRepository
 alt edit valid saved version
-  WorkshopRingDesignApplicationService -> RingDesignRepository : create next immutable version
+  designService -> designRepository : create next immutable version
+  activate designRepository
+  designRepository --> designService : next design version
+  deactivate designRepository
 else archive
-  WorkshopRingDesignApplicationService -> RingDesignRepository : set ARCHIVED soft state
+  designService -> designRepository : set ARCHIVED soft state
+  activate designRepository
+  designRepository --> designService : archived design
+  deactivate designRepository
 else stale or foreign
-  WorkshopRingDesignApplicationService --> WorkshopRingDesignController : 403/409 safe error
+  designService --> designController : 403/409 safe error
 end
-WorkshopRingDesignController --> Member : updated history projection
-note over Member
+designService --> designController : updated history projection
+deactivate designService
+designController --> member : updated history projection
+deactivate designController
+
+note over member,designController
 No hard delete and no booking lock in current flow.
 end note
 @enduml

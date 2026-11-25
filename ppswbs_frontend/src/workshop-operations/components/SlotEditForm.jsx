@@ -51,7 +51,7 @@ export function SlotEditForm({ api, slot, onSaved, onReload, onClose }) {
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('slot.aria', { label: slot.label })}>
+    <form className="wsp-evidence-grid" onSubmit={submit} aria-label={t('slot.aria', { label: slot.label })}>
       <Field label={t('slot.label')}><input value={label} onChange={e => setLabel(e.target.value)} /></Field>
       <Field label={t('slot.startsAt')}><input type="time" value={startsAtLocal} onChange={e => setStartsAtLocal(e.target.value)} /></Field>
       <Field label={t('slot.endsAt')}><input type="time" value={endsAtLocal} onChange={e => setEndsAtLocal(e.target.value)} /></Field>

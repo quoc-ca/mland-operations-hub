@@ -425,13 +425,12 @@ class WaxCastingScheduleValidationTest {
         var entitlements = mock(TicketSessionEntitlementRepository.class);
         var audit = mock(OperationsAuditEventRepository.class);
         var idempotency = mock(FacadeCommandIdempotencyManager.class);
-        var ota = mock(WorkshopOtaSnapshotService.class);
 
         when(idempotency.acquireClaim(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(FacadeCommandIdempotencyManager.ClaimResult.acquired(1L, 1L));
 
         CapacityHoldService holdService = new CapacityHoldService(
-                sessions, holds, policySnapshots, entitlements, audit, idempotency, new ObjectMapper(), ota);
+                sessions, holds, policySnapshots, entitlements, audit, idempotency, new ObjectMapper());
 
         ReserveBookingCapacityCommand command = new ReserveBookingCapacityCommand(
                 "BK-FAIL", "88", List.of(UUID.randomUUID(), UUID.randomUUID()), 2, "op-fail", "corr-fail");
