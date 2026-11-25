@@ -115,6 +115,7 @@ class AccountManagementIntegrationTests {
         String idemKey = UUID.randomUUID().toString();
         InternalAccountCreateRequest request = InternalAccountCreateRequest.builder()
             .role(AccountRole.STAFF)
+            .email("staff.test@mland.vn")
             .fullName("Nguyen Van A")
             .phone("0987654321")
             .locationIds(List.of(101L))
@@ -146,6 +147,7 @@ class AccountManagementIntegrationTests {
         // Call 3: Changed payload with same key returns 409
         InternalAccountCreateRequest conflictRequest = InternalAccountCreateRequest.builder()
             .role(AccountRole.STAFF)
+            .email("staff.test@mland.vn")
             .fullName("Nguyen Van A")
             .phone("0987654321")
             .locationIds(List.of(999L)) // Changed location
@@ -284,8 +286,8 @@ class AccountManagementIntegrationTests {
     }
 
     @Test
-    @DisplayName("V-08: Fixed Role Catalogue (GET /api/v1/admin/roles returns 4 fixed roles)")
-    void testRoleCatalogue() throws Exception {
+    @DisplayName("T113: Role Catalogue endpoint removed (GET /api/v1/admin/roles returns 404 Not Found)")
+    void testRoleCatalogueRemoved() throws Exception {
         String token = "role-token";
         String uid = "role-uid-" + UUID.randomUUID();
         accountRepository.save(Account.builder()
@@ -298,12 +300,6 @@ class AccountManagementIntegrationTests {
 
         mockMvc.perform(get("/api/v1/admin/roles")
                 .header("Authorization", "Bearer " + token))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.roles.length()").value(5))
-            .andExpect(jsonPath("$.roles[0].code").value("MEMBER"))
-            .andExpect(jsonPath("$.roles[1].code").value("STAFF"))
-            .andExpect(jsonPath("$.roles[2].code").value("MANAGER"))
-            .andExpect(jsonPath("$.roles[3].code").value("CARRIER"))
-            .andExpect(jsonPath("$.roles[4].code").value("ADMIN"));
+            .andExpect(status().isNotFound());
     }
 }

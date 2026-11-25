@@ -3,12 +3,18 @@ import { useParams, Link } from 'react-router';
 import { useAdminAccounts } from '../hooks/useAdminAccounts';
 import { useWorkshopLocations } from '../hooks/useWorkshopLocations';
 import { ApiError } from '../../../shared/api/http';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
 import { accountMessages } from '../messages';
+import {
+  accountManagementApiClient,
+  InvitationStatusResponse,
+} from '../api/AccountManagementApiClient';
+import { ManualInvitationCopyModal } from './ManualInvitationCopyModal';
 import '../accountmanagement.css';
 
 export const AdminAccountDetailPage: React.FC = () => {
   const t = useT(accountMessages);
+  const fmt = useFormat();
   const { accountId } = useParams<{ accountId: string }>();
   const { locations, error: locationsError } = useWorkshopLocations();
   const {
@@ -46,6 +52,45 @@ export const AdminAccountDetailPage: React.FC = () => {
 
   // Invitation resend state
   const [resendNotice, setResendNotice] = useState<string | null>(null);
+
+  // R-INV Invitation tracking state
+  const [invitationStatus, setInvitationStatus] = useState<InvitationStatusResponse | null>(null);
+  const [manualCopyOpen, setManualCopyOpen] = useState(false);
+  const [countdownText, setCountdownText] = useState<string>('');
+  const [showResendConfirm, setShowResendConfirm] = useState(false);
+
+  const fetchInvitationStatus = () => {
+    if (selectedAccount && selectedAccount.status === 'PENDING_SETUP' && selectedAccount.role !== 'CARRIER') {
+      accountManagementApiClient
+        .getCurrentInvitationStatus(selectedAccount.accountId)
+        .then(res => setInvitationStatus(res))
+        .catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    fetchInvitationStatus();
+  }, [selectedAccount]);
+
+  useEffect(() => {
+    if (!invitationStatus?.expiresAt) return;
+    const updateTimer = () => {
+      const now = Date.now();
+      const exp = new Date(invitationStatus.expiresAt).getTime();
+      const diff = exp - now;
+      if (diff <= 0) {
+        setCountdownText('Đã hết hạn');
+      } else {
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        setCountdownText(`${h}h ${m}m ${s}s`);
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [invitationStatus]);
 
   useEffect(() => {
     if (accountId) {
@@ -215,11 +260,13 @@ export const AdminAccountDetailPage: React.FC = () => {
 
   const handleResendInvitation = async () => {
     setResendNotice(null);
+    setShowResendConfirm(false);
     setActionPending(true);
     try {
       const result = await resendInvitation(selectedAccount.accountId);
       if (result) {
         setResendNotice(t('detail.invitationSent'));
+        fetchInvitationStatus();
       }
     } catch (err: any) {
       setResendNotice(err?.message || t('detail.invitationError'));
@@ -237,13 +284,10 @@ export const AdminAccountDetailPage: React.FC = () => {
         </Link>
       </div>
 
-      {/* Admin Navigation Tabs (Figma F08-F11) */}
+      {/* Admin Navigation Tabs (Figma F08-F11; role catalogue removed per T113) */}
       <nav className="admin-nav-tabs" aria-label={t('detail.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab active">
           {t('detail.navAccounts')}
-        </Link>
-        <Link to="/admin/roles" className="admin-nav-tab">
-          {t('detail.navRoles')}
         </Link>
       </nav>
 
@@ -352,10 +396,23 @@ export const AdminAccountDetailPage: React.FC = () => {
             <button
               type="button"
               className="account-btn account-btn-secondary account-btn-sm"
-              onClick={handleResendInvitation}
+              onClick={() => setShowResendConfirm(true)}
               disabled={actionPending}
+              data-testid="resend-invitation-btn"
             >
               {t('detail.resend')}
+            </button>
+          )}
+
+          {isPendingSetup && !isCarrier && invitationStatus?.deliveryState === 'FAILED' && (
+            <button
+              type="button"
+              className="account-btn account-btn-primary account-btn-sm"
+              onClick={() => setManualCopyOpen(true)}
+              disabled={countdownText === 'Đã hết hạn'}
+              data-testid="manual-invitation-btn"
+            >
+              Sao chép nội dung email thủ công
             </button>
           )}
 
@@ -394,7 +451,95 @@ export const AdminAccountDetailPage: React.FC = () => {
             <span>{resendNotice}</span>
           </div>
         )}
+
+        {showResendConfirm && (
+          <div
+            className="account-alert account-alert-warning"
+            style={{ marginTop: '1rem', backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}
+            data-testid="resend-confirm-dialog"
+          >
+            <p style={{ margin: '0 0 0.5rem 0', color: '#92400e', fontSize: '0.875rem' }}>
+              <strong>Cảnh báo:</strong> Gửi lại thư mời sẽ vô hiệu hóa ngay lập tức liên kết trước đó (và bất kỳ nội dung nào đã sao chép thủ công). Một thời hạn 48 giờ mới sẽ bắt đầu tính từ bây giờ.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="account-btn account-btn-primary account-btn-sm"
+                onClick={handleResendInvitation}
+                disabled={actionPending}
+                data-testid="confirm-resend-action-btn"
+              >
+                Xác nhận gửi lại
+              </button>
+              <button
+                type="button"
+                className="account-btn account-btn-secondary account-btn-sm"
+                onClick={() => setShowResendConfirm(false)}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* R-INV Invitation Detail Card for Pending Internal Accounts */}
+      {isPendingSetup && !isCarrier && (
+        <section className="account-card" aria-labelledby="invitation-heading" data-testid="invitation-status-card">
+          <h2 id="invitation-heading" className="account-card-title">
+            Thông tin thư mời kích hoạt (R-INV)
+          </h2>
+          <table className="account-table">
+            <tbody>
+              <tr>
+                <th style={{ width: '220px' }}>Trạng thái gửi thư:</th>
+                <td>
+                  <span
+                    className={`account-badge ${
+                      invitationStatus?.deliveryState === 'SENT'
+                        ? 'account-badge-active'
+                        : invitationStatus?.deliveryState === 'FAILED'
+                        ? 'account-badge-danger'
+                        : 'account-badge-pending'
+                    }`}
+                  >
+                    {invitationStatus?.deliveryState || 'QUEUED'}
+                  </span>
+                </td>
+              </tr>
+              {invitationStatus && (
+                <>
+                  <tr>
+                    <th>Thời điểm tạo thư mời:</th>
+                    <td>{fmt.dateTime(invitationStatus.createdAt)}</td>
+                  </tr>
+                  <tr>
+                    <th>Hạn chót kích hoạt (48 giờ):</th>
+                    <td>{fmt.dateTime(invitationStatus.expiresAt)}</td>
+                  </tr>
+                  <tr>
+                    <th>Thời gian còn lại:</th>
+                    <td>
+                      <strong
+                        data-testid="invitation-countdown"
+                        style={{
+                          color: countdownText === 'Đã hết hạn' ? '#b91c1c' : '#15803d',
+                        }}
+                      >
+                        {countdownText || 'Đang tính…'}
+                      </strong>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Số lần thử gửi SMTP:</th>
+                    <td>{invitationStatus.attempts ?? 1} / 2</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {/* Edit Internal Profile */}
       {!isAdminAccount && (
@@ -656,6 +801,13 @@ export const AdminAccountDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Manual Invitation Content Modal */}
+      <ManualInvitationCopyModal
+        isOpen={manualCopyOpen}
+        onClose={() => setManualCopyOpen(false)}
+        requestId={invitationStatus?.requestId || selectedAccount?.accountId || 0}
+      />
     </div>
   );
 };

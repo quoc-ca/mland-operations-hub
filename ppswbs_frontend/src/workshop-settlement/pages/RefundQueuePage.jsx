@@ -29,6 +29,7 @@ export default function RefundQueuePage() {
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isStaff = role === 'STAFF';
   const [{ status }, setUrlFilters] = useUrlFilters({ status: '' });
   const setStatus = value => setUrlFilters({ status: value });
   const [selected, setSelected] = useState(null);
@@ -117,7 +118,7 @@ export default function RefundQueuePage() {
   };
 
   return (
-    <OpsPage title={t('refund.title')} intro={t('refund.intro')}>
+    <OpsPage title={t('refund.title')} intro={isStaff ? t('refund.staffIntro') : t('refund.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       {RECEIPT_PROBLEMS.includes(command.error?.code)
         ? <div className="notice error" role="alert"><p>{t(`refund.problem.${command.error.code}`)}</p>{command.error.retryable && <div className="notice-actions"><button type="button" className="button outline" onClick={command.retry}>{t('refund.retry')}</button></div>}</div>

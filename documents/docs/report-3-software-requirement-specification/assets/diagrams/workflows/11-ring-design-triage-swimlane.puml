@@ -21,40 +21,28 @@ elseif (Approved component configurator?) then (yes)
   :Validate selection against Manager-approved\ncomponent catalogue and hard constraints;
   :Continue booking / consultation;
   stop
-else (Reference image)
-  if (Member with eligible booking context?) then (yes)
-    :Give explicit booking-design image consent;
-    :Submit reference image;
+else (Custom design request)
+  if (Signed-in Member?) then (yes)
+    :Describe the ring and/or attach reference images;
+    :Give image-processing consent;
     |System|
-    :Validate image request and rate limit;
-  if (Consent and request accepted?) then (yes)
-    |AI Vision API|
-    :Return image quality and candidate features only;
+    :Validate content, consent, images and rate limit;
+  if (Request accepted?) then (yes)
+    :Create Need Review request;
+    |Staff or Manager|
+    :Review the request;
     |System|
-    :Create pending human-review request;
-    if (Estimated value <= 3,000,000 VND?) then (yes)
-      |Staff|
-      :Review candidate features and estimate context;
-    else (no / Manager authority)
-      |Manager|
-      :Review candidate features and estimate context;
-    endif
-    |System|
-    :Record Accepted, Rejected or Clarification Required\nwith actor, reason, version and audit context;
-    :Continue, revise, or choose another design;
+    :Record Accepted, Rejected or Clarification Required\nwith actor, explanation, version and audit context;
   else (no)
-    :Do not send image to AI;
     :Show consent / validation error;
   endif
-  else (Guest / not eligible)
-    :Do not enter image branch;
-    :Show Member-only requirement;
+  else (Guest)
+    :Prompt sign-in;
   endif
 endif
 
 note right
-Guest cannot enter the image branch. Every valid image request reaches Staff or Manager review.
-AI returns advisory candidate features and image quality only; it never accepts or rejects.
+Only a Member can submit a request. Staff or Manager decides by hand; no AI is used.
 end note
 stop
 @enduml

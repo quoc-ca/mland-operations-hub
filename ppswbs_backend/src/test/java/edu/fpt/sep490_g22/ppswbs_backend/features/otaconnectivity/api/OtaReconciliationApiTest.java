@@ -60,7 +60,7 @@ class OtaReconciliationApiTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ActorRole.class, names = {"MANAGER", "ADMIN"})
+    @EnumSource(value = ActorRole.class, names = {"MANAGER"})
     void authorizedGlobalListReturnsPersistedCorrelationAndOnlyPublicIds(ActorRole role) throws Exception {
         authenticate(role, ActorStatus.ACTIVE);
         when(items.findByStatusOrderByCreatedAtAsc("OPEN")).thenReturn(List.of(item));
@@ -173,7 +173,7 @@ class OtaReconciliationApiTest {
 
     @Test
     void listWithStatusAndCategoryFilter_callsFindByStatusAndCategory() throws Exception {
-        authenticate(ActorRole.ADMIN, ActorStatus.ACTIVE);
+        authenticate(ActorRole.MANAGER, ActorStatus.ACTIVE);
         OtaInboundEvent event = OtaInboundEvent.builder().id(88L)
                 .connection(OtaChannelConnection.builder().providerCode(OtaProvider.KLOOK).build()).build();
         OtaReconciliationWorkItem inboundItem = OtaReconciliationWorkItem.builder().id(50L)

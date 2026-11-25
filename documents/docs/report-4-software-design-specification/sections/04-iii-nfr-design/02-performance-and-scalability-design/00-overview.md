@@ -1,7 +1,7 @@
 ## 2. Performance & Scalability Design
 
-Normal reads and writes return a result or an actionable failure without waiting for long-running email, AI, cleanup, or provider reconciliation work. Such work uses a visible pending or failure state where needed. Booking, payment, and retail expiry jobs must be safe to repeat and must not release a confirmed resource.
+Normal reads and writes return a result or an actionable failure without waiting for email delivery, AI processing, cleanup, or provider reconciliation. Long-running work reports a pending or failed state when needed.
 
-Concurrent booking and checkout requests recheck current capacity, stock, and benefit limits before acceptance. A stale edit or unavailable dependency stops the affected action instead of accepting an uncertain result.
+Booking and checkout recheck capacity, stock, and benefit limits before acceptance. Conflicting edits and unavailable dependencies stop the affected action. Repeated payment evidence and expiry jobs must not duplicate results or release confirmed resources.
 
-Hold and payment deadlines use stored timestamps and repeatable expiry jobs. Peak users, request rate, page latency, and production infrastructure size need measured targets before release.
+Expiry follows stored deadlines. Peak users, request rate, response-time targets, and production capacity remain to be measured and agreed before release.

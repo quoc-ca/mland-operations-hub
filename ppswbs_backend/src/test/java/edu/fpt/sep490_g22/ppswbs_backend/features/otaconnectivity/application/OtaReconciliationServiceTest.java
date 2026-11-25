@@ -90,7 +90,7 @@ class OtaReconciliationServiceTest {
     }
 
     @Test
-    void activeAdminCanRequestResyncAndMappingRemainsSuspendedUntilAllKindsAreDelivered() {
+    void activeManagerCanRequestResyncAndMappingRemainsSuspendedUntilAllKindsAreDelivered() {
         stubDecisionSave();
         when(workItemRepository.save(any(OtaReconciliationWorkItem.class))).thenAnswer(call -> call.getArgument(0));
         mapping = mapping(OtaMappingStatus.SYNC_SUSPENDED);
@@ -100,13 +100,13 @@ class OtaReconciliationServiceTest {
         when(operationsResyncFacade.resync("session-ref-1")).thenReturn(snapshot(9L));
 
         OtaReconciliationActionResult result = service.resolve(91L, "RESYNC_REQUESTED", "resync after gap",
-                "idem-key-0002", actor(ActorRole.ADMIN, 6L));
+                "idem-key-0002", actor(ActorRole.MANAGER, 6L));
 
         assertThat(result.status()).isEqualTo("IN_PROGRESS");
         assertThat(mapping.getStatus()).isEqualTo(OtaMappingStatus.SYNC_SUSPENDED);
         verify(syncDeliveryService).queueAuthoritativeSnapshot(mapping, snapshot(9L));
         assertThat(latestDecision.get().getSourceVersion()).isEqualTo(9L);
-        assertThat(latestDecision.get().getActionScope()).isEqualTo("RECOVERY");
+        assertThat(latestDecision.get().getActionScope()).isEqualTo("RECONCILIATION");
     }
 
     @Test

@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
+import DesignImage from '../components/DesignImage';
 import { designReviewMessages } from '../messages';
 import { wholeAmount } from '../format';
+import { getOrderBadgeInfo, getProductionStatusLabel, getFulfilmentStatusLabel } from '../customOrderStatus';
 import '../designreview.css';
 
 export default function MyCustomOrdersPage() {
@@ -231,21 +233,150 @@ export default function MyCustomOrdersPage() {
                         </span>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '0.35rem 0.75rem',
-                          borderRadius: '9999px',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          backgroundColor: isPaid ? '#dcfce7' : (expired ? '#fee2e2' : '#e0f2fe'),
-                          color: isPaid ? '#166534' : (expired ? '#991b1b' : '#0369a1')
-                        }}>
-                          {isPaid ? t('co.status.paid') : (expired ? t('co.status.expired') : (order.status === 'FULL_PAYMENT_PENDING' ? t('co.status.payPending') : t('co.status.quotePending')))}
-                        </span>
+                        {(() => {
+                          const isClosed = order.status === 'CLOSED' || order.status === 'COMPLETED' || order.fulfilmentStatus === 'DELIVERED';
+                          const isFulfilment = order.status === 'READY_FOR_FULFILMENT' || order.fulfilmentStatus === 'READY_FOR_FULFILMENT';
+                          const isProduction = order.status === 'IN_PRODUCTION' || order.productionStatus === 'IN_PRODUCTION';
+
+                          let badgeText = t('co.status.quotePending');
+                          let badgeBg = '#f1f5f9';
+                          let badgeColor = '#64748b';
+
+                          if (isClosed) {
+                            badgeText = t('co.status.closed');
+                            badgeBg = '#e2e8f0';
+                            badgeColor = '#334155';
+                          } else if (isFulfilment) {
+                            badgeText = t('co.status.readyForFulfilment');
+                            badgeBg = '#dcfce7';
+                            badgeColor = '#15803d';
+                          } else if (isProduction) {
+                            badgeText = t('co.status.inProduction');
+                            badgeBg = '#fef3c7';
+                            badgeColor = '#b45309';
+                          } else if (isPaid) {
+                            badgeText = t('co.status.paid');
+                            badgeBg = '#dcfce7';
+                            badgeColor = '#166534';
+                          } else if (expired) {
+                            badgeText = t('co.status.expired');
+                            badgeBg = '#fee2e2';
+                            badgeColor = '#991b1b';
+                          } else if (order.status === 'FULL_PAYMENT_PENDING') {
+                            badgeText = t('co.status.payPending');
+                            badgeBg = '#e0f2fe';
+                            badgeColor = '#0369a1';
+                          }
+
+                          return (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                              backgroundColor: badgeBg,
+                              color: badgeColor
+                            }}>
+                              {badgeText}
+                            </span>
+                          );
+                        })()}
                         {quote?.quoteGeneration && (
                           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
                             {t('co.quote.generation', { n: quote.quoteGeneration })}
                           </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Linked Design Reference and Preview */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      background: '#f8fafc',
+                      borderRadius: 6,
+                      padding: '0.75rem',
+                      marginBottom: '1rem',
+                      border: '1px solid #edf2f7'
+                    }}>
+                      {/* Thumbnail if available */}
+                      {order.designImages && order.designImages.length > 0 ? (
+                        <DesignImage
+                          image={order.designImages[0]}
+                          alt="Mẫu thiết kế"
+                          style={{
+                            width: 64,
+                            height: 64,
+                            objectFit: 'cover',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            flexShrink: 0
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 64,
+                          height: 64,
+                          background: '#e2e8f0',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.5rem',
+                          flexShrink: 0
+                        }}>
+                          💍
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{t('co.list.linkedDesign')}</span>
+                          {order.designRequestReference ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('requests')}
+                              style={{
+                                background: '#e0f2fe',
+                                color: '#0369a1',
+                                border: '1px solid #bae6fd',
+                                borderRadius: 4,
+                                padding: '2px 8px',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              title={t('co.list.viewRequestInTab')}
+                            >
+                              🔗 {order.designRequestReference}
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>—</span>
+                          )}
+                          {order.designSnapshot?.material && (
+                            <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: 4 }}>
+                              {order.designSnapshot.material}
+                            </span>
+                          )}
+                        </div>
+                        {order.designOriginalDescription && (
+                          <p style={{
+                            margin: '0.35rem 0 0',
+                            fontSize: '0.85rem',
+                            color: '#475569',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }} title={order.designOriginalDescription}>
+                            &ldquo;{order.designOriginalDescription}&rdquo;
+                          </p>
                         )}
                       </div>
                     </div>
@@ -267,13 +398,13 @@ export default function MyCustomOrdersPage() {
                       <div>
                         <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.productionStatus')}</span>
                         <span style={{ color: '#0f172a', fontWeight: 500 }}>
-                          {order.productionStatus || (isPaid ? t('co.list.preparingProduction') : t('co.status.payPending'))}
+                          {getProductionStatusLabel(order.productionStatus, isPaid)}
                         </span>
                       </div>
                       <div>
                         <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>{t('co.list.deliveryStatus')}</span>
                         <span style={{ color: '#0f172a', fontWeight: 500 }}>
-                          {order.fulfilmentStatus || t('co.progress.notHandedOver')}
+                          {getFulfilmentStatusLabel(order.fulfilmentStatus)}
                         </span>
                       </div>
                     </div>
@@ -383,6 +514,47 @@ export default function MyCustomOrdersPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Linked Custom Order Badge if available */}
+                    {req.customOrderReference && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        flexWrap: 'wrap',
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: 6,
+                        padding: '0.5rem 0.75rem',
+                        marginBottom: '0.75rem'
+                      }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534' }}>
+                          ✨ {t('co.list.createdOrder')} <strong>{req.customOrderReference}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('orders')}
+                          style={{
+                            background: '#ffffff',
+                            color: '#166534',
+                            border: '1px solid #86efac',
+                            borderRadius: 4,
+                            padding: '2px 8px',
+                            fontSize: '0.8rem',
+                            fontWeight: 500,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {t('co.list.viewOrderInTab')}
+                        </button>
+                        <Link
+                          to={`/account/my-custom-orders/${req.customOrderReference}`}
+                          style={{ fontSize: '0.8rem', color: '#0284c7', textDecoration: 'underline', marginLeft: 'auto' }}
+                        >
+                          {t('co.list.goToOrderDetail')}
+                        </Link>
+                      </div>
+                    )}
 
                     {req.description && (
                       <p style={{ color: '#334155', fontSize: '0.95rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>

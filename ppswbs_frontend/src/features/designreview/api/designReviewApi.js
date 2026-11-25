@@ -374,5 +374,47 @@ export function designReviewApi(request) {
         auth: true,
       });
     },
+
+    /**
+     * List custom orders for staff/manager operations queue.
+     * Can be filtered by status: PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED, ALL.
+     */
+    async listOperationalCustomOrders({ status = '' } = {}, auth = true) {
+      const query = status ? `?status=${encodeURIComponent(status)}` : '';
+      return request(`/api/v1/custom-orders${query}`, {
+        method: 'GET',
+        auth,
+      });
+    },
+
+    /**
+     * Get operational custom order detail by ID or reference.
+     */
+    async getOperationalCustomOrder(customOrderId, auth = true) {
+      return request(`/api/v1/custom-orders/${encodeURIComponent(customOrderId)}`, {
+        method: 'GET',
+        auth,
+      });
+    },
+
+    /** Private reference image bytes; only the owner, Staff or a Manager receive them. */
+    async getDesignImage(imageReference) {
+      return request(`/api/v1/design-requests/images/${encodeURIComponent(imageReference)}`, { responseType: 'blob' });
+    },
+
+    /**
+     * Update custom order production and fulfilment status (Staff / Manager).
+     */
+    async updateCustomOrderStatus(customOrderId, { productionStatus, fulfilmentStatus, status } = {}, auth = true) {
+      return request(`/api/v1/custom-orders/${encodeURIComponent(customOrderId)}/status`, {
+        method: 'POST',
+        body: {
+          ...(productionStatus ? { productionStatus } : {}),
+          ...(fulfilmentStatus ? { fulfilmentStatus } : {}),
+          ...(status ? { status } : {}),
+        },
+        auth,
+      });
+    },
   };
 }

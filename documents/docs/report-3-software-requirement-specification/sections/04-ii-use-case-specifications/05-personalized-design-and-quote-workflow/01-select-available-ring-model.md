@@ -11,25 +11,24 @@
 
 #### Description
 
-This use case allows a guest or member to browse approved ring models and select one as the starting point for a workshop design. The system displays the model information, supported workshop options, and current availability before the user continues to the configuration step.
+This use case allows a Guest or Member to browse the published ring models offered for a workshop package, and a Member to select one as the starting point of a ring design. A Member may also start from a blank ring. The design is not attached to a workshop booking or ticket.
 
 #### Preconditions
 
-1. The user can access the workshop browsing function.
-2. At least one approved ring model is available in the catalogue.
-3. The ring model catalogue is accessible to the system.
+1. The platform is available.
+2. The catalogue options of the workshop package are published.
+3. To select a model, the actor is a signed-in Member with an active account.
 
 #### Normal Flow
 
 **Select Available Ring Model**
 
-1. The user opens the available ring model catalogue.
-2. The system retrieves approved and active ring models.
-3. The system displays the model name, reference image, description, base price, and availability status.
-4. The user selects a ring model.
-5. The system validates that the selected model is active and available for workshop configuration.
-6. The system stores the selected model in the user's current workshop session.
-7. The system directs the user to Configure Workshop Ring.
+1. The Guest or Member opens the ring model list of a workshop package.
+2. The system retrieves the published models and options.
+3. The system displays each model's image, material, name, description and advisory difficulty when available.
+4. The Member selects a model or chooses a blank ring.
+5. The system validates that the selected model is still published and compatible with the package.
+6. The system opens Configure Workshop Ring with the selected starting point.
 
 #### Alternative Flows
 
@@ -37,6 +36,11 @@ This use case allows a guest or member to browse approved ring models and select
 
 1. The system cannot find an active and approved ring model.
 2. The system displays an availability message and does not create a workshop configuration.
+
+**Step 4 — Actor is a Guest**
+
+1. The system asks the Guest to sign in and sends no protected command.
+2. No design is created.
 
 **Step 5 — Model is unavailable**
 
@@ -50,19 +54,19 @@ This use case allows a guest or member to browse approved ring models and select
 
 #### Postconditions
 
-- The selected ring model is stored in the current workshop session.
-- No order, payment, or custom manufacturing request is created.
-- The user can continue to Configure Workshop Ring.
+- The Member continues to Configure Workshop Ring with the selected starting point; nothing is saved yet.
+- No booking, ticket, order, payment or custom design request is created.
 
 #### Business Rules
 
 - BR-32-01
 - BR-32-02
+- BR-32-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-32-01 | Only approved and active ring models may be selected for workshop configuration. |
-| BR-32-02 | Selecting a ring model does not reserve stock, create an order, or authorize payment. |
-
+| BR-32-01 | Only published and active ring models may be selected. |
+| BR-32-02 | Selecting a ring model does not reserve stock, create a booking or order, or authorize payment. |
+| BR-32-03 | A Guest may browse public models and options; selecting and configuring require a signed-in Member. |

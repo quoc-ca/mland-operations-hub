@@ -7,6 +7,16 @@
 - **Date updated**: 2026-11-24
 - **Status**: Implementation handover with payment-schema and contract remediation in progress.
 
+## Current actor and consent rebaseline — 2026-11-25
+
+- Design Request creation, image upload, tracking, revision and result access are
+  Member-only. Guest sees the entry point and receives a sign-in prompt.
+- Guest quota, Guest tracking token, Guest session and Guest private-request
+  history are retired; older test results are historical evidence only.
+- Reference-image consent is mandatory before storage or submission and is
+  described as temporary storage plus human Staff/Manager review, with no AI
+  image-analysis wording.
+
 ## Summary of Implementation
 
 ## Current synchronization audit — 2026-11-22

@@ -29,16 +29,17 @@
 
 ## Current Verification
 
-## Version 1.2 — 2026-11-22 Guest and saved-design consultation extension
+## Version 1.2 — 2026-11-25 Member-only rebaseline
 
-- Guest can start a contextless consultation or open one from an owner-visible
-  Feature-012 design.
-- Member keeps Firebase-authenticated ownership behavior.
+- Guest consultation is retired. Guest sees the entry point only and is asked to
+  sign in; no Guest session or conversation is created.
+- Member uses Firebase-authenticated ownership behavior and may start a
+  contextless or owned-design consultation.
 - Staff and Manager can participate in the same conversation; Manager retains
   global operational authority and Staff remains location-scoped where required.
 - The design context is safe-projection only and does not approve, quote, book,
   pay for, or mutate the design.
-- Implementation, contract validation and E2E verification are pending.
+- The previous Guest extension is historical and must not be implemented.
 
 **Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING`
 

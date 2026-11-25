@@ -1,5 +1,7 @@
 ### 3.14 Synchronize Workshop Booking
 
+> **Retired (confirmed 2026-11-25):** use case 32 is superseded. Partner callbacks are automatic under the Feature-003.4 OTA contract, which also processes confirmed OTA cancellations; Manager actions are use cases 93 and 94. The text below is kept only as history and must not be implemented.
+
 #### Primary Actors
 
 Manager

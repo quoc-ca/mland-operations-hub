@@ -1,40 +1,83 @@
 @startuml
 !pragma charset UTF-8
-title Staff / Consultant Use Cases
+title 4.3.3 Use Cases for Staff
 left to right direction
 skinparam shadowing false
+skinparam packageStyle rectangle
 skinparam usecase {
   BackgroundColor #FCF9F8
   BorderColor #807663
   ArrowColor #5B5E67
 }
 
-actor "Staff / Consultant" as Staff
+actor Staff
+actor "Payment Gateway" as PaymentGateway
 
-rectangle "Personalized Product Sales and Workshop Booking System" {
-  usecase "Manage workshop\nsessions and capacity" as Capacity
-  usecase "Check in participants\nwith booking code / QR" as Checkin
-  usecase "Record invoice adjustment\nreason, actor and time" as Adjustment
-  usecase "Capture customer consent\nfor invoice adjustment" as Consent
-  usecase "Record cash / bank\nfinal settlement" as Settlement
-  usecase "Create continuation booking\non customer request" as Continuation
-  usecase "Record custody intake\nand release" as Custody
-  usecase "Record third-party\ndelivery handoff" as Handoff
+rectangle "Mland Operations System" {
+  package "Product" {
+    usecase "Manage Products" as UC12
+    usecase "Import Products from Excel" as UC13
+    usecase "Submit Product or Price Proposal" as UC14
+    usecase "Apply Approved Price" as UC16
+    usecase "Manage Product Categories" as UC18
+  }
+  package "Workshop operations" {
+    usecase "Look Up Booking Details" as UC23
+    usecase "Check In Participant" as UC24
+  }
+  package "Ticket settlement and changes" {
+    usecase "Respond to Mland Cancellation Offer" as UC88
+    usecase "View Ticket Folio" as UC77
+    usecase "Add Folio Charge" as UC78
+    usecase "Collect Ticket Balance" as UC79
+    usecase "Close Branch Cash Day" as UC83
+    usecase "Cancel Workshop Tickets" as UC84
+    usecase "Change Ticket Sessions" as UC85
+    usecase "Decide Ticket Change Request" as UC86
+    usecase "Submit Refund Account" as UC89
+    usecase "Record OTA Shop Add-on" as UC95
+  }
+  package "Design and consultation" {
+    usecase "Chat with Staff Consultant" as UC38
+    usecase "Review Custom Design Request" as UC40
+  }
+  package "Retail and custom orders" {
+    usecase "Review & Confirm Retail Order" as UC58
+    usecase "Fulfill Retail Order" as UC59
+    usecase "Record Customer Pickup" as UC60
+    usecase "Mark Order as Prepared for Carrier" as UC61
+    usecase "Fulfil Custom Order" as UC73
+  }
+  package "Reviews" {
+    usecase "Moderate Review" as UC76
+  }
 }
 
-Staff --> Capacity
-Staff --> Checkin
-Staff --> Adjustment
-Staff --> Settlement
-Staff --> Continuation
-Staff --> Custody
-Staff --> Handoff
-Adjustment .> Consent : <<include>>
-Checkin .> Adjustment : <<extend>>\n[extra contributor]
-Continuation .> Custody : <<include>>
+Staff --> UC12
+Staff --> UC13
+Staff --> UC14
+Staff --> UC16
+Staff --> UC18
+Staff --> UC23
+Staff --> UC24
+Staff --> UC77
+Staff --> UC88
+Staff --> UC78
+Staff --> UC79
+Staff --> UC83
+Staff --> UC84
+Staff --> UC85
+Staff --> UC86
+Staff --> UC89
+Staff --> UC95
+Staff --> UC38
+Staff --> UC40
+Staff --> UC58
+Staff --> UC59
+Staff --> UC60
+Staff --> UC61
+Staff --> UC73
+Staff --> UC76
 
-note bottom of Continuation
-Staff alone may create a continuation booking after capacity check.
-end note
+UC79 -- PaymentGateway
 @enduml
-

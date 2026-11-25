@@ -329,7 +329,7 @@ export default function SettlementWorkspacePage() {
                         {isManager && item.status === 'CONFIRMED' && item.method === 'CASH' && item.cashDayClosed && (
                           <button type="button" className="button outline" onClick={() => setReversing(item)}>{t('ws.reverseCash')}</button>
                         )}
-                        {open && isManager && item.status === 'CONFIRMED' && !item.cashDayClosed && (
+                        {open && isManager && item.method !== 'BOOKING_TIME' && item.status === 'CONFIRMED' && !item.cashDayClosed && (
                           <button type="button" className="button outline" onClick={() => setVoiding({ kind: 'collection', id: item.collectionId })}>{t('ws.void')}</button>
                         )}
                       </td>

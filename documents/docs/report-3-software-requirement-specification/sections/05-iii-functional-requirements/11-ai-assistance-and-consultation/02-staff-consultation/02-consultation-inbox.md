@@ -8,7 +8,7 @@ This screen allows Staff and Managers to:
 - Close an open conversation and reopen a closed one.
 - As a Manager, assign a conversation to a branch.
 
-Staff see only conversations of their current active branch and must claim a conversation before replying; Managers see all branches and may reply without claiming. The server enforces role and branch scope. The inbox and the open conversation refresh every 10 seconds while the page is visible.
+Staff see only conversations of their current active branch and the screen asks them to claim an unclaimed conversation before replying (the server does not require the claim); Managers see all branches and may reply without claiming. The server enforces role and branch scope. The inbox and the open conversation refresh every 3 seconds while the page is visible, and again when it regains focus.
 
 | Field Name | Description |
 | --- | --- |
@@ -19,4 +19,4 @@ Staff see only conversations of their current active branch and must claim a con
 | Điều phối chi nhánh | Manager only. Opens a dialog to choose the branch (Hoàn Kiếm or Tây Hồ) and confirm. |
 | Đóng / Mở lại cuộc trò chuyện | Closes or reopens the conversation after a confirmation. |
 | Messages | Messages in order, each labelled "Khách hàng", "Nhân viên tư vấn" or "Quản lý". |
-| Reply input | Up to 2,000 characters with a counter and **Gửi**. For Staff who have not claimed the conversation it is replaced by "Bạn cần tiếp nhận cuộc trò chuyện này trước khi gửi tin nhắn tư vấn." and a claim button; a closed conversation shows the closed notice instead. |
+| Reply input | Up to 2,000 characters with a counter and **Gửi**. For Staff, while nobody has claimed the conversation, it is replaced by "Bạn cần tiếp nhận cuộc trò chuyện này trước khi gửi tin nhắn tư vấn." and a claim button; a closed conversation shows the closed notice instead. |

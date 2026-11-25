@@ -151,7 +151,7 @@ export const messages = {
   en: {
     featureTitle: 'Workshop Ring Design Configuration',
     featureSubtitle: 'Craft and personalize bespoke ring specifications for your upcoming workshop experience.',
-    workshopOnlyNotice: 'Ring configuration applies exclusively to Workshop crafting. Advisory estimate does not alter the package price or the 50% deposit.',
+    workshopOnlyNotice: 'Ring configuration applies exclusively to Workshop crafting. Advisory estimate does not alter the package price or the deposit.',
     advisoryBadge: 'Advisory Estimate',
     advisoryWarning: 'Price estimate and difficulty score are advisory. Official payable amount adheres to your chosen workshop package.',
     unsavedChangesNotice: 'You have unsaved changes. Please click "Save & Evaluate" to create a new authoritative version.',

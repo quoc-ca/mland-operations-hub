@@ -145,7 +145,7 @@ describe('OTA Connectivity API Client Contract Tests (T025)', () => {
     const result = await client.enableBooking('map-101', {
       readinessRecordReference: 'DOC-REC-001',
       checks,
-      reason: 'All 12 gates verified by Admin',
+      reason: 'All 12 gates verified by Manager',
     });
 
     expect(mockHttpClient).toHaveBeenCalledWith('/api/v1/ota-channel-mappings/map-101/booking-enable', {
@@ -153,7 +153,7 @@ describe('OTA Connectivity API Client Contract Tests (T025)', () => {
       body: {
         readinessRecordReference: 'DOC-REC-001',
         checks,
-        reason: 'All 12 gates verified by Admin',
+        reason: 'All 12 gates verified by Manager',
       },
     });
     expect(result.outcome).toBe('APPROVED');

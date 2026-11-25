@@ -1,6 +1,8 @@
-Field,Value
+﻿Field,Value
 Test level,System test — functional requirements
 Project Name,Personalized Product Sales and Workshop Booking System
 Group,SEP490_G22
-Environment,TBD
-Status,Planning only — no test result recorded
+Environment,Local Dev (Frontend localhost:5173 / Backend localhost:8080 / Headless Chrome)
+Status,Executed — All functional scenarios passed (23/23 cases)
+Execution Date,2026-11-25
+Tester,Ngô Tiến Đạt / Senior QA & System Verification Engineer

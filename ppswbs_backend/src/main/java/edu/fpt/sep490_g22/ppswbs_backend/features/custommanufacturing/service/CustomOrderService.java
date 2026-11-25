@@ -5,10 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.CustomDesignReferenceSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequestImage;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.CustomDesignReferenceSnapshotRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestImageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.infrastructure.DesignRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderIdempotencyRecordRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderPaymentContextRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderQuoteRepository;
@@ -34,14 +37,26 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CustomOrderService {
 
+    private static final String PAYMENT_PAID = "PAID";
+    private static final String PAYMENT_REVIEW_REQUIRED = "REVIEW_REQUIRED";
+
+    private record Stage(String previous, String productionStatus, String fulfilmentStatus) {}
+
+    private static final Map<String, Stage> STAGES = Map.of(
+            "IN_PRODUCTION", new Stage("PAID", "IN_PRODUCTION", null),
+            "READY_FOR_FULFILMENT", new Stage("IN_PRODUCTION", "COMPLETED", "READY_FOR_FULFILMENT"),
+            "CLOSED", new Stage("READY_FOR_FULFILMENT", "COMPLETED", "DELIVERED"));
+
     private final CustomOrderRepository customOrderRepository;
     private final CustomOrderQuoteRepository quoteRepository;
     private final CustomOrderPaymentContextRepository paymentContextRepository;
     private final CustomOrderIdempotencyRecordRepository idempotencyRecordRepository;
     private final DesignRequestRepository designRequestRepository;
+    private final DesignRequestImageRepository designRequestImageRepository;
     private final CustomDesignReferenceSnapshotRepository snapshotRepository;
     private final PaymentOwnerRegistry paymentOwnerRegistry;
     private final PaymentGatewayCheckoutPort vnpayAdapter;
+    private final AccountFacade accountFacade;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -192,6 +207,28 @@ public class CustomOrderService {
     }
 
     @Transactional(readOnly = true)
+    public List<CustomOrderProjectionDto> listAllCustomOrdersForOperations(String status) {
+        List<CustomOrder> orders;
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status.trim())) {
+            String targetStatus = status.trim().toUpperCase();
+            orders = customOrderRepository.findByStatusOrderByCreatedAtDesc(targetStatus);
+        } else {
+            orders = customOrderRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return orders.stream()
+                .map(this::mapToOrderDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public CustomOrderProjectionDto getCustomOrderForOperations(String customOrderIdOrRef) {
+        CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
+                .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng gia công tùy chỉnh."));
+        return mapToOrderDto(order);
+    }
+
+    @Transactional(readOnly = true)
     public CustomOrderProjectionDto getMyCustomOrder(Long memberAccountId, String customOrderIdOrRef) {
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
@@ -325,6 +362,11 @@ public class CustomOrderService {
         return mapToOrderDto(order);
     }
 
+    /**
+     * Applies a verified VNPay success only to the quote the payment was started for, while that quote is still the
+     * latest one, payable and unexpired. Any other evidence (late, replaced quote, already paid order, different
+     * amount) is kept on the payment context as {@code REVIEW_REQUIRED} for manual handling; the order is not paid.
+     */
     @Transactional
     public void applyVerifiedFullPayment(
             String customOrderReference,
@@ -339,11 +381,33 @@ public class CustomOrderService {
         CustomOrder order = customOrderRepository.findByCustomOrderReference(customOrderReference)
                 .orElseThrow(() -> new IllegalStateException("Custom order not found: " + customOrderReference));
 
+        CustomOrderPaymentContext context = paymentContextRepository.findByMerchantReference(merchantReference)
+                .filter(ctx -> ctx.getCustomOrderId().equals(order.getId()))
+                .orElseThrow(() -> new IllegalStateException("Payment context not found: " + merchantReference));
+
+        if (PAYMENT_PAID.equals(context.getStatus()) || PAYMENT_REVIEW_REQUIRED.equals(context.getStatus())) {
+            return;
+        }
+
         CustomOrderQuote quote = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
                 .orElseThrow(() -> new IllegalStateException("No quote found for custom order: " + customOrderReference));
 
-        if (amountVnd != quote.getTotalAmount()) {
-            throw new IllegalStateException("Payment amount mismatch: expected " + quote.getTotalAmount() + ", got " + amountVnd);
+        boolean applicable = quote.getId().equals(context.getQuoteId())
+                && "FULL_PAYMENT_PENDING".equals(order.getStatus())
+                && "QUOTE_READY".equals(quote.getStatus())
+                && Instant.now().isBefore(quote.getExpiresAt())
+                && amountVnd == quote.getTotalAmount()
+                && quote.getCurrency().equalsIgnoreCase(currencyCode);
+
+        context.setStatus(applicable ? PAYMENT_PAID : PAYMENT_REVIEW_REQUIRED);
+        context.setVnpayTransactionNo(providerTransactionNumber);
+        context.setUpdatedAt(Instant.now());
+        paymentContextRepository.save(context);
+
+        if (!applicable) {
+            log.warn("Custom order payment needs manual review: orderRef={}, merchantRef={}, orderStatus={}",
+                    customOrderReference, merchantReference, order.getStatus());
+            return;
         }
 
         quote.setStatus("PAID");
@@ -356,16 +420,13 @@ public class CustomOrderService {
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
 
-        paymentContextRepository.findByMerchantReference(merchantReference).ifPresent(ctx -> {
-            ctx.setStatus("PAID");
-            ctx.setVnpayTransactionNo(providerTransactionNumber);
-            ctx.setUpdatedAt(Instant.now());
-            paymentContextRepository.save(ctx);
-        });
-
         log.info("Custom order {} successfully marked PAID and queued for production", customOrderReference);
     }
 
+    /**
+     * Moves a fully paid order one stage forward: PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED. Production and
+     * fulfilment statuses follow from the stage. Repeating the current stage changes nothing.
+     */
     @Transactional
     public CustomOrderProjectionDto updateProductionOrFulfilmentStatus(
             String customOrderIdOrRef,
@@ -377,19 +438,41 @@ public class CustomOrderService {
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh."));
 
-        if (productionStatus != null && !productionStatus.isBlank()) {
-            order.setProductionStatus(productionStatus.trim());
+        String target = overallStatus == null ? "" : overallStatus.trim();
+        Stage stage = STAGES.get(target);
+        if (stage == null
+                || !matches(productionStatus, stage.productionStatus())
+                || !matches(fulfilmentStatus, stage.fulfilmentStatus())) {
+            throw DesignReviewException.badRequest("CUSTOM_ORDER_STATUS_INVALID",
+                    "Trạng thái đơn gia công không hợp lệ.");
         }
-        if (fulfilmentStatus != null && !fulfilmentStatus.isBlank()) {
-            order.setFulfilmentStatus(fulfilmentStatus.trim());
+
+        boolean paid = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
+                .map(quote -> "PAID".equals(quote.getPaymentStatus()))
+                .orElse(false);
+        if (!paid) {
+            throw DesignReviewException.conflict("CUSTOM_ORDER_NOT_PAID",
+                    "Đơn hàng chưa được thanh toán toàn bộ.");
         }
-        if (overallStatus != null && !overallStatus.isBlank()) {
-            order.setStatus(overallStatus.trim());
+        if (target.equals(order.getStatus())) {
+            return mapToOrderDto(order);
         }
+        if (!stage.previous().equals(order.getStatus())) {
+            throw DesignReviewException.conflict("CUSTOM_ORDER_STATUS_CONFLICT",
+                    "Chỉ có thể chuyển đơn sang bước kế tiếp.");
+        }
+
+        order.setStatus(target);
+        order.setProductionStatus(stage.productionStatus());
+        order.setFulfilmentStatus(stage.fulfilmentStatus());
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
 
         return mapToOrderDto(order);
+    }
+
+    private static boolean matches(String requested, String expected) {
+        return requested == null || requested.isBlank() || requested.trim().equals(expected);
     }
 
     public QuoteProjectionDto mapToQuoteDto(CustomOrderQuote quote) {
@@ -434,7 +517,7 @@ public class CustomOrderService {
             default -> null;
         };
 
-        return CustomOrderProjectionDto.builder()
+        CustomOrderProjectionDto.CustomOrderProjectionDtoBuilder builder = CustomOrderProjectionDto.builder()
                 .customOrderReference(order.getCustomOrderReference())
                 .status(order.getStatus())
                 .quote(quoteDto)
@@ -444,6 +527,41 @@ public class CustomOrderService {
                 .fulfilmentStatus(order.getFulfilmentStatus())
                 .createdAt(order.getCreatedAt().toString())
                 .updatedAt(order.getUpdatedAt().toString())
-                .build();
+                .memberAccountId(order.getMemberAccountId())
+                .shippingAddress(order.getShippingAddress());
+
+        if (order.getMemberAccountId() != null && accountFacade != null) {
+            try {
+                accountFacade.findAccountFullName(order.getMemberAccountId()).ifPresent(builder::customerName);
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(builder::customerEmail);
+            } catch (Exception e) {
+                log.debug("Could not resolve account info for memberAccountId {}: {}", order.getMemberAccountId(), e.getMessage());
+            }
+        }
+
+        if (order.getDesignRequestId() != null) {
+            builder.designRequestId(order.getDesignRequestId());
+            designRequestRepository.findById(order.getDesignRequestId()).ifPresent(dr -> {
+                builder.designRequestReference(dr.getRequestReference());
+                builder.designOriginalDescription(dr.getDescription());
+                builder.designRef(dr.getDesignReference());
+                builder.staffExplanation(dr.getDecisionExplanation());
+            });
+
+            List<DesignRequestImage> images = designRequestImageRepository.findByDesignRequestId(order.getDesignRequestId());
+            if (images != null && !images.isEmpty()) {
+                List<ImageProjectionDto> imageDtos = images.stream().map(img -> ImageProjectionDto.builder()
+                        .imageReference(img.getImageReference())
+                        .qualityStatus(img.getQualityStatus())
+                        .qualityReason(img.getQualityReason())
+                        .originalFilename(img.getOriginalFilename())
+                        .fileSizeBytes(img.getFileSizeBytes())
+                        .build()
+                ).collect(Collectors.toList());
+                builder.designImages(imageDtos);
+            }
+        }
+
+        return builder.build();
     }
 }

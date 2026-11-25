@@ -16,7 +16,7 @@ Guest --> System : booking / lookup / deposit
 Member --> System : booking / account / retail
 Staff --> System : operations / custody / adjustments
 Owner --> System : catalogue / rules / override review
-System --> AI : consented image feature request
+System --> AI : basic text support question
 System --> Email : notification request
 System --> Gateway : payment request / verified event
 Admin --> System : technical configuration / monitoring

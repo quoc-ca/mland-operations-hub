@@ -22,7 +22,7 @@ A Staff member with one assigned branch sees the list filtered on that branch by
 | Stock | Total remaining quantity of all sizes at the filtered branch, or at all branches, with "Available {count}" when held quantities make the available quantity lower. |
 | State | Name of the product's status tab; with a branch filter, "Selling stopped at this branch" when the product is stopped there. |
 | Actions | Manager: **Publish** for a never-published draft or approved product, **Hide**, **Show again** for a hidden product, **Review first** for a submitted review and **See reason** for a rejected one. Staff: **Stop selling at branch** / **Resume selling at branch** only while the list is filtered on one of their active branches where the product is sold, and **See reason**. **Details** is shown next to Publish, Hide, Show again and the branch actions, and alone when the row has no action. |
-| New product | Opens New Product. |
-| Import Excel | Opens Import Products from Excel. |
-| Products / Categories | Tabs switching between this list and Product Categories. |
+| New product | Page header button that opens New Product. |
+| Bulk import | Page header button that opens Import Products from Excel. |
+| Product catalogue / Categories | Page header tabs switching between this list and Product Categories. |
 | Pager | Moves between result pages. |

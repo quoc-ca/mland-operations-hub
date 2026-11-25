@@ -3,6 +3,7 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithCustomToken as fbSignInWithCustomToken,
   signOut as fbSignOut,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -85,6 +86,12 @@ class FirebaseAuthClient {
   public async signIn(email: string, password: string): Promise<User> {
     const auth = this.requireAuth();
     const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return cred.user;
+  }
+
+  public async signInWithCustomToken(customToken: string): Promise<User> {
+    const auth = this.requireAuth();
+    const cred = await fbSignInWithCustomToken(auth, customToken);
     return cred.user;
   }
 

@@ -1,5 +1,7 @@
 ### 7.9 Record Customer Pickup
 
+> **Open difference (checked 2026-11-25):** the flow below follows the Feature-008 requirement. The current code lets only Staff of the branch record preparation and handover, and performs no Member sign-in or ownership check at the counter.
+
 #### Primary Actors
 
 Staff; Manager.

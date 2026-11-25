@@ -23,14 +23,14 @@ result cards and price-suggestion screens are retired from Feature-004.
 /design-review-requests/:reviewRequestId
 ```
 
-`/design-requests/new` is Guest/Member accessible. The backend decides Guest proof
-and Member ownership. Review routes are Staff/Manager-only; Admin receives only the
+`/design-requests/new` is Member-only. A Guest may see the entry point, but the
+frontend must show a sign-in prompt before form, upload or tracking access. The backend remains authoritative for Member ownership. Review routes are Staff/Manager-only; Admin receives only the
 approved technical projection.
 
 ## Screens and states
 
 Customer screens: entry/form, five-image gallery, per-image quality feedback,
-submission confirmation, Guest tracking, Member history, request detail and
+submission confirmation, Member history, request detail and
 accepted/rejected result. The Member custom-order area has separate Requests and
 Orders views. A valid quote is paid in full from custom-order detail; there is
 no Add to Cart, deposit or balance-payment screen.
@@ -39,7 +39,7 @@ Operational screens: review queue, review detail, image gallery, mandatory
 explanation form, decision confirmation, terminal conflict and access denied.
 
 Every screen covers loading, empty, invalid input, image processing, blurry image,
-five-image limit, Guest quota, pending review, accepted, rejected, token expiry,
+five-image limit, pending review, accepted, rejected,
 conflict, retry and service failure. Custom-order screens also cover quote ready,
 full-payment pending, payment success, quote expiry/cancellation and request-new-
 quote states.

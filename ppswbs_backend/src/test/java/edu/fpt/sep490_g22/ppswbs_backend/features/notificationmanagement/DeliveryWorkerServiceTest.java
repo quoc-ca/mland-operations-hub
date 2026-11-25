@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InvitationDeliveryFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.DeliveryAttemptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.dao.NotificationRequestRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.entity.DeliveryAttempt;
@@ -44,6 +45,8 @@ class DeliveryWorkerServiceTest {
     @Mock
     private ObjectProvider<JavaMailSender> mailSenderProvider;
     @Mock
+    private ObjectProvider<InvitationDeliveryFacade> invitationDeliveryFacadeProvider;
+    @Mock
     private JavaMailSender javaMailSender;
     @Mock
     private PlatformTransactionManager transactionManager;
@@ -61,6 +64,7 @@ class DeliveryWorkerServiceTest {
                 deliveryAttemptRepository,
                 renditionService,
                 mailSenderProvider,
+                invitationDeliveryFacadeProvider,
                 objectMapper,
                 transactionManager,
                 "noreply@mland.vn"

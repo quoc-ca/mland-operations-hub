@@ -68,8 +68,6 @@ class OtaAuthorizationIT {
         String bearer = bearer("manager");
 
         assertThat(authorization.requireManager(bearer).accountId()).isEqualTo(1L);
-        assertThat(authorization.requireManagerOrAdmin(bearer).accountId()).isEqualTo(1L);
-        assertThat(authorization.requireMappingAdministration(bearer).accountId()).isEqualTo(1L);
         verify(accounts, never()).getLocationScope(1L);
     }
 
@@ -82,13 +80,10 @@ class OtaAuthorizationIT {
                 .isInstanceOf(OtaLocationScopeException.class);
         assertThatThrownBy(() -> authorization.requireManager(bearer("staff")))
                 .isInstanceOf(OtaForbiddenException.class);
-        assertThatThrownBy(() -> authorization.requireAdmin(bearer("staff")))
-                .isInstanceOf(OtaForbiddenException.class);
     }
 
     @Test
-    void adminOnlyAndActiveAccountRulesAreEnforced() {
-        assertThat(authorization.requireAdmin(bearer("admin")).accountId()).isEqualTo(3L);
+    void adminRefusalAndActiveAccountRulesAreEnforced() {
         assertThatThrownBy(() -> authorization.requireManager(bearer("admin")))
                 .isInstanceOf(OtaForbiddenException.class);
         assertThatThrownBy(() -> authorization.requireManager(bearer("inactive")))

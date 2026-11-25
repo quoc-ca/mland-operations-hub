@@ -7,6 +7,16 @@
 - **Date updated**: 2026-11-22
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
 
+## Current actor rebaseline — 2026-11-25
+
+- Guest may view the configurator and change parameters in a local unsaved
+  preview only.
+- Guest cannot create, evaluate, save, archive, consult with or persist a design.
+- The former Guest session, 20-minute expiry, Guest persistence and Guest-facing
+  saved-design test flows are retired from the current contract.
+- Only an authenticated active Member owns persisted design versions and may use
+  recommendation or consultation actions from a saved design.
+
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
 > tracing and audit.

@@ -55,7 +55,7 @@ Expected public boundaries:
   - `loadPackageOptions(...)`
   - `validateCompatibility(...)`
   - `evaluate(...)`
-- `GuestDesignSessionPort`
+- No Guest design-session port; Guest preview is local-only.
   - `issue(...)`
   - `resolve(...)`
   - `touch(...)`
@@ -251,14 +251,14 @@ server contract and replaces the local authoritative version only after success.
 
 - Existing `ring_designs` mapping must be reconciled before JPA entities are
   implemented.
-- Guest session storage must use an approved boundary and enforce 20-minute
-  inactivity expiry.
+- Guest preview state must remain local and non-authoritative; no Guest session
+  storage or expiry workflow is part of Feature-012.
 - Manager-owned rule/catalogue data must expose a stable read facade.
 - Booking must expose an approved attach/snapshot boundary.
 - Module verification must confirm no repository cycle.
 
 The logical design is ready for review. Implementation remains gated by the
-physical `ring_designs` mapping, the Feature-012-owned Guest session table, the
+physical `ring_designs` mapping, the Member ownership boundary, the
 Manager rule facade, the approved WorkshopRingDesignFacade and formal approval.
 The repository migration baseline is `V102`; no migration is created by this
 design package.

@@ -7,6 +7,13 @@
 - **Date updated**: 2026-11-18
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, `V181__review_images.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
+## Current actor rebaseline — 2026-11-25
+
+Feature-011 is Member-write only. Guest email/phone lookup, opaque eligibility
+handles and Guest review creation are retired. Guest may browse public Mland
+reviews and sees a sign-in prompt for write actions. Older Guest-handle sections
+below are historical implementation evidence and are not current requirements.
+
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
 > tracing and audit.

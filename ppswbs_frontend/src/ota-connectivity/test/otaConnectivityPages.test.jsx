@@ -5,6 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { renderRoutes, fakeSession, json, mockFetch } from '../../test/render';
 import { otaConnectivityRoutes } from '../routes';
 
+// The route guard reads the account bootstrap; these tests choose the signed-in role.
+const account = vi.hoisted(() => ({ role: 'MANAGER' }));
+vi.mock('../../features/accountmanagement/hooks/useCurrentAccount', () => ({
+  useCurrentAccount: () => ({ account: { role: account.role, status: 'ACTIVE' }, status: 'ready', retry: () => {} }),
+}));
+
 const open = (path, options = {}) => renderRoutes(otaConnectivityRoutes, { path, language: 'en', ...options });
 
 describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
@@ -110,18 +116,18 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
       expect(screen.getByRole('link', { name: 'Sign In' })).toBeInTheDocument();
     });
 
-    it('surfaces 403 Forbidden error notice when user lacks Manager/Admin authority', async () => {
+    it('surfaces 403 Forbidden error notice when user lacks Manager authority', async () => {
       mockFetch({
         'GET /api/v1/ota-channels': json(403, {
           code: 'FORBIDDEN',
-          message: 'Caller lacks global Manager or Admin access for OTA operations',
+          message: 'Caller lacks global Manager access for OTA operations',
         }),
       });
 
       open('/ota-connectivity/channels');
 
       expect(await screen.findByRole('alert')).toBeInTheDocument();
-      expect(screen.getByText(/You are not allowed to do this|Caller lacks global Manager or Admin access/i)).toBeInTheDocument();
+      expect(screen.getByText(/You are not allowed to do this|Caller lacks global Manager access/i)).toBeInTheDocument();
     });
 
     it('surfaces 409 Conflict stale-version error notice when update conflicts', async () => {
@@ -192,7 +198,7 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
       expect(recordedBody.providerConfirmationEvidenceReference).toBe('CONF-KLOOK-COMMERCIAL-20261101');
     });
 
-    it('Admin booking enable modal renders all 12 readiness checklist gates', async () => {
+    it('Manager booking enable modal renders all 12 readiness checklist gates', async () => {
       let enableBody;
       mockFetch({
         'GET /api/v1/ota-channels': json(200, { items: sampleMappings }),
@@ -207,11 +213,11 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
 
       await screen.findByText('KLOOK');
 
-      // Admin Enable is visible on SALES_CLOSED mapping
-      const enableButton = screen.getByRole('button', { name: 'Admin Enable' });
+      // Enable Sales is visible on SALES_CLOSED mapping
+      const enableButton = screen.getByRole('button', { name: 'Enable Sales' });
       await user.click(enableButton);
 
-      expect(await screen.findByRole('dialog', { name: 'Admin Booking Enablement' })).toBeInTheDocument();
+      expect(await screen.findByRole('dialog', { name: 'Booking Enablement' })).toBeInTheDocument();
 
       // Verify all 12 gates are present in the dialog
       expect(screen.getByText('CONTRACT_ONBOARDING')).toBeInTheDocument();
@@ -229,7 +235,7 @@ describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
 
       // Fill required fields
       await user.type(screen.getByPlaceholderText('e.g. DOC-KLOOK-READINESS-REC-20261101'), 'DOC-KLOOK-AUDIT-20261101');
-      await user.type(screen.getByPlaceholderText('e.g. Reviewed and verified all 12 operational readiness checks'), 'All verified by Admin');
+      await user.type(screen.getByPlaceholderText('e.g. Reviewed and verified all 12 operational readiness checks'), 'All verified by Manager');
 
       const submitEnable = screen.getByRole('button', { name: 'Enable Booking' });
       await user.click(submitEnable);

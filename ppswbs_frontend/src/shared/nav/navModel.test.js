@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GROUPS, isShellPath, locate, pageActions, pageTitle, tabKey, tabLabel, visibleGroups, visibleTabs } from './navModel';
 
-// Every link of the old sidebar (spec 013, decision of 2026-11-22: no menu item is dropped).
+// Every link of the old sidebar (spec 014, decision of 2026-11-22: no menu item is dropped).
 const OLD_MANAGER_LINKS = [
   '/manager/dashboard', '/catalogue-management/products', '/catalogue-management/categories',
   '/promotion-management/programs', '/promotion-management/point-policy',
@@ -60,10 +60,10 @@ describe('navigation model', () => {
     expect(tabLabel(sessions, 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
   });
 
-  it('shows an Admin account management as home and no workshop operations', () => {
+  it('shows an Admin account management as home and no workshop operations, with role catalogue removed (T113)', () => {
     const shown = links('ADMIN');
     expect(shown).toContain('/admin/accounts');
-    expect(shown).toContain('/admin/roles');
+    expect(shown).not.toContain('/admin/roles');
     expect(shown).not.toContain('/home');
     expect(shown).not.toContain('/operations/sessions');
     expect(shown).not.toContain('/settlement/change-requests');

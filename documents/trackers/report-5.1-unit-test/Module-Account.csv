@@ -1,0 +1,6 @@
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-ACC-001,Verified Firebase identity is available,Missing or expired bearer token,Authentication fails closed with 401,Security,Passed,2026-11-25,QA Agent,,,,,,,,Identity gate
+UT-ACC-002,Active Staff has one assigned Workshop Location,Resource belongs to another location,Staff action is denied without data leakage,Security,Passed,2026-11-25,QA Agent,,,,,,,,Location scope
+UT-ACC-003,Active Manager has global authority,Manager acts on another location resource,Authorized action succeeds without Staff scope lookup,Normal,Passed,2026-11-25,QA Agent,,,,,,,,Manager authority
+UT-ACC-004,Member owns resource,Stale optimistic version is submitted,Mutation is rejected with conflict and no partial update,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Optimistic locking
+UT-ACC-005,Account already exists for Firebase UID,Concurrent bootstrap commands are submitted,At most one account is created,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Unique identity invariant

@@ -2214,7 +2214,7 @@ Rules:
 Feature-011 owns review content for `WORKSHOP_SESSION` and `RETAIL_PRODUCT`.
 The source is an opaque verified `WORKSHOP_ATTENDANCE` or `RETAIL_ORDER_LINE`
 reference supplied by the owning facade. It does not store branch reviews or
-Google Places review content.
+Google review data; Google integration is outside the V1 data model.
 
 Logical tables are `reviews`, `review_revisions`, `review_replies`, and
 `review_moderation_events`. `reviews` has a unique constraint on
@@ -2244,18 +2244,17 @@ row represents one design version; `source_design_id` records lineage between
 versions and no separate version table is required in V1. `design_version` is a
 logical sequence whose physical representation requires approval.
 
-The feature also owns logical `guest_design_sessions` with an opaque
-reference/digest, bound design reference, `last_activity_at`, `expires_at` and
-`ACTIVE/EXPIRED/REVOKED` state. Guest sessions expire after 20 minutes of
-inactivity. Member history is retained for three years. Archive is soft-delete;
+The feature does not own a Guest design-session table. Guest preview state is
+local and non-authoritative; only authenticated Member designs are persisted.
+Member history is retained for three years. Archive is soft-delete;
 history and audit are not hard-deleted.
 
 Evaluation reads catalogue tables through a Manager-owned rule facade. No
 duplicate catalogue tables or hard-coded numerical formula is created in
 Feature-012. Evaluation snapshots follow the P2.9 envelope and decimal-string
-money representation. Booking receives an immutable snapshot through
-`attachAndLockDesignForBooking(...)`; Feature-003 does not query these tables
-directly.
+money representation. Feature-004 and Feature-013 receive safe Member-owned
+snapshots through their facades; Feature-003 does not attach or query these
+tables directly.
 
 No migration is created in this documentation step. The repository migration
 baseline is `V102`; any future Feature-012 migration must be append-only and
@@ -2271,14 +2270,13 @@ greater than `V102` after repository and `flyway_schema_history` verification.
 ## Feature-004 — Design Request and Human Review (logical model, 2026-11-20)
 
 Feature-004 owns `design_requests`, `design_request_images`,
-`guest_design_sessions`, `guest_request_quota`, `design_review_decisions`,
+`design_review_decisions`,
 `design_request_idempotency_records` and `design_request_audit_events`.
 
-The request supports Guest/Member ownership, at most five images, server-confirmed
+The request supports Member ownership, at most five images, server-confirmed
 quality status and `NEED_REVIEW → ACCEPTED/REJECTED` lifecycle. Staff and Manager
 have equal business authority; Admin has no moderation authority. Every decision
-requires an explanation. Guest quota is five requests per calendar day and must be
-atomic. Tokens and image storage references are opaque and never raw-logged.
+requires an explanation. Image storage references are opaque and never raw-logged.
 
 Feature-004 accesses Feature-012 only through a public snapshot facade and does
 not reference its repositories or entities. The current request lifecycle also
@@ -2316,7 +2314,7 @@ append-only and use a version greater than `V184` after repository and
   created.
 - Feature-004 owns its immutable custom-design reference snapshot and does not
   mutate Feature-012 rows.
-- Feature-013 owns consultation history and Guest opaque session data. Chat
+- Feature-013 owns consultation history for authenticated Members. Chat
   context stores only safe reference/version metadata and never raw design
   payload or private contact data.
 - No migration is authorized by this documentation update; schema changes must

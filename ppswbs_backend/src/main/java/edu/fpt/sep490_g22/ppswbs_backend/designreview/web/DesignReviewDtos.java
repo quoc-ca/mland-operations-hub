@@ -229,6 +229,7 @@ public class DesignReviewDtos {
         private String trackingLink;
         private String createdAt;
         private String updatedAt;
+        private String customOrderReference;
     }
 
     @Data
@@ -263,6 +264,20 @@ public class DesignReviewDtos {
         private String fulfilmentStatus;
         private String createdAt;
         private String updatedAt;
+
+        // Customer and delivery fields
+        private Long memberAccountId;
+        private String customerName;
+        private String customerEmail;
+        private String shippingAddress;
+
+        // Linking fields to DesignRequest (DR)
+        private String designRequestId;
+        private String designRequestReference;
+        private String designOriginalDescription;
+        private List<ImageProjectionDto> designImages;
+        private String designRef;
+        private String staffExplanation;
     }
 
     @Data

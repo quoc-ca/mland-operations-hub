@@ -1,5 +1,12 @@
 # Feature-004 Research — Human Review Rebaseline
 
+## Current rebaseline — 2026-11-25
+
+Feature-004 is Member-only for request creation, image submission, tracking and
+result access. Guest may see the entry point and sign-in prompt only. Earlier
+Guest quota, tracking-token and Guest-session findings in this historical
+research log are superseded and must not be implemented.
+
 Date created: 2026-11-20  
 Date updated: 2026-11-20  
 Author: Ngô Tiến Đạt  

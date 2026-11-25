@@ -1,0 +1,5 @@
+﻿Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-DES-001,Member request stores image only after consent,Submit multipart image without consent then with consent,First command stores nothing; second creates valid request,Member and storage stub available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-004
+IT-DES-002,Quality gate blocks blurry image,Submit an image that fails quality validation,No request or storage record is created,Quality fixture available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-004
+IT-DES-003,Design snapshot is immutable,Attach a non-archived Member design then edit source design,Request snapshot remains unchanged,Feature-004 and Feature-012 available,Passed,2026-11-25,QA Agent,,,,,,,,Cross-feature snapshot
+IT-DES-004,Human review clarification loop,Staff requests clarification and Member submits current revision,History is preserved and latest version returns to review,Review fixtures available,Passed,2026-11-25,QA Agent,,,,,,,,Optimistic version

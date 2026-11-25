@@ -372,13 +372,22 @@ export default function MainTopbar() {
                             </>
                           )}
                           {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
-                            <Link
-                              to="/design-review-requests"
-                              className="main-topbar-dropdown-item"
-                              role="menuitem"
-                            >
-                              <span>🔨</span> {t('menu.designReviewQuote')}
-                            </Link>
+                            <>
+                              <Link
+                                to="/design-review-requests"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>🔨</span> {t('menu.designReviewQuote')}
+                              </Link>
+                              <Link
+                                to="/staff/custom-orders"
+                                className="main-topbar-dropdown-item"
+                                role="menuitem"
+                              >
+                                <span>⚙️</span> {t('menu.customOrdersOps')}
+                              </Link>
+                            </>
                           )}
                           {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
                             <Link
