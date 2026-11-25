@@ -317,8 +317,11 @@ public class DesignRequestController {
 
         @GetMapping("/images/{imageReference}")
         public ResponseEntity<byte[]> getImage(
-                        @PathVariable("imageReference") String imageReference) {
-                DesignRequestImage imageEntity = designAnalysisService.getImageEntity(imageReference);
+                        @PathVariable("imageReference") String imageReference,
+                        Authentication authentication) {
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+                DesignRequestImage imageEntity = designAnalysisService.getImageForViewer(imageReference, callerUid,
+                                authentication.getAuthorities());
                 byte[] bytes = designAnalysisService.getImageBytes(imageReference);
 
                 if (bytes == null || bytes.length == 0) {
@@ -328,6 +331,7 @@ public class DesignRequestController {
                 return ResponseEntity.ok()
                                 .contentType(MediaType.parseMediaType(imageEntity.getContentType()))
                                 .contentLength(bytes.length)
+                                .cacheControl(org.springframework.http.CacheControl.noStore())
                                 .body(bytes);
         }
 }
