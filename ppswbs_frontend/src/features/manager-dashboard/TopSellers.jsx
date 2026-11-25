@@ -12,10 +12,12 @@ import { managerDashboardMessages } from './messages';
 export default function TopSellers({ resource, format }) {
   const t = useT(managerDashboardMessages);
   const title = t('top.title');
+  // FR-033: a 401/403 is access denial (FR-017, FR-018), worded as the KPI report words it and with no Retry.
+  const denied = resource.error && [401, 403].includes(resource.error.status);
   if (resource.error) return <section className="md-panel md-top" aria-label={title}>
     <div className="md-panel-head"><h2>{title}</h2></div>
-    <div className="notice error md-notice" role="alert"><p>{t('top.loadError')}</p>
-      <button type="button" className="button small outline" onClick={resource.reload}>{t('retry')}</button></div>
+    <div className="notice error md-notice" role="alert"><p>{denied ? t(`error.${resource.error.status}`) : t('top.loadError')}</p>
+      {!denied && <button type="button" className="button small outline" onClick={resource.reload}>{t('retry')}</button>}</div>
   </section>;
   if (!resource.data) return <section className="md-panel md-top" aria-label={title} aria-busy="true">
     <div className="md-panel-head"><h2>{title}</h2></div><Loading />

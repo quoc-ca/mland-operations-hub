@@ -193,6 +193,38 @@ describe('FE-10 Manager dashboard', () => {
     expect(screen.getByText('Chưa có vé workshop nào được xác nhận trong kỳ này.')).toBeInTheDocument();
   });
 
+  it('treats a 403 on the best sellers as access denial with no Retry, keeping the rest of the dashboard', async () => {
+    mockFetch({ ...routes(), 'GET /api/v1/executive-reports/top-sellers': json(403, { code: 'MANAGER_REPORTING_FORBIDDEN', message: 'no' }) });
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    const top = within(await screen.findByRole('region', { name: 'Bán chạy nhất' }));
+    expect(await top.findByText(/Chỉ Manager được phân công chi nhánh/)).toBeInTheDocument();
+    expect(top.queryByText('Không tải được danh sách bán chạy.')).not.toBeInTheDocument();
+    expect(top.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+    expect(top.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(kpis().getByText('Tổng doanh thu')).toBeInTheDocument();
+  });
+
+  it('treats a 401 on the best sellers as a lost session: the safe sign-in state, no revenue and no Retry', async () => {
+    mockFetch({ ...routes(), 'GET /api/v1/executive-reports/top-sellers': json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'no' }) });
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    expect(await screen.findByText('Đăng nhập bằng tài khoản Manager để xem dashboard.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Chỉ số chính' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Bán chạy nhất' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+  });
+
+  it('offers Retry when the best sellers fail for any other reason', async () => {
+    const calls = mockFetch({ ...routes(), 'GET /api/v1/executive-reports/top-sellers': json(503, { code: 'SOURCE_UNAVAILABLE', message: 'no' }) });
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    const top = within(await screen.findByRole('region', { name: 'Bán chạy nhất' }));
+    expect(await top.findByText('Không tải được danh sách bán chạy.')).toBeInTheDocument();
+    fireEvent.click(top.getByRole('button', { name: 'Thử lại' }));
+    await waitFor(() => expect(calls.filter(c => c.path === '/api/v1/executive-reports/top-sellers')).toHaveLength(2));
+  });
+
   it('names a trend source that could not be read and draws it as unknown', async () => {
     mockFetch(routes(report(), trend({
       unavailable: ['ATTENDANCE'],
