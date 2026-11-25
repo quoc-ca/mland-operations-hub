@@ -6,7 +6,7 @@ This screen allows Guests, Members, Staff and Managers to:
 - See the average rating and the review count, both calculated from public reviews only; hidden and removed reviews never appear and are not counted.
 - Sort the list and filter it by review target and star rating.
 - Read the reviews of one workshop package across all its sessions when the page is opened from that package.
-- As a Guest, go to Guest Review Lookup; as a Member, go to Eligible Review Sources to write a review. Staff and Managers get neither entry point.
+- As a Guest, see the public review list and a sign-in prompt when choosing to write a review; as a Member, go to Eligible Review Sources to write a review. Staff and Managers get neither customer entry point.
 - Open a review's details.
 
 Reviewer names are partly masked (for example "H*** Quốc") or shown as anonymous; email, phone and transaction data are never shown.
@@ -15,7 +15,7 @@ Reviewer names are partly masked (for example "H*** Quốc") or shown as anonymo
 | --- | --- |
 | Title | "Đánh giá từ khách hàng"; with a package filter, "Đánh giá của gói: {package name}" and the link "Xem đánh giá của tất cả các gói" back to the full list. |
 | Rating summary | Average rating with one decimal, star display and the number of public reviews. |
-| Tìm giao dịch đủ điều kiện / Viết đánh giá | Shown to a signed-out visitor (opens Guest Review Lookup) or to a signed-in Member (opens Eligible Review Sources). |
+| Tìm giao dịch đủ điều kiện / Viết đánh giá | Shown to a signed-out visitor as a sign-in prompt or to a signed-in Member as Eligible Review Sources. |
 | Sắp xếp theo | "Mới nhất" (default), "Đánh giá cao nhất" or "Đánh giá thấp nhất"; reviews with the same rating are ordered newest first. |
 | Loại trải nghiệm | "Tất cả trải nghiệm", "Đánh giá dành cho Workshop" or "Đánh giá dành cho Sản phẩm". |
 | Số sao (1–5) | "Tất cả" or one star value from 5 to 1. |

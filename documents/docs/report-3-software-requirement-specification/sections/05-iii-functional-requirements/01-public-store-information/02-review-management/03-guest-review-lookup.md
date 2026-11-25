@@ -1,4 +1,8 @@
-#### 1.2.3 Guest Review Lookup
+#### 1.2.3 Guest Review Lookup — Retired
+
+Guest email/phone lookup and opaque review eligibility handles are retired from
+V1. A Guest who selects a review-writing action is asked to sign in; no lookup
+request, source disclosure or review creation occurs.
 
 This screen allows Guests to:
 

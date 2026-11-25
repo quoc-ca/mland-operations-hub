@@ -15,7 +15,7 @@ frontend or backend actions.
 
 ## W1 — Load package-scoped options
 
-1. Guest/Member enters configuration after selecting a published package.
+1. Guest or Member enters the public configurator after selecting a published package; Guest changes remain local only.
 2. UI calls `GET /workshop-design-options` with opaque package reference.
 3. Controller validates package visibility and query shape.
 4. Application service asks the package/catalogue boundary for active options.
@@ -29,7 +29,7 @@ typed error; no design mutation occurs. Retry is an explicit read retry.
 
 1. User selects `BLANK` or a published model.
 2. Client sends `POST /workshop-designs` with package context and idempotency key.
-3. Backend authenticates Member or resolves/creates the opaque Guest session.
+3. Backend authenticates the Member before any create command; a Guest attempting the command receives a sign-in response.
 4. Backend verifies model publication and package compatibility.
 5. Service creates a private draft boundary.
 6. Response returns an opaque design reference and safe current state.
@@ -44,7 +44,7 @@ key. A changed payload under the same key returns conflict.
 3. Client sends the complete current configuration, `Idempotency-Key` and
    `If-Match-Version`.
 4. Controller validates transport and rejects client price/difficulty fields.
-5. Service verifies Guest session or Member ownership.
+5. Service verifies Member ownership.
 6. Rules boundary validates active options, package compatibility, cardinality,
    placement, size and engraving constraints.
 7. Service calculates server-owned estimate/difficulty with `rules_version`.
@@ -67,21 +67,12 @@ retrying with a new command key. An identical retry replays the original result.
 
 ## W5 — Consultation/reference handoff
 
-1. Guest or Member selects `Tư vấn thiết kế` from a saved-design page.
-2. Feature-012 verifies ownership or the active Guest session.
+1. Member selects `Tư vấn thiết kế` from a saved-design page.
+2. Feature-012 verifies Member ownership.
 3. Feature-012 returns a safe design snapshot to Feature-013 through the approved
    boundary; no raw session value, internal database ID or private data crosses it.
 4. Feature-013 opens a new or existing consultation context without creating a
    booking, payment, approval or order mutation.
-
-## W6 — Guest session expiry
-
-1. Each successful read or write touches `last_activity_at`.
-2. A background cleanup or request-time check expires sessions inactive for 20
-   minutes.
-3. Expired references return `401 DESIGN_SESSION_EXPIRED`.
-4. No design mutation or booking attachment is permitted after expiry.
-5. The response does not reveal internal design existence or owner data.
 
 ## W7 — Member history and archive
 

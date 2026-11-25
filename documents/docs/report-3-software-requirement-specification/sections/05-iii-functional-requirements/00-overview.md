@@ -23,7 +23,7 @@ This section specifies the 98 screens of the screen list, grouped by feature and
 - Staff may prepare the custom-order input for quoting; Manager approves the complete quote before the one-time payment request. There is no balance-payment request. Product/package price review is a separate workflow, and retail price application/publication remain separate actions.
 - Revenue on the Manager Dashboard is Manager-only. Admin provides supported technical/account configuration and minimized support, without revenue, customer impersonation, business-price approval or paid override.
 - Pickup and actual manual GHTK handoff end the shop-side fulfilment flow. Apart from the GHTK delivery-fee query, no GHTK API, courier tracking, cancellation or refund workflow is added; the Carrier role records the courier steps in the Carrier Orders screen.
-- Image consent precedes eligible storage/analysis. Apply purpose-specific media retention; Google Places content is read-only with attribution and is not persisted.
+- Image consent precedes eligible storage/analysis. Apply purpose-specific media retention; Google Maps/Places and external review-provider content are outside V1.
 
 Background jobs and external interfaces are specified after the screen sections, using the existing inventories. Provider-specific contracts or operational values without approved evidence remain TBD.
 

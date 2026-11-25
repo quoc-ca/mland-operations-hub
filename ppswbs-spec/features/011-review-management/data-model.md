@@ -48,26 +48,14 @@ V1 uses a realtime query over `review` filtered by immutable target and `status 
 
 Do not create direct foreign keys into Workshop or Retail tables until their physical ownership contracts are approved. Opaque references must be validated through the corresponding facade. A migration is only a proposal at this stage: first scan all Flyway versions and target `flyway_schema_history`, choose an unused append-only version, test clean and upgrade paths, and define recovery before implementation.
 
-No cascade delete may remove review, revision, reply or moderation history. Sensitive Guest lookup inputs are not stored as raw public fields; if a forensic hash is needed, its purpose and protection must be approved separately.
+No cascade delete may remove review, revision, reply or moderation history. Guest lookup inputs are not accepted or stored.
 
 ## Backend implementation additions
-
-### `guest_eligibility_handle` (Ratified 2026-11-04)
-
-The handle is an opaque, non-reversible value issued after a successful Guest
-lookup. Logical fields are `handle_id`, protected handle digest, source-set
-binding, normalized-contact proof reference, issued time, expiry time, status,
-consumed/replay metadata and correlation ID. Raw email, phone and source IDs
-must not be encoded into the client-visible value or written to application
-logs. The handle is valid only for its bound source set and is resolved again
-at create time. Per user ratification on 2026-11-04: TTL is 30 minutes, stored in MySQL `guest_eligibility_handles`, and valid for all sources in that lookup session.
-Replay with the same Idempotency-Key returns the existing review idempotently.
-
 
 ### `review_idempotency_record`
 
 Feature-owned idempotency boundary for create, owner edit, visibility and reply
-commands: actor/guest-proof scope, idempotency key, canonical request digest,
+commands: Member actor scope, idempotency key, canonical request digest,
 command type, lifecycle, response reference, created/expiry timestamps and
 correlation ID. A key reused with a different canonical request is a conflict;
 an identical completed request replays the original result without another

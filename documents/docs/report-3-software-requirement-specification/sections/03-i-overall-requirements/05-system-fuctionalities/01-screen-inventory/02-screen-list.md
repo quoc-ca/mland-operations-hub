@@ -31,7 +31,7 @@
 | 27 | Refund Account | Workshop Settlement | Allows a refund recipient to enter their bank account through a single-use link sent by email. |
 | 28 | Public Review List | Review Management | Lists public reviews with target and rating filters, masked names and rating aggregates calculated from public reviews only. |
 | 29 | Review Details | Review Management | Displays one public review with the current Manager reply, if any. |
-| 30 | Guest Review Lookup | Review Management | Allows a Guest to find the workshop attendances and retail purchases they can review by email or phone. |
+| 30 | Member Eligible Review Sources | Review Management | Allows an authenticated Member to view workshop attendances and retail purchases eligible for review. Guest access shows a sign-in prompt instead. |
 | 31 | Create Review | Review Management | Collects a 1–5 rating and optional text up to 2,000 characters for a checked-in workshop or a picked-up or delivered retail item; a valid review is public at once. |
 | 32 | Shopping Cart | Order Management and Fulfillment | Allows Members to review their own cart, update variant quantities, remove items and apply vouchers; prices remain indicative until checkout. |
 | 33 | Retail Checkout | Order Management and Fulfillment | Allows Members to choose GHTK delivery or branch pickup, the address and the payment method (VNPay or cash at the counter), review the payable amount and place the order. |

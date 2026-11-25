@@ -6,11 +6,11 @@ Admin
 
 #### Secondary Actors
 
-Payment Gateway, External Registration System, AI API, Google Maps API, Mail Gateway, Cloud Storage Service
+Payment Gateway, External Registration System, AI API, Mail Gateway, Cloud Storage Service
 
 #### Description
 
-Allows the Admin to maintain approved credentials, endpoints, and activation status for the system's third-party integrations, including VNPay, Klook, Gemini, Google Maps/Places, Mland SMTP, and cloud storage.
+Allows the Admin to maintain approved credentials, endpoints, and activation status for the system's third-party integrations, including VNPay, Klook, Gemini, Mland SMTP, and cloud storage. Google Maps/Places is not a configured integration in V1.
 
 #### Preconditions
 

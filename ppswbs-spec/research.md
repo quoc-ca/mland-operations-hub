@@ -6,7 +6,7 @@
 
 Mland may store reviews only for workshop sessions and retail products when the
 source attendance/order-line eligibility is verified. This does not change the
-read-only Google Maps/Places boundary: Google review content is not persisted
+retirement of the former Google Maps/Places boundary: no Google review content or provider integration is used in V1
 and nothing is written back to Google. Guest email/phone lookup deliberately has
 no OTP or rate limit in V1; source matching, one-review-per-source uniqueness,
 idempotency, audit and public identity masking are the selected mitigations.

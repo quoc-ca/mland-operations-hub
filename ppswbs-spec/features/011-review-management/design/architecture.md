@@ -72,7 +72,8 @@ to view data and never exposes persistence entities.
 The client uses:
 
 - public calls without Firebase identity for public listing/detail;
-- Guest lookup and create according to the approved opaque eligibility-handle contract;
+- Public read with Member-only eligibility and create; Guest lookup and opaque
+  eligibility handles are retired;
 - Firebase Bearer identity for Member, Staff and Manager operations;
 - `Idempotency-Key` for every write command;
 - `If-Match-Version` for owner edit, moderation and reply edit where required.
@@ -106,7 +107,7 @@ The backend implementation has been aligned with the approved OpenAPI/spec. Live
 integration still requires verification of:
 
 - header-based idempotency and optimistic-version behavior;
-- Guest retail-product eligibility and source revalidation;
+- Member retail-product eligibility and source revalidation;
 - owner-safe detail projection and cross-user existence behavior;
 - Admin technical-only permission boundary;
 - DTO, status-code, header and migration behavior against the contract.

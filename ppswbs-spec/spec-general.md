@@ -1,12 +1,12 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-25
 **Author**: Phan Son
 **Last updated by**: Phan Sơn
 
-**Version**: 0.9
-**Status**: Working Agreement (Updated 2026-11-20: five-role vocabulary and signed-in internal-route 404 masking)
+**Version**: 0.10
+**Status**: Working Agreement (Updated 2026-11-25: Google integration retired; Member-only design, review and consultation actions)
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
 
@@ -39,7 +39,9 @@ When older paragraphs in this file mention Gemini, Basic AI, AI pricing,
 independent AI analysis or automatic custom-order acceptance, this integration
 baseline supersedes those statements for the affected Feature-004 flow.
 
-**V1 scope summary:** Account and fixed-role management, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, human-reviewed custom design requests, Member retail, loyalty/promotions, custom manufacturing, Feature-011 reviews for workshop sessions and retail products, workflow email, operational administration/dashboard, read-only Google Maps information, and approved OTA workshop connectivity. Feature-004 no longer uses AI for design analysis, review decisions or pricing. Klook and GetYourGuide are OTA candidates; Mland may synchronize their schedules and availability in sales-closed preparation mode, but neither may accept bookings until its own feature gates pass, including proof that its voucher/ticket delivery supports one Mland-scannable ticket per participant. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts, fixed-role reference, operational parameters, and approved integration credentials. The fixed role vocabulary is defined in [Actors & Roles](#2-actors--roles).
+**V1 scope summary:** Account and fixed-role management, public product and workshop catalogues, workshop schedules/bookings, workshop ring design, human-reviewed custom design requests, Member retail, loyalty/promotions, custom manufacturing, Feature-011 reviews for workshop sessions and retail products, workflow email, operational administration/dashboard, and approved OTA workshop connectivity. Google Maps/Places and Google review/rating integration are not part of the project scope. Feature-004 no longer uses AI for design analysis, review decisions or pricing. Klook and GetYourGuide are OTA candidates; Mland may synchronize their schedules and availability in sales-closed preparation mode, but neither may accept bookings until its own feature gates pass, including proof that its voucher/ticket delivery supports one Mland-scannable ticket per participant. Staff operates product catalogue and manually maintained available-to-sell quantities. Managers operate workshop schedules/capacity and business approvals, promotions, and the executive dashboard. Admins manage accounts, fixed-role reference, operational parameters, and approved integration credentials. The fixed role vocabulary is defined in [Actors & Roles](#2-actors--roles).
+
+**Google integration retirement (2026-11-25):** Google Maps, Google Places, Google rating/review display, Google review links, and related credentials are outside the V1 product scope. No feature may add a Google review import, write-back, attribution/link, or map provider dependency without a new approved product decision.
 
 **Technology context:** Separate React + Vite frontend with client-side rendering and Java 21/Spring Boot backend communicating through REST APIs; Spring Data JPA/JPA, Flyway, and MySQL. The backend does not render the application UI; SSR/Thymeleaf/htmx are no longer the UI baseline. HTML email templates are separate from UI rendering. Firebase Authentication remains the identity-provider baseline. Firebase Hosting is preview-only; production origins, hosting, database deployment, CDN behavior, and repository separation are not selected by this decision.
 
@@ -64,7 +66,6 @@ baseline supersedes those statements for the affected Feature-004 flow.
 | Consultation Chat | Internal Feature-013 module | Stores Member text consultations with Staff/Manager against safe Feature-004/012 design context projections. It does not make design, price, booking or payment decisions. |
 | Mail Gateway | External provider | Mland-domain SMTP service for account-security and workflow messages such as QR tickets, payment requests/receipts, review results, and order-status messages. It is not a notification centre. |
 | Cloud Storage Service | External provider | Stores catalogue media and eligible custom-manufacturing reference images subject to retention/deletion rules. |
-| Google Maps API | External provider | Google Maps Embed and Places provide read-only map and permitted public review/rating information with attribution and a link to Google Maps. |
 | Delivery Provider | External provider | Giao Hàng Tiết Kiệm (GHTK), used only for Staff-recorded manual handoff; no V1 carrier API integration. |
 | External Registration System | External provider | Klook and GetYourGuide are OTA candidates. Mland remains source of truth for capacity; each provider requires separate onboarding and proof of ticket-per-participant delivery before 003.4 go-live. |
 
@@ -131,7 +132,7 @@ The following system-level requirements summarize Report 2/3 and their [business
 ### Custom manufacturing and fulfilment
 
 * Only a Member may submit a custom-manufacturing order using a reference image or supported manual configuration, an optional requested deadline, and a fulfilment method. This is separate from independent Design Request review.
-* Manager/Admin configuration defines minimum deadline, unavailable deadline dates, and maximum queue size. The system assigns the earliest valid date when none is requested and auto-accepts only when deadline and queue-capacity conditions pass.
+* Custom-order queue configuration is not part of the current V1 scope. Custom-order quote expiry and payment deadlines follow the approved custom-order contract; no queue slot is auto-created by this shared specification.
 * An accepted custom request receives a Manager-approved quote. The Member must pay the complete quoted amount directly from the custom-order detail; there is no Add to Cart, deposit or later balance payment. If verified full payment is not received before the quote/payment deadline, the custom order expires/cancels and any temporary queue hold is released.
 * Fulfilment requires verified payment and is completed by Member pickup or Staff-recorded manual GHTK handoff. AI SHALL NOT price, accept, reject, or review custom orders.
 
@@ -145,8 +146,8 @@ The following system-level requirements summarize Report 2/3 and their [business
 
 ### Public store information
 
-* Google Maps Embed and Places SHALL be used read-only to display store location and permitted public review/rating information with required attribution and a Google Maps link.
-* Mland SHALL NOT persist Places review/rating content or submit/write reviews to Google. Feature-011 may persist only Mland reviews whose target is a workshop session or retail product and whose source eligibility has been verified; it SHALL NOT collect branch/location reviews.
+* Store information is served from Mland-owned catalogue/location data. Google Maps/Places, Google review/rating display, and Google review links are outside V1.
+* Feature-011 may persist only Mland reviews whose target is a workshop session or retail product and whose source eligibility has been verified; it SHALL NOT collect branch/location reviews.
 
 ## 4. Non-functional Requirements
 
@@ -161,8 +162,8 @@ Detailed requirements remain in the [Report 3 NFR baseline](../documents/docs/re
 * **Payment timing:** Workshop booking retains its own deposit deadline. Retail-cart payment retains its own hold rules. A custom-order quote exposes one complete-payment deadline; no cart line, deposit or final-balance phase exists. If the deadline passes without verified full payment, the custom order expires/cancels and any temporary queue hold is released. Reissue requires an authorized, audited new quote generation.
 * **AI data:** Gemini is a paid service. Application-level text prompts/responses are retained for no more than 30 days. Independent Design Request image input requires recorded, purpose-specific consent, is stored temporarily, and is deleted after processing; AI output supports human decisions only. Custom-manufacturing reference images follow their separate retention rule until pickup or GHTK handoff.
 * **Personal-data retention:** Custom-manufacturing reference images are retained until pickup or GHTK handoff. Rejected/withdrawn custom requests and independently classified images are deleted immediately after processing. GHTK recipient/address data are deleted or irreversibly obscured 30 days after handoff. VNPay references and business audit evidence are retained for five years. No card data is stored.
-* **Privacy notice and consent:** Mland's general Terms and Privacy Policy states image-processing purposes, approved retention periods, Google attribution, and delivery-recipient data handling. Independent Design Request image processing additionally requires an affirmative, versioned, purpose-specific consent recorded before temporary storage or AI analysis.
-* **Integration boundaries:** Google Places content is not persisted; GHTK has no V1 API/quote/tracking/failure/return workflow; OTA callbacks are processed only by an approved 003.4 provider adapter and go-live gate; workflow SMTP only delivers requested messages.
+* **Privacy notice and consent:** Mland's general Terms and Privacy Policy states image-processing purposes, approved retention periods, and delivery-recipient data handling. Independent Design Request image processing additionally requires an affirmative, versioned, purpose-specific consent recorded before temporary storage or human review.
+* **Integration boundaries:** GHTK has no V1 API/quote/tracking/failure/return workflow; OTA callbacks are processed only by an approved 003.4 provider adapter and go-live gate; workflow SMTP only delivers requested messages.
 * **Hosting and caching:** Firebase Hosting is preview-only. Cache behavior applies only to deliberately public content; never cache identity tokens, authenticated responses, booking capacity, payment status, invoices, Member history, or administration data.
 * **Auditability:** Payment confirmation, price publication, independent Design Request review, custom-order quote approval, pickup, and carrier handoff retain business audit evidence under the stated retention period. FE-001 account-management audit/security evidence (role changes, status changes, location assignment, lock/unlock) is retained for five years. Audit metadata includes actor account ID, target account ID, action, outcome, timestamp, and correlation ID; it records only before/after values for role, status, location, or lock reason. It never includes raw passwords, Firebase tokens, Firebase action links, raw images, or unnecessary PII (full name, phone, unrelated contact data).
 * **Workshop authorization:** Account Management owns the canonical fixed role code, current Account status, and effective active Workshop Location scope. Effective scope is the intersection of active Account assignments and currently active authoritative Workshop Locations; it is not a cached or raw assignment list. Each Workshop feature owns its action-specific authorization rule and evaluates it server-side. An active Manager uses global Manager authority without a Workshop Location lookup; an active Staff action must compare the resource Location with current effective scope and fails closed when that scope is unavailable. V1 does not use cross-module locking, so a command already checked before a concurrent Account change commits may complete. A feature MUST NOT infer authority from a display label, Firebase claim, or retired code, and MUST NOT infer Manager = OWNER. Admin-only, ownership-only, and public actions remain governed by their explicit feature rule.
@@ -210,7 +211,7 @@ Physical schemas remain owned by feature plans, migrations, and the evolving [DB
 * [ ] Member retail checkout revalidates the whole cart and requires verified full payment before completing the sale; loyalty/voucher application follows configured limits.
 * [ ] A Member custom order follows the configured deadline/queue, Manager-approved quote, one-time verified full payment, and pickup/manual-handoff flow. It is not added to a retail cart.
 * [ ] Workshop VNPay payment links and capacity holds share one absolute deadline of at most 10 minutes; invalid/duplicate callbacks cannot confirm twice, and Return URL cannot confirm payment.
-* [ ] Google Maps/Places display is read-only with attribution/link and no persisted Places content; Klook capacity exchange respects Mland as source of truth; GHTK handoff is manual and no courier tracking is claimed.
+* [ ] Google Maps/Places and Google review/rating integration are absent from the V1 implementation; Klook capacity exchange respects Mland as source of truth; GHTK handoff is manual and no courier tracking is claimed.
 * [ ] Custom-design images, delivery-address, payment-reference, and audit data follow the specified retention periods; no card data is stored and the current Feature-004 flow sends no image to an AI provider.
 * [ ] Test environment, deployment, performance, availability, and accessibility decisions remain explicitly `TBD` until approved; implementation introduces no Mland password hash, application-signed JWT, committed provider secret, or raw token logging.
 
@@ -224,7 +225,7 @@ Member ──separate custom order──► deadline + queue validation ──fu
 Member ──retail cart──► whole-cart validation ──full VNPay payment──► pickup / manual GHTK handoff
 Manager ──considers Gemini suggestion──► decides published package/product price
 Mland ──availability / enabled booking updates──► Klook (Mland retains capacity authority)
-Mland ──read-only map / attributed Places data──► public store information
+Mland ──Mland-owned location data──► public store information
 Mland workflow ──requested message──► Mland-domain Mail Gateway (no notification centre)
 Firebase Authentication ──verified ID token──► Mland account, status and authorization
 ```
@@ -235,7 +236,7 @@ Firebase Authentication ──verified ID token──► Mland account, status a
 * Guest retail checkout, address book, shipping quote, GHTK API integration/tracking, delivery-failure processing, returns, in-system cancellation, and refunds. Customers seeking cancellation/refund contact the shop directly.
 * Mland-managed passwords/password hashes, Mland-signed JWTs, automatic same-email account merging, or granting business roles from provider claims.
 * AI-generated final designs, automated feasibility/price/accept/reject decisions for custom manufacturing, AI publication of prices, or a standalone notification centre.
-* Google Places review/rating persistence, branch/location reviews, or review write-back to Google; automatic processing of Klook cancellations. Mland workshop-session and retail-product reviews are covered by Feature-011 and are not Google reviews.
+* External map/review-provider integration, branch/location reviews, or external review write-back; automatic processing of Klook cancellations. Mland workshop-session and retail-product reviews are covered by Feature-011.
 * Selecting Firebase Test Lab as the application testing strategy merely because Firebase is used; frontend/backend verification is chosen by the affected design.
 * Firebase Hosting production deployment, Hosting rewrites, Cloud Run/VPS selection, production database deployment, production custom domain, or a production Firebase project decision.
 
@@ -258,5 +259,6 @@ Firebase Authentication ──verified ID token──► Mland account, status a
   workshop recommendations; it no longer attaches designs to booking tickets.
 - Feature-004 is the human-reviewed custom-manufacturing request and order
   intake flow. Feature-012 references are immutable snapshots, not approvals.
-- Feature-013 provides Guest/Member consultation with Staff/Manager; context
-  attachment is ownership-checked and safe-projected.
+- Feature-013 provides Member-only consultation with Staff/Manager; context
+  attachment is ownership-checked and safe-projected. Guest sees the entry point
+  but must sign in before a conversation is created.

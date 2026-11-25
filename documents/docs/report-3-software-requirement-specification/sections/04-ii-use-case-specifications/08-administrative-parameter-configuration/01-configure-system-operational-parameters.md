@@ -10,7 +10,7 @@ None
 
 #### Description
 
-Allows the Admin to configure operational values used by custom manufacturing, loyalty, and checkout workflows, including the minimum custom-order deadline, unavailable deadline dates, maximum queue size, loyalty rates, point value, and point-discount cap.
+Allows the Admin to configure approved operational values used by loyalty and checkout workflows, including loyalty rates, point value, and point-discount cap. Custom-order queue parameters are retired from V1.
 
 #### Preconditions
 
@@ -31,7 +31,7 @@ Allows the Admin to configure operational values used by custom manufacturing, l
 
 1. The Admin opens operational parameter configuration.
 2. The system displays the current values and their descriptions.
-3. The Admin edits one or more values, such as minimum deadline, unavailable dates, queue size, loyalty rate, point value, or discount cap.
+3. The Admin edits one or more values, such as loyalty rate, point value, or discount cap.
 4. The system validates data types, ranges, dependencies, and effective-date rules.
 5. The Admin reviews and confirms the changes.
 6. The system saves the values, records an audit entry, and displays the updated configuration.

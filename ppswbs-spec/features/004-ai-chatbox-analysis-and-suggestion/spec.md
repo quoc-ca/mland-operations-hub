@@ -24,6 +24,12 @@ assess images, decide feasibility, set a price, approve a request, or reject a
 request. It does not own Feature-012 validation, workshop booking, payment
 settlement, production, or fulfilment.
 
+Before a Member uploads or submits any reference image, the system must record
+affirmative, versioned consent for temporary storage and sharing the image with
+authorized Staff/Manager reviewers. The consent message describes human design-
+request review only and must not claim that an AI provider analyzes the image.
+Without consent, the image cannot be stored or submitted.
+
 ## 2. Actors and permissions
 
 | Capability | Guest | Member | Staff | Manager | Admin |

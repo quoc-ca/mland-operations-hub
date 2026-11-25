@@ -15,10 +15,12 @@ must feel spacious and easy to scan: controls are grouped by purpose, every
 adjustment explains its effect, and the preview changes immediately as the user
 edits the local draft.
 
-The frontend must support both Guest and Member. It must not create a separate
-business flow for the two actors. Guest session validity, Member ownership,
-option compatibility, evaluation, versioning and recommendation are backend
-decisions. Booking attachment is retired from the current Feature-012 flow.
+The frontend exposes the configurator entry point and local preview to Guest and
+Member, but only an authenticated Member may create, evaluate, save, archive or
+consult with a saved design. Guest parameter changes are local preview state and
+are discarded when the preview is abandoned. Member ownership, option
+compatibility, evaluation, versioning and recommendation are backend decisions.
+Booking attachment is retired from the current Feature-012 flow.
 
 ## 2. Figma baseline
 
@@ -68,7 +70,7 @@ Route behavior:
 | Configure | Render dynamic controls and the live `RingPreview`. |
 | Design detail/evaluation | Show the latest safe server version, validation, evaluation and next action. |
 | Member history | Show only the authenticated Member's designs and versions; support archive for eligible designs. |
-| Guest expiry | Safe recovery state for an expired session; do not reveal whether a design existed. |
+| Guest sign-in required | Safe recovery state when Guest attempts a protected command; do not create or reveal persisted design data. |
 | Branch recovery | Explain incompatibility and preserve the current design for correction/retry. |
 
 The booking flow remains owned by Feature-003. Feature-012 does not supply a

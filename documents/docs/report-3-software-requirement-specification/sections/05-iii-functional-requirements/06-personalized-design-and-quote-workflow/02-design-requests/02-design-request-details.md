@@ -12,7 +12,7 @@ A Member can open only their own requests; a Guest opens a request through the t
 
 | Field Name | Description |
 | --- | --- |
-| Guest banner | Shown when viewing by tracking token: "Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi.", with **Sao chép liên kết**. |
+| Guest banner | Guest cannot open a private Design Request. The entry point shows a sign-in prompt instead of a tracking-token view. |
 | Title and reference | "Chi tiết Yêu cầu Thiết kế" with "Mã tham chiếu: {ref}". |
 | Review status badge | "Đang chờ nhân viên thẩm duyệt", "Đã chấp nhận thiết kế" or "Từ chối thiết kế". |
 | Decision card | Shown after acceptance or rejection: "Thiết kế đã được chấp nhận" or "Thiết kế bị từ chối" with the reviewer's explanation. |
