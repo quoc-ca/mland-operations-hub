@@ -16,29 +16,6 @@ export default function ReviewQueuePage() {
     [statusFilter]
   );
 
-  // Auto-polling every 4 seconds + instant sync on focus/visibility
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        reload();
-      }
-    }, 4000);
-
-    const handleFocus = () => reload();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') reload();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [reload]);
-
   const items = Array.isArray(data) ? data : (data?.items || []);
 
   const getStatusBadge = (status) => {
@@ -62,29 +39,41 @@ export default function ReviewQueuePage() {
           <h2>{t('queue.title')}</h2>
           <p className="muted">{t('queue.subtitle')}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <label htmlFor="status-filter" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>
-            Lọc trạng thái:
-          </label>
-          <select
-            id="status-filter"
-            data-testid="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '0.4rem 0.75rem',
-              borderRadius: '6px',
-              border: '1px solid #d1d5db',
-              fontSize: '0.875rem',
-              backgroundColor: '#fff',
-            }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="status-filter" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151' }}>
+              Lọc trạng thái:
+            </label>
+            <select
+              id="status-filter"
+              data-testid="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                padding: '0.4rem 0.75rem',
+                borderRadius: '6px',
+                border: '1px solid #d1d5db',
+                fontSize: '0.875rem',
+                backgroundColor: '#fff',
+              }}
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="NEED_REVIEW">Chờ thẩm duyệt</option>
+              <option value="ACCEPTED">Đã chấp nhận thiết kế</option>
+              <option value="REJECTED">Từ chối thiết kế</option>
+              <option value="CLARIFICATION_REQUIRED">Cần làm rõ thêm</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            className="button outline small"
+            onClick={reload}
+            disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+            title="Tải lại danh sách"
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value="NEED_REVIEW">Chờ thẩm duyệt</option>
-            <option value="ACCEPTED">Đã chấp nhận thiết kế</option>
-            <option value="REJECTED">Từ chối thiết kế</option>
-            <option value="CLARIFICATION_REQUIRED">Cần làm rõ thêm</option>
-          </select>
+            🔄 {loading ? 'Đang tải...' : 'Làm mới'}
+          </button>
         </div>
       </header>
 

@@ -1,7 +1,7 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -270,9 +270,9 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 | D07 | PENDING EVIDENCE | Append-only migration V{N} exists; T003 fresh+upgrade MySQL evidence must be run by implementation persona |
 | D08 | MET | Lifecycle states & resume_status semantics specified |
 | D09 | MET | Bearer-only transport, no server session |
-| D10 | MET | Transaction boundaries & post-commit notifications defined |
+| D10 | R-INV SCOPED DESIGN APPROVED; IMPLEMENTATION OPEN | FE-001 outbox and FE-007 two-attempt delivery/manual-content boundary are approved for the scoped invitation flow; implementation evidence remains. |
 | D11 | MET | Concurrency (version) & idempotency (key + digest) defined |
-| D12 | MET | External boundaries (Firebase, FE-07, Workshop Location) defined |
+| D12 | R-INV SCOPED DESIGN APPROVED; IMPLEMENTATION OPEN | UID-bound password/Google setup, creation-based expiry and FE-007 invitation contract are approved for scoped implementation; verification remains. |
 | D13 | MET | Sensitive data minimization & audit redaction specified |
 | D14 | OPEN | WCAG 2.2 AA scan (Phase 8 T047, deferred for MVP) |
 | D15 | PENDING EVIDENCE | T003 fresh/upgrade MySQL evidence required |
@@ -280,9 +280,9 @@ No cache, event replication, personnel identifier, generic RBAC store, app sessi
 | D17 | OUT OF SCOPE | Observability & rollout deferred to production release scope |
 | D18 | MET | `tasks.md` regenerated and aligned with plan |
 | D19 | MET | `verification.md` revised to comprehensive verification plan |
-| D20 | READY | `approval.md` drafted for Tech Lead Phan Sơn sign-off |
+| D20 | SCOPED R-INV HANDOFF APPROVED | FE-001 T106–T116 and FE-007 T038–T045 have scoped approval. Local MEMBER preview may use marked DEMO data but cannot authorize retirement; live source verdicts and an acceptance/retirement fence need owner decisions and separate T117 approval. |
 
-**Implementation resume condition**: OpenAPI 3.1 regenerated ✅; verification.md revised ✅; tasks.md aligned ✅; Tech Lead approval record confirmed.
+**Implementation gate for R-INV**: Scoped Tech Lead approval for FE-001 T106–T116 and FE-007 T038–T045 is recorded on 2026-11-25 in both approval files. Implementation must still satisfy the documented contracts and produce fresh verification evidence. T117 remains blocked on live owner data, an acceptance/retirement fence and a new approval.
 
 ---
 
@@ -310,3 +310,15 @@ This revision adds the frontend-only shared lifecycle required by FR-041 and `sp
 ## Revision 2026-11-20 — CARRIER (GHTK) approved boundary
 
 Add fixed `CARRIER` to Admin catalogue/create/list/detail/status contracts. CARRIER is ACTIVE on ADMIN creation with immutable email, required password/display name/phone, no location, no invitation, and no role transition. ADMIN provisions a Firebase email/password identity before the Account commit; the runtime password is write-only and never stored, logged, audited, or returned. Reuse the existing idempotent internal-provisioning/reconciliation mechanism without adding an enrollment table. Existing UID-first ownership and Member bootstrap remain unchanged; CARRIER gains no logistics or FE-001 profile/email self-service capability and may use the existing password-change flow. For demo/test only, seed `ghtk.test@mland.vn` / `CarrierTest@123456` after Firebase issues its UID; this explicit fixture exception does not alter runtime or production credential handling. Revision R-CAR authorizes T084–T088.
+
+## Historical 2026-11-23 US3 gap review (superseded)
+
+The static code observations from 2026-11-23 informed R-INV, but its proposed decisions, implementation outline and T089–T104 queue were superseded on 2026-11-24 and removed from the active artifacts. No historical task marker or V-04 label proves the R-INV journey implemented.
+
+## R-INV reconciliation (2026-11-25, scoped design approved)
+
+**Cross-feature inventory boundary (revised 2026-11-25):** FE-001 owns two consumer read interfaces and typed retail/workshop review DTOs in `contracts/r-inv.openapi.yaml`. Local-only mock implementations live in the two source modules' `facade` folders and return DEMO/UNAVAILABLE for a configured demo Account ID; other IDs have no sample data. FE-001 uses Spring DI by its own interface and imports no source-module Java type, preserving the existing `readyringsales/workshopbooking -> accountmanagement` dependency direction. Only review/JSON export can use demo records. Live classification, source versions and a cross-feature acceptance/retirement fence are future owner work; no FE-003.1/FE-08 specification is amended here. FE-007 has no inventory role.
+
+The conversation resolved mandatory invitation, MEMBER-only collision preview, optional JSON export, Firebase-only identity deletion, password-or-Google setup on one UID, 48 hours from invitation creation, two definite SMTP attempts followed by ADMIN manual email-content retrieval, FE-007 ownership, ADMIN isolation and removal of the standalone role catalogue. [R-INV design](design/revision-2026-11-24.md) is approved for the scoped T106–T116 and FE-007 T038–T045 implementation in the two [approval records](approval.md). T089–T104 were removed from the active queue; T117 live MEMBER replacement is separately deferred. FE-007 T038–T045 are the companion delivery tasks.
+
+Implementation sequence: (1) reconcile T105/T044 contract and obtain scoped Tech Lead approval; (2) add Account-owned reader interfaces and local-only preview mocks, then FE-001 ADMIN collision preview/JSON with explicit DEMO/UNAVAILABLE state; (3) implement independent UID-bound provisioning, invitation/outbox, FE-007 two-attempt delivery/manual-content API, setup and ADMIN route isolation under their approvals; (4) separately obtain live source verdicts and an approved acceptance/retirement fence before implementing MEMBER retirement and email release; (5) record fresh verification evidence for each approved scope. Provider, database and SMTP cannot participate in one atomic transaction; persisted progress, retry keys and operational reconciliation are required. The preview mock is not implementation evidence for live source integration or retirement.

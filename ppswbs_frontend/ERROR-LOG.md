@@ -160,3 +160,46 @@
 **Hiện trạng:** code T163–T166 xong. Đạt: toàn bộ vitest 857/857, `vite build`; Manager bật/tắt ô lưu và có audit, F5 giữ trạng thái và phiên; 375 px ra dạng thẻ giống Figma (theo người dùng). Chưa tick T167 (không có lint, Figma 1440/375 chỉ kiểm bằng mắt người dùng) và T168 (đường từ chối quyền lệch; Admin chưa thử).
 
 **Cần quyết định:** Hồ Hoàng Quốc/Phan Sơn (chủ 001) chốt: chấp nhận Staff bị về trang chủ (sửa T168 và Figma frame 06), hoặc cho phép trang hiển thị 403 tại chỗ (đổi shared).
+
+## FE-DESIGN-0007 — BLOCKED
+
+- Ngày: 2026-11-24
+- Reporter: Senior React Frontend Implementation Engineer (AGENT.md)
+- Người yêu cầu: Không xác định trong session
+- Feature/task: FE-001 (Phase 15: T112, T113, T115) & FE-007 (Phase 8: T040–T042) / Revision R-INV
+- Lỗi/blocker: R-INV spec revision 2026-11-24 chưa được Tech Lead phê duyệt (approval.md: PENDING FINAL REVIEW); toàn bộ backend contracts (T106–T111, T038–T042) chưa được implement; chưa có UI wireframe/design chi tiết cho review collision, export JSON, countdown 48h, manual mail content copy và setup exchange.
+
+**Nguồn design:**
+- `ppswbs-spec/features/001-account-management/approval.md` (mục "R-INV — 2026-11-24 Admin internal-account repair": `PENDING FINAL REVIEW; not approved for implementation handoff`).
+- `ppswbs-spec/features/007-notification-management/approval.md` (mục "R-INV invitation extension (2026-11-24)": `PENDING FINAL REVIEW; not approved for R-INV implementation handoff`).
+- `ppswbs-spec/features/001-account-management/tasks.md` (Phase 15: ghi rõ `implementation handoff is blocked`, thứ tự bắt buộc: `T105 contract reconciliation → explicit Tech Lead approval gate → T106–T107 → T108 → T109–T111 → T112–T113 → T114–T116`).
+- `ppswbs-spec/features/007-notification-management/tasks.md` (Phase 8: thứ tự bắt buộc: `FE-001 T105 and FE-007 T044 document reconciliation → explicit Tech Lead approval → FE-001 T109/T110 event/facade → T038–T039 → T040–T042 → T043/T045`).
+- `ppswbs-spec/features/001-account-management/contracts/r-inv.openapi.yaml` & `ppswbs-spec/features/007-notification-management/contracts/notification-api.md`.
+
+**Fact:**
+1. Bản ghi duyệt tại cả 2 file `approval.md` đều xác định rõ trạng thái `PENDING FINAL REVIEW` do các thay đổi về thời hạn link (48 giờ từ khi tạo), chính sách thử lại mail (tối đa 2 lần) và trích xuất thủ công nội dung mail khi `FAILED` được chọn ở trạng thái "chờ chốt".
+2. Backend Java (`ppswbs_backend`) hoàn toàn chưa triển khai các task tiền đề T106–T111 (FE-001) và T038–T043 (FE-007). Các endpoint `/api/v1/admin/accounts/email-collisions`, `/api/v1/admin/accounts/{accountId}/replacement-review`, `/api/v1/admin/accounts/{accountId}/retire-for-replacement`, `/api/v1/internal-account-invitations/exchanges`, `/api/v1/internal-account-invitations/completions`, và `/api/v1/admin/notification-requests/{requestId}/manual-invitation` chưa tồn tại trong code backend.
+3. Về UI/UX: Chưa có màn hình/dialog chi tiết (Figma/wireframe) cho quy trình đối soát xung đột MEMBER collision review (hiển thị địa chỉ, giỏ hàng retail lưu trên server, lịch sử đơn hàng retail, lịch sử booking workshop), nút xuất JSON, giao diện hiển thị đếm ngược 48h từ `createdAt`, modal copy thủ công nội dung email khi SMTP thất bại 2 lần, và luồng `/invitations/setup` hỗ trợ liên kết password/Google.
+
+**Suy luận:**
+- Nếu tự ý implement frontend bằng mock/giả lập hoặc tự suy diễn UI layout và state machine:
+  - Sẽ vi phạm nghiêm trọng Điều 1 và Điều 3 (§Gate trước code: F01, F02, F03, F04) của `AGENT.md`.
+  - Tự sáng tác hành vi điều hướng, form validation và flow xác thực khi backend chưa chốt và chưa chạy thực tế.
+  - Xóa trang `/admin/roles` và route `/admin/roles` (T113) khi quyết định R-INV chưa được Tech Lead phê duyệt chính thức sẽ làm hỏng chức năng hiện hữu đang hoạt động ổn định và được cover bởi test suite.
+
+**Unknown:**
+- Thời điểm Tech Lead Phan Sơn hoàn thành review và ký duyệt chính thức vào `approval.md`.
+- Thiết kế giao diện chi tiết (Figma frames hoặc UI specification) cho các popup/drawer đối soát và luồng thiết lập tài khoản.
+
+**Vì sao không thể implement nếu không tự quyết:**
+- Mọi giải pháp code frontend lúc này bắt buộc phải tự bịa đặt API mock, tự thiết kế UI flow còn thiếu, hoặc tự quyết định bỏ role catalogue trái với approval record hiện hành. `AGENT.md` nghiêm cấm hành vi này.
+
+**Hiện trạng lúc dừng:**
+- Giữ nguyên toàn bộ mã nguồn hiện tại của frontend.
+- Bộ test Vitest của frontend đạt `151/151 passed` (14 test files trong `accountmanagement` và `notification-management`).
+- `npm run build` đạt kết quả sạch (`469 modules transformed`, không có lỗi cú pháp hay typecheck).
+
+**Cần quyết định / Điều kiện tiếp tục:**
+1. Tech Lead Phan Sơn hoàn tất review và cập nhật trạng thái `APPROVED FOR IMPLEMENTATION` trong cả 2 file `ppswbs-spec/features/001-account-management/approval.md` và `ppswbs-spec/features/007-notification-management/approval.md`.
+2. Đội ngũ Backend triển khai xong và kiểm chứng các task nền tảng T106–T111 (FE-001) và T038–T042 (FE-007) trên môi trường tích hợp.
+3. Cung cấp UI/Figma design hoặc đặc tả màn hình đã duyệt cho các flow: Collision Review Drawer/Dialog, JSON Export, Expiry Countdown Timer, Manual Mail Content Copy Modal, và Invitation Setup Page.

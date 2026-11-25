@@ -1,7 +1,9 @@
 # Workflow Design: Account Management (FE-001)
 
+> **R-INV scoped workflow approved; implementation open:** [canonical workflow and failure contract](revision-2026-11-24.md) supersedes older WF-03 invitation and role-catalogue steps. Scoped sequence: ADMIN validates email/role/scope → resolves occupancy → optionally reviews/exports a MEMBER with visibly labelled DEMO inventory → stops on MEMBER collision without releasing the email → independently provisions non-colliding STAFF/MANAGER with real UID/PENDING_SETUP → creates invitation with 48-hour expiry/outbox event → FE-007 consumes event after commit and materializes link only at SMTP send → at most two definite attempts → on `FAILED`, ADMIN may retrieve/copy current unexpired email content for outside delivery → invitee exchanges link for bound-UID setup session → links password or Google → backend verifies intended email/UID/current scope and activates → role home. Firebase-only collision has separate confirmation. MEMBER retirement is deferred to T117 until both live owners and an acceptance/retirement fence are approved; DEMO/UNAVAILABLE cannot pass its gate. Every external step has persisted stage, safe retry and explicit failure; direct login/register cannot bootstrap a pending internal email as MEMBER. Resend rotates the link after five minutes and UNKNOWN_OUTCOME reconciliation. No old account history or audit is cascade-deleted.
+
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

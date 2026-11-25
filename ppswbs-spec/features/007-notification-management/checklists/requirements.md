@@ -1,7 +1,7 @@
 # Specification Quality Checklist: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -35,4 +35,11 @@
 
 ## Notes
 
-- This is a working specification. Detailed source DTO mappings, API/schema/migration design, production SMTP values, governing retention policy, and design-pack approval remain dependencies explicitly recorded in the specification.
+- The original 16/16 markers are historical V1 specification quality results. The R-INV extension received scoped design approval on 2026-11-25; the new gate below tracks implementation and verification separately from historical baseline acceptance. Detailed source DTO mappings, production SMTP values and governing retention policy retain their existing owners.
+
+## R-INV revision gate (2026-11-24)
+
+- [x] The revised spec states creation-based 48-hour expiry, two definite SMTP attempts and ADMIN-only manual content after `FAILED` with no false `SENT` claim.
+- [x] The invitation-specific FR-030–FR-034 and acceptance scenarios are in the Requirements section rather than after historical Clarifications.
+- [ ] A later 2026-11-24 review found the manual route missing OpenAPI, the FE-001/FE-007 `materialize` signature misaligned and FR-029's Booking failure event too broadly worded. Draft corrections were made; recheck the complete contract/approval scope before final approval. The earlier narrower YAML/link check is not final approval evidence.
+- [ ] A named Tech Lead must approve this exact amended FE-001/FE-007 revision in both approval records before implementation handoff.

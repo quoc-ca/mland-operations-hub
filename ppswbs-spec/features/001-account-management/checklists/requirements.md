@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Account Management (FE-001)
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-03
+**Date updated**: 2026-11-24
 **Auditor**: Senior Specification & Design Engineer (re-evaluated for Tech Lead review)
 **Feature**: [Account Management](../spec.md)
 
@@ -58,9 +58,8 @@
 
 ## Audit Summary
 
-- **Total checklist items**: 16
-- **Passed items**: 16 / 16 (14 standard + 2 verified with constitutional integration justifications)
-- **Status**: **APPROVED AS SPECIFICATION BASELINE**
+- **Historical checklist items (2026-11-03 baseline)**: 16 / 16 passed at that revision only.
+- **R-INV status (2026-11-24)**: Pending final Tech Lead review. Historical checkmarks and the former US5 role-catalogue note do not approve the revised R-INV scope.
 
 ---
 
@@ -68,3 +67,10 @@
 
 - Re-evaluated on 2026-11-03 following full synchronization of `contracts/account-management.openapi.yaml` (OpenAPI 3.1.0), `data-model.md`, and `verification.md`.
 - Clarifications up to 2026-11-03 (WF-08 Profile verification gate, 90-second cooldown, Timezone UTC+7 standardization, and Member shipping address book integration with FE-08) are fully reflected in FR-005, FR-006, FR-035–FR-040, US2, and US6.
+
+## R-INV revision gate (2026-11-24)
+
+- [x] The revised spec has explicit acceptance for creation-based 48-hour expiry, two definite SMTP attempts and ADMIN manual-content retrieval after `FAILED`.
+- [x] Phase 14's obsolete task queue and role-catalogue endpoint are removed from the current handoff artifacts.
+- [ ] For implementation verification after the 2026-11-25 scoped approval, check that local preview uses DEMO/UNAVAILABLE data only, review/JSON show the marker, and MEMBER retirement/email release are denied. Live FE-08/FE-003.1 verdicts and an acceptance fence remain deferred T117; no source-feature artifact was approved by this revision.
+- [ ] A named Tech Lead must approve this exact amended FE-001/FE-007 revision in both approval records before implementation handoff.

@@ -1,0 +1,271 @@
+openapi: 3.1.0
+info:
+  title: FE-001 R-INV path contract
+  version: 1.0.0-r-inv
+  description: >
+    Path items referenced by account-management.openapi.yaml; the role catalogue
+    endpoints are removed from the canonical contract.
+    Every Admin command requires Firebase bearer, current ADMIN authority and correlation ID.
+paths:
+  /api/v1/admin/accounts/email-collisions:
+    get:
+      operationId: resolveEmailCollision
+      security: [{ bearerAuth: [] }]
+      summary: Resolve normalized email occupancy and permitted next action
+      parameters:
+        - { name: email, in: query, required: true, schema: { type: string, format: email } }
+      responses:
+        '200': { description: Occupancy and next action; no unrelated PII, content: { application/json: { schema: { $ref: '#/components/schemas/EmailCollision' } } } }
+        '400': { description: Invalid email }
+        '403': { description: Not ADMIN }
+        '503': { description: Provider or Account source unavailable }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/accounts/{accountId}/replacement-review:
+    parameters: [{ $ref: '#/components/parameters/AccountId' }]
+    get:
+      operationId: reviewMemberReplacement
+      security: [{ bearerAuth: [] }]
+      summary: Fresh MEMBER-only replacement review with source version and inventory
+      responses:
+        '200': { description: Owner-scoped inventory; local demo records are explicitly marked DEMO/UNAVAILABLE and are not retirement evidence, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
+        '403': { description: Not ADMIN or target not replaceable }
+        '503': { description: A required source is unavailable; retirement blocked }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/accounts/{accountId}/replacement-export:
+    parameters: [{ $ref: '#/components/parameters/AccountId' }]
+    get:
+      operationId: exportMemberReplacement
+      security: [{ bearerAuth: [] }]
+      summary: Optional on-demand JSON export of the same MEMBER review inventory
+      responses:
+        '200': { description: No-store application/json attachment; DEMO data remains labelled as sample, with no secret or payment credential, headers: { Content-Disposition: { schema: { type: string } }, Cache-Control: { schema: { type: string, const: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/ReplacementReview' } } } }
+        '403': { description: Not ADMIN or target not replaceable }
+        '503': { description: Source unavailable }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/accounts/{accountId}/retire-for-replacement:
+    parameters: [{ $ref: '#/components/parameters/AccountId' }]
+    post:
+      operationId: retireMemberForReplacement
+      security: [{ bearerAuth: [] }]
+      summary: Explicit, idempotent MEMBER retirement after fresh review
+      description: Future live-source operation. Until both sources provide authoritative CLEAR/version and the acceptance fence is approved, every MEMBER retirement request fails closed with 409; DEMO preview never authorizes it. Body carries reviewed account version, source snapshot/version, normalized email and confirmation; Idempotency-Key required.
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RetirementCommand' } } } }
+      responses:
+        '200': { description: Retirement stage and opaque retired Account ID; historical references retained, content: { application/json: { schema: { $ref: '#/components/schemas/RetirementResult' } } } }
+        '409': { description: Source is DEMO/UNAVAILABLE, acceptance fence absent, stale review, changed target, duplicate-key mismatch or incomplete retirement; no email release }
+        '403': { description: Not ADMIN or target role not MEMBER }
+        '503': { description: Provider or source unavailable; no new Staff/Manager creation }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/firebase-identities/email-collisions/delete:
+    post:
+      operationId: deleteFirebaseOnlyCollision
+      security: [{ bearerAuth: [] }]
+      summary: Explicitly delete a Firebase-only email identity before new provisioning
+      description: Requires fresh occupancy evidence, normalized email, confirmation and Idempotency-Key.
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/FirebaseOnlyDeleteCommand' } } } }
+      responses:
+        '200': { description: Identity deletion/reconciliation stage, content: { application/json: { schema: { $ref: '#/components/schemas/FirebaseOnlyDeleteResult' } } } }
+        '409': { description: An Mland Account now owns the identity; recheck }
+        '403': { description: Not ADMIN }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/internal-account-invitations/exchanges:
+    post:
+      operationId: exchangeInternalInvitation
+      security: []
+      summary: Exchange one valid invitation secret for a short-lived custom-token setup session
+      description: Public only for opaque invitation secret validation; rate limited; no Account bootstrap or business capability.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationExchangeCommand' } } } }
+      responses:
+        '200': { description: Ephemeral Firebase custom token and setup session for bound UID; no-store, headers: { Cache-Control: { schema: { type: string, const: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationExchangeResult' } } } }
+        '400': { description: Invalid, expired or used invitation; no Account details }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/internal-account-invitations/completions:
+    post:
+      operationId: completeInternalInvitation
+      security: [{ bearerAuth: [] }]
+      summary: Complete password or Google setup for the same bound UID
+      description: Requires invitation setup session, fresh Firebase ID token, matching intended email and current active Location scope.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationCompletionCommand' } } } }
+      responses:
+        '200': { description: Same Account ID, role ACTIVE and role-home route, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationCompletionResult' } } } }
+        '409': { description: Link consumed, wrong UID/provider email, or stale setup }
+        '503': { description: Provider or Workshop Location source unavailable; remains pending }
+        default: { $ref: '#/components/responses/SafeError' }
+  /api/v1/admin/accounts/{accountId}/setup-invitations/current:
+    parameters: [{ $ref: '#/components/parameters/AccountId' }]
+    get:
+      operationId: getCurrentInternalInvitationStatus
+      security: [{ bearerAuth: [] }]
+      summary: ADMIN-only current invitation timing and delivery status
+      description: Returns server time for an accurate countdown; never returns the setup link or message body.
+      responses:
+        '200': { description: Current STAFF/MANAGER invitation state, headers: { Cache-Control: { schema: { type: string, const: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationStatus' } } } }
+        '403': { description: Not ADMIN }
+        '404': { description: No current invitation }
+        default: { $ref: '#/components/responses/SafeError' }
+components:
+  responses:
+    SafeError: { description: Typed safe failure, content: { application/json: { schema: { $ref: '#/components/schemas/SafeError' } } } }
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: Firebase-ID-Token }
+  parameters:
+    AccountId: { name: accountId, in: path, required: true, schema: { type: integer, format: int64, minimum: 1 } }
+  schemas:
+    SafeError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string, description: Stable safe error code }
+        message: { type: string }
+        correlationId: { type: string }
+    EmailCollision:
+      type: object
+      required: [normalizedEmail, outcome]
+      properties:
+        normalizedEmail: { type: string, format: email }
+        outcome: { type: string, enum: [NONE, MEMBER_REVIEW, STAFF_MANAGER_MAINTENANCE, FIREBASE_ONLY, BLOCKED_ROLE] }
+        accountId: { type: integer, format: int64, description: ADMIN-visible Account match only }
+    ObligationBlocker:
+      type: object
+      required: [reference, reasonCode, message]
+      properties:
+        reference: { type: string }
+        reasonCode: { type: string }
+        message: { type: string, description: Safe ADMIN-facing text; no financial or participant secret }
+    RetailCartLine:
+      type: object
+      required: [productReference, variantReference, displayName, quantity, updatedAt]
+      properties:
+        productReference: { type: string }
+        variantReference: { type: string }
+        displayName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        updatedAt: { type: string, format: date-time }
+    RetailOrderSummary:
+      type: object
+      required: [orderId, displayCode, acceptedAt, paymentState, fulfilmentState, itemSummary]
+      properties:
+        orderId: { type: string }
+        displayCode: { type: string }
+        acceptedAt: { type: string, format: date-time }
+        paymentState: { type: string }
+        fulfilmentState: { type: string }
+        completedAt: { type: [string, 'null'], format: date-time }
+        itemSummary: { type: string, description: Safe product/quantity summary, no payment credential }
+    WorkshopBookingSummary:
+      type: object
+      required: [bookingReference, acceptedAt, serviceState, financialState, packageSummary]
+      properties:
+        bookingReference: { type: string }
+        acceptedAt: { type: string, format: date-time }
+        serviceState: { type: string }
+        financialState: { type: string }
+        packageSummary: { type: string }
+        outcomeAt: { type: [string, 'null'], format: date-time }
+    RetailReplacementInventory:
+      type: object
+      required: [accountId, status, dataOrigin, sourceVersion, observedAt, cartLines, orders, blockingReferences]
+      properties:
+        accountId: { type: integer, format: int64 }
+        status: { type: string, enum: [CLEAR, BLOCKED, UNAVAILABLE] }
+        dataOrigin: { type: string, enum: [LIVE, DEMO, NONE], description: DEMO is local-only sample; status must be UNAVAILABLE and sourceVersion null }
+        sourceVersion: { type: [string, 'null'], description: Non-null for CLEAR or BLOCKED; null when source cannot provide a trustworthy version }
+        observedAt: { type: string, format: date-time }
+        cartLines: { type: array, items: { $ref: '#/components/schemas/RetailCartLine' } }
+        orders: { type: array, items: { $ref: '#/components/schemas/RetailOrderSummary' } }
+        blockingReferences: { type: array, items: { $ref: '#/components/schemas/ObligationBlocker' } }
+    WorkshopReplacementInventory:
+      type: object
+      required: [accountId, status, dataOrigin, sourceVersion, observedAt, bookings, blockingReferences]
+      properties:
+        accountId: { type: integer, format: int64 }
+        status: { type: string, enum: [CLEAR, BLOCKED, UNAVAILABLE] }
+        dataOrigin: { type: string, enum: [LIVE, DEMO, NONE], description: DEMO is local-only sample; status must be UNAVAILABLE and sourceVersion null }
+        sourceVersion: { type: [string, 'null'], description: Non-null for CLEAR or BLOCKED; null when source cannot provide a trustworthy version }
+        observedAt: { type: string, format: date-time }
+        bookings: { type: array, items: { $ref: '#/components/schemas/WorkshopBookingSummary' } }
+        blockingReferences: { type: array, items: { $ref: '#/components/schemas/ObligationBlocker' } }
+    ReplacementReview:
+      type: object
+      required: [accountId, accountVersion, normalizedEmail, profile, addresses, retail, workshop, generatedAt]
+      properties:
+        accountId: { type: integer, format: int64 }
+        accountVersion: { type: integer, format: int64 }
+        normalizedEmail: { type: string, format: email }
+        profile: { type: object, description: Name, phone, email and status only, additionalProperties: true }
+        addresses: { type: array, items: { type: object, additionalProperties: true } }
+        retail: { $ref: '#/components/schemas/RetailReplacementInventory' }
+        workshop: { $ref: '#/components/schemas/WorkshopReplacementInventory' }
+        generatedAt: { type: string, format: date-time }
+    RetirementCommand:
+      type: object
+      required: [accountVersion, normalizedEmail, retailSourceVersion, workshopSourceVersion, confirm]
+      properties:
+        accountVersion: { type: integer, format: int64 }
+        normalizedEmail: { type: string, format: email }
+        retailSourceVersion: { type: string }
+        workshopSourceVersion: { type: string }
+        confirm: { type: boolean, const: true }
+    RetirementResult:
+      type: object
+      required: [retiredAccountId, stage]
+      properties:
+        retiredAccountId: { type: integer, format: int64 }
+        stage: { type: string, enum: [RETIRED, RECONCILIATION_REQUIRED] }
+    FirebaseOnlyDeleteCommand:
+      type: object
+      required: [normalizedEmail, occupancyReference, confirm]
+      properties:
+        normalizedEmail: { type: string, format: email }
+        occupancyReference: { type: string }
+        confirm: { type: boolean, const: true }
+    FirebaseOnlyDeleteResult:
+      type: object
+      required: [stage]
+      properties:
+        stage: { type: string, enum: [DELETED, RECONCILIATION_REQUIRED] }
+    InvitationExchangeCommand:
+      type: object
+      required: [secret]
+      properties:
+        secret: { type: string, minLength: 32, writeOnly: true }
+    InvitationExchangeResult:
+      type: object
+      required: [firebaseCustomToken, setupSession, expiresAt]
+      properties:
+        firebaseCustomToken: { type: string, writeOnly: true }
+        setupSession: { type: string, writeOnly: true }
+        expiresAt: { type: string, format: date-time }
+    InvitationCompletionCommand:
+      type: object
+      required: [setupSession, method]
+      properties:
+        setupSession: { type: string, writeOnly: true }
+        method: { type: string, enum: [PASSWORD, GOOGLE] }
+    InvitationCompletionResult:
+      type: object
+      required: [accountId, role, status, homeRoute]
+      properties:
+        accountId: { type: integer, format: int64 }
+        role: { type: string, enum: [STAFF, MANAGER] }
+        status: { type: string, const: ACTIVE }
+        homeRoute: { type: string, enum: [/staff, /manager] }
+    InvitationStatus:
+      type: object
+      required: [accountId, invitationVersion, createdAt, expiresAt, serverNow, deliveryState, manualContentEligible]
+      properties:
+        accountId: { type: integer, format: int64 }
+        invitationVersion: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, description: CreatedAt plus 48 hours }
+        serverNow: { type: string, format: date-time }
+        deliveryState: { type: string, enum: [QUEUED, PENDING, RETRY_SCHEDULED, SENT, FAILED, UNKNOWN_OUTCOME, CANCELLED] }
+        manualContentEligible: { type: boolean, description: FE-001 observed eligibility hint; FE-007's authoritative durable FAILED/two-attempt guard decides the manual API, so this hint may lag a callback }
+        notificationRequestId: { type: integer, format: int64, description: Present after FE-007 event consumption }
+x-existing-route-changes:
+  create-internal-account: Required normalized email for STAFF/MANAGER and CARRIER; no password for STAFF/MANAGER; full-payload idempotency.
+  resend-invitation: ADMIN and PENDING_SETUP only; five-minute cooldown; rotate prior link and start fresh 48-hour expiry at new invitation creation.
+  direct-auth: Reject reserved PENDING_SETUP identity through /login and /register before MEMBER bootstrap.
+  removed: [GET /api/v1/roles, GET /api/v1/admin/roles]

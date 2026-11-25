@@ -1,7 +1,9 @@
 # Implementation Plan: FE-007 Notification Management
 
+> **R-INV scoped design approved (2026-11-25); implementation open:** FE-007 will register `INTERNAL_ACCOUNT_INVITATION`, consume the FE-001 outbox event after commit, obtain a transient URL from the FE-001 named facade at each SMTP attempt, try at most twice after definite failure, and allow ADMIN-only manual message retrieval after terminal `FAILED`. FE-001 starts the 48-hour window when it creates the invitation. FE-007's durable attempts determine manual eligibility; FE-001 independently checks active ADMIN and current invitation binding, so a delayed status callback cannot authorize the route. The manual route has [versioned OpenAPI](contracts/r-inv.openapi.yaml). Raw URL/secret stays out of persistence and general diagnostics. Historical two-template implementation remains the code baseline until T038–T045 are implemented. See [approval](approval.md), [FE-001 R-INV](../001-account-management/design/revision-2026-11-24.md) and [delivery boundary](contracts/notification-facade.md) §6.
+
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -31,11 +33,11 @@ The system is full-stack: backend owns all email processing (request creation, t
 
 **Project Type**: Full-stack web service — backend module `notificationmanagement` within Spring Modulith, frontend feature `notification-management` within React app
 
-**Performance Goals**: Worker polls every 30 seconds (FR-028). SMTP retry: 1 min then 5 min, max 3 attempts (FR-013). No latency SLA specified (TBD per spec-general §4).
+**Performance Goals**: Worker polls every 30 seconds (FR-028). Generic V1 SMTP retry: 1 min then 5 min, max 3 attempts (FR-013); R-INV uses 2 attempts total, retry after about 1 min (FR-032). No latency SLA specified (TBD per spec-general §4).
 
 **Constraints**: V1 single instance, single sequential worker. No distributed lease, no multi-worker. Global scope for Admin/Manager authorization (FR-027).
 
-**Scale/Scope**: V1: 2 activatable templates (`BOOKING_CONFIRMED`, `RETAIL_ORDER_CONFIRMED`). Single worker processing requests sequentially.
+**Scale/Scope**: Historical V1: 2 activatable templates (`BOOKING_CONFIRMED`, `RETAIL_ORDER_CONFIRMED`). R-INV adds `INTERNAL_ACCOUNT_INVITATION` after approval. Single worker processing requests sequentially.
 
 ## Constitution Check
 
@@ -45,7 +47,7 @@ The system is full-stack: backend owns all email processing (request creation, t
 | --- | --- | --- |
 | I. Module Integrity | ✅ PASS | FE-007 backend as `notificationmanagement` package under `features/`, with standard sub-packages (controller, dto, dao, entity, service, facade). `NotificationFacade` is the only public inter-feature interface. Constitution §I requires valid Java package names and facade-only dependencies. |
 | I. Data Ownership | ✅ PASS | FE-007 owns notification requests, template definitions/versions, delivery state, renditions, audit. Source features own business events, recipients, snapshots. No shared business entity in `common`. Constitution §I data ownership preserved. |
-| I. Facade Direction | ✅ PASS | Source features call `NotificationFacade` (one-way). FE-007 does not call back into source features for request creation. Redelivery with refreshed credential uses source feature facade (one-way, initiated by operator action). Constitution §I one-way facade + events for async. |
+| I. Facade Direction | ✅ PASS for base; R-INV scoped design approved, implementation open | Existing source features use `NotificationFacade`. Invitation uses FE-001-owned outbox event and FE-001 named materialization/status facade consumed by FE-007, so the invitation module edge is `007 -> 001` only. The generic redelivery boundary is unaffected. `ApplicationModules.verify()` is required in T043. |
 | II. Identity Boundary | ✅ PASS | FE-007 does not handle Firebase identity. Dashboard authentication uses the shared identity gate (`CurrentAccountActor`). No credential storage, no password, no token logging. Constitution §II preserved. |
 | II. Sensitive Data | ✅ PASS | FR-021/FR-022/FR-025 explicitly prohibit logging raw tokens, QR payloads, payment data. Retention with scrub at 90 days/12 months. Constitution §II preserved. |
 | III. REST Contract | ✅ PASS | Dashboard and operational APIs will use versioned plural kebab-case routes, explicit DTOs, Bean Validation, server-side authorization, typed safe errors, and OpenAPI contract. Constitution §III preserved. |

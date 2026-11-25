@@ -1,7 +1,9 @@
 # Verification Report: Account Management (FE-001)
 
+> **R-INV (2026-11-25): SCOPED DESIGN APPROVED; IMPLEMENTATION NOT VERIFIED.** There is no fresh app execution evidence. The local source mocks are preview-only and do not verify an ADMIN screen, JSON export, invitation delivery or MEMBER retirement. Historical V-04 and checked task markers do not verify the amended flow. Scoped review/JSON must label DEMO and deny retirement; live MEMBER retirement is deferred to T117 pending authoritative source facts, an approved acceptance/retirement fence and separate approval. See [R-INV design](design/revision-2026-11-24.md), FE-001 T105–T117 and FE-007 T038–T045; update implementation status only after actual evidence is recorded.
+
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

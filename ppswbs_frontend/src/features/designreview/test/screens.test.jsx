@@ -572,7 +572,7 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     expect(screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeInTheDocument();
   });
 
-  it('validates quote amount <= 1000000 and duration 24-72 hours on ReviewDetailPage', async () => {
+  it('validates quote amount <= 1000000000 and duration 24-72 hours on ReviewDetailPage', async () => {
     const user = userEvent.setup();
     mockFetch({
       'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
@@ -594,13 +594,13 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     const amountInput = screen.getByTestId('quote-amount-input');
     const hoursInput = screen.getByTestId('quote-hours-input');
 
-    // Amount > 1000000 shows error
-    await user.type(amountInput, '1500000');
-    expect(screen.getByTestId('quote-amount-error')).toHaveTextContent('Số tiền tối đa không được vượt quá 1.000.000 VNĐ.');
+    // Amount > 1000000000 shows error
+    await user.type(amountInput, '1500000000');
+    expect(screen.getByTestId('quote-amount-error')).toHaveTextContent('Số tiền tối đa không được vượt quá 1.000.000.000 VNĐ.');
 
     // Clear and type valid amount
     await user.clear(amountInput);
-    await user.type(amountInput, '500000');
+    await user.type(amountInput, '50000000');
     expect(screen.queryByTestId('quote-amount-error')).toBeNull();
 
     // Hours < 24 shows error

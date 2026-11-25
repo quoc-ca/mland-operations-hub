@@ -1,13 +1,13 @@
 # Feature Specification: Account Management
 
 **Date created**: 2026-10-19
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Feature Branch**: `son`
 
-**Status**: Approved historical baseline through Revision R-NAD, R-CAR and R-404 (2026-11-20); see scoped approvals in `approval.md`.
+**Status**: Approved historical baseline through Revision R-NAD, R-CAR and R-404 (2026-11-20); R-INV scoped implementation approved 2026-11-25 for T106–T116. Live MEMBER replacement T117 remains deferred and unapproved. See `approval.md` and `design/revision-2026-11-24.md`.
 
 **Input**: Replace the obsolete Member Profile scope with FE-001 Account Management, using `research.md` and the decisions recorded during the 2026-10-24–2026-10-25 clarification.
 
@@ -26,7 +26,7 @@ The feature serves a small-to-medium business. It deliberately uses fixed roles 
 - System-wide time standardization to Vietnam local time (`Asia/Ho_Chi_Minh`, UTC+7) for MySQL DB, JDBC connection, and API responses.
 - An immutable shipping-address facade snapshot for a future FE-008 checkout integration; changing FE-008 checkout or GHTK fee calculation is not part of this revision.
 - Admin management of versioned Vietnam administrative-directory reference data; only the active directory is available for new or edited Member addresses.
-- Admin list/detail, internal-account creation, invitation resend, internal profile edit, role/location assignment, account suspension/restoration, and fixed-role reference, including the email/password CARRIER partner account.
+- Admin list/detail, internal-account creation, invitation resend, internal profile edit, role/location assignment, account suspension/restoration, and the approved R-INV MEMBER collision preview/JSON flow; live MEMBER retirement is deferred to T117. The email/password CARRIER partner account retains its separate approved scope.
 - Account lifecycle audit, safe retry/recovery, and notification requests to FE-07.
 
 ### Manager authorization baseline (2026-11-14)
@@ -41,7 +41,7 @@ system superuser.
 
 ### Revision R-404 — FE-001 browser-route allowlists (2026-11-20)
 
-`MEMBER`, `STAFF`, `MANAGER`, and `ADMIN` may use the Account-owner self-service routes: `/profile` and every Profile alias, `/profile/addresses` and every Address alias, `/security/email`, and `/security/password`. `CARRIER` may use only `/security/password`; its direct navigation to Profile, Address or Email routes is replaced to `/404` before page render or request. `/admin/accounts*` and `/admin/roles` remain `ADMIN` only. Every signed-in role outside an internal route allowlist, and every `SUSPENDED` or `PENDING_SETUP` Account opening an internal route, is replaced to `/404`. A technical failure to resolve the current Account role/status remains at the requested URL with a neutral unavailable/retry state. This browser rule never rewrites a post-entry API `403`.
+`MEMBER`, `STAFF`, `MANAGER`, and `ADMIN` may use the Account-owner self-service routes: `/profile` and every Profile alias, `/profile/addresses` and every Address alias, `/security/email`, and `/security/password`. `CARRIER` may use only `/security/password`; its direct navigation to Profile, Address or Email routes is replaced to `/404` before page render or request. `/admin/accounts*` remains `ADMIN` only; the historical `/admin/roles` exception is removed by R-INV. Every signed-in role outside an internal route allowlist, and every `SUSPENDED` or `PENDING_SETUP` Account opening an internal route, is replaced to `/404`. A technical failure to resolve the current Account role/status remains at the requested URL with a neutral unavailable/retry state. This browser rule never rewrites a post-entry API `403`.
 
 ### Out of scope
 
@@ -51,7 +51,7 @@ system superuser.
 - Carrier delivery, shipment, fee, tracking, or any other logistics capability. A later owning feature must explicitly authorize any CARRIER action.
 - Dashboard content, Home-page implementation, frontend application scaffolding, production deployment, and production identity-provider setup.
 - Direct email delivery; FE-07 owns delivery after Account records a notification request.
-- Account deletion workflow or endpoints. If a future approved account-deletion workflow removes an Account, this feature deletes its owned address-book records but retains only safe audit/log metadata.
+- General-purpose Account deletion. R-INV defines a narrowly scoped, audited MEMBER replacement/retirement workflow that retains required historical references; it is not general erasure.
 - FE-008 checkout selection by `savedAddressId`, GHTK quoting, carrier aliases, carrier fallback, and Workshop Location pickup-address management.
 
 ### Address-book revision decisions (2026-11-14)
@@ -236,17 +236,17 @@ An Admin can find an allowed account, suspend it with a reason, and later restor
 
 ### User Story 5 - Understand fixed access without configuring permissions (Priority: P2)
 
-An Admin can search and inspect accounts, see the fixed role catalogue, and make only the role/location assignments supported by the business. The Admin cannot create a new role, edit permissions, create another Admin, or use account administration to obtain unrelated business powers.
+An Admin can search and inspect accounts and make only the role/location assignments supported by the business. The Admin cannot create a new role, edit permissions, create another Admin, or use account administration to obtain unrelated business powers. R-INV removes the standalone catalogue page.
 
 **Why this priority**: Clear administration avoids role mistakes while keeping V1 manageable.
 
-**Independent Test**: An Admin can filter the account list and view the static role descriptions, while every attempt to configure dynamic permissions, assign an unsupported role, or manage an Admin account is rejected.
+**Independent Test**: An Admin can filter the account list and see short role guidance where assignments are made, while every attempt to configure dynamic permissions, assign an unsupported role, or manage an Admin account is rejected.
 
 **Acceptance Scenarios**:
 
 1. **Given** an Admin searches by email or full name and filters by role/status, **When** the list is displayed, **Then** results are paginated, ordered by recent change/creation, and do not expose credentials, provider identifiers, or unrelated business records.
 2. **Given** a Staff assignment, **When** an Admin saves it, **Then** it has exactly one active location; a Manager assignment has one or more active locations.
-3. **Given** an Admin opens the role catalogue, **When** it is displayed, **Then** it explains the fixed role scope without offering permission or role editing.
+3. **Given** an Admin chooses a role on the create/edit form, **When** the control is displayed, **Then** it offers only short guidance for the supported roles and no permission editing or catalogue navigation.
 
 ---
 
@@ -294,12 +294,12 @@ A signed-in Member can view, add, edit, physically delete, and set a default shi
 - **FR-007**: The system MUST create an Account Profile with every Account bootstrap. Its initial full name is the portion before `@` of the current identity email, never a client-supplied value or provider display name. An active, verified account owner can later view and replace their own full name and optional phone number. A full name is required after outer-whitespace trimming, contains 1–100 Unicode characters, and contains no ISO control character. A phone is optional, trimmed, 7–30 characters when present, and is neither normalized, verified by OTP, nor required to be unique.
 - **FR-008**: The system MUST keep profile, role/location, status, email, credential, and identity changes as distinct actions. Profile editing MUST NOT change role, status, login email, identity, or location scope.
 - **FR-009**: The system MUST support exactly the fixed roles `MEMBER`, `STAFF`, `MANAGER`, `CARRIER`, and `ADMIN`. Each Account has exactly one role; provider claims and frontend visibility MUST NOT grant a business role. The CARRIER display name is exactly `Đối tác vận chuyển (GHTK)`.
-- **FR-010**: The system MUST expose a read-only fixed-role catalogue to Admins. It MUST NOT provide user-configurable permissions, custom roles, multiple role assignment, or a dynamic RBAC administration interface.
+- **FR-010**: The system MUST use only the fixed roles and MUST NOT provide user-configurable permissions, custom roles, multiple role assignment, a dynamic RBAC administration interface or a standalone role-catalogue page/API. The catalogue removal belongs to the approved scoped R-INV revision.
 - **FR-011**: The system MUST allow an Admin to create Staff, Manager, or CARRIER Accounts only. Staff/Manager start as `PENDING_SETUP`; CARRIER starts as `ACTIVE` with required immutable login email, password, display name, and phone, and has no invitation/setup flow. The system MUST provision the CARRIER Firebase email/password identity before committing the Account; the supplied password is write-only and MUST NOT be persisted, logged, audited, or returned. An Admin account is created and managed only by the separate operations bootstrap process.
 - **FR-012**: The system MUST require exactly one active Workshop Location assignment for Staff and one or more active Workshop Location assignments for Manager. CARRIER MUST have no Workshop Location assignment. `workshopLocationId` is the sole shared site-and-scope identifier. Staff assignments define the Staff location scope. Manager assignments are organizational records and MUST NOT narrow an active Manager's authorization for an action explicitly authorized to Manager. The system MUST validate assignments against the authoritative workshop-location source and MUST NOT own a duplicate location record or a separate branch mapping.
 - **FR-013**: The system MUST activate a pending Staff/Manager account only when its intended identity signs in, its email is verified, and its assigned location scope remains valid. A CARRIER is already `ACTIVE` with a Firebase UID provisioned by Admin creation; an email/password sign-in MUST resolve that existing CARRIER and MUST NOT create, merge, overwrite, or change any Member Account.
 - **FR-014**: The system MUST make internal-account creation safely retryable and MUST preserve one result for a repeated unchanged creation request. A changed request using the same retry key MUST be rejected.
-- **FR-015**: The system MUST let an Admin resend a setup invitation only for a pending internal account, subject to a five-minute resend cooldown. A resend uses a fresh identity-provider setup link and MUST NOT retain the raw link in audit or log records.
+- **FR-015**: The system MUST let an Admin resend a setup invitation only for a pending internal account, subject to a five-minute resend cooldown. R-INV replaces the historical identity-provider-link assumption with a one-time FE-001 setup link rotated on resend; validity is 48 hours from creation of each invitation version, independent of SMTP. Raw link/secret MUST NOT be retained in audit, log or notification persistence.
 - **FR-016**: The system MUST let an Admin search and filter allowed account records by full name/email, role, and status; paginate the results; order them with recently changed/created records first; and exclude credentials, provider identifiers, and unrelated business data from the list/detail responses.
 - **FR-017**: The system MUST allow an Admin to edit only full name and phone for Staff/Manager/CARRIER accounts. Member profile values are self-managed; login-email change remains an owner flow. CARRIER email is immutable; CARRIER cannot self-edit profile or email in FE-001, but may change its password through the existing eligible password-owner flow.
 - **FR-018**: The system MUST make Admin changes to internal profile, role/location, and status conflict-safe. A change based on an older displayed version MUST be rejected and require reload rather than overwrite current data.
@@ -373,5 +373,28 @@ A signed-in Member can view, add, edit, physically delete, and set a default shi
 - Existing `plan.md`, `tasks.md`, `data-model.md`, and `contracts/member-profile.openapi.yaml` describe the superseded Member Profile design. Current execution artifacts are replaced directly from this specification before implementation; Git history preserves prior versions, and old task markers must not be treated as current instructions.
 
 ## Supersession note
+
+### R-INV scoped correction approved (2026-11-25)
+
+The decisions and acceptance below replace conflicting older US3/US5, FR-010–015/024/046 and route-catalogue text for the R-INV revision. [Scoped Tech Lead approval](approval.md) covers T106–T116, with T117 live MEMBER replacement excluded. The complete design and failures are in [R-INV](design/revision-2026-11-24.md); prior implementation checkboxes and verification labels do not establish this revision's completion.
+
+- **FR-048 — Mandatory internal invitation:** ADMIN MUST provide a valid intended email for STAFF/MANAGER. Creation MUST record a mandatory invitation, use an actual UID-bound PENDING_SETUP Account and validate current active Location assignments. It MUST reject absent/invalid email, a Staff/Manager password field, invalid scope and changed idempotent retries. A saved invitation timestamp is not delivery evidence.
+- **FR-049 — Collision review and replacement:** Email occupancy MUST be checked in Mland and Firebase. Existing STAFF/MANAGER go to maintenance; ADMIN/CARRIER cannot be replaced. An existing MEMBER may be reviewed by ADMIN, optionally exported as JSON, then retired only after a fresh, explicit confirmation **and** definitive absence of nonterminal accepted retail orders and workshop bookings. A populated retail cart alone does not block. The UI only identifies the open obligation and stops; ADMIN has no proxy payment/cancellation/fulfilment action. Retirement MUST revoke the old session, delete its Firebase identity, release email ownership and de-identify the old Account while preserving opaque ID, required retail/workshop history and audit. Firebase-only occupancy has a separate confirmation and no Mland export. A failed/partial retirement or unavailable obligation source MUST block creation and support reconciliation.
+- **FR-050 — Review and export:** An ADMIN review and JSON export MUST contain only the resolved MEMBER's name, phone, email, status, address list, server-stored retail cart, retail purchase history and workshop booking history, with source identifiers/timestamps. A browser-only unconfirmed workshop cart is not queried or exported, and the UI need not mention this omission. The export is on demand, optional, never stored as a new server artifact, and excludes credentials, tokens and payment secrets. Review/export/retirement require authorization and safe audit. A stale review or unavailable source MUST block retirement pending refresh.
+
+  **Temporary preview scope (2026-11-25):** FE-001 owns the `RetailMemberReplacementReader` and `WorkshopMemberReplacementReader` consumer interfaces. Source modules may supply local-only mock implementations for a configured demo Account ID. Demo records must carry `dataOrigin=DEMO`, `status=UNAVAILABLE` and `sourceVersion=null`; ADMIN review and JSON export must visibly identify them as samples. The server must reject MEMBER retirement and release of the occupied email while either source is DEMO or UNAVAILABLE. No email-matched Guest data is attached to the MEMBER. The live providers and their state classifications remain a future dependency, communicated through `local-notes`, without editing FE-003.1/FE-08 specs in this round.
+
+  Even after live providers exist, a final re-read alone does not close the race with a newly accepted order/booking. MEMBER retirement MUST also use an owner-approved acceptance/retirement fence across FE-001, FE-08 and FE-003.1 before releasing the email. The concrete protocol remains pending; preview-only mock data is never a substitute.
+- **FR-051 — Setup:** Each invitation MUST have a single-use link valid for 48 hours from its creation; an authorized resend after five minutes rotates and invalidates the old link and starts its own 48-hour window at new version creation. A valid link MUST offer password setup or Google linking on the *same bound UID*, whether the email was accepted by SMTP or delivered outside the system by ADMIN. The backend MUST activate that Account only after link use, intended-email verification, same-UID proof and current active scope. Success routes to the role home. Expired/used/mismatched links stay pending with recovery guidance. Direct `/login` or `/register` MUST reject a reserved pending identity before Member bootstrap.
+- **FR-052 — Delivery and role UI:** FE-007 MUST own an `INTERNAL_ACCOUNT_INVITATION` delivery type, try at most twice after definite SMTP failure and report distinct queued/SENT/FAILED/UNKNOWN_OUTCOME outcomes without persisting raw setup link or secret. ADMIN MUST see invitation `createdAt`, `expiresAt`, server-based remaining time and delivery state. After two definite failures and while the link remains valid, ADMIN MAY retrieve/copy the pinned subject, HTML and plain-text message with its current link for outside delivery; retrieval is audited, no-store and does not claim `SENT`. The Admin form MUST have no send-notification opt-out or false sent success copy. ADMIN MUST see only Account administration and eligible owner self-service navigation; other internal browser routes MUST apply explicit role allowlists before page mount/request. The fixed-role catalogue page, navigation item and endpoint are removed; short role-selection help remains in create/edit forms.
+
+**R-INV acceptance scenarios:**
+
+1. **Given** ADMIN creates a valid STAFF/MANAGER Account, **when** invitation creation commits, **then** `expiresAt` is exactly 48 hours after `createdAt` and ADMIN sees the server-based remaining time even before SMTP accepts mail.
+2. **Given** two definite SMTP failures, **when** ADMIN opens the current unexpired invitation, **then** the UI offers a copyable pinned email with its link; FE-007 remains `FAILED`, access is audited without content, and the UI does not claim outside delivery.
+3. **Given** `UNKNOWN_OUTCOME`, an expired/used link or a superseded version, **when** ADMIN asks for manual email content, **then** the action is refused without exposing a setup URL; the appropriate reconciliation or resend path remains available.
+4. **Given** an unexpired link delivered outside the system, **when** its intended person completes password or Google setup, **then** the same bound Account ID/UID becomes ACTIVE after all scope and email checks.
+
+**R-INV scoped acceptance:** From ADMIN create, both password and Google setup reach the same Account ID/UID and ACTIVE state for non-colliding email; MEMBER collision review/JSON visibly labels DEMO data and rejects retirement/email release; missing/expired links, wrong identity, provider/mail failure and duplicate requests cannot activate or silently create a MEMBER; ADMIN cannot enter business routes. Live MEMBER retirement preserving history is separately deferred to T117. FE-007 contract synchronization and scoped approval are recorded in the two approval files; implementation still requires fresh verification.
 
 This specification replaces the legacy FE-001 Member Profile/SSR/cookie-session scope at the same feature path. It is a business specification, not evidence that a backend, frontend, migration, identity-provider configuration, or operational bootstrap has been implemented or approved for release.

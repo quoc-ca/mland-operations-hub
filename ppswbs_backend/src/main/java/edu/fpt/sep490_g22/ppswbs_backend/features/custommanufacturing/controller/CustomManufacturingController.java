@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,6 +24,38 @@ public class CustomManufacturingController {
 
     private final CustomOrderService customOrderService;
     private final AccountFacade accountFacade;
+
+    @GetMapping
+    public ResponseEntity<List<CustomOrderProjectionDto>> listCustomOrdersForOperations(
+            @RequestParam(name = "status", required = false) String status,
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        boolean isStaff = DesignReviewPermissions.isStaff(authentication.getAuthorities());
+        boolean isManager = DesignReviewPermissions.isManager(authentication.getAuthorities());
+        if (!isStaff && !isManager) {
+            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền truy cập danh sách đơn hàng gia công.");
+        }
+
+        List<CustomOrderProjectionDto> orders = customOrderService.listAllCustomOrdersForOperations(status);
+        return ResponseEntity.ok(orders);
+    }
+
+    @GetMapping("/{customOrderId}")
+    public ResponseEntity<CustomOrderProjectionDto> getCustomOrderForOperations(
+            @PathVariable("customOrderId") String customOrderId,
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        boolean isStaff = DesignReviewPermissions.isStaff(authentication.getAuthorities());
+        boolean isManager = DesignReviewPermissions.isManager(authentication.getAuthorities());
+        if (!isStaff && !isManager) {
+            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền xem thông tin đơn hàng gia công này.");
+        }
+
+        CustomOrderProjectionDto order = customOrderService.getCustomOrderForOperations(customOrderId);
+        return ResponseEntity.ok(order);
+    }
 
     @PostMapping("/{customOrderId}/quotes/{quoteId}/approve")
     public ResponseEntity<QuoteProjectionDto> approveQuoteWithQuoteId(
