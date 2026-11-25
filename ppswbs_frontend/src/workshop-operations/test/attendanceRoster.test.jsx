@@ -92,4 +92,21 @@ describe('Attendance roster on the session page', () => {
     const post = calls.find(call => call.method === 'POST' && call.path.endsWith('/check-ins'));
     expect(post.body).toEqual({ ticketCode: 'TK-1' });
   });
+
+  it('says a repeat scan is already checked in instead of reporting a new check-in', async () => {
+    mockFetch({
+      'GET /api/v1/workshop-sessions/session-1': session,
+      'GET /api/v1/workshop-sessions/session-1/attendance-roster': json(200, [row('TK-1', 'CHECKED_IN', '2026-11-06T02:00:00Z')]),
+      'POST /api/v1/workshop-sessions/session-1/check-ins': json(200, { checkInResult: 'ALREADY_CHECKED_IN', checkedInAt: '2026-11-06T02:00:00Z' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
+    await screen.findByText('Check-in desk');
+
+    await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
+    await user.click(screen.getByRole('button', { name: 'Check in' }));
+
+    expect(await screen.findByText(/^Ticket was already checked in at .*2026/)).toBeInTheDocument();
+    expect(screen.queryByText('Check-in recorded.')).not.toBeInTheDocument();
+  });
 });

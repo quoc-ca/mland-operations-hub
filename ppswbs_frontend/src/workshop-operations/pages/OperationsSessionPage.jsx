@@ -288,7 +288,12 @@ export default function OperationsSessionPage() {
     setMessage('');
     setCheckInNotOpen(null);
     const result = await command.run(key => api.checkIn(sessionId, body, key));
-    if (result.ok) { setMessage(success); resource.reload(); roster.reload(); return; }
+    if (result.ok) {
+      // A repeat scan answers 200 ALREADY_CHECKED_IN: say so, with the recorded check-in time only.
+      const repeat = result.result?.checkInResult === 'ALREADY_CHECKED_IN';
+      setMessage(repeat ? t('ses.alreadyCheckedIn', { when: formatDateTime(result.result.checkedInAt, language) }) : success);
+      resource.reload(); roster.reload(); return;
+    }
     if (checkInNotOpenText(result.error, language)) { setCheckInNotOpen(result.error); command.reset(); }
   }
 
