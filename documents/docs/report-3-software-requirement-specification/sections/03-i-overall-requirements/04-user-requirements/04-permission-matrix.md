@@ -14,10 +14,10 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|Restricted|No|Restricted|
 |Workshop payment|Pay a workshop deposit and view the payment result|Full|Full|No|No|Restricted|
 |Booking lookup|Look up booking details and QR check-in ticket|Full|Full|Restricted|Restricted|Restricted|
-|Workshop operations|Check in a participant by QR code or manual code|No|No|Full|Restricted|Restricted|
-|Workshop schedule|Create, update, or cancel schedules and branch allocations|No|No|Restricted|Full|Restricted|
-|Workshop staffing|Assign Staff to workshop slots|No|No|Restricted|Full|Restricted|
-|Workshop time and capacity|Configure time slots, capacity, participant limits, materials, holidays, and closures|No|No|No|Full|Restricted|
+|Workshop operations|Check in a participant by QR code or manual code|No|No|Restricted|Full|No|
+|Workshop schedule|Create, update, or cancel schedules and branch allocations|No|No|No|Full|No|
+|Workshop staffing|Assign Staff to workshop slots|No|No|No|Full|No|
+|Workshop time and capacity|Configure time slots, session capacity, and participant limits|No|No|No|Full|No|
 |Ticket folio|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
 |Ticket folio|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
 |Ticket folio|Verify transfers, manage handover exceptions and debt, and correct a folio (UC 80, 81, 82)|No|No|No|Full|No|

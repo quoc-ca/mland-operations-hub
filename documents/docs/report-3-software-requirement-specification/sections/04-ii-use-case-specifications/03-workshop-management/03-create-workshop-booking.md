@@ -6,81 +6,60 @@ Guest, Member
 
 #### Secondary Actors
 
-None
+Payment Gateway, Mail Gateway
 
 #### Description
 
-As a Guest or Member, I want to create a workshop booking by selecting a published package, location, date, session, and permitted ring-design path so that the system can reserve a seat temporarily and prepare the booking deposit payment.
+As a Guest or Member, I want to put one or more workshop packages with their sessions and participant counts into a cart and confirm it, so that the system holds the seats and creates a booking group with one ticket per person.
 
 #### Preconditions
 
 1. The platform is available.
-2. The actor has selected a published workshop package.
-3. A workshop location and session are available for selection.
-4. Capacity is configured for the selected location and session.
-5. The actor has the required contact and participant information. A Member may use verified profile information; a Guest must provide the required contact details.
-
+2. The actor has selected a published workshop package that is active at the chosen branch.
+3. The required sessions are open for booking and have enough capacity.
+4. A Guest provides both a contact email and a contact phone. A Member may use verified profile information.
 
 #### Postconditions
 
-- A booking and package invoice are created with payment-pending status.
-- The required deposit is calculated as 50% of the selected package price.
-- The selected capacity is held temporarily for the payment window.
-- The booking remains unconfirmed until UC18 Pay Workshop Deposit receives valid payment confirmation.
+- A booking group and one ticket booking per person are created, all or nothing.
+- The seats of every line are held for 12 minutes while payment is pending.
+- A group whose booking-time collection is 0 VND is confirmed immediately without VNPay.
+- A group with an amount to collect stays unconfirmed until UC 22 Pay Workshop Deposit succeeds.
 
 #### Normal Flow
 
 **Create Workshop Booking**
 
-1. The actor selects a workshop location.
-2. The actor selects a date and one available daily session.
-3. The actor selects a published workshop package.
-4. The system verifies that capacity is configured for the selected location/session and that sufficient capacity remains for the requested participant count.
-5. The system displays a booking summary containing the location, date, session, package, participant count, package price, and required deposit.
-6. The actor enters the required contact and participant details, or confirms the applicable Member profile details.
-7. The actor optionally selects a supported ring-design path.
-8. If a design path is selected, the actor completes the permitted design flow and the system stores its request/outcome for the booking.
-9. The actor submits the booking.
-10. The system creates the booking and package invoice, sets the deposit amount to 50% of the package price, and sets the booking status to payment pending.
-11. The system places a temporary hold on the selected capacity and directs the actor to UC18 Pay Workshop Deposit.
+1. The actor selects a published package.
+2. The actor selects the branch, the complete required session set, and the participant count, and adds the line to the cart or books it now.
+3. The actor may add further lines to the cart.
+4. The system quotes the cart with each ticket price and booking-time collection; the quote is valid for 30 minutes. A Member may apply one voucher and loyalty points.
+5. The actor enters or confirms the contact details and accepts the non-refundable condition shown.
+6. The actor confirms the cart.
+7. The system validates and holds every line in one transaction and creates the booking group and its tickets.
+8. The system directs the actor to UC 22 Pay Workshop Deposit, or confirms the group when nothing has to be collected.
 
 #### Alternative Flows
 
-**Step 3 — Package is invalid, unpublished, or unavailable**
+**Step 2 — Package not active at the branch**
 
-The system rejects the selection and asks the actor to choose another published package.
+The system refuses the line and asks the actor to choose another branch or package.
 
-**Step 4 — Capacity is not configured**
+**Step 4 — Quote expired, already used, or changed**
 
-The system cannot create the booking and informs the actor that the selected session is not available for booking. The actor must select another session or location.
+The system holds nothing and asks the actor to quote the cart again.
 
-**Step 4 — Insufficient capacity**
+**Step 6 — Contact details are missing or invalid**
 
-The system rejects the selection, releases any provisional selection, and asks the actor to choose another session or reduce the participant count.
+The system displays validation errors and keeps the cart editable.
 
-**Step 6 — Required contact or participant information is missing or invalid**
+**Step 7 — A line lacks capacity or eligibility**
 
-The system displays validation errors and keeps the actor on the booking form until the information is corrected.
+The system reports the failing lines, holds nothing, and keeps the cart editable.
 
-**Step 7 — Selected design path is not supported**
+**Step 8 — Payment is not verified before the hold expires**
 
-The system rejects the design selection and asks the actor to choose another supported design path or continue without a design request.
-
-**Step 8 — Design request is rejected**
-
-The system does not create the booking and asks the actor to select another design choice or continue without the rejected design path.
-
-**Step 9 — Actor abandons or cancels before submission**
-
-The system creates no booking, invoice, or capacity hold.
-
-**Step 10 — Booking creation fails**
-
-The system displays an error, creates no incomplete customer-facing booking, and allows the actor to retry.
-
-**Step 11 — Deposit is not validly confirmed within the hold window**
-
-The booking remains unconfirmed and the temporary capacity hold is released. Payment handling continues under UC18 Pay Workshop Deposit.
+The group is not confirmed and the held seats are released. Late payment evidence is handled by UC 22.
 
 #### Business Rules
 
@@ -90,7 +69,7 @@ BR-17-01, BR-17-02, BR-17-03, BR-17-04
 
 | ID | Rule Definition |
 |---|---|
-| BR-17-01 | A workshop booking requires a selected package before the schedule/session and supported design path are finalized. |
-| BR-17-02 | A booking can be created only when capacity is configured for the selected location/session and sufficient capacity remains. |
-| BR-17-03 | The required workshop deposit is 50% of the selected package price; the booking is not confirmed by creating the booking or by a browser redirect alone. |
-| BR-17-04 | A pending booking holds the selected capacity for at most 15 minutes and the hold is released when valid payment confirmation is not received. |
+| BR-17-01 | A booking line requires a package, its complete required-session set, and a participant count. |
+| BR-17-02 | All lines are validated and held together; if one fails, nothing is held. |
+| BR-17-03 | Each ticket collects the smaller of its final price and 200,000 VND at booking time. The remaining amount is collected later and is not multiplied by the number of sessions. |
+| BR-17-04 | The group has one 12-minute hold; editing or retrying payment never extends it. |

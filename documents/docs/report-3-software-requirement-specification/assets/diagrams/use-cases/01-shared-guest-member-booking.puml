@@ -22,7 +22,7 @@ rectangle "Personalized Product Sales and Workshop Booking System" {
   usecase "Select approved model" as Model
   usecase "Configure approved\ncomponents" as Configure
   usecase "Submit consented\nreference image" as Image
-  usecase "Create booking invoice\nwith 50% deposit due" as Invoice
+  usecase "Create booking invoice\nwith the deposit due" as Invoice
   usecase "Initiate deposit payment" as Deposit
   usecase "Track booking with\ncode and contact information" as Track
 }

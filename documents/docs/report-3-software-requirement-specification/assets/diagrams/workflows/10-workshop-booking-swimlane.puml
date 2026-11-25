@@ -16,7 +16,7 @@ start
 :Check that location/session capacity is configured\nand that the selected session has capacity;
 if (Booking can proceed?) then (yes)
   :Create Booking and package Invoice;
-  :Set deposit due = 50% of package price;
+  :Set deposit due = sum of each ticket price up to 200,000 VND;
 else (no)
   :Show unavailable / configuration-required outcome;
   stop

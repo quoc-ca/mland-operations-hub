@@ -1,5 +1,7 @@
 ### 3.13 Synchronize Workshop Schedule
 
+> **Retired (confirmed 2026-11-25):** use case 31 is superseded. Partner availability publishing is automatic under the Feature-003.4 OTA contract; Manager actions are use cases 91 to 93. The text below is kept only as history and must not be implemented.
+
 #### Primary Actors
 
 Manager

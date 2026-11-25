@@ -10,7 +10,7 @@ None
 
 #### Description
 
-As a Guest or Member, I want to view the complete details of a workshop package so that I can understand what is included, the required materials and tools, the duration, the price, and the applicable terms before deciding whether to book.
+As a Guest or Member, I want to view the complete details of a workshop package so that I can understand its description, price, participant limits, sessions, and available branches before deciding whether to book.
 
 #### Preconditions
 
@@ -23,7 +23,7 @@ As a Guest or Member, I want to view the complete details of a workshop package 
 
 - The actor views the latest available details of the selected workshop package, or an appropriate unavailable/error state.
 - No booking, invoice, payment, seat hold, or package-price snapshot is created.
-- The actor may return to the package list or continue to UC17 Create Workshop Booking.
+- The actor may return to the package list or continue to UC 21 Create Workshop Booking.
 
 #### Normal Flow
 
@@ -32,10 +32,10 @@ As a Guest or Member, I want to view the complete details of a workshop package 
 
 1. The actor selects a published package from the Browse Workshop Packages page.
 2. The system retrieves the package details and associated published information.
-3. The system displays the package name, overview, price, currency, duration, deposit information, included materials, available tools, supported workshop/design information, and applicable terms.
+3. The system displays the package name, description, price, minimum and maximum participants per booking line, the number of sessions and their location and spacing rules, and the branches where the package is active.
 4. The actor reviews the package details.
-5. The actor returns to the package list or selects the option to continue to workshop booking.
-6. If the actor continues, the system passes the selected package to UC17 Create Workshop Booking.
+5. The actor returns to the package list, books now, or adds the package to the workshop cart.
+6. If the actor continues, the system passes the selected package to UC 21 Create Workshop Booking.
 
 #### Alternative Flows
 
@@ -49,7 +49,7 @@ The system does not display the package details and informs the actor that the p
 
 **Step 2 — Associated detail data is incomplete**
 
-The system displays the available package information, marks unavailable fields appropriately, and does not invent missing materials, tools, or terms.
+The system displays the available package information, marks unavailable fields appropriately, and does not invent missing information.
 
 **Step 2 — Package retrieval fails**
 

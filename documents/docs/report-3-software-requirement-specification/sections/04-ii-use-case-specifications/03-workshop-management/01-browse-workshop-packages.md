@@ -10,7 +10,7 @@ None
 
 #### Description
 
-As a Guest or Member, I want to browse published workshop packages so that I can compare their overview, price, duration, and availability before viewing details or starting a booking.
+As a Guest or Member, I want to browse published workshop packages so that I can compare their overview and price before viewing details or starting a booking.
 
 #### Preconditions
 
@@ -23,7 +23,7 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 
 - The actor views matching published workshop packages, or an appropriate empty/error state.
 - No booking, invoice, payment, seat hold, or package-price snapshot is created.
-- The actor may continue to UC16 View Workshop Package Details or UC17 Create Workshop Booking.
+- The actor may continue to UC 20 View Workshop Package Details or UC 21 Create Workshop Booking.
 
 #### Normal Flow
 
@@ -31,10 +31,10 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 
 1. The actor opens the Workshop Packages page.
 2. The system retrieves workshop packages with a published and active status.
-3. The actor optionally enters a keyword or applies available filters, such as branch or package status.
-4. The system validates the search and filter criteria.
-5. The system returns matching packages in the configured catalogue display order.
-6. The system displays each package's name, overview, price, duration, and controls to view details or continue to booking.
+3. The system prepares the list; no keyword search or filter is offered.
+4. The system paginates the list.
+5. The system returns the published packages.
+6. The system displays each package's name, overview, and the price of one ticket after the best automatic discount (the original price struck through; vouchers and points are not subtracted), with controls to view details or continue to booking.
 7. The actor selects a package or opens its details.
 
 #### Alternative Flows
@@ -43,13 +43,13 @@ As a Guest or Member, I want to browse published workshop packages so that I can
 
 The system displays an error message and allows the actor to retry.
 
-**Step 4 — Invalid or unsupported search/filter criteria**
+**Step 4 — Requested page does not exist**
 
-The system rejects the criteria, displays a validation message, and keeps the actor on the Browse Workshop Packages page.
+The system shows an available page of the list.
 
-**Step 5 — matching package exists**
+**Step 5 — No published package exists**
 
-The system displays an empty-result message and allows the actor to change or clear the search/filter criteria.
+The system displays an empty-list message.
 
 **Step 5 — package is inactive, unpublished, or no longer available**
 

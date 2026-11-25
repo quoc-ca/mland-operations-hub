@@ -29,8 +29,6 @@ rectangle "Mland Operations System" {
     usecase "Assign Staff to Workshop Slot" as UC26
     usecase "Configure Workshop Time Slot" as UC27
     usecase "Configure Workshop Slot Capacity" as UC28
-    usecase "Configure Supported Materials by Branch" as UC29
-    usecase "Configure Holiday and Off-Day Exception" as UC30
   }
   package "Ticket settlement and changes" {
     usecase "View Ticket Folio" as UC77
@@ -80,8 +78,6 @@ Manager --> UC25
 Manager --> UC26
 Manager --> UC27
 Manager --> UC28
-Manager --> UC29
-Manager --> UC30
 Manager --> UC77
 Manager --> UC78
 Manager --> UC79

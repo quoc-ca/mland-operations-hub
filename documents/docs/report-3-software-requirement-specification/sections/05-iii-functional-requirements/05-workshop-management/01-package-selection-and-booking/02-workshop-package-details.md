@@ -14,7 +14,7 @@ Seat counts on this page are indicative only; no seat is held until the booking 
 
 | Field Name | Description |
 | --- | --- |
-| Package rules | "Quy định của gói workshop": number of sessions, tickets per booking, whether all sessions must be at the same branch, minimum slot gap on the same day, and the 50% deposit policy with the rest paid at the branch. |
+| Package rules | "Quy định của gói workshop": number of sessions, tickets per booking, whether all sessions must be at the same branch, minimum slot gap on the same day, and the deposit policy (up to 200,000 VND per ticket at booking, the rest paid at the branch). |
 | Price | Price per ticket ("/ vé") after the best automatic discount; the note says the final price is quoted by the system at booking. |
 | Chi nhánh | Branches where the package is currently sold. If the chosen branch stops selling it, the screen asks the customer to choose another branch. |
 | Từ ngày / Đến ngày | Date range for the session search. |
