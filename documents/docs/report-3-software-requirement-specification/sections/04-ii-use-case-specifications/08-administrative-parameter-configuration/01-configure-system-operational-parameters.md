@@ -10,7 +10,7 @@ None
 
 #### Description
 
-Allows the Admin to configure operational values used by custom manufacturing and checkout workflows, including the minimum custom-order deadline, unavailable deadline dates and maximum queue size. The loyalty point policy (earning rate, point value, minimum points per use and point-discount cap) is not part of this use case; only the Manager manages it (use case 51).
+Allows the Admin to configure operational values used by checkout workflows. The loyalty point policy (earning rate, point value, minimum points per use and point-discount cap) is not part of this use case; only the Manager manages it (use case 51). Custom-order queue configuration is retired from V1 (see section 10.2).
 
 #### Preconditions
 
@@ -31,7 +31,7 @@ Allows the Admin to configure operational values used by custom manufacturing an
 
 1. The Admin opens operational parameter configuration.
 2. The system displays the current values and their descriptions.
-3. The Admin edits one or more values, such as the minimum deadline, unavailable dates or queue size.
+3. The Admin edits one or more values.
 4. The system validates data types, ranges, dependencies, and effective-date rules.
 5. The Admin reviews and confirms the changes.
 6. The system saves the values, records an audit entry, and displays the updated configuration.
@@ -44,7 +44,7 @@ The system displays field-level validation errors and does not save the invalid 
 
 **Step 4 — Values are inconsistent**
 
-The system identifies the dependency, such as unavailable dates that leave no selectable deadline, and asks the Admin to correct it.
+The system identifies the dependency and asks the Admin to correct it.
 
 **Step 5 — Admin cancels**
 

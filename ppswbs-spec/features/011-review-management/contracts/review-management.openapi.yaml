@@ -9,23 +9,6 @@ servers:
 security:
   - firebaseBearer: []
 paths:
-  /review-eligibility/lookup:
-    post:
-      summary: Guest lookup of eligible review sources
-      security: []
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/GuestEligibilityLookup' }
-      responses:
-        '200':
-          description: Matching eligible sources only
-          content: { application/json: { schema: { $ref: '#/components/schemas/EligibleSourceList' } } }
-        '400': { $ref: '#/components/responses/InputInvalid' }
-        '422': { $ref: '#/components/responses/SourceNotEligible' }
   /reviews/eligible-sources:
     get:
       summary: List eligible sources owned by the authenticated Member
@@ -38,8 +21,7 @@ paths:
   /reviews:
     post:
       summary: Create one public review for an eligible source
-      description: Member calls with Firebase identity. Guest calls with the opaque eligibility handle returned by lookup. The handle is valid for 30 minutes, is bound to its source set and is revalidated at create time.
-      security: [{}]
+      description: Member calls with Firebase identity. Guest calls are not supported.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -77,12 +59,10 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       summary: Edit the authenticated owner review while keeping PUBLIC
-      security: [{}]
       parameters:
         - $ref: '#/components/parameters/ReviewId'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
-        - $ref: '#/components/parameters/GuestEligibilityHandle'
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/EditReview' } } }
@@ -147,23 +127,12 @@ components:
     ReviewId: { name: reviewId, in: path, required: true, schema: { type: string, minLength: 1 } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
     IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 0 } }
-    GuestEligibilityHandle: { name: Guest-Eligibility-Handle, in: header, required: false, schema: { type: string, minLength: 32, maxLength: 128 } }
   schemas:
-    GuestEligibilityLookup:
-      type: object
-      required: [contactType, contactValue]
-      properties:
-        contactType: { type: string, enum: [EMAIL, PHONE] }
-        contactValue: { type: string, minLength: 3, maxLength: 254 }
     EligibleSourceList:
       type: object
       required: [items]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/EligibleSource' } }
-        eligibilityHandle:
-          type: string
-          nullable: true
-          description: Opaque Guest proof returned only by Guest lookup; never encode or expose contact/source data. Required for Guest create and absent for Member lookup.
     EligibleSource:
       type: object
       required: [sourceType, sourceReference, targetType, targetReference, eligible]
@@ -191,10 +160,6 @@ components:
           nullable: true
           default: false
           description: When true the review is shown publicly as anonymous instead of by the partly masked account name. Chosen at creation and not changed by an edit. The account number is never shown.
-        guestEligibilityHandle:
-          type: string
-          nullable: true
-          description: Required when the caller is a Guest; Member requests use Firebase identity. Raw source IDs without a valid handle are rejected.
     EditReview:
       type: object
       required: [rating]

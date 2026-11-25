@@ -9,7 +9,7 @@ This screen allows Guests and Members to:
 - See a live preview with top and side views, and a summary with the estimated weight.
 - Save with **Lưu & Thẩm định**, which creates the design on first save, stores a new version and opens Design Evaluation.
 
-The save button stays disabled while the configuration fails validation. Price and difficulty are advisory; the official amount follows the selected workshop package. A Guest may only preview: **Lưu & Thẩm định** sends a Guest to sign-in and saves nothing. Editing a saved design is for its owning Member.
+The save button stays disabled while the configuration fails validation. Price and difficulty are advisory; the official amount follows the selected workshop package. A Guest may only change the local preview: **Lưu & Thẩm định** sends a Guest to sign-in, saves nothing and creates no server state. Editing a saved design is for its owning Member.
 
 | Field Name | Description |
 | --- | --- |

@@ -17,10 +17,12 @@ calculates advisory estimate/difficulty values through the Manager-owned rule
 facade.
 
 Guest users may see the configurator entry point, catalogue options, preview
-explanation and the sign-in CTA. A Guest may not create a draft, change a
-parameter, evaluate, save, archive, restore, view a private design, or invoke a
-design API. The first protected interaction opens sign-in and sends no protected
-command. No Guest design session is part of the current contract.
+explanation and the sign-in CTA. A Guest may change parameters in a local,
+unsaved preview, but may not create a draft, evaluate, save, archive, restore,
+view a private design, or invoke a design API. The first protected interaction
+opens sign-in and sends no protected command. No Guest design session is part of
+the current contract. Local preview changes are discarded when the preview is
+abandoned.
 
 Feature-012 does not attach designs to workshop tickets or bookings. After a
 Member saves a design, the system may show an advisory workshop recommendation;
@@ -119,7 +121,7 @@ POST /api/v1/workshop-designs/{designId}/restore
 
 All mutations require `Idempotency-Key`; versioned mutations require
 `If-Match-Version`. There is no current `attach-to-booking` command and no
-`X-Guest-Design-Session` or `X-Guest-Session` authorization path.
+There is no `X-Guest-Design-Session` or `X-Guest-Session` authorization path.
 
 ## 8. Security, privacy and integration
 
@@ -150,7 +152,8 @@ state. No unauthenticated retry may create or mutate a design.
 
 ## 10. Explicit non-goals
 
-- Guest design persistence or Guest session storage.
+- Guest design persistence or Guest session storage. Local Guest preview changes
+  are allowed only in memory and are not a design lifecycle state.
 - Booking/ticket attachment or per-ticket design assignment.
 - Retail product customization.
 - AI image analysis or AI price suggestion.
@@ -160,8 +163,9 @@ state. No unauthenticated retry may create or mutate a design.
 
 ## 11. Acceptance scenarios
 
-1. Guest sees the design entry and can browse public options, but the first
-   configure/save/evaluate action opens sign-in and makes no protected API call.
+1. Guest sees the design entry, can browse public options and can change local
+   preview parameters, but the first configure/save/evaluate action opens sign-in
+   and makes no protected API call.
 2. Active Member can create and save a model-based or blank design.
 3. Member can view only own designs and history; another Member receives a safe
    authorization error.

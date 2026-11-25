@@ -11,9 +11,9 @@
 | --- | --- | --- | --- |
 | Public Review List | `/reviews` or target-owned embedded route | Guest/Member | `GET /reviews` |
 | Public Review Detail | `/reviews/:reviewId` | Guest/Member | `GET /reviews/{reviewId}` |
-| Guest Contact Lookup | `/reviews/guest/lookup` | Guest | `POST /review-eligibility/lookup` |
+| Member Eligible Review Sources | `/reviews/eligible-sources` | Member | `GET /reviews/eligible-sources` |
 | Eligible Review Sources | `/reviews/eligible-sources` | Member | `GET /reviews/eligible-sources` |
-| Create Review | `/reviews/new` | Guest/Member | `POST /reviews` |
+| Create Review | `/reviews/new` | Member | `POST /reviews` |
 | Edit Own Review | `/reviews/:reviewId/edit` | Owner | `GET/PATCH /reviews/{reviewId}` |
 | Moderation Queue | `/review-moderation` | Staff/Manager | `GET /review-moderation` |
 | Moderation Detail | `/review-moderation/:reviewId` | Staff/Manager | `PATCH /reviews/{reviewId}/visibility` |
@@ -28,9 +28,9 @@ review, Google review write-back, image/video control or notification center is 
 ```mermaid
 flowchart TD
   A[Public product/workshop detail or Reviews] --> B{Actor}
-  B -->|Guest| C[Guest Contact Lookup]
+  B -->|Guest| C[Sign in prompt]
   B -->|Member| D[Eligible Review Sources]
-  C --> E[Matched eligible sources + opaque handle]
+  C --> E[Member signs in]
   D --> F[Select eligible source]
   E --> F
   F --> G[Create Review]
@@ -47,8 +47,8 @@ flowchart TD
   P --> K
 ```
 
-Guest lookup response must not expose ineligible transactions. The create command
-must use the opaque handle; a raw source identifier is not sufficient.
+Guest never receives an eligibility response. The create command is available only
+after Member authentication and must revalidate source ownership server-side.
 
 ## 3. Moderation flow
 
@@ -96,8 +96,8 @@ commands and non-routine failures without exposing private source data.
 
 The visual handoff is in Figma file `m5Cyk5rit6lKaX3TPprSow`, section
 `F11 · Review Management` (`413:203`). Public list/detail use frames `413:204`
-and `416:24`; Guest lookup, Member sources, create and edit use `413:264`,
-`413:302`, `413:350` and `413:392`. Staff moderation is represented in section
+and `416:24`; Member sources, create and edit use `413:302`, `413:350` and
+`413:392`; Guest write actions use the sign-in prompt state. Staff moderation is represented in section
 `414:1083`; Manager moderation/reply is represented in section `414:2983`.
 The branch label is not a review target, and these frames do not authorize any
 business action beyond the approved API contract. Reviewer approval revision and

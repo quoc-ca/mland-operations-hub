@@ -1,6 +1,6 @@
 ### 4.2 Analyze Ring Design from Image (Retired)
 
-> **Retired (confirmed 2026-11-25):** use case 34 is retired. AI no longer analyzes design images; a Member submits a custom design request (use case 39) and Staff or a Manager reviews it by hand (use case 40). The text below is kept only as history and must not be implemented.
+> **Retired (confirmed 2026-11-25):** use case 34 is retired from the current baseline. AI no longer analyzes design images, and Feature-004 no longer sends reference images to an AI provider; a Member submits a custom design request (use case 39), whose images pass image-quality validation, and Staff or a Manager reviews it by hand (use case 40). The current workflow is documented in `05-personalized-design-and-quote-workflow/04-submit-booking-design-image.md`. The text below is kept only for historical traceability and must not be implemented.
 
 #### Primary Actors
 

@@ -50,12 +50,13 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Retail fulfilment|Record customer pickup and counter cash collection|No|No|Full|Restricted|Restricted|
 |Retail shipment|Record the courier pickup and the delivery of a GHTK shipment|No|No|No|No|No|
 |Custom manufacturing|Submit and view own custom order|No|Full|No|No|Restricted|
-|Custom manufacturing|Configure queue rules and unavailable deadline dates|No|No|No|Full|Full|
+|Custom manufacturing|Configure queue rules and unavailable deadline dates|Retired|Retired|Retired|Retired|Retired|
 |Custom manufacturing|Prepare a quote (Staff or Manager) and approve it (Manager only)|No|No|Restricted|Full|No|
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
-|Operational parameters|Configure custom-order deadlines and queue values|No|No|No|Restricted|Full|
+|Operational parameters|Configure custom-order deadlines and queue values|Retired|Retired|Retired|Retired|Retired|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
 |Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|
+|Public Mland reviews|Browse public workshop-session and retail-product reviews|Full|Full|Full|Full|Full|
 
 #### Permission Matrix Footnotes
 
@@ -65,6 +66,6 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.
 5. Admin manages technical configuration, accounts, fixed-role assignment, and approved integration credentials. Admin has no promotion or loyalty-point permission (GBR-18) and no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK shipments are recorded in the platform; V1 calls GHTK only for the delivery-fee quote and has no shipment-creation, tracking, or webhook integration. Staff packs the order and marks it ready for the courier. The GHTK partner account (role `CARRIER`) records only "Đã lấy hàng" (courier pickup) and "Giao thành công" (delivery) for the GHTK shipments of every branch, and sees the pickup branch, recipient name, phone and address, item count, and shipping fee, never product prices, vouchers, points, or Member account data. Only that account records the Retail shipment row; the platform roles cannot.
-7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
+7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public Mland reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
 8. For ticket settlement and changes (Feature-003.3) and OTA shop add-ons (Feature-003.4), `Restricted` for a Guest or Member means only their own ticket after the required ownership, contact, one-time-code, or single-use-link proof; `Restricted` for Staff means the assigned location and, where the owning feature requires it, a session assignment.
 9. Retail operations differ from footnote 1: Feature-008 and the code limit a Manager to explicitly assigned branches. For recording customer pickup, the current code accepts only Staff of the branch (a separate counter-cash command also accepts a Manager).

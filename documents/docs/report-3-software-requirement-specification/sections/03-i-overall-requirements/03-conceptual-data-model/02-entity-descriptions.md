@@ -195,7 +195,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 
 | Field | Value |
 | --- | --- |
-| Purpose | A request from a Member or Guest to have a custom ring designed from a description and reference images. |
+| Purpose | A request from a Member to have a custom ring designed from a description, reference images, and optionally a Member-owned Feature-012 design snapshot. |
 | Key business attributes | Owner, description, reference images, analysis result, estimated value and review decision. |
 | Business identity | Request reference is unique. |
 | Status / lifecycle | Active → Completed or Withdrawn. Review: Need review → Accepted, Rejected or Clarification required. |

@@ -8,7 +8,7 @@ This screen allows Members to:
 - Close an open conversation and reopen a closed one.
 - Remove a closed conversation from their own list; the store keeps the history.
 
-A Member sees only their own conversations. The list and the open conversation refresh every 10 seconds while the page is visible. More than 30 messages in one minute are refused, and the input pauses for the wait time. The Feature-013 spec extends this screen to Guests through a consultation session; that extension is marked as implementation pending.
+A Member sees only their own conversations. The list and the open conversation refresh every 10 seconds while the page is visible. More than 30 messages in one minute are refused, and the input pauses for the wait time. Guests may see the entry point but must sign in before opening or sending a consultation; no Guest consultation session is supported.
 
 | Field Name | Description |
 | --- | --- |

@@ -7,7 +7,7 @@ This screen allows Members to:
 - See one recommended workshop package: Wax Casting when difficulty is above 9, otherwise Silver Clay when there are more than 5 stones, otherwise Signature Workshop.
 - Explore the workshops, edit the design, open a design consultation or archive the design.
 
-The screen requires sign-in, and only the owning Member can open a design. The evaluation is advisory and never means Staff or Manager approval; the customer-facing lifecycle is Draft, Saved and Archived.
+The screen requires sign-in, and only the owning Member can open a persisted design. Guest preview is local-only and cannot be evaluated server-side. The evaluation is advisory and never means Staff or Manager approval; the customer-facing lifecycle is Draft, Saved and Archived.
 
 | Field Name | Description |
 | --- | --- |

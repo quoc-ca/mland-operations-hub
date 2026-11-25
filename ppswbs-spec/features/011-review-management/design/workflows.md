@@ -5,16 +5,7 @@
 **Author**: Ngô Tiến Đạt
 **Last updated by**: Ngô Tiến Đạt
 
-## W1 — Guest eligibility and creation
-
-1. Guest submits normalized email/phone to `POST /review-eligibility/lookup`.
-2. The API adapter sends the lookup command without Firebase identity.
-3. The backend returns only eligible sources and an opaque handle.
-4. Guest selects one source and submits rating/text plus the handle to `POST /reviews` with `Idempotency-Key`.
-5. The backend resolves the handle, revalidates source/target ownership and creates `PUBLIC` review data atomically.
-6. Duplicate source or changed idempotent payload is shown as a safe conflict; no second review is created.
-
-## W2 — Member eligibility and creation
+## W1 — Member eligibility and creation
 
 1. Member opens `GET /reviews/eligible-sources` with Firebase identity.
 2. Backend derives Member identity and ignores client-supplied owner identity.
@@ -67,17 +58,10 @@ The UI never calls source repositories, creates eligibility evidence locally,
 calculates authorization, or exposes contact/transaction data. A retry of a write
 reuses the original `Idempotency-Key`.
 
-## W8 — Backend guest handle protection
-
-1. Normalize contact without retaining raw value in logs.
-2. Build a server-side source-set binding and issue an opaque handle.
-3. Resolve expiry, status, source binding and ownership again during create.
-4. Reject malformed, expired, replayed or mismatched handles without revealing source existence.
-
-## W9 — Backend idempotent create
+## W6 — Backend idempotent create
 
 1. Canonicalize command fields and compute the request digest.
-2. Atomically claim the actor/handle scope and idempotency key.
+2. Atomically claim the Member actor scope and idempotency key.
 3. Replay an identical completed command; reject changed payload.
 4. Insert review, first revision and audit transactionally.
 5. Let the unique source constraint resolve concurrent creates.

@@ -11,12 +11,13 @@
 
 #### Description
 
-This use case allows Staff or a Manager to review a Member's custom design request and accept it, reject it, or ask for clarification, always with a written explanation. The review is done by a person; no AI result or estimated-value threshold is used.
+This use case allows Staff or a Manager to review a Member's custom design request, including its description, submitted images, any saved-design snapshot and review context, and to accept it, reject it, or ask for clarification, always with a written explanation. The review is done by a person; no AI result or estimated-value threshold is used.
 
 #### Preconditions
 
-1. A custom design request with status Need Review exists.
+1. A custom design request is available for review: it is not yet Accepted or Rejected (normally Need Review).
 2. The reviewer is signed in as Staff or Manager and is not the owner of the request.
+3. The request contains at least one valid input: a description, a reference image or a saved ring design.
 
 #### Normal Flow
 
@@ -24,9 +25,9 @@ This use case allows Staff or a Manager to review a Member's custom design reque
 
 1. The reviewer opens the design review queue.
 2. The reviewer selects a request.
-3. The system displays the request details, description, reference images and any saved-design snapshot.
+3. The system displays the request details, description, reference images, safe Member context and any saved-design snapshot, and the reviewer checks the design requirements and feasibility.
 4. The reviewer selects Accept, Reject or Request Clarification.
-5. The reviewer enters the explanation and confirms.
+5. The reviewer enters the mandatory explanation and confirms.
 6. The system checks the reviewer's role, the request state and version.
 7. The system records the decision with the actor, role, request version, time and audit data, and updates the status.
 8. The Member can read the status, explanation and next action.
@@ -35,7 +36,7 @@ This use case allows Staff or a Manager to review a Member's custom design reque
 
 **Step 4 — Request Clarification**
 
-The status becomes Clarification Required. When the Member replies with a revision, the request returns to Need Review.
+The reviewer uses this when, for example, the request does not contain enough usable design information. The status becomes Clarification Required. When the Member replies with a revision, the request returns to Need Review.
 
 **Step 5 — Explanation is missing or too long**
 
@@ -65,6 +66,6 @@ The system denies access. Admin has technical and audit access only and cannot d
 
 | ID | Rule Definition |
 |---|---|
-| BR-36-01 | Staff and Managers may decide a request; every decision requires a non-empty explanation. |
+| BR-36-01 | Only Staff and Managers may decide a request, within their approved feature scope; backend authorization is authoritative. Every accept, reject or clarification decision requires a non-empty explanation. |
 | BR-36-02 | A reviewer cannot review their own request, and a decision applies only to the current version of an undecided request. |
-| BR-36-03 | Feasibility, acceptance and quotation are decided by people only; no AI result is used. |
+| BR-36-03 | Feasibility, review outcome and quotation are decided by people only; no AI result is required or used. |

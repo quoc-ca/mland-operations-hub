@@ -7,7 +7,7 @@ This screen allows the owning Member to:
 - Review the submitted description, catalogue reference and reference images, and enlarge an image.
 - Start a new design request or return to their request history.
 
-The screen requires sign-in, and a Member can open only their own requests. Requests not yet decided show a waiting notice.
+The screen requires sign-in, and a Member can open only their own requests; a Guest sees only the protected-entry sign-in prompt and has no private tracking-token view. Requests not yet decided show a waiting notice.
 
 | Field Name | Description |
 | --- | --- |

@@ -4,6 +4,11 @@
 > facade are retired. Current implementation tasks end at saved-design
 > recommendation and Feature-013 consultation handoff.
 
+> Actor rebaseline 2026-11-25: Guest access is limited to local preview. Guest
+> session persistence, Guest save, Guest evaluation and Guest design history are
+> retired. Member authentication is required for all server commands and
+> persisted design data; older Guest-session tasks are historical only.
+
 Date created: 2026-11-08  
 Date updated: 2026-11-22
 Author: Ngô Tiến Đạt  

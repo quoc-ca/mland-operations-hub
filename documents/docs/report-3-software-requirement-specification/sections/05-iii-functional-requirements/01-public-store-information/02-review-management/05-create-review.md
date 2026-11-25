@@ -2,7 +2,7 @@
 
 This screen allows Members to:
 
-- Write a review for one eligible source chosen in Eligible Review Sources: a checked-in workshop attendance or a picked-up or delivered retail order line.
+- Write a review for one eligible source chosen in the signed-in Member's Eligible Review Sources: a checked-in workshop attendance or a picked-up or delivered retail order line.
 - Give a 1–5 star rating, optional text and up to 3 photos.
 - Choose to post anonymously; the choice is fixed once the review is submitted.
 - Publish the review, which becomes public at once and opens its Review Details.

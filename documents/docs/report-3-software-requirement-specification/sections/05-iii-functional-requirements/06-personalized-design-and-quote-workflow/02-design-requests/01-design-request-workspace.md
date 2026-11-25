@@ -1,13 +1,13 @@
 #### 6.2.1 Design Request Workspace
 
-This screen allows Members to:
+This screen allows authenticated Members to:
 
 - Describe the ring they want made, upload up to five reference images, and optionally attach a saved workshop ring design.
 - See per-image quality feedback and replace images that are blurry or invalid before sending.
 - Give consent to image processing whenever at least one image is attached.
 - Submit the request for human review by Staff or a Manager.
 
-The screen requires sign-in; a Guest sees only a sign-in prompt. A request needs a description, a saved ring design or at least one image. The Member may choose one of their own saved designs and is taken to Design Request Details after sending. The server rechecks ownership of the attached design and stores an immutable snapshot of it.
+The screen requires sign-in; a Guest sees the entry point and only a sign-in prompt, and cannot submit or receive private tracking data. A request needs a description, a saved ring design or at least one image. The Member may choose one of their own saved Feature-012 designs and is taken to Design Request Details after sending. The server rechecks ownership of the attached design and stores an immutable snapshot of its selected state.
 
 | Field Name | Description |
 | --- | --- |
@@ -18,4 +18,4 @@ The screen requires sign-in; a Guest sees only a sign-in prompt. A request needs
 | Reference images | JPEG, PNG or WEBP, at most 5 MB and 4096 × 4096 px each, at most 5 images; each shows "Đang kiểm tra độ sắc nét của ảnh...", "Đạt chuẩn" or "Lỗi ảnh" and can be removed. |
 | Image consent | Shown when images are attached; "Chấp thuận Xử lý Hình ảnh Tham khảo" text and a required checkbox. |
 | **Gửi yêu cầu thiết kế** | Sends the request; disabled while sending, while images are being checked ("Đang kiểm tra ảnh…"), while a blurry image remains ("Vui lòng thay ảnh mờ") or without consent. |
-| Validation and error messages | Empty request, description too long, too many images, blurry image, missing consent and image rate limit messages. |
+| Validation and error messages | Empty request, description too long, too many images, blurry image, missing consent, image quality and image rate limit messages. |

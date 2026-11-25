@@ -25,8 +25,8 @@ This use case allows a member to view the status and decision of their submitted
 1. The member opens the custom design request history.
 2. The system retrieves requests belonging to the member.
 3. The member selects a request.
-4. The system displays the request description, images, status, reviewer decision, explanation, and timestamp.
-5. The system displays the next action, such as waiting, replying to a clarification, contacting Staff, or following the quote in the custom order.
+4. The system displays the request description, images and other inputs, status, reviewer decision, mandatory explanation, and timestamp.
+5. The system displays the next action, such as waiting, replying to a clarification, contacting Staff, or continuing to custom-order quote preparation and following the quote in the custom order.
 
 #### Alternative Flows
 
