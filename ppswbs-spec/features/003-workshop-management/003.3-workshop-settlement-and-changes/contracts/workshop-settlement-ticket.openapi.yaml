@@ -681,7 +681,8 @@ paths:
         '503': {description: 'Problem code RECONCILIATION_SOURCE_UNAVAILABLE: the filter includes BOOKING_TIME and the 003.1 facade failed or timed out; no partial list is returned (R02, 2026-11-16).', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-refund-requests:
     get:
-      summary: List refund requests (Manager; transfer actors see PENDING_TRANSFER)
+      summary: List refund requests (Manager sees all; Staff see only refunds of tickets on sessions assigned to them)
+      description: 'Owner decision 2026-11-26. A refund of a whole booking group is listed for a Manager only. With waiting=true the route is Manager only (403 for Staff).'
       security: [{bearerAuth: []}]
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/RefundStatus'}}

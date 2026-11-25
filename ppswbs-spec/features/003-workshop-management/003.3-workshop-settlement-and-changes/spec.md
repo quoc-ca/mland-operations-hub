@@ -401,6 +401,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   payment that is not re-confirmed, or excess or duplicate group money,
   FR-038) has no ticket, so it is collected only by the
   account link and never at the counter; the former OTA add-on case was removed 2026-11-25)* *(decided
+  2026-11-26, owner Hồ Hoàng Quốc: so that this counter entry can be used, the refund list also answers an active
+  Staff member, with only the requests of tickets on sessions actively assigned to them; a group-level request is not
+  listed to Staff, and the waiting list and its count stay Manager-only)* *(decided
   2026-11-15, checklist CHK005/006: the earlier rule that the transferring
   actor compares the holder name the bank shows with the name entered and stops
   on a mismatch is replaced by a confirmation at entry)* Before the customer

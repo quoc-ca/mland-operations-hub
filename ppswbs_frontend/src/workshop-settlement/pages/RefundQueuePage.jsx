@@ -128,7 +128,7 @@ export default function RefundQueuePage() {
           <label>{t('refund.status')}
             <select value={status} onChange={event => { setStatus(event.target.value); setSelected(null); }}>
               <option value="">{t('refund.all')}</option>
-              <option value="WAITING">{t('refund.waiting')}</option>
+              {!isStaff && <option value="WAITING">{t('refund.waiting')}</option>}
               {STATUSES.map(value => <option key={value} value={value}>{statusLabel(value)}</option>)}
             </select>
           </label>
