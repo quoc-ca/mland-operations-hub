@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title UC-Ring Design — Select, Configure or Submit Reference Image
+title Ring Design and Independent Design Request Detail
 skinparam shadowing false
 skinparam activity {
   BackgroundColor #FCF9F8
@@ -10,45 +10,49 @@ skinparam activity {
 
 |Guest or Member|
 start
-:Choose design approach;
-if (Approved ring model?) then (yes)
-  |System|
-  :Load Manager-approved model;
-  :Mark route as catalogue design;
-  stop
-elseif (Component configurator?) then (yes)
-  |Member|
-  :Choose available component options;
-  |System|
-  :Validate against approved components\nand hard constraints;
-  if (Selection valid?) then (yes)
-    :Mark route as configured design;
-  else (no)
-    :Explain constraint and require a valid selection;
+:Open design entry;
+if (Preview catalogue model/options?) then (yes)
+  :Browse local preview;
+  if (Protected action?) then (yes)
+    :Prompt sign-in;
   endif
   stop
-else (Custom design request)
-  if (Signed-in Member?) then (yes)
-    :Describe the ring and/or attach reference images;
-    :Give image-processing consent;
+else (Continue)
+  if (Authenticated Member?) then (yes)
+    :Choose published model or blank design;
+    :Configure parameters and preview locally;
     |System|
-    :Validate content, consent, images and rate limit;
-  if (Request accepted?) then (yes)
-    :Create Need Review request;
-    |Staff or Manager|
-    :Review the request;
-    |System|
-    :Record Accepted, Rejected or Clarification Required\nwith actor, explanation, version and audit context;
-  else (no)
-    :Show consent / validation error;
-  endif
+    :Validate options and limits;
+    if (Save or evaluate succeeds?) then (yes)
+      :Persist immutable design version;
+      :Calculate advisory evaluation;
+      :Show workshop recommendation;
+      |Member|
+      :Edit design, archive it, or open consultation;
+      if (Submit custom design request?) then (yes)
+        :Select optional saved design snapshot;
+        :Add description and/or up to five images;
+        :Give purpose-specific image consent;
+        |System|
+        :Validate image quality, ownership and request data;
+        :Create NEED_REVIEW request;
+        |Staff or Manager|
+        :Review request by hand;
+        |System|
+        :Record Accepted, Rejected or Clarification Required
+        with mandatory explanation;
+      endif
+    else (no)
+      :Show validation or conflict error;
+    endif
   else (Guest)
     :Prompt sign-in;
   endif
 endif
 
 note right
-Only a Member can submit a request. Staff or Manager decides by hand; no AI is used.
+Feature-012 saved designs are independent from booking and payment.
+Feature-004 is Member-only and does not send images to an AI provider.
 end note
 stop
 @enduml

@@ -21,7 +21,6 @@ rectangle "Mland Operations System" {
   package "System configuration" {
     usecase "Configure System Operational Parameters" as UC62
     usecase "Manage Third-Party API Credentials" as UC63
-    usecase "Configure Custom Queue" as UC68
   }
 }
 
@@ -30,7 +29,6 @@ Admin --> UC7
 Admin --> UC8
 Admin --> UC62
 Admin --> UC63
-Admin --> UC68
 
 note bottom of Admin
 Admin has technical and audit access only to business records

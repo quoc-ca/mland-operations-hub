@@ -21,4 +21,4 @@ The screen requires sign-in, and only the owning Member can open a persisted des
 | **Tư vấn thiết kế** | Opens Consultation Chat with this design and version as context. |
 | **Xóa khỏi danh sách lưu** | Opens a confirmation dialog ("Xác nhận lưu trữ") and archives the design (soft delete); hidden for already archived designs. Feature-012 does not attach designs to bookings. |
 | "Recommended" | Button with the recommended package name that opens that workshop, its reason, and for Wax Casting a note that it takes two sessions on two different days. |
-| "⚠️ Cảnh báo độ khó chế tác" | Replaces the recommendation when difficulty is above 11: "Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo" and **Gửi yêu cầu chế tác Custom cho mẫu này →**, which opens Design Request Workspace with the design attached. |
+| "⚠️ Cảnh báo độ khó chế tác" | Shows server-returned advisory warnings when present. It does not suppress the recommendation, hide other workshops or automatically create a custom request. |

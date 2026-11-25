@@ -1,0 +1,33 @@
+@startuml
+!pragma charset UTF-8
+title Member Design, Review and Consultation Flow
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Member|
+start
+:Open saved design or design-request workspace;
+if (Consultation?) then (yes)
+  :Start context-linked or general consultation;
+  |Staff or Manager|
+  :Claim/assign within role scope;
+  :Exchange immutable UTF-8 messages;
+  |Member|
+  :Close conversation or continue;
+else (Custom request)
+  :Submit description/images/design snapshot;
+  |System|
+  :Validate ownership, consent and image quality;
+  :Set NEED_REVIEW;
+  |Staff or Manager|
+  :Review request;
+  :Record decision and mandatory explanation;
+  |Member|
+  :Read result or submit clarification;
+endif
+stop
+@enduml
