@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title Shared Use Case — Staff and Manager Booking-Design Review
+title Shared Use Case - Staff and Manager Human Design-Request Review
 left to right direction
 skinparam shadowing false
 skinparam usecase {
@@ -28,9 +28,9 @@ Decision .> Audit : <<include>>
 Review .> Outcome : <<include>>
 
 note bottom of Review
-Staff reviews estimated values at or below 3,000,000 VND. Manager reviews higher-value
-or Manager-authority requests. Outcomes are Accepted, Rejected, or Clarification Required.
-No AI auto-accept or auto-reject is permitted.
+The request belongs to an active Member. Staff or Manager reviews the request by hand.
+Each Accepted, Rejected or Clarification Required decision requires a written explanation.
+No AI result, automatic acceptance or automatic rejection is used.
 end note
 @enduml
 

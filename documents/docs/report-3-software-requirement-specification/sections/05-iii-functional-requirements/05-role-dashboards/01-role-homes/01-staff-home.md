@@ -1,5 +1,7 @@
 #### 5.1.1 Staff Home
 
+![](assets/screens/46-staff-home.png)
+
 This screen allows Staff to:
 
 - See a greeting and today's date (Vietnam time).

@@ -19,3 +19,10 @@ node_modules/
 /.env.*.local
 /scripts/start-mysql.ps1
 /scripts/stop-mysql.ps1
+CLAUDE.local.md
+
+# Local PlantUML/rendering artifacts; approved report assets are managed separately.
+/plantuml.jar
+/report3-rendered-png/
+/report4-rendered-png/
+scripts/render-report4-puml.ps1

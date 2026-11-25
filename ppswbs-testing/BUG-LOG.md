@@ -14,6 +14,40 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - `BUG-E2E-0016`: **CLOSED** (Kỳ vọng kịch bản kiểm thử tính thiếu thành phần add-on; Logic hệ thống chuẩn xác 100%). Qua rà soát công thức kỹ thuật tại `ManagerDesignRuleAdapter.java`: Nhẫn size 16, dày 1.8mm, rộng 3.5mm cho khối lượng 4.02g (vượt định mức 1.02g x 120.000 đ = 122.400 đ phụ phí; tổng vật liệu 372.400 đ). Kịch bản cũ kỳ vọng 372.400 đ và độ khó 2.0 là do người viết kịch bản chỉ tính phần vật liệu cơ bản mà quên cộng 1 viên đá CZ Lam 2mm (+50.000 đ, độ khó +0.8) và khắc chữ (+80.000 đ, độ khó +0.5). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = **502.400 đ** và độ khó 1.0 + 1.0 + 0.8 + 0.5 = **3.3/10** (Trung bình) là kết quả hoàn toàn chính xác.
 - `BUG-E2E-0017`: **CLOSED**. Đã thay thế lời gọi native `window.confirm()` tại `DesignEvaluationPage.jsx` bằng hộp thoại modal xác nhận in-page (`archive-confirm-dialog`) với hai nút "Xác nhận lưu trữ" và "Hủy". Khi người dùng xác nhận, `executeArchive` được kích hoạt, trạng thái thiết kế lập tức chuyển sang `ARCHIVED` (badge "Đã lưu trữ" hiển thị tức thì, các nút chỉnh sửa/lưu trữ ẩn đi) và cơ sở dữ liệu MySQL cập nhật trạng thái `ARCHIVED` cho phiên bản thiết kế thành công.
 
+## BUG-E2E-0019 — MITIGATED (Vercel Edge DNS Glitch Workaround)
+
+- Ngày phát hiện: 2026-11-25
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 002-product-management / 008-retail-orders (Vercel Proxy / Infrastructure)
+- Kịch bản liên quan: [E2E-DEPLOY-001--retail-order-voucher-shipping.md](master-e2e/E2E-DEPLOY-001--retail-order-voucher-shipping.md)
+- Mức độ nghiêm trọng: BLOCKER (Trước khi bổ sung cơ chế retry) / MITIGATED (Đã xác nhận nguyên nhân và vượt qua thành công)
+- Phân loại / Gán cho: DevOps / Infrastructure / Backend Deployment
+- Mô tả lỗi: Trong quá trình kiểm thử luồng bán lẻ trên môi trường Vercel deploy (`https://mland-operations-hub-git-develop-mland-team.vercel.app/`), khi người dùng mở modal "Thêm vào giỏ hàng" tại sản phẩm "Nhẫn bạc cành lá citrine" (ID 9), cuộc gọi API `GET /api/v1/product-selling-locations` bị Vercel Reverse Proxy trả về mã lỗi `502 Bad Gateway`. Modal hiển thị thông báo lỗi `HTTP_502`, combobox "Chi nhánh" bị disabled, làm tê liệt hoàn toàn chức năng chọn kích thước và thêm vào giỏ hàng.
+- Bằng chứng HTTP & Tracing:
+  - Request URL: `GET https://mland-operations-hub-git-develop-mland-team.vercel.app/api/v1/product-selling-locations`
+  - Status Code: `502 Bad Gateway`
+  - Response Header: `server: Vercel`, `x-vercel-error: DNS_HOSTNAME_EMPTY`, `x-vercel-id: hkg1::kxbc8-1795606483934-dba95c2b54ea`
+  - Cuộc gọi khác cùng thời điểm bị 502: `GET /api/v1/promotions?scope=WORKSHOP&limit=100&distribution=ALL` (`x-vercel-id: hkg1::4pv6x-1795606474983-f9baf14ce896`)
+- Các bước tái hiện (Reproduction Steps):
+  1. Mở trang chủ: `https://mland-operations-hub-git-develop-mland-team.vercel.app/`.
+  2. Đăng nhập tài khoản Member (Google OAuth hoặc session có sẵn).
+  3. Cuộn tới phần danh sách sản phẩm "READY RINGS".
+  4. Bấm nút "Thêm Nhẫn bạc cành lá citrine vào giỏ hàng".
+  5. Modal "Thêm vào giỏ" bật lên; quan sát nội dung modal.
+- Kết quả mong đợi:
+  - Modal load thành công danh sách chi nhánh (ví dụ: `Mland Hà Nội – Hoàn Kiếm`), cho phép người dùng chọn size và chi nhánh để thêm giỏ hàng.
+- Kết quả thực tế ban đầu:
+  - Form bên trong modal xuất hiện dòng chữ cảnh báo màu đỏ `HTTP_502`.
+  - Combobox "Chi nhánh" bị disabled (xám màu), nút "Thêm vào giỏ hàng" và "Mua ngay" đều bị vô hiệu hóa.
+- Bằng chứng hiện trường:
+  - Screenshot: ![Lỗi 502 Bad Gateway tại modal sản phẩm](screenshots/BUG-E2E-001--502-bad-gateway.jpg)
+- Biện pháp khắc phục & Kiểm chứng lại (2026-11-25 19:20):
+  - Kiểm tra response header khi gặp 502: Nếu xuất hiện `x-vercel-error: DNS_HOSTNAME_EMPTY`, xác nhận là lỗi phân giải tên miền tạm thời tại Vercel Edge Server Hong Kong.
+  - Thực hiện reload/làm ấm kết nối DNS: Kết nối DNS đến `mland-demo.io.vn` lập tức phục hồi và trả mã HTTP 200 OK bình thường.
+  - Kịch bản `E2E-DEPLOY-001` đã tái thực thi toàn bộ 7 bước thành công 100% (từ chọn sản phẩm, áp voucher, thanh toán VNPay Sandbox thẻ NCB, nhân viên đóng gói đến ĐVVC giao hàng thành công).
+- Trạng thái xử lý: **MITIGATED** (Đã kiểm chứng luồng hoạt động ổn định khi DNS được giải phóng; Khuyến nghị DevOps cấu hình keep-alive hoặc CNAME fallback trên Vercel để triệt tiêu lỗi DNS này).
+
+
 ## BUG-INT-0001 — OPEN
 
 - Ngày phát hiện: 2026-11-23

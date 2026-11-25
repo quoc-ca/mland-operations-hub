@@ -2,13 +2,13 @@
 
 This screen allows Guests and Members to:
 
-- Browse the published ring models offered for the selected workshop package.
+- Browse the published ring models supplied by the catalogue for the independent designer.
 - See each model's image, material, name, description and estimated difficulty.
 - Select a model, which opens Ring Configuration pre-filled with that model's options.
 - Start from a blank ring instead when the package has no suggested models.
 - Go back to Ring Design Entry.
 
-The model list comes from the server option set of the package; no design is created until a signed-in Member saves it in Ring Configuration. A Guest may browse the models and preview them.
+The model list comes from the server's published catalogue option set; no design is created until a signed-in Member saves it in Ring Configuration. A Guest may browse the models and preview them locally.
 
 | Field Name | Description |
 | --- | --- |

@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title Ring Design and Feasibility Triage Swimlane
+title Ring Design, Recommendation and Human Review Swimlane
 skinparam shadowing false
 skinparam activity {
   BackgroundColor #FCF9F8
@@ -8,41 +8,77 @@ skinparam activity {
   ArrowColor #5B5E67
 }
 
-|Guest or Member|
+|Guest|
 start
-:Choose ring-design option;
-if (Approved catalogue model?) then (yes)
-  |System|
-  :Select confirmed feasible model;
-  :Continue booking / consultation;
-  stop
-elseif (Approved component configurator?) then (yes)
-  |System|
-  :Validate selection against Manager-approved\ncomponent catalogue and hard constraints;
-  :Continue booking / consultation;
-  stop
-else (Custom design request)
-  if (Signed-in Member?) then (yes)
-    :Describe the ring and/or attach reference images;
-    :Give image-processing consent;
+:Open public design or custom-request entry;
+:Browse preview and public explanation;
+:Select protected action;
+:Sign-in prompt;
+stop
+
+|Member|
+start
+:Open workshop ring designer;
+:Choose model or blank design;
+:Configure parameters;
+|System|
+:Validate catalogue options and limits;
+if (Save/evaluate valid?) then (yes)
+  :Persist design version;
+  :Calculate advisory difficulty and recommendation;
+  |Member|
+  :View recommendation without forced booking;
+  if (Consult staff?) then (yes)
+    :Open context-linked consultation;
+  endif
+  if (Create custom design request?) then (yes)
+    :Attach optional saved-design snapshot;
+    :Add description and/or up to five images;
+    :Give image consent;
     |System|
-    :Validate content, consent, images and rate limit;
-  if (Request accepted?) then (yes)
-    :Create Need Review request;
+    :Validate request and image quality;
+    :Create NEED_REVIEW request;
     |Staff or Manager|
-    :Review the request;
+    :Inspect request and reference material;
+    if (Decision?) then (clarification)
+      :Request clarification with explanation;
+      |Member|
+      :Update request context and submit clarification;
+      |System|
+      :Return request to NEED_REVIEW;
+      |Staff or Manager|
+      :Review clarified request;
+      :Accept or reject with explanation;
+    else (accept or reject)
+      :Accept or reject with explanation;
+    endif
     |System|
-    :Record Accepted, Rejected or Clarification Required\nwith actor, explanation, version and audit context;
-  else (no)
-    :Show consent / validation error;
+    :Persist mandatory explanation and audit event;
+    |Member|
+    :Read status and explanation;
+    if (Accepted?) then (yes)
+      |Staff or Manager|
+      :Prepare custom-order quote;
+      |Manager|
+      :Approve quote;
+      |Member|
+      :Pay the full approved amount before quote expiry;
+      |System|
+      :Verify payment and activate production;
+      |Staff or Manager|
+      :Advance production and fulfilment;
+      |Member|
+      :View handover or delivery completion;
+    endif
   endif
-  else (Guest)
-    :Prompt sign-in;
-  endif
+else (no)
+  :Show validation or version conflict;
 endif
+stop
 
 note right
-Only a Member can submit a request. Staff or Manager decides by hand; no AI is used.
+There is no Feature-012 branch selection or booking attachment.
+AI does not analyze reference images or make design decisions.
+An accepted request is not an order until the quote is approved and paid in full.
 end note
-stop
 @enduml

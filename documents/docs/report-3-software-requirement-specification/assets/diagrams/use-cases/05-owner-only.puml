@@ -56,7 +56,6 @@ rectangle "Mland Operations System" {
   }
   package "Dashboard, queue and reviews" {
     usecase "View Dashboard" as UC64
-    usecase "Configure Custom Queue" as UC68
     usecase "Moderate Review" as UC76
   }
 }
@@ -92,7 +91,6 @@ Manager --> UC45
 Manager --> UC46
 Manager --> UC51
 Manager --> UC64
-Manager --> UC68
 Manager --> UC76
 
 UC79 -- PaymentGateway

@@ -17,13 +17,13 @@ As an Admin, I want to assign an approved operational role to a platform account
 1. The platform is available.
 2. The Admin is authenticated and authorized to assign roles.
 3. The target account exists and is eligible for role assignment.
-4. The target role is defined in the platform's approved role catalogue.
+4. The target role is one of the fixed platform roles and the requested transition is allowed.
 
 #### Normal Flow
 
 **Assign User Role**
 
-1. The Admin opens the User Role Assignment function.
+1. The Admin opens the account details and its role and location controls.
 2. The system displays searchable accounts and their current role assignments.
 3. The Admin selects a target account.
 4. The system displays the approved roles and the current role for that account.
@@ -71,5 +71,5 @@ BR-08-01, BR-08-02, BR-08-03
 | ID | Rule Definition |
 |---|---|
 | BR-08-01 | Only an authorized Admin may assign a platform role. |
-| BR-08-02 | A role assignment must use a role from the approved platform role catalogue. |
-| BR-08-03 | Role assignment must not grant permissions outside the selected role's configured policy. |
+| BR-08-02 | An account has one fixed role; V1 does not configure roles or permissions. |
+| BR-08-03 | A role change grants only the selected fixed role's permitted actions after the server saves it. |

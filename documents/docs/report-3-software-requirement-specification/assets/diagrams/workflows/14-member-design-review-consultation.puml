@@ -1,0 +1,57 @@
+@startuml
+!pragma charset UTF-8
+title Member Design, Review and Consultation Flow
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Member|
+start
+:Open saved design or design-request workspace;
+if (Consultation?) then (yes)
+  :Start context-linked or general consultation;
+  |Staff|
+  :Handle conversation within assigned location scope;
+  |Manager|
+  :Handle conversation with global operational scope;
+  :Exchange immutable UTF-8 messages;
+  |Member|
+  :Close conversation or continue;
+  |Staff or Manager|
+  :Close or reopen conversation;
+  |Member|
+  :Hide only a closed conversation from own sidebar;
+else (Custom request)
+  :Submit description/images/design snapshot;
+  |System|
+  :Validate ownership, consent and image quality;
+  :Set NEED_REVIEW;
+  |Staff or Manager|
+  :Review request;
+  :Record decision and mandatory explanation;
+  |Member|
+  :Read result or submit clarification;
+  if (Accepted?) then (yes)
+    |Staff or Manager|
+    :Prepare quote;
+    |Manager|
+    :Approve quote;
+    |Member|
+    :Pay full amount before expiry;
+    |System|
+    :Verify payment;
+    |Staff or Manager|
+    :Produce and fulfil custom order;
+  endif
+endif
+stop
+
+note right
+Member-only business chat; Guest sees the entry point but must sign in.
+Feature-012 design is an optional reference and remains independent from booking.
+An accepted design request continues only through quote, full payment and fulfilment.
+end note
+@enduml

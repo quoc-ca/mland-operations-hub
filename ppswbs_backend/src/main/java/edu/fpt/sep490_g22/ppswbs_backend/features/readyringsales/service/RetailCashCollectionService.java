@@ -87,7 +87,7 @@ public class RetailCashCollectionService implements edu.fpt.sep490_g22.ppswbs_ba
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CheckoutDtos.CashCollectionView confirm(CurrentAccountActor actor, String orderId, String amountReceived,
                                                    String idempotencyKey) {
-        requireActiveStaffOrManager(actor);
+        requireActiveStaff(actor);
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
             throw new RetailConflictException("A valid Idempotency-Key is required");
         }
@@ -195,10 +195,19 @@ public class RetailCashCollectionService implements edu.fpt.sep490_g22.ppswbs_ba
         return new BigDecimal(raw);
     }
 
+    /** Only branch Staff confirm counter cash; a Manager may not, the counter handover stays with Staff (FR-08-045, T089). */
+    static void requireActiveStaff(CurrentAccountActor actor) {
+        if (actor == null || actor.accountId() == null) throw new RetailUnauthorizedException("An authenticated staff actor is required");
+        if (actor.status() != ActorStatus.ACTIVE || actor.role() != ActorRole.STAFF) {
+            throw new RetailAccessDeniedException("Only active Staff can confirm counter cash");
+        }
+        if (actor.activeLocationIds().isEmpty()) throw new RetailAccessDeniedException("No assigned branch location for this actor");
+    }
+
     static void requireActiveStaffOrManager(CurrentAccountActor actor) {
         if (actor == null || actor.accountId() == null) throw new RetailUnauthorizedException("An authenticated staff actor is required");
         if (actor.status() != ActorStatus.ACTIVE || (actor.role() != ActorRole.STAFF && actor.role() != ActorRole.MANAGER)) {
-            throw new RetailAccessDeniedException("Only active Staff or Manager can confirm counter cash");
+            throw new RetailAccessDeniedException("Only active Staff or Manager can use the pickup desk");
         }
         if (actor.activeLocationIds().isEmpty()) throw new RetailAccessDeniedException("No assigned branch location for this actor");
     }

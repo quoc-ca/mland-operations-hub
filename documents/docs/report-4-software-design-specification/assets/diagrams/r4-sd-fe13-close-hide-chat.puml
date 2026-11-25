@@ -1,0 +1,61 @@
+@startuml
+!include r4-sequence-style.puml
+title FE-13 Staff/Manager Close and Member Soft-Hide Conversation
+actor "Member" as member
+actor "Staff" as staff
+actor "Manager" as manager
+participant "ConsultationController" as consultationController
+participant "ConsultationApplicationService" as consultationService
+database "ConsultationConversationRepository" as conversationRepository
+database "ConsultationAuditEventRepository" as auditRepository
+
+staff -> consultationController : close in-scope conversation
+activate consultationController
+consultationController -> consultationService : verify Staff location scope
+activate consultationService
+consultationService -> conversationRepository : set CLOSED
+activate conversationRepository
+conversationRepository --> consultationService : conversation closed
+deactivate conversationRepository
+consultationService -> auditRepository : record close
+activate auditRepository
+auditRepository --> consultationService : audit recorded
+deactivate auditRepository
+consultationService --> consultationController : closed conversation
+deactivate consultationService
+consultationController --> staff : close result
+deactivate consultationController
+manager -> consultationController : close/reopen authorized conversation
+activate consultationController
+consultationController -> consultationService : verify Manager authority
+activate consultationService
+consultationService -> conversationRepository : update status
+activate conversationRepository
+conversationRepository --> consultationService : updated status
+deactivate conversationRepository
+consultationService --> consultationController : updated conversation
+deactivate consultationService
+consultationController --> manager : status result
+deactivate consultationController
+member -> consultationController : confirm soft-hide closed conversation
+activate consultationController
+consultationController -> consultationService : verify owner, CLOSED and version
+activate consultationService
+consultationService -> conversationRepository : set member-hidden flag
+activate conversationRepository
+conversationRepository --> consultationService : member visibility updated
+deactivate conversationRepository
+consultationService -> auditRepository : record member hide
+activate auditRepository
+auditRepository --> consultationService : audit recorded
+deactivate auditRepository
+consultationService --> consultationController : hidden from Member sidebar
+deactivate consultationService
+consultationController --> member : hide result
+deactivate consultationController
+
+note over member,manager
+Soft-hide removes the chat from Member sidebar only.
+Messages and store history remain retained.
+end note
+@enduml

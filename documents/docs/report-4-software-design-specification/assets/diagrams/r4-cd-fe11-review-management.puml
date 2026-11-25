@@ -1,0 +1,37 @@
+@startuml
+!include r4-diagram-style.puml
+title FE-11 Review Management
+left to right direction
+skinparam classAttributeIconSize 0
+class ReviewController <<controller>>
+class ReviewEligibilityController <<controller>>
+class ReviewModerationController <<controller>>
+class ReviewService <<service>>
+class Review <<entity>>
+class ReviewRevision <<entity>>
+class ReviewReply <<entity>>
+class ReviewModerationEvent <<entity>>
+class ReviewRepository <<repository>>
+class ReviewRevisionRepository <<repository>>
+class ReviewReplyRepository <<repository>>
+class ReviewModerationEventRepository <<repository>>
+interface WorkshopAttendanceReviewPort <<port>>
+interface RetailFulfilmentReviewPort <<port>>
+ReviewController --> ReviewService
+ReviewEligibilityController --> ReviewService
+ReviewModerationController --> ReviewService
+ReviewService --> ReviewRepository
+ReviewService --> ReviewRevisionRepository
+ReviewService --> ReviewReplyRepository
+ReviewService --> ReviewModerationEventRepository
+ReviewService --> WorkshopAttendanceReviewPort
+ReviewService --> RetailFulfilmentReviewPort
+Review "1" o-- "0..*" ReviewRevision
+Review "1" o-- "0..1" ReviewReply
+Review "1" o-- "0..*" ReviewModerationEvent
+note right of ReviewService
+Guest public read only.
+Member creates/edits own review.
+Staff hide; Manager remove/reply.
+end note
+@enduml

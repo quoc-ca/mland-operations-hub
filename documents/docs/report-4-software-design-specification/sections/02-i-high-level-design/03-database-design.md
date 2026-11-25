@@ -70,11 +70,11 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 |44|008 Retail Order and Fulfillment|retail_orders|Stores a retail order fulfilled by one branch.|
 |45|008 Retail Order and Fulfillment|retail_order_items|Stores the frozen variant, quantity and price of an order line.|
 |46|008 Retail Order and Fulfillment|retail_shipments|Stores the carrier shipment of a delivery order.|
-|47|011 Review and 013 Consultation Chat|reviews|Stores customer reviews of a workshop or product.|
-|48|011 Review and 013 Consultation Chat|review_replies|Stores the Manager reply to a review.|
-|49|011 Review and 013 Consultation Chat|consultation_conversations|Stores consultation conversations between a Member and Staff.|
-|50|011 Review and 013 Consultation Chat|consultation_messages|Stores the immutable messages of a conversation.|
-|51|012 Workshop Ring Design Configuration|ring_designs|Stores immutable ring design versions created in the configurator.|
+|47|011 Review Management|reviews|Stores customer reviews of a workshop or product.|
+|48|011 Review Management|review_replies|Stores the Manager reply to a review.|
+|49|011 Review Management|review_revisions and review_moderation_events|Stores immutable review revisions and moderation audit history.|
+|50|013 Consultation Chat|consultation_conversations and consultation_messages|Stores Member consultation conversations and immutable messages.|
+|51|012 Workshop Ring Design Configuration|ring_designs|Stores Member design versions; legacy Guest/session/booking columns may remain for compatibility but are not part of the current flow.|
 |52|012 Workshop Ring Design Configuration|ring_materials|Stores the ring material options.|
 |53|012 Workshop Ring Design Configuration|ring_shapes|Stores the ring shape options.|
 |54|012 Workshop Ring Design Configuration|ring_gemstones|Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.|
@@ -84,7 +84,7 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 
 ### 3.1 accounts
 
-Stores every system account linked to Firebase Authentication, with its role and status.
+Stores every system account linked to one Firebase UID, with one fixed role and its lifecycle status. A Staff or Manager remains PENDING_SETUP until the current invitation is consumed, the intended email is verified and current active location scope is valid. Invitation versions require a separate durable record of Account ID, intended email, secret digest, key version, created/expiry times and use state; the raw secret is never stored. The column-level invitation design remains to be finalized before implementation.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -94,7 +94,7 @@ Stores every system account linked to Firebase Authentication, with its role and
 |firebase_uid|VARCHAR(128)|NOT NULL, UNIQUE|Unique Firebase Authentication user identifier.|
 |login_email|VARCHAR(320)||Contact or authentication email address.|
 |email_verified_at|DATETIME(6)||Timestamp recording when email verified at.|
-|role|ENUM('MEMBER','STAFF','MANAGER','CARRIER','ADMIN')|NOT NULL, DEFAULT MEMBER|Assigned access control role in RBAC hierarchy.|
+|role|ENUM('MEMBER','STAFF','MANAGER','CARRIER','ADMIN')|NOT NULL, DEFAULT MEMBER|One fixed platform role; no configurable role hierarchy.|
 |status|ENUM('ACTIVE','PENDING_SETUP','SUSPENDED')|NOT NULL, DEFAULT ACTIVE|Operational lifecycle state (enum('active','pending_setup','suspended')).|
 |resume_status|ENUM('ACTIVE','PENDING_SETUP')||Stores resume status value.|
 |revocation_pending|TINYINT(1)|NOT NULL, DEFAULT 0|Stores revocation pending value.|
@@ -754,7 +754,7 @@ Stores refund requests and their approval, transfer and confirmation steps.
 
 ### 3.29 design_requests
 
-Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record.
+Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record. Legacy Guest proof/tracking and AI-analysis columns are retained only as code/database compatibility evidence and must not be used by the current Feature-004 flow.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -962,7 +962,7 @@ Stores vouchers saved by a Member and their usage counts.
 
 ### 3.38 notification_template_definition
 
-Stores the email templates the system can send.
+Stores the email templates the system can send, including the Admin-initiated internal invitation. An approved version is pinned to each delivery request. The version storage referred to below is not yet described column by column in this section and must be completed before the database design is implemented.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -982,7 +982,7 @@ Stores the email templates the system can send.
 
 ### 3.39 notification_request
 
-Stores email notification requests and their delivery state.
+Stores email notification requests and their delivery state. The invitation request keeps only an Account-owned invitation ID/version and safe recipient snapshot. Its stored rendition uses a placeholder for the setup URL. Account provides the current URL transiently for each SMTP attempt; no request, rendition or audit row stores the expanded link. Invitation requests allow at most two definite attempts and reject generic resend or cancel.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -991,7 +991,7 @@ Stores email notification requests and their delivery state.
 |id|BIGINT|PRIMARY KEY, AUTO_INCREMENT|Primary key, auto-increment identifier.|
 |business_event_reference|VARCHAR(128)|NOT NULL||
 |template_code|VARCHAR(64)|NOT NULL, FK → notification_template_definition(code) (logical)|Logical reference to notification_template_definition(code); no database constraint.|
-|template_version_id|BIGINT|NOT NULL, FK → notification_template_version(id)|References notification_template_version(id).|
+|template_version_id|BIGINT|NOT NULL, logical reference → notification_template_version(id)|Pins the approved template version; version-table column details remain TBD in this section.|
 |recipient_role|VARCHAR(32)|NOT NULL, DEFAULT CUSTOMER||
 |recipient_address_fingerprint|VARCHAR(64)|NOT NULL||
 |recipient_address_masked|VARCHAR(128)|NOT NULL||
@@ -1266,7 +1266,7 @@ Stores the immutable messages of a conversation.
 
 ### 3.51 ring_designs
 
-Stores immutable ring design versions created in the configurator.
+Stores ring design versions created in the configurator. The current supported path is Member persistence with `DRAFT`, `SAVED` and `ARCHIVED` states; legacy Guest-session, `VALIDATED` and booking-reference fields are retained only for compatibility tracing and do not create a booking or ticket.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 

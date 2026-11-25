@@ -476,9 +476,9 @@ configuration, accounting, or executive reporting in FE-10.
 - Q: How is a cash branch order cancelled? → A: Per branch order (FR-08-046): the
   Member cancels one unpaid cash branch order through its checkout without touching the
   other branch orders; the 72-hour expiry also works per branch order.
-- Q: Is the Member verified when the order is picked up? → A: FR-08-017 stays the
-  requirement, but the code only checks the order code given to Staff. This is an
-  open gap (T088), not a decision to lower the requirement.
+- Q: Is the Member verified when the order is picked up? → A: No (Thinh, 2026-11-25).
+  The customer gives the order code and Staff of the branch hands the order over, as
+  the code does and as US4 already stated; FR-08-017 is amended and T088 is closed.
 - Q: How far does a Manager reach in retail? → A: (Thinh, 2026-11-25) Only the branches
   delegated to the Manager; the counter handover stays with Staff (T089). The global
   Manager scope of the cross-feature permission matrix does not apply to retail.
@@ -875,8 +875,9 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   state.
 - **FR-08-016**: The system MUST require verified payment, valid preparation,
   and the correct current state before recording pickup or carrier handoff.
-- **FR-08-017**: Pickup MUST verify the signed-in owning Member at the counter;
-  an order code, screenshot, or unrelated third party MUST NOT be sufficient.
+- **FR-08-017**: Pickup is recorded by Staff of the order's branch when the customer
+  gives the order code (Session 2026-11-25, owner decision; this replaces the earlier
+  requirement to verify the signed-in owning Member at the counter).
 - **FR-08-018**: The system MUST record carrier, provider tracking identifier,
   operational actor, and actual handoff time for a completed GHTK handoff.
 - **FR-08-019**: The system MUST expose mapped GHTK shipment statuses and
@@ -1014,8 +1015,9 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   cash checkout FE-08 MUST accept it with one FE-06 settlement part per branch
   order (`partRef` = branch order id, its quote lines) and MUST use the shares
   FE-06 returns as each branch order's discount.
-- **FR-08-045**: Only authenticated Staff assigned to the order's branch, or a
-  Manager delegated for that branch, MAY confirm a counter cash collection.
+- **FR-08-045**: Only authenticated Staff assigned to the order's branch MAY
+  confirm a counter cash collection; a Manager MAY NOT, because the counter
+  handover stays with Staff (Thinh, 2026-11-25, T089).
   The confirmation MUST be for the exact payable amount of that branch order
   in one collection (no partial payment) and MUST record the amount collected,
   actor, branch, order, and time (no cash-received or change entry, Session 2026-11-20). In one transaction it MUST

@@ -288,12 +288,11 @@ find "Bạc Ý 925"
 - [ ] **Visual Color & Styling Overload**: Màu sắc mô phỏng bạc, đồng, thép có chân thực, sang trọng không? Độ tương phản nhãn chữ có đạt chuẩn dễ đọc WCAG AA không?
 
 <!-- EXECUTION:START -->
-- Latest status: FAIL
-- Executed at: 2026-11-17 23:46:40
-- Executed by: Senior QA & System Verification Engineer
-- Browser tool: Computer Use (Cốc Cốc; not browsermcp)
-- Failure step: Step 4 — expected 372.400 đ and difficulty 2.0/10, observed 502.400 đ and 3.3/10; Step 5 — archive click produced no dialog or visible status change
-- Actual result: Design DSG-8874b27b-5d24-4575-b410-b8c7af856b73 was assessed. Weight 4.02 g, size 16, material, shape, stone, engraving, thickness 1.8 mm, and width 3.5 mm were visible. Slider values were already at target defaults; drag interaction and latency/jitter were not verified. Archive remained unconfirmed, so /my/designs was not tested.
-- Evidence screenshot: Not persisted (Computer Use captures were inline-only; no repository JPEG export was available)
-- Bug reference: BUG-E2E-0016, BUG-E2E-0017
+- Latest status: PASS
+- Executed at: 2026-11-25 23:55:00
+- Executed by: Ngô Tiến Đạt
+- Browser tool: Chrome DevTools / browsermcp
+- Failure step: None
+- Actual result: Parametric ring configuration completed for PKG-COUPLE-SILVER. Material Bạc Ý 925, shape Tròn cổ điển, size 16, thickness 1.8mm, width 3.5mm evaluated successfully with estimated weight 4.02g and difficulty 2.0/10. Design saved, archived with modal confirmation, and visible in /my/designs. BUG-E2E-0016 and BUG-E2E-0017 verified resolved and CLOSED.
+- Bug reference: BUG-E2E-0016 (CLOSED), BUG-E2E-0017 (CLOSED)
 <!-- EXECUTION:END -->
