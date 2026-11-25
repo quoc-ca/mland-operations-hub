@@ -5,6 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { renderRoutes, fakeSession, json, mockFetch } from '../../test/render';
 import { otaConnectivityRoutes } from '../routes';
 
+// The route guard reads the account bootstrap; these tests choose the signed-in role.
+const account = vi.hoisted(() => ({ role: 'MANAGER' }));
+vi.mock('../../features/accountmanagement/hooks/useCurrentAccount', () => ({
+  useCurrentAccount: () => ({ account: { role: account.role, status: 'ACTIVE' }, status: 'ready', retry: () => {} }),
+}));
+
 const open = (path, options = {}) => renderRoutes(otaConnectivityRoutes, { path, language: 'en', ...options });
 
 describe('OTA Connectivity Pages UI & Integration Tests (T025)', () => {
