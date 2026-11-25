@@ -12,7 +12,6 @@ skinparam usecase {
 
 actor Manager
 actor "Payment Gateway" as PaymentGateway
-actor "OTA Partner" as OTAPartner
 
 rectangle "Mland Operations System" {
   package "Product" {
@@ -45,13 +44,6 @@ rectangle "Mland Operations System" {
     usecase "Grant Extra Change Allowance" as UC87
     usecase "Submit Refund Account" as UC89
     usecase "Process Refund Request" as UC90
-  }
-  package "OTA channels" {
-    usecase "Manage OTA Channel Mappings" as UC91
-    usecase "Enable OTA Channel Booking" as UC92
-    usecase "Resolve OTA Reconciliation Items" as UC93
-    usecase "Reconcile OTA Payout" as UC94
-    usecase "Record OTA Shop Add-on" as UC95
   }
   package "Design and consultation" {
     usecase "Chat with Staff Consultant" as UC38
@@ -94,11 +86,6 @@ Manager --> UC86
 Manager --> UC87
 Manager --> UC89
 Manager --> UC90
-Manager --> UC91
-Manager --> UC92
-Manager --> UC93
-Manager --> UC94
-Manager --> UC95
 Manager --> UC38
 Manager --> UC40
 Manager --> UC45
@@ -109,6 +96,4 @@ Manager --> UC68
 Manager --> UC76
 
 UC79 -- PaymentGateway
-UC91 -- OTAPartner
-UC94 -- OTAPartner
 @enduml

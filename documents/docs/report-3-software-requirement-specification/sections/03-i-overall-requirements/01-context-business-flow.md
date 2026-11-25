@@ -24,6 +24,6 @@ The Mail Gateway delivers account invitations, workshop booking confirmations wi
 
 Mland uses the paid Gemini API only for basic AI chat support: the platform sends the Guest's or Member's chat request and returns the response. Answers are limited to approved public information and FAQs; the AI cannot confirm transactions or make business decisions. AI is not used to analyze design images, suggest prices or review design requests; design-request images are reviewed by Staff or Manager and are never sent to an AI provider.
 
-V1 has no AI pricing, no Google Maps/Places or external review integration, and no enabled OTA channel. Klook and GetYourGuide are OTA candidates that stay disabled until their go-live gates are met; Mland remains the workshop-capacity source of truth.
+V1 has no AI pricing, no Google Maps/Places or external review integration, and no online travel agency (OTA) channel; Mland is the sole source of truth for workshop sessions and capacity.
 
 {{r3-context-diagram width=100% align=center}}

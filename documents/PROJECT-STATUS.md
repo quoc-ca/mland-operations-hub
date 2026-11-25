@@ -15,13 +15,13 @@
 | Baseline sản phẩm V1 | Report 2 và Report 3 mô tả nền tảng vận hành cho ring atelier: workshop, Member retail, custom manufacturing, loyalty/voucher, quản trị và các tích hợp đã nêu. |
 | Payment | VNPay là provider duy nhất của V1. Chỉ signed IPN hoặc signed QueryDR recovery hợp lệ khi hold còn hiệu lực mới xác nhận thanh toán; Return URL chỉ hiển thị. |
 | Booking và hold | Link thanh toán hết hạn sau 10 phút; slot workshop, retail cart hoặc custom-order queue slot được giữ tối đa 15 phút. |
-| Tích hợp chính | VNPay, Klook, Gemini, Google Maps/Places, SMTP, Google/Facebook SSO và cloud storage; GHTK chỉ là handoff thủ công do Staff ghi nhận. |
+| Tích hợp chính | VNPay, Gemini, Google Maps/Places, SMTP, Google/Facebook SSO và cloud storage; GHTK chỉ là handoff thủ công do Staff ghi nhận. |
 | Quản lý dự án | Lịch, effort, ngân sách, năng lực nhóm, mục tiêu đo lường và RACI chưa được điền theo baseline được duyệt. Không có % hoàn thành được xác nhận. |
 | Mã nguồn sản phẩm | Repository hiện là nguồn tài liệu và tooling; chưa ghi nhận application runtime trong snapshot này. |
 
 ## Scope V1 theo Report 2 và Report 3
 
-- **Workshop:** Guest và Member xem package/lịch và đặt workshop; Member có thể dùng thiết kế được hệ thống hỗ trợ hoặc gửi ảnh booking-design để phân tích. Mland là nguồn sự thật về capacity. Klook là đối tác đăng ký workshop; Klook phải lấy availability/hold từ Mland trước khi xác nhận. Hủy từ Klook không tự giải phóng capacity trong Mland.
+- **Workshop:** Guest và Member xem package/lịch và đặt workshop; Member có thể dùng thiết kế được hệ thống hỗ trợ hoặc gửi ảnh booking-design để phân tích. Mland là nguồn sự thật về capacity. Kênh OTA (Klook và đối tác khác) đã bị loại khỏi V1 ngày 2026-11-25.
 - **Design Workspace và AI:** Theo handoff mới, Feature-004 là Design Workspace độc lập với booking. Gemini hỗ trợ chat cơ bản, phân tích Design Request và gợi ý giá cho package/product. Review role, ownership, revision/withdrawal và image retention đang chờ policy của Feature-004; AI không quyết định business state hoặc custom order.
 - **Custom manufacturing:** Chỉ Member tạo custom order, dùng ảnh tham khảo hoặc cấu hình thủ công được hỗ trợ, deadline tùy chọn và phương thức nhận hàng. Hệ thống tự chấp nhận khi deadline hợp lệ và queue còn capacity. Deposit bằng 50% giá wax package; khoản cuối là 50% còn lại cộng surcharge thực tế do tăng trọng lượng vật liệu hoặc phụ kiện mua ngoài.
 - **Retail và loyalty:** Member có thể mua retail bằng cart, loyalty points và voucher. Cart được revalidate toàn bộ; checkout không tạo order một phần. Thanh toán đủ được xác minh trước khi trừ số lượng đã hold. Staff duy trì available-to-sell quantity thủ công; đây không phải inventory ledger.

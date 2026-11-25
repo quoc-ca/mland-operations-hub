@@ -87,7 +87,6 @@ DOMAINS = [
             'settlement_cases',
             'settlement_cancellation_cases',
             'settlement_charges',
-            'settlement_addon_bills',
             'settlement_final_bills',
             'settlement_final_payment_attempts',
             'settlement_refund_allocations',
@@ -162,30 +161,6 @@ DOMAINS = [
             'payment_owner_registrations',
             'payment_ingress_receipts',
             'vnpay_merchant_operations'
-        ]
-    },
-    {
-        'title': 'OTA Connectivity & Multi-channel Management',
-        'description': 'Coordinates Online Travel Agency (Klook, KKday) API connections, listing mappings, syndicated pricing, inbound bookings, external voucher reconciliation, channel payout ledgers, and health readiness assessments.',
-        'tables': [
-            'ota_channel_connections',
-            'ota_channel_mappings',
-            'ota_channel_price_snapshots',
-            'ota_channel_bookings',
-            'ota_booking_ticket_links',
-            'ota_addon_bill_links',
-            'ota_customer_payment_evidence',
-            'ota_delivery_attempts',
-            'ota_inbound_events',
-            'ota_outbound_changes',
-            'ota_control_outbox',
-            'ota_payout_ledger_entries',
-            'ota_payout_positions',
-            'ota_readiness_assessments',
-            'ota_readiness_check_evidence',
-            'ota_reconciliation_decisions',
-            'ota_reconciliation_work_items',
-            'workshop_session_ota_snapshots'
         ]
     },
     {
@@ -313,20 +288,19 @@ def build_markdown():
     output = []
     output.append("## 3. Database Design\n")
     output.append("(*DB Diagrams Images*)\n")
-    output.append("The database architecture for the Personalized Product Sales and Workshop Booking System is implemented on MySQL 8.0+ / 9.x utilizing the InnoDB storage engine with `utf8mb4` encoding for comprehensive Unicode support. Database schema versions and automated migrations are versioned via Flyway across migrations V4 through V88. The schema comprises 118 normalized tables structured across 11 functional business domains:\n")
+    output.append("The database architecture for the Personalized Product Sales and Workshop Booking System is implemented on MySQL 8.0+ / 9.x utilizing the InnoDB storage engine with `utf8mb4` encoding for comprehensive Unicode support. Database schema versions and automated migrations are versioned via Flyway across migrations V4 through V88. The schema comprises 99 normalized tables structured across 10 functional business domains:\n")
     
     # Table of domains
     output.append("1. **Account & Identity Management** (5 tables): User authentication, RBAC authorization, location permissions, and provisioning.")
     output.append("2. **AI Chatbox & Custom Design Review** (8 tables): AI prompt tracing, design analysis, gemstone pricing models, and goldsmith review.")
     output.append("3. **Workshop Operations & Scheduling** (13 tables): Branches, time slots, tiered packages, scheduled sessions, instructor allocations, and attendee check-ins.")
     output.append("4. **Workshop Booking & Reservations** (16 tables): Customer bookings, seat commitments, quotes, invoices, payment attempts, and guest magic links.")
-    output.append("5. **Workshop Cancellation & Settlement** (19 tables): Cancellation cases, consumption billing for add-ons, balance adjustments, and refunds.")
+    output.append("5. **Workshop Cancellation & Settlement** (18 tables): Cancellation cases, consumption billing for add-ons, balance adjustments, and refunds.")
     output.append("6. **Loyalty Program & Promotions** (10 tables): Concurrency-controlled loyalty wallet, immutable reward point ledgers, and marketing campaign vouchers.")
     output.append("7. **Product Catalogue Management** (12 tables): Ring merchandise catalog, multi-attribute variants (size, metal), media assets, and price proposals.")
     output.append("8. **Ready-Ring Retail Sales & Cart** (12 tables): Member and guest shopping carts, inventory hold locks, branch checkout quotes, and pickup evidence.")
     output.append("9. **Payment Integration & Merchant Operations** (3 tables): Payment gateway merchant accounts, raw webhook ingress receipts, and VNPay audit operations.")
-    output.append("10. **OTA Connectivity & Multi-channel Management** (18 tables): Klook/KKday OTA channel connections, listing mappings, syndicated pricing, and partner reconciliation.")
-    output.append("11. **System Integration & Infrastructure** (2 tables): Spring Modulith persistent event outbox and API boundary idempotency ledgers.\n")
+    output.append("10. **System Integration & Infrastructure** (2 tables): Spring Modulith persistent event outbox and API boundary idempotency ledgers.\n")
     
     table_index = 1
     

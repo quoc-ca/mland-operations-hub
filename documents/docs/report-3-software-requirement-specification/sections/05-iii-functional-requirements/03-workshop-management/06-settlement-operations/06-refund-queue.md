@@ -15,7 +15,7 @@ Every Mland refund is a bank transfer and only counts as done when a Manager con
 | Field Name | Description |
 | --- | --- |
 | "Trạng thái" filter | "Tất cả", "Đang chờ (mọi trạng thái chờ)", "Chờ tài khoản nhận", "Chờ duyệt", "Chờ chuyển khoản", "Chờ đối soát", "Đã hoàn tiền", "Đóng do không liên lạc được"; with "Làm mới". |
-| Refund list | "Hoàn tiền" (refund ID), "Vé / nhóm", "Lý do" (for example "Mland hủy ca", "Thu thừa sau khi chốt folio", "Thu thừa add-on OTA"), "Số tiền", "Trạng thái" and "Tài khoản" (masked number and holder name). Clicking a row selects it. |
+| Refund list | "Hoàn tiền" (refund ID), "Vé / nhóm", "Lý do" (for example "Mland hủy ca", "Thu thừa sau khi chốt folio"), "Số tiền", "Trạng thái" and "Tài khoản" (masked number and holder name). Clicking a row selects it. |
 | Counter account entry | While "Chờ tài khoản nhận": "Mã ngân hàng", "Số tài khoản", "Tên chủ tài khoản (như ngân hàng hiển thị)", then "Kiểm tra thông tin", a review step with the "Các thông tin này chính xác" confirmation, and "Lưu tài khoản". |
 | "Gửi lại liên kết tài khoản" | Sends a new single-use account link (valid 7 days); the previous link stops working. |
 | "Đóng vì không liên lạc được" / "Mở lại" | Manager only. Close requires a reason and is allowed only after 30 days without an account; a closed refund can be reopened with a new account link. |

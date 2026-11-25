@@ -31,7 +31,7 @@ Allows the Manager to create workshop sessions, one at a time or in bulk, change
 3. The system validates the slot, the date, uniqueness, and the capacity.
 4. The system saves the sessions as Draft by default, or Published when chosen, and reports created and skipped sessions.
 5. The Manager changes capacity or uses the direct state transition only to publish or pause sales; cancellation uses the separate reasoned cancellation flow.
-6. The system records an audit entry. Enabled partner availability is published automatically.
+6. The system records an audit entry.
 
 #### Alternative Flows
 

@@ -15,7 +15,7 @@ Staff can only start a session at their branch that they are assigned to; only a
 | Field Name | Description |
 | --- | --- |
 | Quầy check-in | "Mã vé" or "hoặc Mã QR check-in" input with **Check-in**; an attempt before the opening time shows "Check-in mở lúc {when}." |
-| Tra cứu vé theo Mã đặt chỗ | Lists the tickets of a booking code in this session with **Chọn vé này**; an OTA booking shows "OTA · {provider}" and an **Add-on** link. |
+| Tra cứu vé theo Mã đặt chỗ | Lists the tickets of a booking code in this session with **Chọn vé này**. |
 | Thông tin ca | Sức chứa, Mở check-in and Staff phụ trách; a Manager is warned when check-in is open but no Staff is assigned. |
 | State buttons | "Đang mở bán", "Tạm dừng bán" and "Đang diễn ra", disabled with the reason when the change is not allowed. |
 | Chốt điểm danh | Finalizes attendance; enabled only while the session is "Đang diễn ra". |
