@@ -1,19 +1,35 @@
 @startuml
+!include r4-sequence-style.puml
 title FE-12 Configure and Save Design Version
-actor Member
-participant WorkshopRingDesignController
-participant WorkshopRingDesignApplicationService
-participant DesignRuleFacade
-database RingDesignRepository
-database RingDesignIdempotencyRecordRepository
-Member -> WorkshopRingDesignController : save model/blank parameters
-WorkshopRingDesignController -> WorkshopRingDesignApplicationService : validate Member, key and version
-WorkshopRingDesignApplicationService -> DesignRuleFacade : validate catalogue options and limits
-DesignRuleFacade --> WorkshopRingDesignApplicationService : valid snapshot and rules version
-WorkshopRingDesignApplicationService -> RingDesignRepository : save immutable version
-WorkshopRingDesignApplicationService -> RingDesignIdempotencyRecordRepository : record command result
-WorkshopRingDesignController --> Member : SAVED design and safe summary
-note over Member,WorkshopRingDesignController
+actor "Member" as member
+participant "WorkshopRingDesignController" as designController
+participant "WorkshopRingDesignApplicationService" as designService
+participant "DesignRuleFacade" as ruleFacade
+database "RingDesignRepository" as designRepository
+database "RingDesignIdempotencyRecordRepository" as idempotencyRepository
+
+member -> designController : save model/blank parameters
+activate designController
+designController -> designService : validate Member, key and version
+activate designService
+designService -> ruleFacade : validate catalogue options and limits
+activate ruleFacade
+ruleFacade --> designService : valid snapshot and rules version
+deactivate ruleFacade
+designService -> designRepository : save immutable version
+activate designRepository
+designRepository --> designService : saved design version
+deactivate designRepository
+designService -> idempotencyRepository : record command result
+activate idempotencyRepository
+idempotencyRepository --> designService : command recorded
+deactivate idempotencyRepository
+designService --> designController : SAVED design and safe summary
+deactivate designService
+designController --> member : SAVED design and safe summary
+deactivate designController
+
+note over member,designController
 Guest can preview locally but protected save requires sign-in.
 end note
 @enduml
