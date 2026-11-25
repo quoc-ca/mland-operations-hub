@@ -773,7 +773,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (commit `58493f21`, đã merge vào develop). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
 - Kiểm lại: folio `…9FBC…-L0-T1` hiện Tổng 675.000, đã thanh toán 200.000, còn nợ 475.000; thẻ vé hiện đã thanh toán 200.000 ("Giá vé" 650.000 là giá lúc đặt). Test `workshopsettlement`: 576 ca, 5 ca lỗi về quyền yêu cầu hoàn tiền (`RefundRequestControllerTest`, `ManagerHomeWaitingCountsIT`, `WorkshopSettlementStatusContractIT`), không thuộc code vừa sửa.
 
-## BUG-E2E-0024 — FIXED
+## BUG-E2E-0024 — CLOSED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -791,9 +791,10 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Screenshot: ![Bị đẩy về trang chủ](master-e2e/screenshots/P2-C6-03--loc-da-tu-choi-bi-day-ve-trang-chu.jpg)
   - Network: list 200; `workshop-sessions/7095a16d-e1ad-11f1-989a-98bd80539bba` 403 `location-scope-denied`.
 - Sửa tại: `ChangeRequestsPage.jsx` đọc buổi bằng `getSession(reference, { suppressAccessDenied: true })` (`operationsApi.getSession` nhận thêm tùy chọn); 403 khi tra buổi chi nhánh khác chỉ làm ô buổi hiện mã rút gọn, không đẩy về trang chủ.
-- Kiểm lại: test mới `operationsScreens.test.jsx` › "keeps Staff on the queue when a session of another branch answers 403" đạt, trượt khi bỏ bản sửa; `npx vitest run src/workshops src/workshop-settlement src/workshop-operations src/shared` 492/492 đạt. Chưa kiểm lại bằng tài khoản Staff trên trình duyệt.
+- Kiểm lại: test mới `operationsScreens.test.jsx` › "keeps Staff on the queue when a session of another branch answers 403" đạt, trượt khi bỏ bản sửa; `npx vitest run src/workshops src/workshop-settlement src/workshop-operations src/shared` 492/492 đạt (commit `5e3aa9c8`). Trình duyệt, Staff `staff.test@mland.vn`: `?status=REJECTED` hiện 3 yêu cầu, `?status=APPROVED` hiện 7 yêu cầu, ở lại trang, không có nút Duyệt/Từ chối; ô buổi chi nhánh khác hiện "Ca 7095a16d…". Ảnh: ![Đã từ chối](master-e2e/screenshots/P2-C6-04--sau-sua-0024-staff-loc-da-tu-choi.jpg), ![Đã duyệt](master-e2e/screenshots/P2-C6-05--sau-sua-0024-staff-loc-da-duyet.jpg)
+- Ngày đóng: 2026-11-26
 
-## BUG-E2E-0025 — FIXED
+## BUG-E2E-0025 — CLOSED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -810,7 +811,8 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: ![Ảnh gói che danh sách ca](master-e2e/screenshots/P2-W1-00--viewport-580-anh-goi-che-danh-sach-ca.jpg)
 - Sửa tại: `WorkshopDetailPage.jsx` cột trái dùng lớp `.workshop-detail-aside` (`figmaPublicShell.css`): sticky khi hai cột, `position: static` khi `max-width: 600px` (lúc `.detail-grid` thành một cột).
-- Kiểm lại: trên trình duyệt ở bề rộng 280px, cột trái `static`, điểm giữa thẻ ca trả đúng nút ca; ở 1280px vẫn `sticky`. Ảnh: ![Sau sửa](master-e2e/screenshots/P2-W1-04--sau-sua-0025-danh-sach-ca-khong-bi-che.jpg)
+- Kiểm lại: trên trình duyệt ở bề rộng 280px, cột trái `static`, điểm giữa thẻ ca trả đúng nút ca; ở 1280px vẫn `sticky` (commit `5e3aa9c8`). Ảnh: ![Sau sửa](master-e2e/screenshots/P2-W1-04--sau-sua-0025-danh-sach-ca-khong-bi-che.jpg)
+- Ngày đóng: 2026-11-26
 
 ## BUG-E2E-0026 — FIXED
 
@@ -828,4 +830,4 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: ![Hộp thoại từ chối](master-e2e/screenshots/P2-C6-01--hop-thoai-tu-choi.jpg)
 - Sửa tại: thêm khóa `cr.rejectBody` (vi: "Vé {code}. Từ chối sẽ giữ nguyên lịch hiện tại của vé.", en tương ứng) trong `messages.ticket.js`; hộp thoại dùng khóa này khi từ chối.
-- Kiểm lại: test mới "describes rejecting, not approving, in the reject dialog" đạt; `i18n.test.jsx` đạt.
+- Kiểm lại: test mới "describes rejecting, not approving, in the reject dialog" đạt; `i18n.test.jsx` đạt (commit `5e3aa9c8`). Chưa xem hộp thoại trên trình duyệt vì hàng chờ không còn yêu cầu PENDING.
