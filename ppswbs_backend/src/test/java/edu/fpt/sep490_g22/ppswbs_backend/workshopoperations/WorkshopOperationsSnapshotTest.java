@@ -53,13 +53,11 @@ class WorkshopOperationsSnapshotTest {
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.EquivalentReplacementSessionService.class),
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.TicketChangeOptionsService.class),
             mock(AttendanceTicketService.class),
-            mock(WorkshopOtaSnapshotService.class),
             packagePolicy,
             mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageAvailabilityService.class),
             mock(BookingAttendanceOutcomeService.class),
             mock(WorkshopAddOnService.class),
-            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository.class),
-            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OtaTicketRevocationService.class));
+            mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository.class));
 
     @Test
     void saleSnapshotReturnsUuidAndWorkshopFactsWithoutNumericSessionId() {

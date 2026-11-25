@@ -13,11 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * T043: Service implementing atomic whole-session attendance finalization.
@@ -42,7 +42,6 @@ public class AttendanceFinalizationService {
     private final TicketSessionEntitlementRepository entitlementRepository;
     private final AttendanceActionRepository attendanceActionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopOperationsAuthorizationService authorizationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository staffAssignmentRepository;
 
@@ -92,7 +91,6 @@ public class AttendanceFinalizationService {
         session.setState(SessionState.ATTENDANCE_FINALIZED);
         session.setAttendanceFinalizedAt(now);
         sessionRepository.save(session);
-        otaSnapshotService.publishForObservableChange(session, "ATTENDANCE_FINALIZED", now);
 
         // 2. Atomic conversion: convert all active unchecked tickets for this session to NO_SHOW
         List<TicketSessionEntitlement> entitlements = entitlementRepository.findBySessionId(session.getId());

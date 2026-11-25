@@ -43,8 +43,7 @@ class OtaTicketGuardTest {
     void cancelTicketRefusesAnOtaTicketWithoutTouchingSeats() {
         TicketCancellationService service = new TicketCancellationService(tickets, entitlements,
                 mock(TicketEntitlementReleaseRepository.class), mock(CapacityHoldRepository.class),
-                mock(WorkshopSessionRepository.class), mock(OperationsAuditEventRepository.class), idempotency,
-                mock(WorkshopOtaSnapshotService.class));
+                mock(WorkshopSessionRepository.class), mock(OperationsAuditEventRepository.class), idempotency);
 
         TicketCancellationOutcome outcome = service.cancelTicket(
                 new CancelTicketCommand(ticketRef, "case-1", "op-1", "corr-1"));
@@ -78,7 +77,7 @@ class OtaTicketGuardTest {
         when(entitlements.findByTicketId(5L)).thenReturn(List.of());
         TicketSessionReplacementService service = new TicketSessionReplacementService(tickets, entitlements,
                 mock(TicketSessionReplacementRepository.class), mock(CapacityHoldRepository.class), sessions,
-                mock(OperationsAuditEventRepository.class), idempotency, mock(WorkshopOtaSnapshotService.class),
+                mock(OperationsAuditEventRepository.class), idempotency,
                 mock(WorkshopPackageReservationPolicy.class), new TicketReplacementRules());
 
         TicketSessionReplacementOutcome outcome = service.replace(new ReplaceTicketSessionsCommand(

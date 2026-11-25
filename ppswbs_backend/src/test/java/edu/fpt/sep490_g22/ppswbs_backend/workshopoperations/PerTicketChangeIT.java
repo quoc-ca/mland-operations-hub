@@ -137,8 +137,8 @@ class PerTicketChangeIT {
     }
 
     @Test
-    @DisplayName("T091-1b: a 74-char operation reference (group ticket cancel) is accepted end to end, snapshot included")
-    void cancelTicket_longOperationReference_isAcceptedAndRecordedInSnapshot() {
+    @DisplayName("T091-1b: a 74-char operation reference (group ticket cancel) is accepted end to end, release record included")
+    void cancelTicket_longOperationReference_isAcceptedAndRecordedOnTheRelease() {
         WorkshopSession session = publishedSession(2, morning, 5);
         AttendanceTicket ticket = confirmGroup(session, 1).getFirst();
         String operation = "CANCEL-GRP-2A7021232623405FAAE9-L0-T1-" + UUID.randomUUID();
@@ -149,7 +149,7 @@ class PerTicketChangeIT {
 
         assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM workshop_session_ota_snapshots WHERE change_reference = ?",
+                "SELECT COUNT(*) FROM ticket_entitlement_releases WHERE operation_reference = ?",
                 Integer.class, operation)).isEqualTo(1);
     }
 
@@ -438,12 +438,11 @@ class PerTicketChangeIT {
     void otaTicket_isRefusedByCancelReplaceAndReissue() {
         WorkshopSession source = publishedSession(8, morning, 5);
         WorkshopSession target = publishedSession(9, afternoon, 5);
-        String otaBooking = "OTA-" + UUID.randomUUID();
-        OtaBookingCapacityOutcome accepted = facade.acceptOtaBooking(new AcceptOtaBookingCommand(otaBooking,
-                String.valueOf(packageId), UUID.fromString(source.getReference()), 1,
-                "op-" + UUID.randomUUID(), "corr-ota"));
-        assertThat(accepted.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        UUID ticket = accepted.ticketReferences().getFirst();
+        // Nothing creates OTA tickets any more; rows sold before the removal keep this channel.
+        AttendanceTicket sold = confirmGroup(source, 1).getFirst();
+        sold.setSalesChannel(TicketSalesChannel.OTA);
+        ticketRepository.saveAndFlush(sold);
+        UUID ticket = UUID.fromString(sold.getReference());
 
         TicketCancellationOutcome cancel = facade.cancelTicket(new CancelTicketCommand(ticket, "case-ota",
                 "op-" + UUID.randomUUID(), "corr-ota"));

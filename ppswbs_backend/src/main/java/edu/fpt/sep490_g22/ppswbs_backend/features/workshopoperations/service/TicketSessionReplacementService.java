@@ -10,8 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -34,7 +34,6 @@ public class TicketSessionReplacementService {
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
     private final WorkshopPackageReservationPolicy packageReservationPolicy;
     private final TicketReplacementRules rules;
 
@@ -208,7 +207,6 @@ public class TicketSessionReplacementService {
 
         // Everything fits: move the entitlements, keeping the ticket, its QR and its attendance history.
         boolean quotaCounted = command.type() != TicketReplacementType.MLAND;
-        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (List<Move> moves : movesByLine.values()) {
             for (Move move : moves) {
                 move.entitlement().setSession(move.target());
@@ -232,15 +230,10 @@ public class TicketSessionReplacementService {
                             : target.getRescheduleQuotaUsed()) + 1);
                     sessionRepository.save(target);
                 }
-                changedSessions.put(move.source().getId(), move.source());
-                changedSessions.put(move.target().getId(), move.target());
             }
         }
         entitlementRepository.flush();
 
-        for (WorkshopSession changed : changedSessions.values()) {
-            otaSnapshotService.publishForObservableChange(changed, command.operationReference(), now);
-        }
         int movedTickets = (int) movesByLine.values().stream().filter(moves -> !moves.isEmpty()).count();
         audit(command, movedTickets, "SUCCESS");
         log.info("Replaced sessions of {} ticket(s) as {}", movedTickets, command.type());

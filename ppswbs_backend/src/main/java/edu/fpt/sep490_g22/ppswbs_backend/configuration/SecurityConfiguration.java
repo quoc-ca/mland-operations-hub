@@ -120,13 +120,6 @@ public class SecurityConfiguration {
                         // Browser return is display-only. It only redirects to the React result page;
                         // no payment state is accepted from this request.
                         .requestMatchers(HttpMethod.GET, "/payment/vnpay/return").permitAll()
-                        // 003.4 OTA provider callbacks carry no Mland bearer (contract: security: []).
-                        // OtaProviderEventController authenticates each call with X-Ota-Signature
-                        // against
-                        // the secret the connection's credential reference resolves to, fail closed
-                        // (E3, T118).
-                        .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/booking-events").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/ota-provider/cancellation-events").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/folio-lookups").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/workshop-tickets/*/change-option-lookups")
                         .permitAll()

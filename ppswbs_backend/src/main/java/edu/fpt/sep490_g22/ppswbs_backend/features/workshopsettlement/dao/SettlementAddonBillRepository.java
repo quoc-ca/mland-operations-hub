@@ -10,8 +10,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface SettlementAddonBillRepository extends JpaRepository<SettlementAddonBill, Long> {
-    Optional<SettlementAddonBill> findByQuoteReference(String quoteReference);
-
     Optional<SettlementAddonBill> findByBillReference(String billReference);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

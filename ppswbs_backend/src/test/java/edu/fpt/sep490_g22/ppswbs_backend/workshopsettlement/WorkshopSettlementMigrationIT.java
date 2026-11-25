@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopsettlement;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMigrationTestSupport;
+import edu.fpt.sep490_g22.ppswbs_backend.testsupport.MigrationTestSupport;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WorkshopSettlementMigrationIT {
     private static final List<String> TABLES = List.of("settlement_cancellation_cases", "settlement_handoff_idempotency", "settlement_final_bills", "settlement_charges", "settlement_cases", "settlement_evidence_conclusions", "settlement_business_audits", "settlement_idempotency_outcomes", "settlement_notification_handoffs", "settlement_refund_allocations", "settlement_folio_corrections", "settlement_addon_payment_attempts", "settlement_addon_refunds", "settlement_ticket_mland_remedies", "settlement_ticket_change_requests");
     @Test void freshSchemaAppliesSettlementFoundation() throws Exception {
-        OtaMigrationTestSupport support = configuredSupport(); if (support == null) return;
+        MigrationTestSupport support = configuredSupport(); if (support == null) return;
         try (support) { String database=support.createDatabase(); MigrateResult result=support.flyway(database,null).migrate(); assertThat(result.success).isTrue(); assertThat(result.migrations).extracting(m->m.version).contains("17","18","30","44","45","47","96","98","99","151","152","153","155"); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='44' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='96' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='98' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='99' AND success=1")).isEqualTo(1); assertColumns(c,database,"payment_owner_registrations",List.of("provider_create_date")); assertColumns(c,database,"settlement_evidence_conclusions",List.of("provider_transaction_number","original_provider_create_date")); assertColumns(c,database,"settlement_refund_allocations",List.of("original_payment_reference","original_provider_transaction_number","original_provider_create_date","allocated_amount_vnd","bank_refund_reference"));assertColumnsAbsent(c,database,"settlement_refund_allocations",List.of("provider_refund_transaction_number","provider_response_code","provider_transaction_type","provider_transaction_status","provider_accepted_at","last_query_at")); assertTablesAbsent(c,database,List.of("settlement_refund_policy_revisions","settlement_refund_policy_snapshots","settlement_booking_mland_refund_policy_snapshots","settlement_final_payment_attempts","settlement_customer_cancellation_snapshots","settlement_mland_remedy_snapshots")); assertColumns(c,database,"settlement_folio_corrections",List.of("correction_reference","case_reference","booking_reference","bill_reference","amount_vnd","currency_code","reason","manager_actor_reference","created_at","updated_at")); assertColumns(c,database,"settlement_addon_payment_attempts",List.of("attempt_reference","bill_reference","channel_booking_reference","operation_reference","merchant_reference","amount_vnd","currency_code","provider_create_date","payment_url_snapshot","lifecycle_status","expires_at")); assertColumns(c,database,"settlement_addon_refunds",List.of("refund_reference","case_reference","bill_reference","channel_booking_reference","amount_vnd","currency_code","reason","manager_actor_reference","created_at","updated_at")); assertColumns(c,database,"settlement_ticket_mland_remedies",List.of("replacement_session_references","replacement_options","selected_replacement_session_reference")); assertColumns(c,database,"settlement_ticket_change_requests",List.of("request_reference","idempotency_key","ticket_code","status","blocked_rules","expires_at","decision_reason","decided_by_account_id","decision_idempotency_key","applied_change_reference")); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('146','147','148') AND success=1")).isEqualTo(3);} }
     }
     /**
@@ -20,7 +20,7 @@ class WorkshopSettlementMigrationIT {
      * the reconciliation list and the absorbed-undercharge table, with their constraints.
      */
     @Test void v170ToV172AddCashReversalsBranchIndexAndAbsorbedUndercharges() throws Exception {
-        OtaMigrationTestSupport support=configuredSupport(); if(support==null)return;
+        MigrationTestSupport support=configuredSupport(); if(support==null)return;
         try(support){String database=support.createDatabase(); MigrateResult result=support.flyway(database,null).migrate(); assertThat(result.success).isTrue();
             assertThat(result.migrations).extracting(m->m.version).contains("170","171","172");
             try(Connection c=support.databaseConnection(database); Statement s=c.createStatement()){
@@ -36,7 +36,7 @@ class WorkshopSettlementMigrationIT {
         }
     }
     @Test void upgradeFromVersion29PreservesLegacyTablesAndIsIdempotent() throws Exception {
-        OtaMigrationTestSupport support=configuredSupport(); if(support==null)return;
+        MigrationTestSupport support=configuredSupport(); if(support==null)return;
         try(support){String database=support.createDatabase(); support.flyway(database,"29").migrate(); try(Connection c=support.databaseConnection(database); Statement s=c.createStatement()){s.executeUpdate("INSERT INTO settlement_cancellation_cases (case_reference,session_reference,affected_booking_references,cancellation_reason_reference,operation_reference,correlation_reference,status,created_at,updated_at) VALUES ('migration-case','session-1','[\\\"booking-1\\\"]','reason','operation-1','correlation-1','OPEN',CURRENT_TIMESTAMP(6),CURRENT_TIMESTAMP(6))");} MigrateResult upgrade=support.flyway(database,null).migrate(); MigrateResult replay=support.flyway(database,null).migrate(); assertThat(upgrade.success).isTrue(); assertThat(replay.migrations).isEmpty(); try(Connection c=support.databaseConnection(database)){assertTables(c,database); assertThat(count(c,"SELECT COUNT(*) FROM settlement_cancellation_cases WHERE case_reference='migration-case'")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='30' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='45' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='47' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='96' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='98' AND success=1")).isEqualTo(1); assertThat(count(c,"SELECT COUNT(*) FROM flyway_schema_history WHERE version='99' AND success=1")).isEqualTo(1);}} }
 
     /**
@@ -44,7 +44,7 @@ class WorkshopSettlementMigrationIT {
      * lets the offered-session list grow past the old 512-character limit and creates the change-request queue.
      */
     @Test void v152AndV153UpgradeFromV151KeepRemediesAndAddTheQueue() throws Exception {
-        OtaMigrationTestSupport support = configuredSupport(); if (support == null) return;
+        MigrationTestSupport support = configuredSupport(); if (support == null) return;
         try (support) {
             String database = support.createDatabase();
             support.flyway(database, "151").migrate();
@@ -80,7 +80,7 @@ class WorkshopSettlementMigrationIT {
     }
     /** 003.3 T087 / V96: existing confirmed direct bookings get exactly one OPEN folio; nothing else changes. */
     @Test void v96BackfillsOneOpenFolioPerConfirmedDirectBookingOnly() throws Exception {
-        OtaMigrationTestSupport support = configuredSupport(); if (support == null) return;
+        MigrationTestSupport support = configuredSupport(); if (support == null) return;
         try (support) {
             String database = support.createDatabase();
             support.flyway(database, "95").migrate();
@@ -117,7 +117,7 @@ class WorkshopSettlementMigrationIT {
         }
     }
 
-    private static OtaMigrationTestSupport configuredSupport(){var s=OtaMigrationTestSupport.fromEnvironment(); Assumptions.assumeTrue(s.isPresent(),"Requires WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated local MySQL migration evidence"); return s.orElseThrow();}
+    private static MigrationTestSupport configuredSupport(){var s=MigrationTestSupport.fromEnvironment(); Assumptions.assumeTrue(s.isPresent(),"Requires WORKSHOP_OTA_TEST_JDBC_URL/USER/PASSWORD for isolated local MySQL migration evidence"); return s.orElseThrow();}
     private static void assertTablesAbsent(Connection c,String db,List<String> names)throws Exception{try(PreparedStatement q=c.prepareStatement("SELECT table_name FROM information_schema.tables WHERE table_schema=?")){q.setString(1,db);try(ResultSet r=q.executeQuery()){java.util.ArrayList<String>a=new java.util.ArrayList<>();while(r.next())a.add(r.getString(1));assertThat(a).doesNotContainAnyElementsOf(names);}}}
     private static void assertTables(Connection c,String db)throws Exception{try(PreparedStatement q=c.prepareStatement("SELECT table_name FROM information_schema.tables WHERE table_schema=? AND table_name LIKE 'settlement\\_%'")){q.setString(1,db);try(ResultSet r=q.executeQuery()){java.util.ArrayList<String>a=new java.util.ArrayList<>();while(r.next())a.add(r.getString(1));assertThat(a).containsAll(TABLES);}}}
     private static void assertColumnsAbsent(Connection c,String db,String table,List<String> dropped)throws Exception{try(PreparedStatement q=c.prepareStatement("SELECT column_name FROM information_schema.columns WHERE table_schema=? AND table_name=?")){q.setString(1,db);q.setString(2,table);try(ResultSet r=q.executeQuery()){List<String> actual=new java.util.ArrayList<>();while(r.next())actual.add(r.getString(1));assertThat(actual).doesNotContainAnyElementsOf(dropped);}}}

@@ -1,4 +1,4 @@
-package edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence;
+package edu.fpt.sep490_g22.ppswbs_backend.testsupport;
 
 import org.flywaydb.core.Flyway;
 
@@ -13,8 +13,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Test helper that creates and drops only uniquely named local OTA migration schemas. */
-public final class OtaMigrationTestSupport implements AutoCloseable {
+/** Test helper that creates and drops only uniquely named local migration schemas. */
+public final class MigrationTestSupport implements AutoCloseable {
 
     private static final Pattern LOCAL_TEST_URL = Pattern.compile(
             "^jdbc:mysql://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?/(ppswbs_workshop_test_[A-Za-z0-9_]+)(\\?.*)?$",
@@ -27,14 +27,14 @@ public final class OtaMigrationTestSupport implements AutoCloseable {
     private final String password;
     private final List<String> ownedDatabases = new ArrayList<>();
 
-    private OtaMigrationTestSupport(String serverUrl, String parameters, String user, String password) {
+    private MigrationTestSupport(String serverUrl, String parameters, String user, String password) {
         this.serverUrl = serverUrl;
         this.parameters = parameters;
         this.user = user;
         this.password = password;
     }
 
-    public static Optional<OtaMigrationTestSupport> fromEnvironment() {
+    public static Optional<MigrationTestSupport> fromEnvironment() {
         String url = System.getenv("WORKSHOP_OTA_TEST_JDBC_URL");
         String user = System.getenv("WORKSHOP_OTA_TEST_JDBC_USER");
         String password = System.getenv("WORKSHOP_OTA_TEST_JDBC_PASSWORD");
@@ -50,18 +50,18 @@ public final class OtaMigrationTestSupport implements AutoCloseable {
 
         Matcher matcher = LOCAL_TEST_URL.matcher(url);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException("OTA migration tests require a localhost URL whose selected schema "
+            throw new IllegalArgumentException("Migration tests require a localhost URL whose selected schema "
                     + "starts with ppswbs_workshop_test_");
         }
         String server = "jdbc:mysql://" + matcher.group(1) + (matcher.group(2) == null ? "" : matcher.group(2));
         String parameters = matcher.group(4) == null ? "" : matcher.group(4);
-        return Optional.of(new OtaMigrationTestSupport(server, parameters, user, password));
+        return Optional.of(new MigrationTestSupport(server, parameters, user, password));
     }
 
     public String createDatabase() throws SQLException {
         String database = TEMP_DATABASE_PREFIX + UUID.randomUUID().toString().replace("-", "");
         if (!database.matches("ppswbs_ota_migration_[a-f0-9]{32}")) {
-            throw new IllegalStateException("Generated OTA migration schema name failed its safety check");
+            throw new IllegalStateException("Generated migration schema name failed its safety check");
         }
         try (Connection connection = serverConnection(); Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE `" + database

@@ -39,8 +39,7 @@ import static org.mockito.Mockito.when;
 /**
  * 003.2 S4 facade evidence on real MySQL: T132 (commit refused once a cancellation is requested), T122
  * (CANCELLATION_REQUESTED to CANCELLED only when no ticket is unresolved), T117 (cancelTicket independent of refund,
- * history kept, scan refused), T118 (per-line participant bounds), T134 (replay after ledger cleanup) and T123
- * (OTA-only ticket revocation).
+ * history kept, scan refused), T118 (per-line participant bounds), T134 (replay after ledger cleanup).
  */
 @SpringBootTest
 @ActiveProfiles("workshopoperations-mysql-test")
@@ -330,80 +329,6 @@ class FacadeOperationsMySqlIT {
     // ---------------------------------------------------------------- T123
 
     @Test
-    @DisplayName("T123: partial OTA revocation revokes the named tickets only, frees their future seats and keeps the rest ACTIVE")
-    void otaPartialRevoke() {
-        WorkshopSession first = session(SessionState.PUBLISHED, 10, 3);
-        WorkshopSession second = session(SessionState.PUBLISHED, 10, 4);
-        String booking = "OTA-" + UUID.randomUUID();
-        AttendanceTicket one = ticket(booking, 1, TicketSalesChannel.OTA, first, second);
-        AttendanceTicket two = ticket(booking, 2, TicketSalesChannel.OTA, first, second);
-        AttendanceTicket three = ticket(booking, 3, TicketSalesChannel.OTA, first, second);
-        assertThat(remaining(first)).isEqualTo(7);
-
-        OtaTicketRevocationOutcome outcome = revoke(booking, "ota-event-" + UUID.randomUUID(), one, two);
-
-        assertThat(outcome.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        assertThat(outcome.revokedTicketReferences()).containsExactly(uuid(one), uuid(two));
-        assertThat(validity(one)).isEqualTo(TicketValidityState.REVOKED);
-        assertThat(validity(two)).isEqualTo(TicketValidityState.REVOKED);
-        assertThat(validity(three)).isEqualTo(TicketValidityState.ACTIVE);
-        assertThat(entitlementRepository.findByTicketId(one.getId())).isEmpty();
-        assertThat(entitlementRepository.findByTicketId(three.getId())).hasSize(2);
-        assertThat(remaining(first)).isEqualTo(9);
-        assertThat(remaining(second)).isEqualTo(9);
-    }
-
-    @Test
-    @DisplayName("T123: replay of the same OTA event changes nothing and returns the same result; a changed ticket set under the same reference conflicts")
-    void otaRevokeIdempotent() {
-        WorkshopSession session = session(SessionState.PUBLISHED, 10, 3);
-        String booking = "OTA-" + UUID.randomUUID();
-        AttendanceTicket one = ticket(booking, 1, TicketSalesChannel.OTA, session);
-        AttendanceTicket two = ticket(booking, 2, TicketSalesChannel.OTA, session);
-        String event = "ota-event-" + UUID.randomUUID();
-
-        OtaTicketRevocationOutcome first = revoke(booking, event, one);
-        int seats = remaining(session);
-        OtaTicketRevocationOutcome replay = revoke(booking, event, one);
-        OtaTicketRevocationOutcome changed = revoke(booking, event, one, two);
-
-        assertThat(first.status()).isEqualTo(OutcomeStatus.ACCEPTED);
-        assertThat(replay).isEqualTo(first);
-        assertThat(remaining(session)).isEqualTo(seats);
-        assertThat(releaseRepository.findByTicketIdOrderByIdAsc(one.getId())).hasSize(1);
-        assertThat(changed.status()).isEqualTo(OutcomeStatus.REJECTED);
-        assertThat(changed.reason()).isEqualTo(RejectionReason.INVALID_STATE);
-        assertThat(validity(two)).isEqualTo(TicketValidityState.ACTIVE);
-    }
-
-    @Test
-    @DisplayName("T123: a non-OTA ticket, a checked-in ticket or a foreign booking refuses the whole command with nothing changed")
-    void otaRevokeRefusals() {
-        WorkshopSession session = session(SessionState.PUBLISHED, 10, 3);
-        String booking = "OTA-" + UUID.randomUUID();
-        AttendanceTicket ota = ticket(booking, 1, TicketSalesChannel.OTA, session);
-        AttendanceTicket direct = ticket(booking, 2, TicketSalesChannel.DIRECT, session);
-        AttendanceTicket attended = ticket(booking, 3, TicketSalesChannel.OTA, session);
-        TicketSessionEntitlement record = entitlementRepository.findByTicketId(attended.getId()).getFirst();
-        record.setAttendanceState(AttendanceState.CHECKED_IN);
-        record.setCheckedInAt(Instant.now());
-        entitlementRepository.saveAndFlush(record);
-        int seats = remaining(session);
-
-        OtaTicketRevocationOutcome nonOta = revoke(booking, "ota-" + UUID.randomUUID(), ota, direct);
-        OtaTicketRevocationOutcome checkedIn = revoke(booking, "ota-" + UUID.randomUUID(), ota, attended);
-        OtaTicketRevocationOutcome foreign = revoke("OTA-OTHER", "ota-" + UUID.randomUUID(), ota);
-
-        assertThat(nonOta.reason()).isEqualTo(RejectionReason.INVALID_STATE);
-        assertThat(checkedIn.reason()).isEqualTo(RejectionReason.TICKET_ALREADY_CHECKED_IN);
-        assertThat(foreign.reason()).isEqualTo(RejectionReason.TICKET_NOT_FOUND);
-        assertThat(validity(ota)).isEqualTo(TicketValidityState.ACTIVE);
-        assertThat(validity(direct)).isEqualTo(TicketValidityState.ACTIVE);
-        assertThat(validity(attended)).isEqualTo(TicketValidityState.ACTIVE);
-        assertThat(remaining(session)).isEqualTo(seats);
-    }
-
-    @Test
     @DisplayName("T123: cancelTicket still refuses an OTA ticket for a general caller (FR-036)")
     void otaTicketStillRefusedByCancelTicket() {
         WorkshopSession session = session(SessionState.PUBLISHED, 10, 3);
@@ -417,11 +342,6 @@ class FacadeOperationsMySqlIT {
     }
 
     // ---------------------------------------------------------------- helpers
-
-    private OtaTicketRevocationOutcome revoke(String booking, String event, AttendanceTicket... tickets) {
-        return facade.revokeOtaTickets(new RevokeOtaTicketsCommand(booking,
-                java.util.Arrays.stream(tickets).map(this::uuid).toList(), event, "corr"));
-    }
 
     private TicketCancellationOutcome cancel(AttendanceTicket ticket, String opRef) {
         return facade.cancelTicket(new CancelTicketCommand(uuid(ticket), "CASE-" + opRef, opRef, "corr"));
