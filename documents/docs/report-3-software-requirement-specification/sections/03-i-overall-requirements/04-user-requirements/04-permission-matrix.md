@@ -18,7 +18,19 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Workshop schedule|Create, update, or cancel schedules and branch allocations|No|No|Restricted|Full|Restricted|
 |Workshop staffing|Assign Staff to workshop slots|No|No|Restricted|Full|Restricted|
 |Workshop time and capacity|Configure time slots, capacity, participant limits, materials, holidays, and closures|No|No|No|Full|Restricted|
-|Workshop integration|Synchronize schedule and confirmed booking with Klook|No|No|No|Full|Restricted|
+|Ticket folio|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
+|Ticket folio|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
+|Ticket folio|Verify transfers, manage handover exceptions and debt, and correct a folio (UC 80, 81, 82)|No|No|No|Full|No|
+|Cash day|Close a branch cash day; only a Manager resolves a difference (UC 83)|No|No|Restricted|Full|No|
+|Ticket cancellation|Cancel unused workshop tickets (UC 84)|Restricted|Restricted|Restricted|No|No|
+|Ticket change|Select replacement sessions for a ticket (UC 85)|Restricted|Restricted|Restricted|Full|No|
+|Ticket change|Approve or reject a queued change request (UC 86)|No|No|Restricted|Full|No|
+|Ticket change|Grant an extra counted change (UC 87)|No|No|No|Full|No|
+|Mland cancellation|Choose a replacement session or refund (UC 88)|Restricted|Restricted|No|No|No|
+|Refund|Submit the receiving refund account (UC 89)|Restricted|Restricted|Restricted|Restricted|No|
+|Refund|Process a refund request (UC 90)|No|No|No|Full|No|
+|OTA channel|Manage mappings, enable partner booking, resolve reconciliation, and reconcile payouts (UC 91 to 94)|No|No|No|Full|No|
+|OTA shop add-on|Record and bill a shop add-on for an OTA booking (UC 95)|No|No|Restricted|Full|No|
 |Product catalogue|Create and update products, images, prices, and publication status|No|No|Full|Restricted|Restricted|
 |AI support|Use basic text support|Full|Full|Full|Full|Restricted|
 |Workshop ring design|Create, evaluate, save, and archive own ring design; Guest may only browse public options and sees a sign-in prompt|No|Full|No|No|Technical/audit only|
@@ -52,3 +64,4 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin may view purpose-limited parameter-impact information in FE-09 but has no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK shipments are recorded in the platform; V1 calls GHTK only for the delivery-fee quote and has no shipment-creation, tracking, or webhook integration. Staff packs the order and marks it ready for the courier. The GHTK partner account (role `CARRIER`) records only "Đã lấy hàng" (courier pickup) and "Giao thành công" (delivery) for the GHTK shipments of every branch, and sees the pickup branch, recipient name, phone and address, item count, and shipping fee, never product prices, vouchers, points, or Member account data. Only that account records the Retail shipment row; the platform roles cannot.
 7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
+8. For ticket settlement and changes (Feature-003.3) and OTA shop add-ons (Feature-003.4), `Restricted` for a Guest or Member means only their own ticket after the required ownership, contact, one-time-code, or single-use-link proof; `Restricted` for Staff means the assigned location and, where the owning feature requires it, a session assignment.

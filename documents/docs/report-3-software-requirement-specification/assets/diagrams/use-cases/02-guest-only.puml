@@ -29,6 +29,11 @@ rectangle "Mland Operations System" {
   usecase "Chat with Basic AI Support" as UC33
   usecase "View and Save Vouchers" as UC47
   usecase "Browse Public Reviews" as UC74
+  usecase "View Ticket Folio" as UC77
+  usecase "Cancel Workshop Tickets" as UC84
+  usecase "Change Ticket Sessions" as UC85
+  usecase "Respond to Mland Cancellation Offer" as UC88
+  usecase "Submit Refund Account" as UC89
 }
 
 Guest --> UC01
@@ -43,6 +48,11 @@ Guest --> UC23
 Guest --> UC33
 Guest --> UC47
 Guest --> UC74
+Guest --> UC77
+Guest --> UC84
+Guest --> UC85
+Guest --> UC88
+Guest --> UC89
 
 UC21 ..> UC22 : <<include>>
 
