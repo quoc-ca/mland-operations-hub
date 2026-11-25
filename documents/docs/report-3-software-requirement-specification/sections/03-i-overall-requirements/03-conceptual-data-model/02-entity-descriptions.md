@@ -123,7 +123,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 
 | Field | Value |
 | --- | --- |
-| Purpose | One direct booking made by a Member or Guest buyer for one or more participants. |
+| Purpose | One booking made by a Member or Guest buyer for one or more participants. |
 | Key business attributes | Group code, buyer, contact email and phone, payment mode, amount to collect, hold expiry and payment deadline. |
 | Business identity | Group code is unique. |
 | Status / lifecycle | Pending payment → Confirmed; or Expired / Cancelled. |
@@ -187,7 +187,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 | Field | Value |
 | --- | --- |
 | Purpose | A request from a Member to have a custom ring designed from a description, reference images, and optionally a Member-owned Feature-012 design snapshot. |
-| Key business attributes | Owner, description, reference images, analysis result, estimated value and review decision. |
+| Key business attributes | Owner, description, reference images, estimated value and review decision. |
 | Business identity | Request reference is unique. |
 | Status / lifecycle | Active → Completed or Withdrawn. Review: Need review → Accepted, Rejected or Clarification required. |
 
