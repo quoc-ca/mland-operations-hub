@@ -81,7 +81,7 @@ function PreviousLocationAddOns({ api, ticketCode, enabled }) {
   const items = asList(list.data);
   if (items.length === 0) return null;
   return (
-    <section aria-label={t('ws.prev.aria')} className="ota-panel">
+    <section aria-label={t('ws.prev.aria')} className="wsp-panel">
       <h3>{t('ws.prev.title')}</h3>
       <ul>
         {items.map(item => (
@@ -271,8 +271,8 @@ export default function SettlementWorkspacePage() {
         <div className="notice error" role="alert"><p>{t(`ws.problem.${command.error.code}`)}</p></div>
       )}
       <ProblemNotice error={folio.error || command.error} onRetry={command.retry} onReload={folio.reload} />
-      <section className="ota-panel">
-        <form className="ota-inline-form settlement-lookup" onSubmit={lookup}>
+      <section className="wsp-panel">
+        <form className="wsp-inline-form settlement-lookup" onSubmit={lookup}>
           <label>{t('ws.ticketCode')}<input value={ticketInput} onChange={event => setTicketInput(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
           <button className="button primary" type="submit" disabled={!ticketInput.trim()}>{t('ws.openFolio')}</button>
         </form>
@@ -282,8 +282,8 @@ export default function SettlementWorkspacePage() {
       {ticketCode && bill ? <PreviousLocationAddOns api={api} ticketCode={ticketCode} enabled={isManager} /> : null}
       {ticketCode && bill ? (
         <section className="settlement-grid">
-          <article className="ota-panel settlement-summary">
-            <div className="ota-panel-head"><h2>{bill.ticketCode || ticketCode}</h2><span className="ops-status">{folioStatus(bill.status)}</span></div>
+          <article className="wsp-panel settlement-summary">
+            <div className="wsp-panel-head"><h2>{bill.ticketCode || ticketCode}</h2><span className="ops-status">{folioStatus(bill.status)}</span></div>
             <div className="settlement-amount"><span>{t('ws.balanceDue')}</span><strong>{fmt.money(bill.balanceDue)}</strong></div>
             <div className="settlement-amounts">
               <div><span>{t('ws.total')}</span><strong>{fmt.money(bill.totalAmount)}</strong></div>
@@ -299,8 +299,8 @@ export default function SettlementWorkspacePage() {
             </div>
           </article>
 
-          <article className="ota-panel">
-            <div className="ota-panel-head"><h2>{t('ws.collections')}</h2><span className="muted">{t('ws.collectionsHint')}</span></div>
+          <article className="wsp-panel">
+            <div className="wsp-panel-head"><h2>{t('ws.collections')}</h2><span className="muted">{t('ws.collectionsHint')}</span></div>
             {(bill.collections || []).length === 0 ? <p className="muted">{t('ws.noCollection')}</p> : (
               <div className="ops-table-wrap"><table className="ops-table fl-table">
                 <colgroup><col className="c-main" /><col className="c-desc" /><col className="c-amount" /><col className="c-status" /><col className="c-actions" /></colgroup>
@@ -373,7 +373,7 @@ export default function SettlementWorkspacePage() {
               </div>
             ) : null}
             {open && (
-              <form className="ota-form settlement-form" aria-label={t('ws.recordCollectionAria')} onSubmit={submitCollection}>
+              <form className="wsp-form settlement-form" aria-label={t('ws.recordCollectionAria')} onSubmit={submitCollection}>
                 <h3>{t('ws.recordCollection')}</h3>
                 <label>{t('ws.method')}
                   <select value={collection.method} onChange={event => setCollection(v => ({ ...v, method: event.target.value }))}>
@@ -393,9 +393,9 @@ export default function SettlementWorkspacePage() {
           </article>
 
           {open && (
-            <article className="ota-panel settlement-addons">
-              <div className="ota-panel-head"><h2>{t('ws.addonsTitle')}</h2></div>
-              <form className="ota-form settlement-form" aria-label={t('ws.catalogueAria')} onSubmit={submitAddOn}>
+            <article className="wsp-panel settlement-addons">
+              <div className="wsp-panel-head"><h2>{t('ws.addonsTitle')}</h2></div>
+              <form className="wsp-form settlement-form" aria-label={t('ws.catalogueAria')} onSubmit={submitAddOn}>
                 <h3>{t('ws.catalogueTitle')}</h3>
                 {addOns.loading ? <p className="muted">{t('ws.addonsLoading')}</p>
                   : addOns.error ? <p className="muted" role="status">{t('ws.addonsError')}</p>
@@ -413,7 +413,7 @@ export default function SettlementWorkspacePage() {
                 <label className="settlement-addon-consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /><span>{t('ws.consent')}</span></label>
                 <button className="button primary" type="submit" disabled={command.pending || addOn.length === 0 || !consent}>{t('ws.addSelected')}</button>
               </form>
-              <form className="ota-form settlement-form" aria-label={t('ws.chargeAria')} onSubmit={submitCharge}>
+              <form className="wsp-form settlement-form" aria-label={t('ws.chargeAria')} onSubmit={submitCharge}>
                 <h3>{t('ws.chargeTitle')}</h3>
                 <p className="muted small">{t('ws.chargeHint')}</p>
                 <label>{t('ws.description')}<input value={charge.description} maxLength={200} onChange={event => setCharge(v => ({ ...v, description: event.target.value }))} /></label>
@@ -425,8 +425,8 @@ export default function SettlementWorkspacePage() {
           )}
 
           {isManager && undercharges.length > 0 && (
-            <article className="ota-panel" aria-label={t('ws.underAria')}>
-              <div className="ota-panel-head"><h2>{t('ws.underTitle')}</h2><span className="muted">{t('ws.underHint')}</span></div>
+            <article className="wsp-panel" aria-label={t('ws.underAria')}>
+              <div className="wsp-panel-head"><h2>{t('ws.underTitle')}</h2><span className="muted">{t('ws.underHint')}</span></div>
               <table className="ops-table">
                 <thead><tr><th>{t('ws.col.reference')}</th><th>{t('ws.col.amount')}</th><th>{t('ws.col.reason')}</th><th>{t('ws.col.status')}</th><th /></tr></thead>
                 <tbody>
@@ -445,7 +445,7 @@ export default function SettlementWorkspacePage() {
             </article>
           )}
 
-          <article className="ota-panel">
+          <article className="wsp-panel">
             <FolioCorrectionLookup key={ticketCode} api={api} ticketCode={ticketCode} />
           </article>
         </section>

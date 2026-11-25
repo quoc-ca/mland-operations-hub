@@ -26,9 +26,9 @@ export function TemplateListPage() {
   const { templates, loading, error, reload } = useTemplates();
 
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
+      <main className="wsp-main">
         <div className="nm-container">
           <div className="nm-header">
             <div className="nm-title-group">

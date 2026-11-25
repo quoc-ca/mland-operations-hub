@@ -10,7 +10,6 @@ import { consultationRoutes } from '../features/consultationchat/routes';
 import { loyaltyPromotionRoutes } from '../features/loyalty-promotion';
 import { productManagementRoutes } from '../features/product-management';
 import { workshopRoutes } from '../workshops/routes';
-import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
 import { operatorHomeRoutes } from '../features/operatorhome/routes';
@@ -34,7 +33,6 @@ export const routes = [
           ...accountManagementRoutes,
           ...readyRingSalesRoutes,
           ...workshopRoutes,
-          ...otaConnectivityRoutes,
           ...operationsRoutes,
           ...settlementRoutes,
           ...operatorHomeRoutes,

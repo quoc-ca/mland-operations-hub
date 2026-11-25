@@ -128,14 +128,14 @@ export default function TicketActionsPage() {
 
   return (
     <OpsPage title={t(tab === 'change' ? 'ta.titleChange' : 'ta.titleCancel')} intro={t('ta.intro')}>
-      <nav className="ota-nav-tabs" aria-label={t('ta.tabsAria')}>
-        <Link className={`ota-nav-tab ${tab === 'cancel' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=cancel">{t('ta.tabCancel')}</Link>
-        <Link className={`ota-nav-tab ${tab === 'change' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=change">{t('ta.tabChange')}</Link>
+      <nav className="wsp-nav-tabs" aria-label={t('ta.tabsAria')}>
+        <Link className={`wsp-nav-tab ${tab === 'cancel' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=cancel">{t('ta.tabCancel')}</Link>
+        <Link className={`wsp-nav-tab ${tab === 'change' ? 'active' : ''}`} to="/settlement/ticket-actions?tab=change">{t('ta.tabChange')}</Link>
       </nav>
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={command.retry} />
-      <section className="ota-panel">
-        <div className="ota-form">
+      <section className="wsp-panel">
+        <div className="wsp-form">
           <Field label={t('ta.groupCode')} hint={t(needsGroup ? 'ta.groupHintMulti' : 'ta.groupHintOne')}>
             <input value={groupCode} onChange={event => setGroupCode(event.target.value)} />
           </Field>
@@ -190,27 +190,27 @@ export default function TicketActionsPage() {
       </section>
 
       {tab === 'change' && isManager && (
-        <section className="ota-panel" aria-label={t('ta.allowanceAria')}>
+        <section className="wsp-panel" aria-label={t('ta.allowanceAria')}>
           <h2>{t('ta.allowanceTitle')}</h2>
           <p className="muted small">{t('ta.allowanceHint')}</p>
-          <div className="ota-inline-form">
+          <div className="wsp-inline-form">
             <label>{t('ta.allowanceTicket')}<input value={allowanceTicket} onChange={event => setAllowanceTicket(event.target.value)} placeholder="GRP-…-L0-T1" /></label>
             <button className="button outline" type="button" disabled={command.pending || !allowanceTicket.trim()} onClick={() => setGranting(true)}>{t('ta.allowanceGrant')}</button>
           </div>
         </section>
       )}
       {awaiting && (
-        <section className="ota-panel" role="status" aria-label={t('ta.increaseAria')}>
+        <section className="wsp-panel" role="status" aria-label={t('ta.increaseAria')}>
           <h2>{t('ta.increaseTitle')}</h2>
           <p>{t('ta.increasePre')}<strong>{fmt.money(increase)}</strong>{t('ta.increasePost')}</p>
           <button className="button primary" type="button" disabled={command.pending} onClick={() => change(true)}>{t('ta.increaseConfirm')}</button>
         </section>
       )}
       {result?.kind === 'change' && result.data.changeRequestReference && (
-        <section className="ota-panel" role="status"><p>{t('ta.queuedPre')}<strong>{result.data.changeRequestReference}</strong>{t('ta.queuedMid')}<Link to="/settlement/change-requests">{t('ta.queuedLink')}</Link>.</p></section>
+        <section className="wsp-panel" role="status"><p>{t('ta.queuedPre')}<strong>{result.data.changeRequestReference}</strong>{t('ta.queuedMid')}<Link to="/settlement/change-requests">{t('ta.queuedLink')}</Link>.</p></section>
       )}
       {result?.kind === 'change' && result.data.applied && (
-        <section className="ota-panel" aria-label={t('ta.changeResultAria')}>
+        <section className="wsp-panel" aria-label={t('ta.changeResultAria')}>
           <h2>{t('ta.changeApplied')}</h2>
           <ul>
             {(result.grouped ? result.data.tickets : [result.data]).map(item => (
@@ -220,7 +220,7 @@ export default function TicketActionsPage() {
         </section>
       )}
       {result?.kind === 'cancel' && (
-        <section className="ota-panel" aria-label={t('ta.cancelResultAria')}>
+        <section className="wsp-panel" aria-label={t('ta.cancelResultAria')}>
           <h2>{t('ta.cancelled')}</h2>
           <ul>
             {result.tickets.map(item => (

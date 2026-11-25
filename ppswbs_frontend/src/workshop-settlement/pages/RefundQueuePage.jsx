@@ -123,8 +123,8 @@ export default function RefundQueuePage() {
       {RECEIPT_PROBLEMS.includes(command.error?.code)
         ? <div className="notice error" role="alert"><p>{t(`refund.problem.${command.error.code}`)}</p>{command.error.retryable && <div className="notice-actions"><button type="button" className="button outline" onClick={command.retry}>{t('refund.retry')}</button></div>}</div>
         : <ProblemNotice error={queue.error || command.error} onRetry={command.retry} onReload={queue.reload} />}
-      <section className="ota-panel">
-        <div className="ota-inline-form">
+      <section className="wsp-panel">
+        <div className="wsp-inline-form">
           <label>{t('refund.status')}
             <select value={status} onChange={event => { setStatus(event.target.value); setSelected(null); }}>
               <option value="">{t('refund.all')}</option>
@@ -154,15 +154,15 @@ export default function RefundQueuePage() {
       </section>
 
       {refund && (
-        <section className="ota-panel" aria-label={t('refund.actionsAria')}>
-          <div className="ota-panel-head"><h2>{refund.refundId}</h2><span className="ops-status">{statusLabel(refund.status)}</span></div>
+        <section className="wsp-panel" aria-label={t('refund.actionsAria')}>
+          <div className="wsp-panel-head"><h2>{refund.refundId}</h2><span className="ops-status">{statusLabel(refund.status)}</span></div>
           {refund.status === 'PENDING_ACCOUNT' && (<>
             <p className="muted">{t('refund.pendingAccountNote')}</p>
             {reviewing ? (
               <AccountReviewStep details={account} confirmed={confirmed} onConfirmedChange={setConfirmed} onEdit={() => { setReviewing(false); setConfirmed(false); }}
                 pending={command.pending} submitLabel={t('refund.saveAccount')} onSubmit={enterAccount} />
             ) : (
-            <form className="ota-form" aria-label={t('refund.counterAccountAria')} onSubmit={reviewAccount}>
+            <form className="wsp-form" aria-label={t('refund.counterAccountAria')} onSubmit={reviewAccount}>
               <label>{t('refund.bankCode')}<input value={account.bankCode} maxLength={32} onChange={event => setAccount(v => ({ ...v, bankCode: event.target.value }))} /></label>
               <label>{t('refund.accountNumber')}<input inputMode="numeric" autoComplete="off" value={account.accountNumber} maxLength={32} onChange={event => setAccount(v => ({ ...v, accountNumber: event.target.value }))} /></label>
               <label>{t('refund.holderLabel')}<input autoComplete="off" value={account.holderName} maxLength={128} onChange={event => setAccount(v => ({ ...v, holderName: event.target.value }))} /></label>
@@ -191,7 +191,7 @@ export default function RefundQueuePage() {
             </dl>
           )}
           {refund.status === 'PENDING_TRANSFER' && isManager && (
-            <form className="ota-form" aria-label={t('refund.recordTransferAria')} onSubmit={recordTransfer}>
+            <form className="wsp-form" aria-label={t('refund.recordTransferAria')} onSubmit={recordTransfer}>
               <label>{t('refund.bankTxnRef')}<input value={transfer.bankTransactionReference} maxLength={128} onChange={event => setTransfer(v => ({ ...v, bankTransactionReference: event.target.value }))} /></label>
               <label>{t('refund.noteOptional')}<input value={transfer.proofReference} maxLength={256} onChange={event => setTransfer(v => ({ ...v, proofReference: event.target.value }))} /></label>
               <label>{t('refund.receiptLabel')}

@@ -43,15 +43,15 @@ export default function RefundAccountKeyReplacementPage() {
     <OpsPage title={t('keyRepl.title')} intro={t('keyRepl.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={command.error} onRetry={retry} onReload={() => setAsking(false)} />
-      <section className="ota-panel">
+      <section className="wsp-panel">
         <div className="notice" role="note"><p>{t('keyRepl.warning')}</p></div>
         <button type="button" className="button primary" disabled={command.pending} onClick={() => { setMessage(''); setAsking(true); }}>
           {t('keyRepl.run')}
         </button>
       </section>
       {result && (
-        <section className="ota-panel" aria-label={t('keyRepl.resultTitle')}>
-          <div className="ota-panel-head"><h2>{t('keyRepl.resultTitle')}</h2></div>
+        <section className="wsp-panel" aria-label={t('keyRepl.resultTitle')}>
+          <div className="wsp-panel-head"><h2>{t('keyRepl.resultTitle')}</h2></div>
           <dl>
             <dt>{t('keyRepl.reset')}</dt><dd>{result.requestsReset}</dd>
             <dt>{t('keyRepl.sent')}</dt><dd>{result.linksSent}</dd>

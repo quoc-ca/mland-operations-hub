@@ -21,8 +21,6 @@ export const messagesSession = {
     'ses.lookingUp': 'Đang tra...',
     'ses.lookupNone': 'Không tìm thấy vé hợp lệ cho mã đặt chỗ này trong ca hiện tại.',
     'ses.lookupFound': 'Tìm thấy {count} vé cho đơn {code}:',
-    'ses.ota': 'OTA · {provider}',
-    'ses.addOn': 'Add-on',
     'ses.pickTicket': 'Chọn vé này',
     // Facts and state buttons
     'ses.facts': 'Thông tin ca',
@@ -176,8 +174,6 @@ export const messagesSession = {
     'ses.lookingUp': 'Looking up...',
     'ses.lookupNone': 'No valid ticket was found for this booking code in the current session.',
     'ses.lookupFound': 'Found {count} ticket(s) for booking {code}:',
-    'ses.ota': 'OTA · {provider}',
-    'ses.addOn': 'Add-on',
     'ses.pickTicket': 'Select this ticket',
     'ses.facts': 'Session facts',
     'ses.capacity': 'Capacity',

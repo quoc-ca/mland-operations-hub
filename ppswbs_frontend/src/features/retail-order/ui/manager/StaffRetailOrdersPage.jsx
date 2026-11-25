@@ -44,11 +44,11 @@ const timeLeft = (deadline, t) => {
 
 export default function StaffRetailOrdersPage({ initialTab }) {
   const t = useT(retailMessages);
-  return <div className="ota-workspace">
+  return <div className="wsp-workspace">
     
-    <main className="ota-main retail-staff-main">
-      <div className="ota-topline"><span className="retail-staff-crumb"><Link to="/home">{t('common.home')}</Link> {t('staff.mlandRetailOrders')}</span><span>● {t('common.backendAuthorized')}</span></div>
-      <div className="ota-page-heading"><div><p>{t('staff.packGhtkParcelsCollectCounter')}</p></div></div>
+    <main className="wsp-main retail-staff-main">
+      <div className="wsp-topline"><span className="retail-staff-crumb"><Link to="/home">{t('common.home')}</Link> {t('staff.mlandRetailOrders')}</span><span>● {t('common.backendAuthorized')}</span></div>
+      <div className="wsp-page-heading"><div><p>{t('staff.packGhtkParcelsCollectCounter')}</p></div></div>
       <RequireSession requiredText={t('staff.signInAsAStaff')}><StaffOrders initialTab={initialTab} /></RequireSession>
     </main>
   </div>;

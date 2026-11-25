@@ -110,15 +110,6 @@ export const GROUPS = [
     ],
   },
   {
-    id: 'ota', icon: 'plug', vi: 'Kết nối OTA', en: 'OTA',
-    tabs: [
-      { id: 'channels', vi: 'Kênh đối tác', en: 'Channel mappings', to: '/ota-connectivity/channels', match: ['/ota-connectivity/channels*'], visible: manager },
-      { id: 'reconciliation', vi: 'Đối soát đồng bộ', en: 'Reconciliation', to: '/ota-connectivity/reconciliation?status=NEEDS_ATTENTION', match: ['/ota-connectivity/reconciliation*'], visible: manager },
-      { id: 'finance', vi: 'Bằng chứng tài chính', en: 'Finance evidence', to: '/ota-connectivity/finance', match: ['/ota-connectivity/finance*'], visible: manager },
-      { id: 'add-ons', vi: 'Add-on tại xưởng', en: 'Shop add-ons', to: '/ota-connectivity/add-ons', match: ['/ota-connectivity/add-ons*'], visible: staffOrManager },
-    ],
-  },
-  {
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: manager },

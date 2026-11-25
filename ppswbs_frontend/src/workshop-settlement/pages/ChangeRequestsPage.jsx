@@ -114,8 +114,8 @@ export default function ChangeRequestsPage() {
     <OpsPage title={t('cr.title')} intro={t('cr.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       <ProblemNotice error={queue.error || command.error} onRetry={command.retry} onReload={queue.reload} />
-      <section className="ota-panel">
-        <div className="ota-inline-form cr-filter">
+      <section className="wsp-panel">
+        <div className="wsp-inline-form cr-filter">
           <label>{t('cr.status')}
             <select value={status} onChange={event => setStatus(event.target.value)}>
               {['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'].map(value => <option key={value} value={value}>{statusLabel(value)}</option>)}

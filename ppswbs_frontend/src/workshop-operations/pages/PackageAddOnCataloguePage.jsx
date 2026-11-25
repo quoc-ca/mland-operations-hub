@@ -10,7 +10,7 @@ import { createWorkshopPackageApi } from '../api/packageApi';
 import { createOperationsAdminApi } from '../api/operationsAdminApi';
 import { createWorkshopAddOnApi } from '../api/addOnApi';
 import '../workshop-operations.css';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 
 const empty = { description: '', priceVnd: '' };
 const unwrap = value => (Array.isArray(value) ? value : value?.items || value?.content || []);
@@ -138,14 +138,14 @@ export default function PackageAddOnCataloguePage() {
   };
 
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
 
-      <main className="ota-main">
-        <div className="ota-topline">
+      <main className="wsp-main">
+        <div className="wsp-topline">
           {t('topline.operations')} <span>● {t('authorized')}</span>
         </div>
-        <header className="ota-page-heading">
+        <header className="wsp-page-heading">
           <div>
             <p>{t('addon.intro')}</p>
           </div>
@@ -162,14 +162,14 @@ export default function PackageAddOnCataloguePage() {
         <SuccessNotice>{notice}</SuccessNotice>
 
         {/* Scope Selection Panel */}
-        <section className="ota-panel">
-          <div className="ota-panel-head">
+        <section className="wsp-panel">
+          <div className="wsp-panel-head">
             <div>
               <h2>{t('addon.scope.title')}</h2>
               <p className="muted small">{t('addon.scope.hint')}</p>
             </div>
           </div>
-          <div className="ota-form-grid">
+          <div className="wsp-form-grid">
             <label>
               {t('addon.package')}
               <select value={packageId} onChange={e => handlePackageChange(e.target.value)}>
@@ -202,8 +202,8 @@ export default function PackageAddOnCataloguePage() {
         </section>
 
         {/* Create / Edit Add-on Panel */}
-        <section className="ota-panel">
-          <div className="ota-panel-head">
+        <section className="wsp-panel">
+          <div className="wsp-panel-head">
             <div>
               <h2>{editing ? t('addon.editTitle') : t('addon.createTitle')}</h2>
               <p className="muted small">
@@ -212,7 +212,7 @@ export default function PackageAddOnCataloguePage() {
             </div>
           </div>
           <form onSubmit={save}>
-            <div className="ota-form-grid">
+            <div className="wsp-form-grid">
               <label>
                 {t('addon.description')}
                 <input
@@ -248,8 +248,8 @@ export default function PackageAddOnCataloguePage() {
         </section>
 
         {/* Add-on Catalogue Entries Table */}
-        <section className="ota-panel">
-          <div className="ota-panel-head">
+        <section className="wsp-panel">
+          <div className="wsp-panel-head">
             <div>
               <h2>{t('addon.list.title')}</h2>
               <p className="muted small">

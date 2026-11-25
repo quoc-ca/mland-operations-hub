@@ -9,7 +9,6 @@ import './staff-home.css';
 
 const SECOND_LINKS = [
   { to: '/settlement', key: 'link.settlement' },
-  { to: '/ota-connectivity/add-ons', key: 'link.otaAddOns' },
 ];
 
 /**
@@ -26,7 +25,7 @@ export default function StaffHome({ name }) {
   const count = value => (value == null ? '—' : value);
 
   return <div className="staff-home">
-    <header className="ota-page-heading">
+    <header className="wsp-page-heading">
       <div>
         {/* The page title "Trang chủ" comes from the operations shell header; this only greets. */}
         <h2 className="operator-home-hello">{t('hello')}{name ? `, ${name}` : ''}</h2>

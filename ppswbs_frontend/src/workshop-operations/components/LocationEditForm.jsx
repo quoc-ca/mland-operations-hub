@@ -50,7 +50,7 @@ export function LocationEditForm({ api, location, onSaved, onReload, onClose }) 
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('location.aria', { code: location.code })}>
+    <form className="wsp-evidence-grid" onSubmit={submit} aria-label={t('location.aria', { code: location.code })}>
       <Field label={t('location.name')}><input value={name} onChange={e => setName(e.target.value)} /></Field>
       <Field label={t('location.address')}><input value={address} onChange={e => setAddress(e.target.value)} /></Field>
       <label className="package-checkbox"><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /> {t('location.active')}</label>

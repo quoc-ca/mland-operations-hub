@@ -39,9 +39,9 @@ export function NotificationManagementGuard({ children }) {
 
   if (role && role !== 'ADMIN' && role !== 'MANAGER') {
     return (
-      <div className="ota-workspace">
+      <div className="wsp-workspace">
         
-        <main className="ota-main">
+        <main className="wsp-main">
           <div className="nm-container">
             <div className="nm-alert nm-alert-danger" role="alert" style={{ marginTop: '2rem' }}>
               <h3 style={{ margin: '0 0 0.5rem 0' }}>{t('guard.deniedTitle')}</h3>
