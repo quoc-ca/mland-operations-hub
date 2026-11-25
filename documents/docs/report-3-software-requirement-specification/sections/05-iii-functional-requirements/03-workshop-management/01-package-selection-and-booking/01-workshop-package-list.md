@@ -1,6 +1,6 @@
 #### 3.1.1 Workshop Package List
 
-![](assets/screens/19-workshop-package-list.png)
+{{r3-workshop-package-list width=100% align=center}}
 
 This screen allows Guests and Members to:
 

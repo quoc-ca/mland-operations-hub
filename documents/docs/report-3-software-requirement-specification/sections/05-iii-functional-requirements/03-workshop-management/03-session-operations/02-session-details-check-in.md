@@ -1,6 +1,6 @@
 #### 3.3.2 Session Details / Check-in
 
-![](assets/screens/52-workshop-session-details.png)
+{{r3-session-details-check-in width=100% align=center}}
 
 This screen allows Staff and Managers to:
 
