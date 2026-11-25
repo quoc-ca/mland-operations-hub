@@ -1694,7 +1694,7 @@ components:
         locationName: {type: string, nullable: true, description: 'Display name of the location (003.2 FR-044). A change to another location where the package is ACTIVE needs no Manager (FR-059); the client shows the name next to every row (FR-058, FR-063).'}
         remainingCapacity: {type: integer, minimum: 1, description: 'Exact seats left, shown to every caller (decision 2026-11-16). A session with no free seat is not listed.'}
         remainingRescheduleQuota: {type: integer, minimum: 1, description: 'Customer-change quota left on the target session (003.2 FR-035). A session whose quota is used up is not listed (user decision 2026-11-16); the quota is still rechecked on confirm, so RESCHEDULE_QUOTA_EXHAUSTED can only come from a race.'}
-        selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; an OTA ticket or a folio that is not OPEN answers 409 for the whole request.'}
+        selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; a folio that is not OPEN answers 409 for the whole request.'}
         reasonCode: {type: string, nullable: true, description: 'Set when selectable is false: INSUFFICIENT_CAPACITY.'}
         requiresManager: {type: boolean, description: 'True when only a Manager could allow it (the change is then queued, 202).'}
         managerRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}
