@@ -4,7 +4,7 @@
 
 ### 12.1 Class Diagram
 
-<!-- Temporarily disabled: r4-cd-fe12-ring-design. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-cd-fe12-ring-design width=100% align=center}}
 
 The module owns catalogue-controlled design options, immutable Member design versions, evaluation snapshots and archive state. Guest preview never creates server state. The module does not attach a design to a booking.
 
@@ -12,13 +12,13 @@ The current flow is intentionally different from the earlier booking-attached de
 
 ### 12.2 Sequence Diagram — Configure and Save Design Version
 
-<!-- Temporarily disabled: r4-sd-fe12-save-design. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe12-save-design width=100% align=center}}
 
 ### 12.3 Sequence Diagram — Evaluate Design and Produce Recommendation
 
-<!-- Temporarily disabled: r4-sd-fe12-evaluate-recommendation. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe12-evaluate-recommendation width=100% align=center}}
 
 ### 12.4 Sequence Diagram — Edit or Archive Member Design
 
-<!-- Temporarily disabled: r4-sd-fe12-edit-archive. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe12-edit-archive width=100% align=center}}
 

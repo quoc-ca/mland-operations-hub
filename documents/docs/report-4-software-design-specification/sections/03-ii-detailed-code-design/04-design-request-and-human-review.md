@@ -8,19 +8,19 @@ The current ring-design direction is independent from workshop booking. After a 
 
 ### 4.1 Class Diagram
 
-<!-- Temporarily disabled: r4-cd-fe04-design-review. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-cd-fe04-design-review width=100% align=center}}
 
 The boundary contains the request controller, validation service, image/consent boundary, human-review service, quote handoff facade and immutable audit records. Feature-012 is consumed only through its public snapshot facade.
 
 ### 4.2 Sequence Diagram — Submit Member Design Request
 
-<!-- Temporarily disabled: r4-sd-fe04-submit-request. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe04-submit-request width=100% align=center}}
 
 ### 4.3 Sequence Diagram — Staff or Manager Reviews Request
 
-<!-- Temporarily disabled: r4-sd-fe04-human-review. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe04-human-review width=100% align=center}}
 
 ### 4.4 Sequence Diagram — Clarification, Quote Handoff and Member Payment
 
-<!-- Temporarily disabled: r4-sd-fe04-clarification-quote. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe04-clarification-quote width=100% align=center}}
 

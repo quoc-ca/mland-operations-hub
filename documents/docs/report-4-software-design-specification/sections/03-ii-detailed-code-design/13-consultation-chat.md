@@ -4,7 +4,7 @@
 
 ### 13.1 Class Diagram
 
-<!-- Temporarily disabled: r4-cd-fe13-consultation-chat. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-cd-fe13-consultation-chat width=100% align=center}}
 
 The module owns conversations, immutable messages, claims, context snapshots, soft-hidden Member visibility and audit evidence. It does not mutate design, booking, payment, quote or order state.
 
@@ -12,13 +12,13 @@ Consultation is one of the post-design options, not an approval shortcut. A Memb
 
 ### 13.2 Sequence Diagram — Create Contextless or Design-Context Conversation
 
-<!-- Temporarily disabled: r4-sd-fe13-create-conversation. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe13-create-conversation width=100% align=center}}
 
 ### 13.3 Sequence Diagram — Send Message with Scope and Idempotency Checks
 
-<!-- Temporarily disabled: r4-sd-fe13-send-message. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe13-send-message width=100% align=center}}
 
 ### 13.4 Sequence Diagram — Staff/Manager Close and Member Soft-Hide Conversation
 
-<!-- Temporarily disabled: r4-sd-fe13-close-hide-chat. The approved Drive image will be reconnected after the shared asset update. -->
+{{r4-sd-fe13-close-hide-chat width=100% align=center}}
 
