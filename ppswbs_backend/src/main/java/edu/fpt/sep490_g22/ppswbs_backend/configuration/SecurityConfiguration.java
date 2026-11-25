@@ -134,6 +134,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/**").permitAll()
                         // Feature-012 Public Catalogue Options (public read-only for configurator options)
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshop-design-options/**").permitAll()
+                        // Feature-001 R-INV Internal Account Invitation public exchange
+                        .requestMatchers(HttpMethod.POST, "/api/v1/internal-account-invitations/exchanges").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll());
 

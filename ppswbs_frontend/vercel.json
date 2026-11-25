@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://18.136.148.241/api/:path*"
+      "destination": "https://mland-demo.io.vn/api/:path*"
     },
     {
       "source": "/payment/:path*",
-      "destination": "http://18.136.148.241/payment/:path*"
+      "destination": "https://mland-demo.io.vn/payment/:path*"
     },
     {
       "source": "/(.*)",

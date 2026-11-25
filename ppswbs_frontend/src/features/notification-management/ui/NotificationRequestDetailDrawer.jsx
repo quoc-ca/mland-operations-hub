@@ -36,6 +36,11 @@ export function NotificationRequestDetailDrawer({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [redeliverOpen, setRedeliverOpen] = useState(false);
 
+  // R-INV Manual invitation state
+  const [manualInvitationData, setManualInvitationData] = useState(null);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [copiedManual, setCopiedManual] = useState(false);
+
   const fetchDetail = async () => {
     if (!requestId) return;
     setLoading(true);
@@ -72,11 +77,31 @@ export function NotificationRequestDetailDrawer({
   if (!isOpen) return null;
 
   const state = detail?.deliveryState;
+  const isInternalInvitation =
+    detail?.templateCode === 'INTERNAL_ACCOUNT_INVITATION' ||
+    detail?.templateDefinitionCode === 'INTERNAL_ACCOUNT_INVITATION';
+
   const isResendEligible =
-    state === 'SENT' ||
-    state === 'FAILED' ||
-    state === 'UNKNOWN_OUTCOME';
-  const isCancelEligible = state === 'PENDING' || state === 'RETRY_SCHEDULED';
+    !isInternalInvitation &&
+    (state === 'SENT' ||
+      state === 'FAILED' ||
+      state === 'UNKNOWN_OUTCOME');
+  const isCancelEligible = !isInternalInvitation && (state === 'PENDING' || state === 'RETRY_SCHEDULED');
+  const isRedeliverEligible = !isInternalInvitation;
+
+  const handleFetchManualInvitation = async () => {
+    if (!detail?.id) return;
+    setManualLoading(true);
+    setError(null);
+    try {
+      const res = await api.getManualInvitation(detail.id);
+      setManualInvitationData(res);
+    } catch (err) {
+      setError(err?.message || 'Không thể lấy nội dung thư mời thủ công.');
+    } finally {
+      setManualLoading(false);
+    }
+  };
 
   const handleResendSuccess = async (id, reason, duplicateRiskAccepted) => {
     const res = await resend(id, reason, duplicateRiskAccepted);
@@ -181,6 +206,25 @@ export function NotificationRequestDetailDrawer({
                   )}
                 </div>
               </div>
+
+              {/* R-INV Internal Invitation Isolation Notice */}
+              {isInternalInvitation && (
+                <div
+                  className="nm-alert nm-alert-info"
+                  style={{
+                    backgroundColor: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    color: '#0369a1',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '6px',
+                    marginBottom: '1rem',
+                    fontSize: '0.85rem',
+                  }}
+                  data-testid="internal-invitation-notice"
+                >
+                  <strong>Lời mời tài khoản nội bộ (R-INV):</strong> Mẫu thông báo này được quản lý và xoay vòng liên kết độc lập tại trang Quản lý tài khoản (FE-001). Không áp dụng các thao tác gửi lại, hủy hoặc cấp lại thông thường.
+                </div>
+              )}
 
               {/* Delivery Attempts Table */}
               <div style={{ marginBottom: '1.25rem' }}>
@@ -296,11 +340,27 @@ export function NotificationRequestDetailDrawer({
             type="button"
             className="nm-btn"
             onClick={() => setRedeliverOpen(true)}
-            disabled={loading}
-            title={t('drawer.redeliverHint')}
+            disabled={!isRedeliverEligible || loading}
+            title={
+              !isRedeliverEligible
+                ? 'Không áp dụng cấp lại đối với thư mời tài khoản nội bộ'
+                : t('drawer.redeliverHint')
+            }
           >
             {t('drawer.redeliver')}
           </button>
+
+          {isInternalInvitation && state === 'FAILED' && userRole === 'ADMIN' && (
+            <button
+              type="button"
+              className="nm-btn nm-btn-primary"
+              onClick={handleFetchManualInvitation}
+              disabled={manualLoading || loading}
+              data-testid="manual-invitation-btn"
+            >
+              {manualLoading ? 'Đang tải…' : 'Sao chép thư mời thủ công'}
+            </button>
+          )}
 
           <button
             type="button"
@@ -335,6 +395,55 @@ export function NotificationRequestDetailDrawer({
         requestItem={detail}
         onRedeliver={handleRedeliverSuccess}
       />
+
+      {/* Manual Invitation Copy Modal */}
+      {manualInvitationData && (
+        <div className="nm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="manual-inv-title">
+          <div className="nm-modal-container" style={{ maxWidth: '600px', backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px' }}>
+            <h3 id="manual-inv-title" style={{ margin: '0 0 1rem 0' }}>Sao chép nội dung thư mời thủ công (ADMIN)</h3>
+            <div style={{ marginBottom: '1rem', fontSize: '0.85rem' }}>
+              <div><strong>Tiêu đề:</strong> {manualInvitationData.subject}</div>
+              <div><strong>Hạn hiệu lực:</strong> {fmt.dateTime(manualInvitationData.expiresAt)}</div>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                Nội dung thư:
+              </label>
+              <textarea
+                readOnly
+                rows={6}
+                value={manualInvitationData.plainText}
+                className="nm-input"
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="nm-btn nm-btn-primary"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      `Tiêu đề: ${manualInvitationData.subject}\n\n${manualInvitationData.plainText}`
+                    );
+                    setCopiedManual(true);
+                    setTimeout(() => setCopiedManual(false), 3000);
+                  } catch {}
+                }}
+              >
+                {copiedManual ? '✓ Đã sao chép' : 'Sao chép nội dung'}
+              </button>
+              <button
+                type="button"
+                className="nm-btn"
+                onClick={() => setManualInvitationData(null)}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
