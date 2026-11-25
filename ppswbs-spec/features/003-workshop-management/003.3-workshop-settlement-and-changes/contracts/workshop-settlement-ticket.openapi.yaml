@@ -1107,7 +1107,7 @@ paths:
         from-session at a time (the other stays where it is); `pairs` is returned only when two `from` values are given
         (both sessions move together). An option the system could only auto-approve with a Manager
         (RESCHEDULE_QUOTA_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, CHANGE_ALLOWANCE_EXHAUSTED) is listed with
-        requiresManager=true and the rule names; a full session, a package-rule break, an OTA ticket or a folio that
+        requiresManager=true and the rule names; a full session, a package-rule break or a folio that
         is not OPEN is never selectable. remainingCapacity is exact for every caller. Served Cache-Control no-store.
       security: [{bearerAuth: []}]
       parameters:
@@ -1478,7 +1478,7 @@ components:
         groupCode: {type: string, nullable: true}
         source:
           type: string
-          description: The stored refund reason (decision 2026-11-13; the five values the backend persists).
+          description: The stored refund reason (decision 2026-11-13; the five values the backend persists; OTA_ADDON_OVERCHARGE has no producer since 2026-11-25).
           enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY, OTA_ADDON_OVERCHARGE]
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {$ref: '#/components/schemas/RefundStatus'}

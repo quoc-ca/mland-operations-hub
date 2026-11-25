@@ -840,7 +840,7 @@ components:
         locationName: { type: string, description: 'Location display name (spec FR-044, proposed 2026-11-17).' }
         scheduledStart: { type: string, format: date-time }
         scheduledEnd: { type: string, format: date-time }
-        saleState: { type: string, description: "Customer discovery returns only future PUBLISHED sessions; this is not the OTA saleState enum (see 003.4)" }
+        saleState: { type: string, description: "Customer discovery returns only future PUBLISHED sessions" }
         customerSelectable: { type: boolean }
         remainingCapacity: { type: integer, minimum: 0, description: Exact current availability snapshot; reserve remains authoritative. }
     PackageAvailabilityState:

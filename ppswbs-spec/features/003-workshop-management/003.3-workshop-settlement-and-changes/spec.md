@@ -1,5 +1,7 @@
 # Feature Specification: Workshop Settlement and Changes
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
@@ -35,7 +37,7 @@ of the shared `research.md` does not remove its behavioural decisions.
 ## Feature 003 authorization decision (2026-10-29)
 
 Every active canonical `MANAGER` has global location scope for Manager-authorized
-settlement and change actions, consistent with 003.1, 003.2 and 003.4. Manager
+settlement and change actions, consistent with 003.1 and 003.2. Manager
 authorization does not depend on `activeLocationIds`; Staff actions remain
 location-scoped, Member ownership and booking-specific safeguards remain in
 force, and explicitly Admin-only technical actions remain Admin-only. There is
@@ -75,9 +77,6 @@ session-assignment access")". A Manager remains global.
   `CUSTOMER_CONSENT_REQUIRED`). The backend generates `CONSENT-<id>` and stores
   it with the acting account and time on the charge. It evidences the
   operator's confirmation only, not the customer's own consent.
-- **OTA shop add-on bill** (003.4): the settlement bill also records the Mland
-  booking reference, and payment and refund follow the same assignment rule.
-  Legacy bills without that reference stay Manager-only for Staff.
 - Cancellation cases, remedies, required-session changes and folio corrections
   keep their previous authority (Manager, or Staff by location where already
   allowed); this amendment does not change them.
@@ -92,7 +91,6 @@ session-assignment access")". A Manager remains global.
 - No add-on mutation is allowed after finalization.
 - Ordinary cancellation/no-show closes the folio at the verified collected amount.
 - Direct deposits are non-refundable and do not call VNPay QueryDR/refund.
-- OTA base-ticket payment remains provider-owned; Mland shop add-ons use separate bills.
 
 T040 is an exceptional post-finalized correction/remedy path, not the normal add-on flow.
 
@@ -104,7 +102,6 @@ T040 is an exceptional post-finalized correction/remedy path, not the normal add
   collections` (append-only); `balanceDue = totalAmount − paidAmount`.
 - Operations (003.2) owns cancellation eligibility and no-show facts; Settlement
   owns folio closure and its financial state.
-- Free laser engraving is an OTA-only entitlement and creates no bill.
 
 Where later sections say "final bill", read the direct-booking OPEN folio. Where
 they allow a separate direct-Mland add-on bill after finalization, that is
@@ -138,11 +135,11 @@ only the exceptional correction flow (T040) applies.
 - **D11** *(superseded 2026-11-12: a refund is complete when a Manager confirms `REFUNDED` after bank reconciliation, FR-039)*: after a Mland-caused remedy refund (FR-020/FR-021) is verified by
   signed QueryDR for every allocation, the folio becomes `CLOSED`, recording
   collected and refunded amounts; a pending/unknown refund keeps it `OPEN`.
-- **D12–D16**: 003.3 owns the OTA shop add-on bill (D12); 003.1 sets booking
-  `COMPLETED`/`CANCELLED`/`NO_SHOW` on a Settlement conclusion (D13) and
-  `REFUND_PENDING`/`REFUNDED` during a Mland remedy (D14); a Mland remedy emits
-  Loyalty `VALID_WORKSHOP_CANCELLATION` (D15); OTA laser engraving is always
-  free (D16). See FR-001, FR-001a and FR-021.
+- **D13–D15**: 003.1 sets booking `COMPLETED`/`CANCELLED`/`NO_SHOW` on a
+  Settlement conclusion (D13) and `REFUND_PENDING`/`REFUNDED` during a Mland
+  remedy (D14); a Mland remedy emits Loyalty `VALID_WORKSHOP_CANCELLATION`
+  (D15). *(D12 and D16, OTA shop add-on, removed 2026-11-25.)* See FR-001a and
+  FR-021.
 - **Loyalty outcome processing (backfilled 2026-11-12, ade3df0, 4fa224e)**: the
   outcome is decided only from the authoritative attendance outcome and folio
   state: terminal `NO_SHOW` → `WORKSHOP_NO_SHOW_FINAL` whether the folio is
@@ -156,10 +153,7 @@ only the exceptional correction flow (T040) applies.
   Booking keeps the Member Loyalty source while the booking is `CONFIRMED`,
   `COMPLETED`, `NO_SHOW` or `CANCELLED`, so a completed Member booking is not
   treated as a Guest booking.
-- **D17–D18**: an OTA shop add-on bill uses the server-derived price of the
-  active 003.2 catalogue add-on (no actor-entered amount), and in-scope Staff
-  or any active Manager may quote and bill it, the same rules as direct-booking
-  add-ons (FR-004a/FR-004b).
+- **D17–D18** *(removed 2026-11-25: OTA shop add-on)*.
 - **D7–D10 (T040 post-FINALIZED correction)**: the correction flow handles
   only an overcharge; an undercharge found after `FINALIZED` is absorbed by
   Mland and never collected. Only an active Manager opens and approves a
@@ -170,6 +164,7 @@ only the exceptional correction flow (T040) applies.
   See FR-004c. *(Superseded 2026-11-12 by FR-038: bank refund. The overcharge
   is refunded by bank transfer through the Manager-approved refund lifecycle,
   not by VNPay partial refund or QueryDR; the rest of D7–D10 stands.)*
+
 
 ## Per-ticket settlement, bank refunds, counter collection and changes (decision 2026-11-12)
 
@@ -337,11 +332,7 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   under the ticket folio lock (the lock of FR-034), so two requests opened at
   the same moment cannot together pass the cap; a request whose remainder
   would be 0 is not created and the existing request is returned.
-- **FR-038a** *(decided 2026-11-12)*: The overcharge refund of an OTA booking's
-  separate Mland shop add-on bill (D12, T092) is Mland money and also moves to
-  the bank refund flow of FR-039–FR-040 (Manager-only, no VNPay Refund). The
-  payer is usually at the counter, so Staff may enter the account there instead
-  of sending the link. OTA base-ticket refunds remain the OTA's process.
+- **FR-038a** *(removed 2026-11-25: refund of the OTA shop add-on bill)*.
 - **FR-039**: Refund request lifecycle: `PENDING_ACCOUNT` → `PENDING_APPROVAL` →
   `PENDING_TRANSFER` → `PENDING_RECONCILIATION` → `REFUNDED`, plus
   `CLOSED_UNREACHABLE` (reopenable). A Manager approves reason, amount and
@@ -409,8 +400,7 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   same rule as FR-032, or for a Manager; a group-level request (a late
   payment that is not re-confirmed, or excess or duplicate group money,
   FR-038) has no ticket, so it is collected only by the
-  account link and never at the counter; a refund of an OTA booking's overcharge
-  follows the 2026-11-06 session-assignment rule)* *(decided
+  account link and never at the counter; the former OTA add-on case was removed 2026-11-25)* *(decided
   2026-11-15, checklist CHK005/006: the earlier rule that the transferring
   actor compares the holder name the bank shows with the name entered and stops
   on a mismatch is replaced by a confirmation at entry)* Before the customer
@@ -578,8 +568,7 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   extra changes with a reason and audit. The customer may act online within
   these rights or ask Staff at the shop. Only valid options are shown and they
   are rechecked on confirmation. Capacity and the reschedule quota are checked
-  per ticket in 003.2; quota never replaces the capacity check. OTA tickets
-  follow the OTA's policy. *(Amended 2026-11-17: the 7-day limit for the
+  per ticket in 003.2; quota never replaces the capacity check.  *(Amended 2026-11-17: the 7-day limit for the
   replacement is counted by `Asia/Ho_Chi_Minh` calendar date, applies to advance
   changes as well as late arrival, and exempts Mland (FR-062); a change may move
   the ticket to another location where the Package is sold, with no Manager (FR-058, FR-059).)*
@@ -638,7 +627,7 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   later than the old session's end + 7 days); a candidate that breaks the package rules is not listed. A target at another
   branch is listed when the package does not require one branch, with its own price increase (006 voucher scope, read
   only). (3) A candidate that only a Manager could allow (reschedule quota full, 24 h window closed, allowance used) is
-  listed with `requiresManager=true` and the rule names; a full session, an OTA ticket or a folio that is not `OPEN` is
+  listed with `requiresManager=true` and the rule names; a full session or a folio that is not `OPEN` is
   never selectable. (4) The exact remaining seats are shown to every caller. (5) The list is advisory: `POST /changes` still
   re-checks everything. `fromSessionReferences` of `POST /changes` names only the sessions that really move (one per
   target, same order); the server builds the ticket's new session set by keeping the other session, and ignores a pair
@@ -777,8 +766,7 @@ branch (`branch_id`), while charges, add-ons, final bills and change records sto
 auto-approval conditions for online
 changes. Customer email content was approved 2026-11-12 in
 `artifacts/workshop-email-templates-draft.md` (filename retained; the change emails are
-implemented by FR-064, 2026-11-18). Reschedule quota values were decided 2026-11-12 (003.2 FR-035)
-and the OTA add-on refund in FR-038a.
+implemented by FR-064, 2026-11-18). Reschedule quota values were decided 2026-11-12 (003.2 FR-035).
 
 **Decided 2026-11-14 (formerly "Open (owner decision needed, re-check
 2026-11-14)"; routes published by T123, screens by T125): operations required by
@@ -885,8 +873,7 @@ for history and read through this section.
   event. The Loyalty no-show outcome (D6, T089) is taken per ticket from the
   same per-ticket outcome, consistent with T093.
 - **Decided (formerly Open)** *(decided 2026-11-14 by Hồ Hoàng Quốc, owner Feature 003; task
-  T106; done)*: after 003.1's own FR-044–FR-051 (003.1 numbering) no direct `WorkshopBooking` remains and
-  OTA bookings have no Mland folio, so the booking-wide routes of
+  T106; done)*: after 003.1's own FR-044–FR-051 (003.1 numbering) no direct `WorkshopBooking` remains, so the booking-wide routes of
   `workshop-settlement.openapi.yaml` (`/workshop-bookings/{bookingCode}/final-bill*`,
   `…/folio-corrections*`, `…/cancellation-cases*`,
   `…/required-session-change-cases*`, `…/mland-cancellation-remedy-cases*`)
@@ -952,8 +939,7 @@ package cancellation remedies.
 It consumes booking/deposit evidence from 003.1 and authoritative session,
 capacity, ticket, attendance, and cancellation-handoff outcomes from 003.2. It
 does not create sessions, perform normal check-in, provide customer self-service
-rescheduling, or process OTA payments/refunds. It does create and collect the
-separate Mland shop add-on bill of an OTA booking (D12).
+rescheduling, or serve external sales channels.
 
 ## Clarifications
 
@@ -1061,8 +1047,7 @@ spec. **Owner/Tech Lead: Hồ Hoàng Quốc.**
   `DIRECT_DEPOSIT_FORFEITED`; no refund allocation, VNPay refund, or VNPay
   QueryDR is created. Ineligible requests remain `REJECTED`.
 - VNPay payment creation and signed payment/IPN evidence remain in scope for
-  collecting the deposit. OTA cancellation/refund evidence is owned and
-  reconciled by 003.4 outside this direct-booking policy.
+  collecting the deposit. 
 
 ### Session 2026-10-27
 
@@ -1300,10 +1285,7 @@ spec. **Owner/Tech Lead: Hồ Hoàng Quốc.**
   the workshop with customer-consent evidence. A direct booking appends the
   immutable line to its OPEN folio only; after `FINALIZED` no add-on may be
   added, changed, or removed, and a correction uses the separate exceptional
-  flow. An OTA booking always uses a separate direct-Mland
-  add-on bill isolated from OTA financial facts. Laser engraving is complimentary
-  only for OTA-origin bookings under the OTA shop add-on policy. For a direct
-  Mland booking, laser engraving is an ordinary catalogue add-on: its active
+  flow. For a direct Mland booking, laser engraving is an ordinary catalogue add-on: its active
   Operations price is snapshotted and charged like any other direct add-on.
 - Charge, payment, void, and adjustment records are immutable evidence. A
   correction is an authorized void or adjustment with audit, not an edit to
@@ -1351,9 +1333,6 @@ spec. **Owner/Tech Lead: Hồ Hoàng Quốc.**
   FR-043: a Mland cancellation of a ticket always refunds 100%; the policy, its
   snapshots and the `/workshop-refund-policies` routes are removed by T139/T140.
   Resolving individual remedy cases stands per FR-043.)*
-- OTA customer payments, refunds, commission, payout, and reconciliation are
-  outside this feature. The separate Mland shop add-on bill of an OTA booking
-  is the one OTA-related item 003.3 owns (D12); it never changes OTA facts.
 
 ## Confirmed Decisions
 
@@ -1419,8 +1398,7 @@ failed/duplicate evidence changes nothing.
 4. **Given** a permitted fixed-price catalogue add-on, **When** Staff records
    customer consent at the workshop, **Then** an eligible direct booking gets an
    immutable line in its OPEN folio (a `FINALIZED` folio rejects the add-on;
-   only the exceptional correction flow applies); an OTA booking gets only a separate direct-Mland bill and OTA facts remain
-   unchanged. A variable charge appears only after Staff/Manager confirmation.
+   only the exceptional correction flow applies). A variable charge appears only after Staff/Manager confirmation.
 
 ### User Story 2 — Customer cancels a whole booking (P1)
 
@@ -1669,10 +1647,7 @@ task T143, fix A19.)*
 ## Functional Requirements
 
 - **FR-001**: The system MUST apply this feature only to direct Mland workshop
-  bookings and MUST exclude OTA payment/refund/payout/reconciliation. The single
-  exception (D12) is the separate Mland shop add-on bill of an OTA booking:
-  003.3 creates it from 003.4's accepted quote and consent and collects it
-  through `SHOP_ADDON` evidence, without touching any OTA channel fact.
+  bookings. *(The former OTA exclusion and its D12 exception were removed 2026-11-25.)*
 - **FR-001a**: When a direct folio becomes `FINALIZED` or `CLOSED`, Settlement
   MUST send 003.1 one idempotent `RecordBookingServiceOutcomeCommand` (D13):
   `COMPLETED` for `FINALIZED`; `CANCELLED` for closure by customer cancellation
@@ -1713,8 +1688,7 @@ task T143, fix A19.)*
   The
   server MUST derive the price from the package/location catalogue snapshot and
   MUST NOT accept customer-supplied financial mutation. A direct booking appends
-  only to its OPEN folio and MUST reject an add-on after `FINALIZED`; an OTA
-  booking always uses a separate direct-Mland bill isolated from OTA facts.
+  only to its OPEN folio and MUST reject an add-on after `FINALIZED`.
 - **FR-004b** *(superseded 2026-11-15: the booking-scoped route this requires was removed (T106, T121, T123, T124); replaced by per-ticket `POST /workshop-tickets/{ticketCode}/folio/charges` (FR-048))*: `POST /workshop-bookings/{bookingCode}/final-bill/charges` MUST
   accept `catalogueAddOnReference` only from an active Staff scoped to the
   booking location or a global Manager, after workshop consent, and MUST derive
@@ -1722,9 +1696,7 @@ task T143, fix A19.)*
   Member/Guest access is read-only and cannot mutate charges. A direct booking
   appends to its OPEN folio; a `FINALIZED` direct folio MUST reject the add-on
   without mutation, and any later correction uses only the exceptional flow
-  (T040). An OTA booking always requires a separate
-  direct-Mland add-on bill isolated from OTA payment/payout facts; only that OTA
-  flow treats laser engraving as zero-charge. A direct Mland booking charges
+  (T040).  A direct Mland booking charges
   laser engraving from the active catalogue like any other add-on. A variable charge MUST be
   submitted only by Staff/Manager with description, amount, and reason; that
   audited command confirms it. No customer variable-charge command exists.
@@ -1742,8 +1714,7 @@ task T143, fix A19.)*
   undercharge found after `FINALIZED` MUST NOT be collected: Mland absorbs it,
   and no deferred-payment, credit or reminder is created. Commands are
   idempotent. A correction MUST NOT change the folio state, booking
-  financial status, Loyalty earn, ticket or capacity. A `CLOSED` folio and OTA
-  bookings are out of scope. A new purchase after checkout is not a
+  financial status, Loyalty earn, ticket or capacity. A `CLOSED` folio is out of scope. A new purchase after checkout is not a
   correction.
 - **FR-005** *(superseded 2026-11-12 by FR-030: the balance is calculated per
   ticket folio, base = the ticket's final price, first collection = the
@@ -1797,9 +1768,7 @@ task T143, fix A19.)*
   processing, it returns the VNPay JSON acknowledgement fields `RspCode` and
   `Message`. QueryDR is an outbound server-to-server reconciliation call and has
   no inbound public route.
-- **FR-009c**: 003.3 MUST consume redacted verified `FINAL_PAYMENT`, `REFUND`,
-  or (for an OTA booking's separate Mland shop add-on bill only) `SHOP_ADDON`
-  evidence only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
+- **FR-009c**: 003.3 MUST consume redacted verified `FINAL_PAYMENT` or `REFUND` evidence *(`SHOP_ADDON`, the OTA shop add-on, removed 2026-11-25)* only through `WorkshopSettlementFacade`; it MUST NOT expose or own a
   VNPay IPN HTTP route, raw callback payload, checksum verification, or routing
   of deposit evidence. *(2026-11-15: `REFUND` evidence is legacy and no longer
   produced, because VNPay Refund and refund-QueryDR are not used and their code
@@ -2252,8 +2221,7 @@ T103 on MySQL):
 
 ## Out of Scope
 
-- OTA payment/refund, commission/payout/reconciliation, and OTA cancellation
-  events (except the separate Mland shop add-on bill of an OTA booking, D12).
+- External sales channels (OTA).
 - Session configuration, normal check-in/finalization, booking creation/deposit flow.
 - Default credit, automatic link renewal, lower-price credit/refund, customer
   self-service reschedule or partial cancellation/refund.

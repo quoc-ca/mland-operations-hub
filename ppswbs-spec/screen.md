@@ -639,7 +639,7 @@ flowchart LR
 ```
 
 - Revenue Dashboard chỉ hiển thị dữ liệu trong period/branch scope được phép; dữ liệu thiếu/chậm phải được đánh dấu.
-- Workshop settings và schedule edits bảo vệ bookings/holds hiện có. Enabled Klook synchronization là xử lý hệ thống; có thể hiển thị trạng thái liên quan trong workshop screens, không thêm màn cancellation hoặc reconciliation.
+- Workshop settings và schedule edits bảo vệ bookings/holds hiện có. 
 - AI price suggestion hỗ trợ giá package/product, không phải giá custom manufacturing. Với retail, Manager approval vẫn cần authorized maintainer apply riêng và publication riêng.
 - Product maintenance và retail-order operations của Manager chỉ mở khi có explicit applicable delegation. Khi có quyền, dùng lại màn B tương ứng; Dashboard không mặc định cấp các quyền này.
 - **Custom Quote Approval** là quyết định của Manager đối với quote Staff chuẩn bị. Trong lúc chờ duyệt hoặc cần chỉnh sửa, Member chưa được nhận yêu cầu thanh toán. Sau khi duyệt, số tiền trong payment request phải đúng toàn bộ quote đã duyệt; không có balance request.
