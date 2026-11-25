@@ -79,7 +79,7 @@ export function WorkshopAccessPage() {
 
       {!loading && !error && group && (
         <>
-          <GroupDetailCard group={group} authorization={null} allowRelease={false} allowRecipientChange={false} />
+          <GroupDetailCard group={group} authorization={null} allowRelease={false} allowResend={false} allowRecipientChange={false} />
           <div className="actions" style={{ marginTop: '24px' }}>
             <a className="button outline" href="/workshop-booking/lookup">{t('access.manageAtLookup')}</a>
             <a className="button primary" href="/">{t('access.home')}</a>

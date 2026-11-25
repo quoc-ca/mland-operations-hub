@@ -1,4 +1,6 @@
-#### 1.2.3 Guest Review Lookup
+#### 1.2.3 Guest Review Lookup (Retired)
+
+> **Retired (Feature-011 public-read / Member-write rebaseline, 2026-11-24):** the Guest lookup by email or phone is removed. Its route redirects to `/reviews` and the lookup API refuses every request. Opaque review eligibility handles are retired with it. A Guest who selects a review-writing action is asked to sign in; no lookup request, source disclosure or review creation occurs. The text below is kept only as history and must not be implemented.
 
 This screen allows Guests to:
 

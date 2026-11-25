@@ -397,6 +397,11 @@ export function designReviewApi(request) {
       });
     },
 
+    /** Private reference image bytes; only the owner, Staff or a Manager receive them. */
+    async getDesignImage(imageReference) {
+      return request(`/api/v1/design-requests/images/${encodeURIComponent(imageReference)}`, { responseType: 'blob' });
+    },
+
     /**
      * Update custom order production and fulfilment status (Staff / Manager).
      */

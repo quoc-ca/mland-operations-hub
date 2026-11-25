@@ -1,7 +1,7 @@
-// Navigation model of the operations shell (spec 013, decision of 2026-11-22): 10 groups on a rail, each with at most
+// Navigation model of the operations shell (spec 014, decision of 2026-11-22): 10 groups on a rail, each with at most
 // five tabs. Group ids and tab ids are a contract: `useNavBadges` keys its counts by `groupId` and `groupId/tabId`.
 // Visibility mirrors the old sidebar and is navigation only; the backend decides every permission. A tab that carries a
-// waiting-work badge links to the list filtered to exactly the counted set (spec 013 FR-004).
+// waiting-work badge links to the list filtered to exactly the counted set (spec 014 FR-005).
 
 // CARRIER (GHTK partner, Session 2026-11-23) sees only its own three pages, never the Mland operations groups.
 const any = role => role !== 'CARRIER';
@@ -115,13 +115,12 @@ export const GROUPS = [
       { id: 'channels', vi: 'Kênh đối tác', en: 'Channel mappings', to: '/ota-connectivity/channels', match: ['/ota-connectivity/channels*'], visible: manager },
       { id: 'reconciliation', vi: 'Đối soát đồng bộ', en: 'Reconciliation', to: '/ota-connectivity/reconciliation?status=NEEDS_ATTENTION', match: ['/ota-connectivity/reconciliation*'], visible: manager },
       { id: 'finance', vi: 'Bằng chứng tài chính', en: 'Finance evidence', to: '/ota-connectivity/finance', match: ['/ota-connectivity/finance*'], visible: manager },
-      { id: 'add-ons', vi: 'Add-on tại xưởng', en: 'Shop add-ons', to: '/ota-connectivity/add-ons', match: ['/ota-connectivity/add-ons*'], visible: any },
+      { id: 'add-ons', vi: 'Add-on tại xưởng', en: 'Shop add-ons', to: '/ota-connectivity/add-ons', match: ['/ota-connectivity/add-ons*'], visible: staffOrManager },
     ],
   },
   {
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
-      { id: 'roles', vi: 'Danh mục vai trò', en: 'Role catalogue', to: '/admin/roles', match: ['/admin/roles*'], visible: admin },
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: manager },
       { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: manager },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },

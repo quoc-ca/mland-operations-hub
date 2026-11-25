@@ -19,7 +19,7 @@ public class OtaChannelController {
 
     @GetMapping("/ota-channels")
     public OtaChannelViews.Channels list(@RequestHeader(value = "Authorization", required = false) String token) {
-        return management.list(authorization.requireChannelView(token));
+        return management.list(authorization.requireManager(token));
     }
 
     @PostMapping(value = "/ota-channels/{channelId}/mappings", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -27,7 +27,7 @@ public class OtaChannelController {
     public OtaChannelViews.Mapping create(@PathVariable String channelId,
             @RequestHeader(value = "Authorization", required = false) String token,
             @Valid @RequestBody OtaChannelRequests.MappingUpsert body) {
-        var actor = authorization.requireMappingAdministration(token);
+        var actor = authorization.requireManager(token);
         return management.create(channelId, body.providerProductReference(), body.providerOptionReference(),
                 body.workshopOfferReference(), body.sessionReference(), actor);
     }
@@ -58,7 +58,7 @@ public class OtaChannelController {
             @RequestHeader(value = "Authorization", required = false) String token,
             @RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody OtaChannelRequests.Sync body) {
-        var actor = authorization.requireManagerOrAdmin(token);
+        var actor = authorization.requireManager(token);
         return management.sync(mappingId, body.mode(), body.reason(), key, actor);
     }
 
@@ -76,7 +76,7 @@ public class OtaChannelController {
     public OtaBookingEnableDecision enable(@PathVariable String mappingId,
             @RequestHeader(value = "Authorization", required = false) String token,
             @Valid @RequestBody OtaChannelRequests.BookingEnable body) {
-        var actor = authorization.requireAdmin(token);
+        var actor = authorization.requireManager(token);
         var checks = body.checks().stream().map(check -> new OtaReadinessCheckSubmission(
                 OtaReadinessCheck.valueOf(check.check()), OtaReadinessCheckOutcome.valueOf(check.outcome()), check.evidenceReference())).toList();
         return management.enable(mappingId, body.readinessRecordReference(), body.reason(), checks, actor);

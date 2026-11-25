@@ -235,7 +235,7 @@ export default function OtaChannelConfigurationPage() {
                   >
                     {t('channels.salesClose')}
                   </button>
-                  {/* Admin action: Booking Enablement */}
+                  {/* Manager action: Booking Enablement */}
                   {m.state === 'SALES_CLOSED' && (
                     <button
                       type="button"

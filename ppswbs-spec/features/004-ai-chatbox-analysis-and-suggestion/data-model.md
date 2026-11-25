@@ -7,8 +7,8 @@ Last updated by: Ngô Tiến Đạt
 
 ## Ownership boundary
 
-Feature-004 owns independent design requests, image-quality evidence, Guest proof,
-daily quota, human decisions and audit. It does not own booking, payment, configured
+Feature-004 owns independent design requests, image-quality evidence, human decisions
+and audit. It does not own Guest proof, daily quota, booking, payment, configured
 design, catalogue or AI data.
 
 ## Logical aggregates
@@ -16,8 +16,8 @@ design, catalogue or AI data.
 ### `design_requests`
 
 - Opaque public `request_reference`.
-- `ownership_type`: `GUEST` or `MEMBER`.
-- Member owner reference or Guest session binding.
+- `ownership_type`: `MEMBER`.
+- Member owner reference. A protected Guest attempt never creates a request row.
 - Optional description, maximum configured length.
 - `status`: `NEED_REVIEW`, `ACCEPTED`, `REJECTED`.
 - Monotonic request version and timestamps.
@@ -30,18 +30,6 @@ design, catalogue or AI data.
 - Validated MIME/signature, size, dimensions and checksum.
 - `quality_status`: `PROCESSING`, `PASS`, `TOO_BLURRY`, `QUALITY_CHECK_FAILED`.
 - Safe quality reason/score projection and deletion outcome audit.
-
-### `guest_design_sessions`
-
-- Opaque digest/reference, request binding, expiry and revocation state.
-- No raw email, phone, token or database identifier in client-visible data.
-- One request binding prevents cross-request token reuse.
-
-### `guest_request_quota`
-
-- Opaque Guest identity/session digest and calendar date in system timezone.
-- Atomic count with maximum five create attempts per day.
-- Same idempotency command cannot increment twice.
 
 ### `design_review_decisions`
 
@@ -69,10 +57,9 @@ rejection, conflict and deletion. Raw images, raw tokens and unnecessary PII are
 4. One request version has at most one terminal decision.
 5. A decision always has an explanation.
 6. Staff and Manager have equal decision authority; Admin has none.
-7. Guest quota is five requests per calendar day and is atomic.
-8. Idempotent retries cannot create duplicates or consume quota twice.
-9. Guest tokens are opaque, scoped, expirable and never raw-logged.
-10. Review history and audit are append-only and not hard-deleted.
+7. Every persisted request has an active Member owner.
+8. Idempotent retries cannot create duplicates.
+9. Review history and audit are append-only and not hard-deleted.
 11. No entity or foreign key references Workshop Booking, Payment or Feature-012 internals.
 
 ## Custom-order intake additions (V190 Schema Baseline)

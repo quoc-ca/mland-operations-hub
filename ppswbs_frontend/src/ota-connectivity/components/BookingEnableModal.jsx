@@ -17,7 +17,7 @@ export function BookingEnableModal({ open, mapping, onClose, onSave }) {
     ALL_READINESS_CHECKS.map((check) => ({
       check,
       outcome: 'VERIFIED',
-      evidenceReference: `EVID-${check}-VERIFIED`,
+      evidenceReference: `EVID-${check}`,
     }))
   );
 

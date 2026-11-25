@@ -1,15 +1,15 @@
 # Feature Specification: Staff Consultation Chat
 
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-25
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt  
 **Feature**: `013-staff-consultation-chat`  
-**Status**: IMPLEMENTED BASELINE — 2026-11-22 Guest design-context extension documented; implementation pending
+**Status**: MEMBER-ONLY REBASELINE — 2026-11-25
 
 ## 1. Objective and boundary
 
-Feature-013 provides a bilingual text conversation between a Guest or authenticated
+Feature-013 provides a bilingual text conversation between an authenticated active
 Member and Mland Staff or Manager for design consultation. It preserves customer context
 and staff responses in one auditable conversation without making business decisions.
 
@@ -20,7 +20,6 @@ payment/order, replace Feature-004 AI Support, or replace Feature-004 human revi
 
 | Actor | Permission |
 |---|---|
-| Guest | Create/read a conversation through an opaque consultation session, optionally with an owned Feature-012 design context, send messages and close the conversation. |
 | Member | Create a conversation from an owned valid context, send/read own messages, close/reopen own conversation. |
 | Staff | Read/claim/release/send/close/reopen conversations within current active Workshop Location scope. |
 | Manager | Global read/claim/release/assign/send/close/reopen authority; may route an unassigned context to a branch. |
@@ -36,10 +35,10 @@ validity. Client-supplied role, owner, branch, display code or preview is ignore
 ### 2026-11-22 saved-design entry point
 
 The saved-design page may open a consultation directly with a
-`WORKSHOP_RING_DESIGN` context. The backend validates the Guest session or
-Member identity and design ownership before creating the conversation. Only a
+`WORKSHOP_RING_DESIGN` context. The backend validates the Member identity and
+design ownership before creating the conversation. Only a
 safe display projection is exposed to Staff/Manager; raw database IDs, private
-customer data and full design payloads are not returned. A Guest may also start
+customer data and full design payloads are not returned. A Member may also start
 a contextless consultation. The conversation remains independent of booking,
 payment and custom-order approval.
 

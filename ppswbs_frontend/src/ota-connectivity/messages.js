@@ -25,8 +25,8 @@ export const otaMessages = {
     'channels.prepSync': 'Đồng bộ chuẩn bị',
     'channels.fullResync': 'Đồng bộ lại toàn bộ',
     'channels.salesClose': 'Đóng bán',
-    'channels.adminEnable': 'Admin mở bán',
-    'channels.adminEnableTitle': 'Chỉ Admin được xác nhận để mở bán qua kênh',
+    'channels.adminEnable': 'Mở bán',
+    'channels.adminEnableTitle': 'Quản lý xác nhận để mở bán qua kênh',
     'channels.field.mapping': 'Mã ánh xạ / Phiên bản',
     'channels.field.productRef': 'Mã sản phẩm đối tác',
     'channels.field.optionRef': 'Mã tùy chọn đối tác',
@@ -77,8 +77,8 @@ export const otaMessages = {
     'price.submit': 'Ghi nhận điều khoản',
 
     // Booking enablement modal
-    'enable.dialog': 'Admin mở đặt chỗ',
-    'enable.title': 'Admin: Mở đặt chỗ cho ánh xạ',
+    'enable.dialog': 'Mở đặt chỗ',
+    'enable.title': 'Mở đặt chỗ cho ánh xạ',
     'enable.introBefore': 'Mở đặt chỗ đồng bộ cho',
     'enable.introAfter': 'Cần xác nhận rằng cả 12 cổng sẵn sàng của đối tác đã được kiểm tra.',
     'enable.recordRef': 'Mã hồ sơ sẵn sàng',
@@ -278,8 +278,8 @@ export const otaMessages = {
     'channels.prepSync': 'Prep Sync',
     'channels.fullResync': 'Full Resync',
     'channels.salesClose': 'Sales Close',
-    'channels.adminEnable': 'Admin Enable',
-    'channels.adminEnableTitle': 'Admin-only attestation to enable channel sales',
+    'channels.adminEnable': 'Enable Sales',
+    'channels.adminEnableTitle': 'Manager attestation to enable channel sales',
     'channels.field.mapping': 'Mapping ID / Version',
     'channels.field.productRef': 'Provider Product Ref',
     'channels.field.optionRef': 'Provider Option Ref',
@@ -330,8 +330,8 @@ export const otaMessages = {
     'price.submit': 'Record Terms',
 
     // Booking enablement modal
-    'enable.dialog': 'Admin Booking Enablement',
-    'enable.title': 'Admin: Enable Booking for Mapping',
+    'enable.dialog': 'Booking Enablement',
+    'enable.title': 'Enable Booking for Mapping',
     'enable.introBefore': 'Synchronously enable bookings for',
     'enable.introAfter': 'Requires attestation that all 12 provider readiness gates have been verified.',
     'enable.recordRef': 'Readiness Record Reference',

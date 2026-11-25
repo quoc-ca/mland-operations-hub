@@ -1,12 +1,11 @@
 # Feature-004 Human Review Requirements Checklist
 
 - [ ] No Feature-004 API invokes an AI provider.
-- [ ] Guest and Member can submit a description-only, image-only or combined request.
+- [ ] An authenticated Member can submit a description-only, image-only or combined request.
 - [ ] A request accepts at most five images.
 - [ ] Image quality is shown immediately after upload and revalidated by backend.
 - [ ] Too-blurry images block submit.
-- [ ] Guest sixth request in a calendar day returns 429.
-- [ ] Guest tracking token is opaque, scoped, expirable and not raw-logged.
+- [ ] Guest request creation, upload and tracking are denied with a sign-in prompt.
 - [ ] New requests start at `NEED_REVIEW`.
 - [ ] Staff and Manager have equal accept/reject authority.
 - [ ] Explanation is mandatory for both decisions.

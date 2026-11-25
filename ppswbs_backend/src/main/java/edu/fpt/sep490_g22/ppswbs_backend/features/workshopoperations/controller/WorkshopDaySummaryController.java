@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
-/** Manager home (013 R-1): {@code GET /api/v1/workshop-day-summaries?date=yyyy-MM-dd[&locationId=]}. Manager only. */
+/** navigation shell and dashboard (014 R-1): {@code GET /api/v1/workshop-day-summaries?date=yyyy-MM-dd[&locationId=]}. Manager only. */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor

@@ -141,17 +141,19 @@ describe('Revision R-404 / FR-046 / T074 & T076: RouteAccessGuard & Browser Rout
   });
 
   describe('3. Admin route allowlist & masking (V-15.3)', () => {
-    it('allows active ADMIN to access /admin/accounts and /admin/roles', async () => {
+    it('allows active ADMIN to access /admin/accounts and masks removed /admin/roles (T113)', async () => {
       vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue(mockAccountSession('ADMIN'));
       const session = mockControlledAuth('signed-in');
 
-      const adminPaths = ['/admin/accounts', '/admin/roles'];
-      for (const path of adminPaths) {
-        cleanup();
-        const { router } = renderRoutes(routes, { path, session });
-        expect(router.state.location.pathname).toBe(path);
-        expect(screen.queryByText('Trang không tồn tại')).not.toBeInTheDocument();
-      }
+      // /admin/accounts is allowed for ADMIN
+      const { router } = renderRoutes(routes, { path: '/admin/accounts', session });
+      expect(router.state.location.pathname).toBe('/admin/accounts');
+      expect(screen.queryByText('Trang không tồn tại')).not.toBeInTheDocument();
+
+      // /admin/roles was removed per T113 and renders NotFoundPage
+      cleanup();
+      renderRoutes(routes, { path: '/admin/roles', session });
+      expect(screen.getByText('Trang không tồn tại')).toBeInTheDocument();
     });
 
     const nonAdminRoles = ['MEMBER', 'STAFF', 'MANAGER', 'CARRIER'];

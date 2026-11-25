@@ -15,7 +15,7 @@ The page requires sign-in and opens only the Member's own order. It shows no dep
 | Field Name | Description |
 | --- | --- |
 | **Quay lại danh sách đơn hàng tùy chỉnh** | Returns to My Custom Orders. |
-| Order header | "Chi tiết đơn hàng thiết kế cá nhân", order code and status: "Chờ duyệt báo giá", "Chờ thanh toán 100%", "Báo giá đã hết hạn" or "Đã thanh toán toàn bộ". |
+| Order header | "Chi tiết đơn hàng thiết kế cá nhân", order code and status: "Chờ duyệt báo giá", "Chờ thanh toán 100%", "Báo giá đã hết hạn", "Đã thanh toán toàn bộ", "Đang gia công", "Sẵn sàng giao hàng" or "Đã hoàn tất". |
 | Progress steps | "1. Báo giá & Duyệt", "2. Thanh toán 100%", "3. Chế tác sản xuất" and "4. Bàn giao sản phẩm", each with its current state. |
 | "Tổng tiền thanh toán 1 lần (100%)" | Full quoted amount, or "Đang tính toán" before a quote exists. |
 | "Mã tham chiếu báo giá" | Quote reference with "Phiên bản báo giá: Lần #{n}". |
@@ -23,4 +23,5 @@ The page requires sign-in and opens only the Member's own order. It shows no dep
 | "Ghi chú từ Quản lý (Manager)" | Manager's pricing note, when present. |
 | **Thanh toán toàn bộ {amount} qua VNPay** | Shown while the quote is ready, unpaid and unexpired; redirects to VNPay. |
 | **Yêu cầu báo giá mới** | Shown when the quote has expired. |
+| "Bằng chứng thiết kế & Yêu cầu gốc (Design Evidence)" | Link to the original request (**Xem yêu cầu gốc →**), "Mô tả từ khách hàng", "Ghi chú từ nhân viên chế tác" and the attached images, which can be enlarged; each shown when present. |
 | Ring specification snapshot | "Thông số kỹ thuật mẫu nhẫn chế tác (Feature-012 Snapshot)": model, material, ring size, stone count and laser engraving text, when present. |

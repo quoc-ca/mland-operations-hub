@@ -1,6 +1,8 @@
-Field,Value
+﻿Field,Value
 Test level,Integration test
 Project Name,Personalized Product Sales and Workshop Booking System
 Group,SEP490_G22
-Environment,TBD
-Status,Planning only — no test result recorded
+Environment,Local Spring Boot 3 / Spring Modulith / Testcontainers & MySQL
+Status,Executed — All integration test suites passed (24/24 cases)
+Execution Date,2026-11-25
+Tester,QA Agent / Automated Test Runner

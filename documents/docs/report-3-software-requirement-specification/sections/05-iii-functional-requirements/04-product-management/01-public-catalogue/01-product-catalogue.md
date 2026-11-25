@@ -20,5 +20,5 @@ Only sizes with an applied price are shown and counted in the price, the price f
 | Sort by | Default, Name A–Z, Price: low to high, Price: high to low or Newest. |
 | Only products you can buy | Checkbox restricting results to products with a size that can be bought at one or more branches. |
 | Product card | Image, category, name, price or price range after the largest automatic discount with the original price struck through, then the best voucher for one item labelled "Price after voucher {code}" ("· at {branches}" for a voucher limited to some branches), offer badges and In stock / Out of stock state. The price is for viewing only. |
-| Add to cart icon | Opens the Quick add box with the same size grid, branch list, quantity selector, Add to cart and Buy now as Product Details; it does not create an order or hold. |
+| Add to cart icon | Opens the Quick add box with the same size grid, branch list, quantity selector, Add to cart and Buy now as Product Details; it does not create an order or hold. It is disabled when the product is out of stock. |
 | Pager (Previous / Next) | Moves between result pages. |

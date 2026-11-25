@@ -11,7 +11,7 @@
 | LI-05 | Automated design decisions | Feature-004 does not use AI analysis, AI pricing, autonomous feasibility decisions, or automated acceptance/rejection. Image quality validation and Staff/Manager review are required. |
 | LI-06 | Future commercial expansion | Jewellery types other than rings, future loyalty expansion, marketing automation, and forecasting are deferred. |
 | LI-07 | Delivery and review governance | Delivery stops at evidenced pickup or Staff-recorded carrier handoff. Carrier integration, live tracking, delivery failure, returns, shipping refunds, Google review write-back, and using reviews for salary or bonuses are excluded. |
-| LI-08 | Consultation scope | Feature-013 consultation remains a separate draft dependency and is not an approved Major Feature implementation baseline. |
+| LI-08 | Consultation scope | Feature-013 is limited to authenticated Member-to-Staff/Manager plain-text consultation. It does not provide Guest chat, AI replies, notification centre functions, or business-state mutation. |
 | LI-09 | Guest private actions | Guest users cannot create design requests, save ring configurations, create/edit reviews, or view private request/design history. These actions require an active Member account. |
 | LI-10 | Legacy Guest proof flows | Guest tracking tokens, Guest design sessions, and Guest email/phone eligibility handles are not part of the current V1 contract. |
 

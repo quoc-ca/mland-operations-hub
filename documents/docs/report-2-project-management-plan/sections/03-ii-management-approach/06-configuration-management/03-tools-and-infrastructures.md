@@ -11,9 +11,9 @@
 | Version control and review | Git and GitHub | In use for documentation and proposed source review |
 | Project tracking | GitHub Issues and repository trackers | In use for open work and project evidence |
 | Publishing and review | Google Docs and Google Sheets through the configured synchronization workflow | In use for mapped document review surfaces |
-| Diagramming | No product diagramming tool is confirmed in the project baseline | TBD — team decision required |
-| Product technology and database | No runtime language, framework, or database is confirmed in this report baseline | TBD — team decision required |
-| IDEs / editors | No team-wide product editor is confirmed | TBD — team decision required |
-| Product deployment infrastructure | No product hosting or deployment server is confirmed | TBD — team decision required |
+| Diagramming | Figma for UI design; Draw.io/PlantUML source may be used to prepare diagrams, then published as Drive image assets | In use for design preparation; final report images follow the document publishing workflow |
+| Product technology and database | React + Vite frontend; Java 21/Spring Boot/Spring Modulith backend; JPA/Spring Data; MySQL; Flyway | Approved platform baseline; feature-specific readiness still varies |
+| IDEs / editors | Team-selected IDE/editor with Git integration | In use; no single IDE is imposed |
+| Product deployment infrastructure | Local development and demo environments; production hosting and deployment topology are not approved | TBD — deployment decision required |
 
-The tools listed as in use describe the documentation workflow, not a deployed product environment. The team should update the remaining entries only after selecting and approving the product stack and hosting arrangement.
+The documentation tools and the product stack are separate concerns. The product technology baseline is evidenced by the constitution and repository. Hosting, production deployment, provider quotas and operational SLA remain outside the approved management baseline until the team records them.

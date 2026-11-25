@@ -157,7 +157,7 @@ class OtaVoucherFallbackServiceTest {
         assertThatThrownBy(() -> service.recordSharedVoucherIncident(new OtaVoucherFallbackService.IncidentCommand(
                 "Bearer test-member", "OTA-BK-1", "1001", "REASON", "EV-1", null, false)))
                 .isInstanceOf(OtaForbiddenException.class)
-                .hasMessageContaining("requires an active Manager, Admin, or scoped Staff");
+                .hasMessageContaining("requires an active Manager or scoped Staff");
 
         verifyNoInteractions(workItems, audit);
     }

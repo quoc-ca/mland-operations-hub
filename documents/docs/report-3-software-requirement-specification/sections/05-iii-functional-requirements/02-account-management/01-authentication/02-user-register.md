@@ -21,3 +21,4 @@ Every self-registered account gets the MEMBER role. An email that is already in 
 | Register | Creates the Firebase identity, sends the verification email (best effort) and creates the Mland account. |
 | Error message | An email already registered shows the collision message; a weak password, an invalid email or a network error show their own messages. |
 | Sign in now | Link to User Login. |
+| ← Back | Returns to Home Page. |

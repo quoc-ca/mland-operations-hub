@@ -10,7 +10,7 @@ None
 
 #### Description
 
-Allows the Manager to define the standard daily operating timeframes used when workshop sessions are created.
+Allows the Manager to define, per location, the daily timeframes used when workshop sessions are created.
 
 #### Preconditions
 
@@ -46,9 +46,9 @@ The system rejects the slot and requests correction.
 
 The system displays the conflict and does not save the change.
 
-**Step 5 — Existing schedules use the slot**
+**Step 5 — Existing sessions use the slot**
 
-The system warns the Manager and requires an explicit confirmation or prevents deactivation according to operational policy.
+The change or deactivation applies only to sessions created afterwards; existing sessions keep their times. A slot is never deleted.
 
 **Step 6 — Save fails**
 
@@ -62,5 +62,5 @@ BR-23-01, BR-23-02
 
 | ID | Rule Definition |
 |---|---|
-| BR-23-01 | An active workshop time slot must have a valid start/end range and must not overlap another active standard slot. |
+| BR-23-01 | An active workshop time slot must have a valid start/end range and must not overlap another active slot of the same location, and must start and end on the same day. |
 | BR-23-02 | Changing a standard time slot must not silently rewrite existing workshop bookings or schedules. |

@@ -203,3 +203,15 @@
 1. Tech Lead Phan Sơn hoàn tất review và cập nhật trạng thái `APPROVED FOR IMPLEMENTATION` trong cả 2 file `ppswbs-spec/features/001-account-management/approval.md` và `ppswbs-spec/features/007-notification-management/approval.md`.
 2. Đội ngũ Backend triển khai xong và kiểm chứng các task nền tảng T106–T111 (FE-001) và T038–T042 (FE-007) trên môi trường tích hợp.
 3. Cung cấp UI/Figma design hoặc đặc tả màn hình đã duyệt cho các flow: Collision Review Drawer/Dialog, JSON Export, Expiry Countdown Timer, Manual Mail Content Copy Modal, và Invitation Setup Page.
+
+### Diễn biến gỡ chặn — 2026-11-25 (FE-DESIGN-0007 — RESOLVED CHO SCOPED FRONTEND)
+
+- **Nguồn thiết kế & phê duyệt:**
+  - Tech Lead Phan Sơn đã chính thức phê duyệt phạm vi triển khai có kiểm soát (scoped implementation) cho T106–T116 (FE-001) và T038–T043/T045 (FE-007) vào ngày 2026-11-25 trong cả hai file `ppswbs-spec/features/001-account-management/approval.md` và `ppswbs-spec/features/007-notification-management/approval.md`.
+  - Hợp đồng REST API và DTO đã được chuẩn hóa tại `ppswbs-spec/features/001-account-management/contracts/r-inv.openapi.yaml` và `ppswbs-spec/features/007-notification-management/contracts/notification-api.md` §2.6.
+  - Quy tắc giao diện, state machine và điều kiện chấp thuận được quy định tại `ppswbs-spec/features/001-account-management/design/revision-2026-11-24.md` (amended 2026-11-25 for demo preview), `spec.md` (FR-048–052) và `design/ui-flow.md`.
+- **Phạm vi triển khai Frontend:**
+  1. T112: Cập nhật form tạo tài khoản nội bộ (bắt buộc email chuẩn hóa cho STAFF/MANAGER, bỏ password/opt-out notification, xử lý collision lookup); triển khai modal đối soát xung đột MEMBER collision review với nhãn DEMO/UNAVAILABLE rõ ràng, nút xuất JSON và từ chối retirement (409); cập nhật trang chi tiết tài khoản hiển thị đếm ngược thời hạn 48h từ server, trạng thái gửi thư trung thực, và modal sao chép nội dung email thủ công khi FAILED sau 2 lần thử SMTP; triển khai trang `/invitations/setup` hỗ trợ xác thực mã mời qua custom token và liên kết password hoặc Google redirect.
+  2. T113: Gỡ bỏ trang danh mục vai trò (`/admin/roles`), menu, route và client endpoint; cô lập navigation của ADMIN chỉ còn Quản lý tài khoản và self-service; giữ hướng dẫn ngắn về vai trò trong form tạo/sửa.
+  3. FE-007 T042: Loại trừ `INTERNAL_ACCOUNT_INVITATION` khỏi các thao tác gửi lại/hủy/gửi tiếp thông thường trong NotificationRequestDetailDrawer, và tích hợp API `getManualInvitation` cho ADMIN.
+  4. T115: Bổ sung bộ test Vitest toàn diện cho các thành phần UI, luồng xử lý và guard mới.

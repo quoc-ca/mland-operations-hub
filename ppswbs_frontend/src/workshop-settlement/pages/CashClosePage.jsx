@@ -25,7 +25,7 @@ export default function CashClosePage() {
   const [close, setClose] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [target, setTarget] = useState(null); // a difference chosen from the confirmation view
-  // Manager home opens this view (013 R-3): the differences waiting for a Manager, the set its card counts.
+  // Manager home opens this view (014 R-3): the differences waiting for a Manager, the set its card counts.
   const [{ view }] = useUrlFilters({ view: '' });
   const showQueue = view === 'confirmation' && isManager;
   const queue = useResource(() => (showQueue ? api.listCashClosesAwaitingConfirmation() : Promise.resolve([])), [showQueue]);

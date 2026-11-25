@@ -15,12 +15,13 @@ The page is public. When the workshop or product lists cannot be loaded, built-i
 | Field Name | Description |
 | --- | --- |
 | Session notice | Shown when the user was sent here with a session message (for example after a sign-out); can be dismissed with ×. |
-| Member quick bar | Signed-in users only. Greets the user by profile name; for a Member it shows the start time of the next confirmed workshop session with **Xem vé & mã QR** (opens Booking Lookup with the booking code), or says there is none, and **Đơn hàng (n)** opens My Retail Orders. |
+| Member quick bar | Signed-in users only. Greets the user by profile name; for a Member it shows the start time of the next confirmed workshop session with **Xem vé & mã QR** (opens Booking Lookup with the booking code), or says there is none, and **Đơn hàng (n)** opens My Retail Orders; n is the real order count only for a Member, other signed-in roles see 1. |
 | Hero | **ĐẶT WORKSHOP NGAY** opens Workshop Package List; **KHÁM PHÁ READY RINGS** opens Product Catalogue. |
 | Brand story | Read-only text about the workshop and Mland's commitments. |
 | Workshop packages | Up to three published packages with name, description, number of sessions, participant range, price (discounted price and offer badges when an automatic discount or voucher applies) and a link to the package details. |
 | Ready rings | The first page of published products, newest first, as product cards with discounted price, offer badges and the add-to-cart button. |
-| Service hub | Six entry cards: workshop booking, ready rings, custom design request, AI support, booking lookup and retail order tracking (with the order count for a signed-in user). |
-| Internal portals bar | Links to session operations, design review, product management, promotion management and account administration; the link of the viewer's own role is marked with ★. Each target route still checks the role. |
+| Service hub | Six entry cards: workshop booking, ready rings, custom design request, AI support, booking lookup and retail order tracking (with an order count badge for a signed-in user; the count is real only for a Member, other roles see 1). |
+| Internal portals bar | Links to session operations, design review, product management, promotion management and account administration; the viewer's own role link is highlighted (★ on the staff, design and admin links). Each target route still checks the role. |
 | Customer reviews | Three fixed sample testimonials with a fixed "4.9 / 5.0" rating; they are not read from Public Review List. |
+| Footer | Fixed text: the Hà Nội and TP. Hồ Chí Minh showroom addresses, the hotline, daily opening hours (09:00 - 21:00), a policy line (terms of service, privacy policy, warranty commitment; not links) and the copyright line. |
 | Mobile navigation | On small screens, a bottom bar to Home, workshops, products, booking lookup and profile. |

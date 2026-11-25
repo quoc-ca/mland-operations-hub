@@ -286,3 +286,7 @@ owners export them; until then the source owners review the SQL (T056, T063). Th
 `contracts/manager-dashboard.openapi.yaml` now covers `/executive-reports`, `/executive-reports/trends` and
 `/executive-reports/top-sellers`, and the error body is the one the code returns (`code`, `message`,
 `correlationId`).
+
+## Operations blocks moved from 014 (2026-11-25)
+
+The dashboard page also composes two read-only blocks that came from the former `013-manager-home`: today's operations (spec FR-034, FR-035) and recent events (FR-036). Both read existing endpoints and own no data. Frontend code: `ppswbs_frontend/src/features/manager-dashboard/operations/` (was `features/managerhome`), composed by `ManagerDashboardPage.jsx`. The reads are listed in `../014-navigation-shell/contracts/reads.md` (sessions of a day, workshop day summary, Operations and Settlement audit reads); the count reads of the same file feed the navigation badges of `014-navigation-shell`. Tasks: `tasks.md` T064 to T071. No new backend module, table or endpoint is added by this move.

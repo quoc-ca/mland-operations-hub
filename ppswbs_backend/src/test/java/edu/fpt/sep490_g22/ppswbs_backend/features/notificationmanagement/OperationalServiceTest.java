@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InvitationDeliveryFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.CancelRequestCommand;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.CancelResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.controller.dto.RedeliverRequestCommand;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +47,8 @@ class OperationalServiceTest {
     private OperationalAuditRepository operationalAuditRepository;
     @Mock
     private RenditionRepository renditionRepository;
+    @Mock
+    private ObjectProvider<InvitationDeliveryFacade> invitationDeliveryFacadeProvider;
 
     private OperationalService operationalService;
 
@@ -54,7 +58,8 @@ class OperationalServiceTest {
                 notificationRequestRepository,
                 deliveryAttemptRepository,
                 operationalAuditRepository,
-                renditionRepository
+                renditionRepository,
+                invitationDeliveryFacadeProvider
         );
     }
 

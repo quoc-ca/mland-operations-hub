@@ -35,7 +35,7 @@ public interface OtaReconciliationWorkItemRepository extends JpaRepository<OtaRe
 
     List<OtaReconciliationWorkItem> findByStatusOrderByCreatedAtAsc(String status);
 
-    /** Manager home (013 R-4): the items in any of these statuses, oldest first. */
+    /** navigation shell and dashboard (014 R-4): the items in any of these statuses, oldest first. */
     List<OtaReconciliationWorkItem> findByStatusInOrderByCreatedAtAsc(java.util.Collection<String> statuses);
 
     long countByStatusIn(java.util.Collection<String> statuses);

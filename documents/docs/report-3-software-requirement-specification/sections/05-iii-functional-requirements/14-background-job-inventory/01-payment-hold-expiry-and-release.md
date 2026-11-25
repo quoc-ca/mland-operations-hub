@@ -2,13 +2,13 @@
 
 **Trigger:** On the approved expiry schedule; exact polling interval and processing-delay tolerance: TBD.
 
-**Purpose:** Release unpaid workshop seats, retail variant/benefit holds and custom queue slots without undoing accepted verified payment.
+**Purpose:** Release unpaid workshop seats and retail variant and benefit holds without undoing accepted verified payment.
 
 **Processing steps**
 
-1. Identify attempts and holds using their original 10-minute link deadline and hold deadline (10 minutes for a retail VNPay checkout, 72 hours for retail counter cash, 15 minutes for a workshop slot).
+1. Identify expired holds: workshop booking groups use a 10-minute payment countdown within a 12-minute hold; retail VNPay holds last 10 minutes; retail cash-at-counter holds last 72 hours.
 2. Recheck verification and terminal facts; settle and release cannot both take effect for the same resources.
-3. For an expired unpaid hold, release its resources once and record the actual outcome; retain exception evidence without revival. A retail checkout whose VNPay payment was opened is released only after VNPay confirms that no payment succeeded; an unconfirmed result goes to the Manager reconciliation queue and releases nothing.
+3. For an expired unpaid hold, release its resources once and record the actual outcome; retain exception evidence without revival.
 
 **Failure behavior**
 

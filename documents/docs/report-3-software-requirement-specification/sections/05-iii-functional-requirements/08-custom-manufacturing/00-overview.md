@@ -11,6 +11,7 @@ The customer-facing label is **Đơn hàng cá nhân** and each quote is shown a
 **Phiên bản báo giá**. A Feature-012 design may be attached as an owner-checked
 reference regardless of its readable lifecycle state; the custom order keeps
 its own immutable snapshot.
-If payment is not verified before expiry, the quote and custom order are
-expired/cancelled and any temporary queue hold is released; the Member may then
-ask for a new quote.
+If payment is not verified before the deadline, the quote can no longer be paid
+and the Member may ask for a new quote. A verified payment that arrives late, is
+for a replaced quote or is for an already paid order is kept for manual review and
+does not mark the order as paid; a payment with a wrong amount is rejected.

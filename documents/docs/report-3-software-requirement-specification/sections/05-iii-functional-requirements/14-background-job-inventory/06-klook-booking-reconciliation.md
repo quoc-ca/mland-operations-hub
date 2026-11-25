@@ -1,14 +1,14 @@
-### 14.6 Klook Booking Reconciliation
+### 14.6 OTA Booking Reconciliation
 
-**Trigger:** An enabled Klook result is ambiguous, duplicated or eligible for retry.
+**Trigger:** A partner booking or cancellation event is unmatched, conflicting or duplicated.
 
-**Purpose:** Resolve workshop integration evidence without duplicate bookings or capacity effects.
+**Purpose:** Resolve partner evidence without duplicate bookings or capacity effects; unmatched or conflicting events become work items for review.
 
 **Processing steps**
 
-1. Check the required Mland availability/hold flow and retained booking/integration identity.
+1. Check the Mland availability and the retained partner booking identity.
 2. Apply an eligible confirmed result once; inconsistent or incomplete evidence remains unresolved rather than inventing a booking.
-3. Record the result and retry only under approved rules. Klook cancellations do not automatically release Mland capacity.
+3. Record the result and retry only under approved rules. Only a cancellation confirmed by the partner releases Mland capacity.
 
 **Failure behavior**
 

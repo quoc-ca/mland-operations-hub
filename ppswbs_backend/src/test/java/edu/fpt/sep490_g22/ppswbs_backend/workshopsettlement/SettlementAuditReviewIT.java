@@ -237,7 +237,7 @@ class SettlementAuditReviewIT {
     }
 
     @Test
-    @DisplayName("013 R-5: denied=true returns only DENIED_* rows; absent or false returns everything; a bad value is 400; Staff is refused")
+    @DisplayName("014 R-5: denied=true returns only DENIED_* rows; absent or false returns everything; a bad value is 400; Staff is refused")
     void deniedFilterKeepsOnlyDeniedAttempts() throws Exception {
         Instant now = Instant.now();
         save("DENIED_MANAGER_REQUIRED", "account:101", "REFUND_REQUEST", "RR-1", now.minusSeconds(30), null);

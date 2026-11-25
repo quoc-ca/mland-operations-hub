@@ -20,18 +20,18 @@ not permission to change business rules, API behavior or design lifecycle.
 
 | Screen | Proposed route | Actor | Required behavior |
 | --- | --- | --- | --- |
-| Ring Design Entry | `/workshops/:packageReference/design` | Guest/Member | Explain workshop-only scope and choose model (12 models) or blank canvas. |
-| Model Selection | `/workshops/:packageReference/design/models` | Guest/Member | Show published models only (minimum 10 models); selecting one creates a new lineage. |
-| Blank Design Setup | `/workshops/:packageReference/design/blank` | Guest/Member | Load package-scoped defaults from server. |
-| Parameter Configuration | `/workshops/:packageReference/design/configure` | Guest/Member | Edit shape (6 profiles/textures), material (Silver, Copper, Steel), size (6-29 with mm perimeter), thickness slider (1.0-3.0mm), and band width slider (1.5-6.0mm). Synchronously updates Dual View SVG (Top View and Side View). |
-| Component Selection | Same design context | Guest/Member | Select gemstone types with steppers `[-] {count} [+]` up to `maxQuantity`, subtotal calculations, and interactive drag-and-drop placement along the ring circle ($R = 85\text{px}$) on the Top View SVG without escaping. |
-| Attachment Selection | Same design context | Guest/Member | Select supported attachments and placement. |
-| Engraving Configuration | Same design context | Guest/Member | Enter only server-supported engraving content/placement. |
-| Evaluation and Summary | `/workshops/:packageReference/design/:designId` | Guest/Member | Show validation, estimate/difficulty as advisory, summary of stones `${quantity}x ${label}`, and current version. |
+| Ring Design Entry | `/workshops/:packageReference/design` | Guest/Member | Explain workshop-only scope; Guest may browse and preview locally, while Member may choose model or blank canvas. |
+| Model Selection | `/workshops/:packageReference/design/models` | Guest/Member | Show published models only; Guest changes remain local, Member selection creates a new lineage. |
+| Blank Design Setup | `/workshops/:packageReference/design/blank` | Guest/Member | Load package-scoped defaults for preview; protected persistence requires Member sign-in. |
+| Parameter Configuration | Same design context | Guest/Member | Edit parameters in local preview; only Member may save/evaluate. |
+| Component Selection | Same design context | Guest/Member | Preview gemstone types and placement locally; Member commands are validated server-side. |
+| Attachment Selection | Same design context | Guest/Member | Preview supported attachments; persistence is Member-only. |
+| Engraving Configuration | Same design context | Guest/Member | Preview supported engraving; persistence is Member-only. |
+| Evaluation and Summary | `/workshops/:packageReference/design/:designId` | Member | Show validation, estimate/difficulty as advisory, summary of stones and current version. |
 | Member Design History | `/my/designs` | Member | Show own current and historical versions; archive unsubmitted designs. |
-| Guest Session Expired | Same design context | Guest | Explain expiry without exposing internal design data. |
-| Workshop Recommendation | `/workshops/:packageReference/design/:designId` | Guest/Member | Show advisory recommendation, reason, Wax Casting two-session note when applicable, and always keep Explore workshops visible. |
-| Design Consultation Launch | `/workshops/:packageReference/design/:designId` | Guest/Member | Open Feature-013 chat with the saved design context; do not expose raw internal identifiers. |
+| Sign-in Required | Same design context | Guest | Explain that saving/evaluating requires Member sign-in without creating server state. |
+| Workshop Recommendation | `/workshops/:packageReference/design/:designId` | Member | Show advisory recommendation, reason, Wax Casting two-session note when applicable, and always keep Explore workshops visible. |
+| Design Consultation Launch | `/workshops/:packageReference/design/:designId` | Member | Open Feature-013 chat with the saved design context; do not expose raw internal identifiers. |
 
 The primary Figma frames are `457:1553` (section), `457:1554` (desktop
 configuration), `457:1655` (mobile configuration), `457:1698` (model/blank),

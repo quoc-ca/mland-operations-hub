@@ -22,7 +22,7 @@ Manager Review Moderation → Hide / Remove / Reply Editor
 Admin Technical/Audit View → Sanitized Evidence
 ```
 
-Guest uses email/phone lookup; Member uses authenticated own-source lookup.
+Guest sees the review entry point and public review pages; Member uses authenticated own-source lookup to create or edit reviews.
 Only checked-in workshop attendance and picked-up/delivered retail order lines
 are shown. Create validates rating 1–5 and text ≤2,000 characters, then shows
 the review as `PUBLIC`. There is no branch-review action, Google write-back,
@@ -153,7 +153,6 @@ flowchart LR
     Lookup["Booking Lookup"]
     Details["Booking Details / QR Ticket"]
     Store["Store Information"]
-    Maps[["Google Maps / Review Link"]]
     AI(["Basic AI Chat — chatbox"])
 
     Home --> Login
@@ -193,7 +192,7 @@ flowchart LR
     Home --> Lookup -->|"Kiểm tra quyền tra cứu phù hợp"| Details
     Details -->|"Pending và payment/hold còn đủ điều kiện"| Deposit
     Details -->|"Hết hạn; bắt đầu booking mới"| Packages
-    Home --> Store --> Maps
+    Home --> Store
     Home --> AI
 ```
 
@@ -703,7 +702,7 @@ flowchart LR
 The previous AI image-analysis screens are retired. The current customer flow is:
 
 ```text
-Guest/Member Design Request
+Member Design Request (Guest sees sign-in prompt)
 → Description and up to five images
 → Immediate image-quality feedback
 → Replace/remove blurry images

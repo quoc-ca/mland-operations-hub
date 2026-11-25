@@ -1,4 +1,6 @@
-#### 11.1.2 Price AI Suggestions
+#### 11.1.2 Price AI Suggestions (Retired)
+
+> **Retired (confirmed 2026-11-25):** AI price suggestion (use case 35, screen 73) is no longer used. The page and its API are still in the code. The text below is kept only as history and must not be implemented.
 
 This screen allows Managers to:
 
@@ -7,7 +9,7 @@ This screen allows Managers to:
 - Read the suggested price and the AI's pricing rationale, marked "Cố vấn nội bộ" (internal advisory).
 - Record their own decision: accept the AI price, adjust it, reject it or set the price fully by hand.
 
-The suggestion is advisory only: it does not change any catalogue price, and an official listed price must still go through catalogue management. Only a Manager may request a suggestion or record a decision. An Admin sees a technical audit view with prices and decisions hidden; Staff, Members and Guests are refused. The current Feature-004 spec lists AI price suggestion as historical, but the page and its API are still in the code.
+The suggestion is advisory only: it does not change any catalogue price, and an official listed price must still go through catalogue management. Only a Manager may request a suggestion or record a decision. An Admin sees a technical audit view with prices and decisions hidden; Staff, Members and Guests are refused.
 
 | Field Name | Description |
 | --- | --- |

@@ -8,7 +8,7 @@ import { PROFILE, asRole, useFreshRole } from './helpers';
 
 useFreshRole();
 
-/** 013 Manager Home R-3: the confirmation view lists exactly the differences the home card counts. */
+/** 014 navigation shell R-3: the confirmation view lists exactly the differences the home card counts. */
 const PENDING = (reference, branch) => ({ closeReference: reference, locationId: branch, workingDate: '2026-11-14', expectedCashVnd: 1000000, countedCashVnd: 990000, differenceVnd: -10000, differenceReason: 'miscount', status: 'PENDING_MANAGER_CONFIRMATION' });
 
 describe('Cash close confirmation view', () => {

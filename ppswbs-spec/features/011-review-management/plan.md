@@ -5,6 +5,13 @@ Date updated: 2026-11-05
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt
 
+## Current contract override — 2026-11-25
+
+Feature-011 is Member-write only. Guest email/phone lookup, opaque eligibility
+handles, Guest review creation and Guest-specific storage are retired. Guest may
+read public Mland reviews and sees a sign-in prompt for write actions. Older
+Guest-handle plan items below are historical and must not be implemented.
+
 ## Boundary and dependencies
 
 Feature module `reviewmanagement` owns the review use cases and its persistence. Proposed ports (not yet production code) are `ReviewEligibilityPort`, `WorkshopAttendanceReviewPort`, `RetailOrderReviewPort`, `ReviewPublicReadFacade` and `ReviewModerationFacade`. Workshop and Retail modules expose verification facades; Review Management does not access their repositories directly.
@@ -30,9 +37,8 @@ Create validates input and source eligibility, then inserts review, first revisi
 - Aggregate strategy: Realtime SQL query over reviews where status = 'PUBLIC'.
 - Staff global-hide permission: Confirmed Staff may hide any review globally.
 - Migration versions: `V91__review_management.sql` owns the review tables, `V92`–`V99` remain owned by their respective features, `V100__review_history_retention.sql` removes destructive history cascades, and `V180__review_images.sql` adds `image_urls TEXT` for customer photo attachments.
-- Guest handle: Persisted in guest_eligibility_handles table, 30-minute TTL, valid for sources in that lookup session. Direct source IDs without valid handle are rejected.
-- Guest no-OTP risk acknowledged for V1 per design decision.
-- Backend contract ratified: header-based `Idempotency-Key`, required `If-Match-Version` for edit/moderation/reply edit, Guest workshop and retail eligibility, safe public projection and Admin technical/audit-only boundary.
+- Member identity and source ownership are revalidated at create time; direct source IDs without authenticated ownership are rejected.
+- Backend contract ratified: header-based `Idempotency-Key`, required `If-Match-Version` for edit/moderation/reply edit, safe public projection and Admin technical/audit-only boundary.
 
 ## Backend delivery slice
 

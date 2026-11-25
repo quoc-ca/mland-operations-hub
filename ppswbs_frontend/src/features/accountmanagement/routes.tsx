@@ -7,7 +7,7 @@ import ProfilePage from './components/ProfilePage';
 import AdminAccountListPage from './components/AdminAccountListPage';
 import AdminAccountDetailPage from './components/AdminAccountDetailPage';
 import InternalAccountCreatePage from './components/InternalAccountCreatePage';
-import RoleCataloguePage from './components/RoleCataloguePage';
+import InternalAccountSetupPage from './components/InternalAccountSetupPage';
 import AddressBookPage from './components/AddressBookPage';
 import CarrierPortalPage from './components/CarrierPortalPage';
 
@@ -21,10 +21,11 @@ export const accountManagementRoutes: RouteObject[] = [
   // Compatibility sign-in route (FR-041 / T071: replaces to canonical /login)
   { path: '/sign-in', element: <Navigate to="/login" replace /> },
 
-  // Canonical authentication routes (public)
+  // Canonical authentication & setup routes (public)
   { path: '/login', element: <AuthPage mode="signin" /> },
   { path: '/register', element: <AuthPage mode="register" /> },
   { path: '/forgot-password', element: <AuthPage mode="forgot" /> },
+  { path: '/invitations/setup', element: <InternalAccountSetupPage /> },
 
   // CARRIER portal route (T087 / R-CAR / R-404)
   {
@@ -100,7 +101,6 @@ export const accountManagementRoutes: RouteObject[] = [
       { path: '/admin/accounts', element: <AdminAccountListPage /> },
       { path: '/admin/accounts/new', element: <InternalAccountCreatePage /> },
       { path: '/admin/accounts/:accountId', element: <AdminAccountDetailPage /> },
-      { path: '/admin/roles', element: <RoleCataloguePage /> },
     ],
   },
 ];

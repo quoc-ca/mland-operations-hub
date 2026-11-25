@@ -72,12 +72,12 @@ public class OtaVoucherFallbackService {
             throw new IllegalArgumentException("Location reference must be a valid numeric ID");
         }
 
-        if (actor.role() == ActorRole.MANAGER || actor.role() == ActorRole.ADMIN) {
-            // Managers and Admins have global authority for OTA reconciliation
+        if (actor.role() == ActorRole.MANAGER) {
+            // Managers have global authority for OTA reconciliation
         } else if (actor.role() == ActorRole.STAFF) {
             authorizationService.requireStaffLocation(command.authorization(), requiredLocationId);
         } else {
-            throw new OtaForbiddenException("Access requires an active Manager, Admin, or scoped Staff");
+            throw new OtaForbiddenException("Access requires an active Manager or scoped Staff");
         }
 
         if (bookingRepository != null) {

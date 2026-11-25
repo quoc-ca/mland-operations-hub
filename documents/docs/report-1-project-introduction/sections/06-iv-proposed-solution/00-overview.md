@@ -4,7 +4,7 @@ The Personalized Product Sales and Workshop Booking System is a bilingual system
 
 ## 1. Workshop discovery and configuration
 
-Feature-012 lets Members configure a ring from active catalogue options, preview the result, and save the design. Guests can see the entry point and public option information, but must sign in before configuration or saving. The saved-design page may recommend Silver Clay when the design contains more than five gemstones, Wax Casting when the difficulty score is above nine, or a suitable Signature package otherwise. A Wax Casting recommendation explains that the workshop requires two sessions on different days. Recommendations are advisory only: other workshop links remain visible, and the recommendation does not create a booking, payment, order, or ticket.
+Feature-012 lets Members configure a ring from active catalogue options, preview the result, and save the design. Guests can see the entry point, public option information, and make local preview changes, but must sign in before evaluation, saving, or any protected command. The saved-design page may recommend Silver Clay when the design contains more than five gemstones, Wax Casting when the difficulty score is above nine, or a suitable Signature package otherwise. A Wax Casting recommendation explains that the workshop requires two sessions on different days. Recommendations are advisory only: other workshop links remain visible, and the recommendation does not create a booking, payment, order, or ticket.
 
 ## 2. Design request and human review
 
@@ -18,6 +18,10 @@ An eligible Member may attach an owner-verified Feature-012 design snapshot to a
 
 Workshop booking remains a separate flow with configurable branches and three daily session templates at 09:30–12:00, 13:00–15:30, and 16:00–18:30. A workshop booking uses the approved deposit rule, participant capacity, attendance, check-in, continuation, custody, and settlement process. The workshop deposit must not be confused with the custom-order full-payment flow. Only verified gateway evidence confirms payment; a browser redirect alone is insufficient.
 
-## 5. Ready-made retail and governance
+## 5. Member consultation
 
-Members may buy published ready-made rings with full online payment before the durable reservation is recorded. Fulfilment stops at pickup or permitted Staff-recorded carrier handoff. Staff and Manager own business decisions; Admin Technical owns technical configuration, credentials, monitoring, and technical audit. Feature-013 staff consultation is a supporting dependency under review, not a Major Feature implementation baseline in this report.
+Feature-013 gives Members a bilingual consultation chat with Staff or Manager. A Member may start a contextless conversation or attach a safe reference to an owned Feature-004 request or Feature-012 design. Staff handles conversations within the active Workshop Location scope; Manager has the approved global operational authority. Conversations are logged as UTF-8 business history, may be closed by authorized participants, and do not approve designs, set prices, or mutate booking, payment, quote, or order state. Guests can see the consultation entry point but must sign in before opening or sending a conversation.
+
+## 6. Ready-made retail and governance
+
+Members may buy published ready-made rings with full online payment before the durable reservation is recorded. Fulfilment stops at pickup or permitted Staff-recorded carrier handoff. Staff and Manager own business decisions; Admin owns technical configuration, credentials, monitoring, and technical audit.

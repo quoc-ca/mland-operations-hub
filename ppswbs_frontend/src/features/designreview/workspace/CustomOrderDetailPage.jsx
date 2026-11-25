@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
+import DesignImage from '../components/DesignImage';
 import { designReviewMessages } from '../messages';
 import { wholeAmount } from '../format';
 import { getOrderBadgeInfo, getProductionStatusLabel, getFulfilmentStatusLabel } from '../customOrderStatus';
@@ -367,11 +368,10 @@ export default function CustomOrderDetailPage() {
             </span>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               {order.designImages.map((img, idx) => {
-                const src = img.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(img.imageReference)}`;
                 return (
                   <div
                     key={img.imageReference || idx}
-                    onClick={() => setSelectedImage(src)}
+                    onClick={() => setSelectedImage(img)}
                     style={{
                       cursor: 'pointer',
                       border: '1px solid #cbd5e1',
@@ -385,8 +385,8 @@ export default function CustomOrderDetailPage() {
                     }}
                     title={t('co.evidence.clickToEnlarge')}
                   >
-                    <img
-                      src={src}
+                    <DesignImage
+                      image={img}
                       alt={img.originalFilename || `Ảnh mẫu ${idx + 1}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
@@ -455,8 +455,8 @@ export default function CustomOrderDetailPage() {
           }}
         >
           <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-            <img
-              src={selectedImage}
+            <DesignImage
+              image={selectedImage}
               alt="Phóng to ảnh mẫu"
               style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
             />

@@ -1,0 +1,67 @@
+@startuml
+title Report 4 Database Design — Core Catalogue and Workshop
+!pragma charset UTF-8
+top to bottom direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontSize 16
+skinparam nodesep 35
+skinparam ranksep 55
+skinparam entity {
+  FontSize 16
+  AttributeFontSize 14
+}
+entity accounts
+entity account_profiles
+entity account_location_assignments
+entity member_addresses
+entity catalogue_categories
+entity catalogue_products
+entity catalogue_product_images
+entity catalogue_variants
+entity catalogue_variant_branch_stock
+entity catalogue_price_proposals
+entity workshop_locations
+entity workshop_slots
+entity workshop_sessions
+entity workshop_packages
+entity workshop_addons
+entity session_staff_assignments
+entity attendance_tickets
+entity booking_groups
+entity group_payment_attempts
+entity booking_group_lines
+entity booking_group_line_sessions
+entity ticket_bookings
+entity ota_channel_connections
+entity ota_channel_mappings
+entity ota_channel_bookings
+accounts ||--o| account_profiles
+accounts ||--o{ account_location_assignments
+accounts ||--o{ member_addresses
+catalogue_categories ||--o{ catalogue_products
+catalogue_products ||--o{ catalogue_product_images
+catalogue_products ||--o{ catalogue_variants
+catalogue_variants ||--o{ catalogue_variant_branch_stock
+catalogue_variants ||--o{ catalogue_price_proposals
+workshop_locations ||--o{ workshop_slots
+workshop_locations ||--o{ workshop_sessions
+workshop_packages ||--o{ workshop_sessions
+workshop_packages ||--o{ workshop_addons
+workshop_sessions ||--o{ session_staff_assignments
+accounts ||--o{ session_staff_assignments
+workshop_sessions ||--o{ attendance_tickets
+ticket_bookings ||--o{ attendance_tickets
+accounts ||--o{ booking_groups
+booking_groups ||--o{ group_payment_attempts
+booking_groups ||--o{ booking_group_lines
+booking_group_lines ||--o{ booking_group_line_sessions
+booking_group_line_sessions }o--|| workshop_sessions
+booking_groups ||--o{ ticket_bookings
+ota_channel_connections ||--o{ ota_channel_mappings
+ota_channel_mappings }o--|| workshop_sessions
+ota_channel_connections ||--o{ ota_channel_bookings
+ota_channel_bookings }o--|| booking_groups
+note "Cross-context links use public references; private repositories are not shared." as N1
+N1 .. workshop_sessions
+@enduml

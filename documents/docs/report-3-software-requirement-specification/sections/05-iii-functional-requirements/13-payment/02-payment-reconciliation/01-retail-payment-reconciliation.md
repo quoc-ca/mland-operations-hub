@@ -7,7 +7,7 @@ This screen allows Managers to:
 - Switch to Tiền mặt theo ngày to see the retail cash that Staff confirmed at the counter for one branch and one day in Vietnam time.
 - Refresh either list; the page settles, refunds or releases nothing.
 
-Only a Manager can open this page (/manager/retail-payment-reconciliations); the server limits the data to the Manager's permitted branches.
+Only a Manager can open this page (/manager/retail-payment-reconciliations). The VNPay list covers all branches; the daily cash view is limited by the server to the Manager's assigned branches.
 
 | Field Name | Description |
 | --- | --- |

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
+import { useRole } from '../../shared/auth/useRole';
 import { useHttp } from '../../shared/api/useHttp';
 import { ConfirmDialog, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
@@ -24,8 +25,11 @@ export default function MlandRemedyPage() {
   const fmt = useFormat();
   const { ticketCode } = useParams();
   const { status } = useAuth();
-  const member = status === 'signed-in';
-  const opts = { auth: member };
+  const role = useRole();
+  const authenticated = status === 'signed-in';
+  const member = authenticated && role === 'MEMBER';
+  const operator = authenticated && (role === 'STAFF' || role === 'MANAGER');
+  const opts = { auth: authenticated };
   const api = createSettlementApi(useHttp());
   const [choice, setChoice] = useState('');
   const [proof, setProof] = useState(null);
@@ -49,7 +53,7 @@ export default function MlandRemedyPage() {
   const pending = data.outcome === 'PENDING_ANSWER';
   const refund = choice === 'REFUND';
   const chosenLocation = refund ? null : (data.offeredSessions || []).find(session => session.sessionReference === choice)?.locationName;
-  const canSend = pending && (refund || choice) && (member || proof);
+  const canSend = pending && (refund || choice) && (member || ((operator || !authenticated) && proof));
 
   const send = async () => {
     const body = refund ? { answer: 'REFUND' } : { answer: 'ACCEPT_REPLACEMENT', replacementSessionReference: choice };

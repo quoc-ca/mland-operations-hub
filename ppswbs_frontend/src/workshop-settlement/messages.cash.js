@@ -43,6 +43,7 @@ export const messagesCash = {
     // RefundQueuePage
     'refund.title': 'Hàng đợi hoàn tiền',
     'refund.intro': 'Mọi khoản hoàn tiền của Mland đều là chuyển khoản ngân hàng. Khoản hoàn chỉ được tính là xong khi Manager xác nhận ĐÃ HOÀN TIỀN.',
+    'refund.staffIntro': 'Bạn chỉ thấy khoản hoàn thuộc vé của ca được phân công. Bạn có thể nhập hoặc gửi lại liên kết tài khoản nhận hoàn; các bước duyệt và chuyển khoản do Manager xử lý.',
     'refund.problem.RECEIPT_IMAGE_TYPE_UNSUPPORTED': 'Biên lai phải là ảnh JPEG, PNG hoặc WebP. Hãy chọn tệp khác, hoặc bỏ tệp và ghi nhận chuyển khoản chỉ với mã giao dịch ngân hàng.',
     'refund.problem.RECEIPT_IMAGE_TOO_LARGE': 'Ảnh biên lai lớn hơn 5.000.000 byte. Hãy chọn ảnh nhỏ hơn, hoặc bỏ ảnh và ghi nhận chuyển khoản chỉ với mã giao dịch ngân hàng.',
     'refund.problem.RECEIPT_STORAGE_UNAVAILABLE': 'Kho lưu ảnh biên lai hiện không khả dụng. Hãy bỏ ảnh để ghi nhận chuyển khoản chỉ với mã giao dịch ngân hàng, hoặc thử lại sau.',
@@ -233,6 +234,7 @@ export const messagesCash = {
     'closeStatus.CONFIRMED': 'Confirmed',
     'refund.title': 'Refund queue',
     'refund.intro': 'Every Mland refund is a bank transfer. A refund counts as done only when a Manager confirms REFUNDED.',
+    'refund.staffIntro': 'You see refunds only for tickets on sessions assigned to you. You can enter or resend the recipient account link; Managers handle approval and transfers.',
     'refund.problem.RECEIPT_IMAGE_TYPE_UNSUPPORTED': 'The receipt must be a JPEG, PNG or WebP image. Choose another file, or remove it and record the transfer with the bank reference only.',
     'refund.problem.RECEIPT_IMAGE_TOO_LARGE': 'The receipt image is larger than 5,000,000 bytes. Choose a smaller image, or remove it and record the transfer with the bank reference only.',
     'refund.problem.RECEIPT_STORAGE_UNAVAILABLE': 'Receipt image storage is not available. Remove the image to record the transfer with the bank reference only, or try again later.',

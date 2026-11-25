@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 
 @RestController
-@RequestMapping("/api/v1/notification-requests")
+@RequestMapping({"/api/v1/notification-requests", "/api/v1/admin/notification-requests"})
 @RequiredArgsConstructor
 public class NotificationRequestController {
 
@@ -68,6 +69,26 @@ public class NotificationRequestController {
         CurrentAccountActor actor = requireAdminOrManager();
         RedeliverResponse response = operationalService.redeliverWithRefreshedCredential(id, actor, command);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{id}/manual-invitation")
+    public ResponseEntity<ManualInvitationContentResponse> getFailedInvitationManualContent(@PathVariable Long id) {
+        CurrentAccountActor actor = requireAdmin();
+        ManualInvitationContentResponse response = operationalService.getFailedInvitationManualContent(id, actor);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(response);
+    }
+
+    private CurrentAccountActor requireAdmin() {
+        CurrentAccountActor actor = ActorContext.requireCurrentActor();
+        String role = actor.role() != null ? actor.role().name() : "";
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            throw NotificationManagementException.forbidden("NOTIFICATION_NOT_AUTHORIZED",
+                    "Chỉ Quản trị viên (ADMIN) mới có quyền lấy nội dung thư mời thủ công.");
+        }
+        return actor;
     }
 
     private CurrentAccountActor requireAdminOrManager() {

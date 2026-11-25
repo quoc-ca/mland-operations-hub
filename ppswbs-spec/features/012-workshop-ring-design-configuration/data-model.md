@@ -10,7 +10,7 @@ Last updated by: Ngô Tiến Đạt
 ## 1. Ownership boundary
 
 Feature-012 owns configured-design lifecycle, option selections, evaluation
-snapshots, Guest design-session binding and archive/audit evidence. Workshop
+snapshots and archive/audit evidence. Workshop
 Booking owns booking, session, capacity, payment and ticket records. Catalogue
 and Manager administration own the source option/rule facts consumed by this
 feature.
@@ -28,8 +28,8 @@ Logical name: `configured_design`
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `design_reference` | Yes | Opaque external reference; never a raw database ID in a public DTO. |
-| `owner_type` | Yes | `GUEST_SESSION` or `MEMBER`. |
-| `owner_reference` | Yes | Member account reference or feature-owned Guest-session binding. |
+| `owner_type` | Yes | `MEMBER`. |
+| `owner_reference` | Yes | Member account reference. |
 | `package_reference` | Yes | Opaque selected workshop package reference. |
 | `source_model_reference` | No | Published catalogue model used as the starting point. |
 | `design_type` | Yes | `configured_design`; source catalogue models remain `catalogue_model`. |
@@ -113,26 +113,7 @@ Logical fields:
 - Text/placement backward compatibility: `text` and `placement` fields are maintained for legacy consumers.
 - Surface Texture Warning Invariant (Invariant 22): When any engraving item or custom image is placed on `OUTER_BAND` of a textured/hammered shape (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), the evaluation snapshot must record an advisory technical warning.
 
-### 2.6 Guest design session
-
-Logical name: `guest_design_session`
-
-| Field | Meaning |
-| --- | --- |
-| `session_reference` | Opaque client-visible reference. |
-| `session_digest` | Protected server-side lookup value; raw session value is not logged. |
-| `design_reference` | Design set bound to the session. |
-| `issued_at` | Session creation time. |
-| `last_activity_at` | Used for 20-minute inactivity expiry. |
-| `expires_at` | Server-calculated expiry boundary. |
-| `status` | `ACTIVE`, `EXPIRED`, `REVOKED`. |
-| `correlation_id` | Safe operational trace reference. |
-
-The storage mechanism must use an approved shared session boundary or an
-explicitly approved feature-owned store. The data model does not authorize a
-new global authentication/session system.
-
-### 2.7 Evaluation snapshot
+### 2.6 Evaluation snapshot
 
 Logical name: `design_evaluation_snapshot`
 
@@ -148,7 +129,7 @@ Logical name: `design_evaluation_snapshot`
 The snapshot is advisory and is not a payment, invoice or final custom-order
 amount.
 
-### 2.8 Booking attachment snapshot — historical only
+### 2.7 Booking attachment snapshot — historical only
 
 Logical name: `booking_design_attachment`
 
@@ -163,7 +144,7 @@ The current Feature-012 flow creates no booking attachment, booking snapshot,
 booking lock or booking-side persistence. Current consumers use the saved-design
 recommendation or an owner-safe Feature-013 consultation/reference projection.
 
-### 2.9 Archive/audit evidence
+### 2.8 Archive/audit evidence
 
 Append-only evidence includes actor scope, action, design/version reference,
 previous/new lifecycle state, outcome, reason where required, timestamp and
@@ -185,7 +166,7 @@ data or unnecessary personal data.
 10. A failed recommendation or consultation handoff cannot delete or invalidate
     the design. Former booking-submission behavior is historical only.
 11. Archive is soft-delete; design history and audit are not hard-deleted.
-12. Guest sessions expire after 20 minutes of inactivity and cannot be reused after expiry.
+12. Guest local preview state is never persisted or treated as a design lifecycle state.
 13. Member reads and writes are restricted to the authenticated Member's own designs.
 14. Feature-004 may snapshot any owner-visible state after server ownership
     validation; Feature-003 does not attach a design through Feature-012.
@@ -233,8 +214,7 @@ existing custom-order snapshot.
 
 ## 5. Retention and deletion
 
-- Guest session and unsubmitted draft data follows the 20-minute inactivity
-  expiry plus approved cleanup process.
+- Guest local preview data is discarded when the preview is abandoned.
 - Member design history is retained for three years.
 - Archived design content is not hard-deleted by normal feature operations.
 - Former booking snapshots remain under the Booking/business-record retention
@@ -248,10 +228,8 @@ The V1 logical model uses one immutable `ring_designs` row per design version.
 version table is not required. `design_version` is a logical sequence whose
 physical representation still requires schema approval.
 
-`guest_design_sessions` is owned by Feature-012 and stores only an opaque
-reference/digest, bound design reference, `last_activity_at`, `expires_at` and
-`ACTIVE/EXPIRED/REVOKED` state. It must not store raw identity in the client;
-cleanup and replay protection are implementation gates.
+No Guest session table is owned by Feature-012. Guest preview state is local and
+non-authoritative; only authenticated Member design data is persisted.
 
 The former booking boundary `attachAndLockDesignForBooking(...)` is retired by
 the 2026-11-22 change request. Feature-012 no longer attaches or locks a design

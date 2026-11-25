@@ -31,7 +31,7 @@ As a Member, I want to view my own past and ongoing retail orders so that I can 
 2. The system rechecks current account authority and restricts retrieval to the owning Member.
 3. The system retrieves past and ongoing retail order summaries with recorded order codes, product images, payment/hold facts, internal fulfilment progress and the recorded GHTK shipment step.
 4. The system presents newest-first order history in the tabs Tất cả, Chờ thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and Đã hủy, restricted to the owning Member. An unpaid VNPay order shows a countdown to its hold deadline; a received order shows its received time.
-5. The Member selects an own order to continue to UC57 View Order Details, or uses an eligible action: Thanh toán (UC55), Hủy đơn for an unpaid order, or Mua lại, which adds the rings to the cart again (UC53). A delivered or picked-up order also offers Đánh giá, which opens one review screen for every product of the order not reviewed yet (UC-011.1), or Xem đánh giá once all of them are reviewed.
+5. The Member selects an own order to continue to UC57 View Order Details, or uses an eligible action: Thanh toán (UC55), Hủy đơn for an unpaid order, or Mua lại, which adds the rings to the cart again (UC53). A delivered or picked-up order also offers Đánh giá, which opens one review screen for every product of the order not reviewed yet (UC75), or Xem đánh giá once all of them are reviewed.
 
 #### Alternative Flows
 

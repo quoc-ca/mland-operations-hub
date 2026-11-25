@@ -1,9 +1,15 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { otaConnectivityRoutes } from '../routes';
+
+// The route guard reads the account bootstrap; these tests choose the signed-in role.
+const account = vi.hoisted(() => ({ role: 'MANAGER' }));
+vi.mock('../../features/accountmanagement/hooks/useCurrentAccount', () => ({
+  useCurrentAccount: () => ({ account: { role: account.role, status: 'ACTIVE' }, status: 'ready', retry: () => {} }),
+}));
 
 describe('OTA finance and shop add-on screens', () => {
   it('renders finance evidence states and an empty ledger explicitly', async () => {
@@ -233,5 +239,23 @@ describe('OTA finance and shop add-on screens', () => {
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
     expect(await screen.findByText('Catalogue add-on is missing, inactive, or not valid for this booking\'s package and location')).toBeInTheDocument();
     expect(screen.getByText('Create a quote to review the immutable amount and consent steps.')).toBeInTheDocument();
+  });
+});
+
+describe('003.4 route access (FR-004b)', () => {
+  it.each([
+    ['ADMIN', '/ota-connectivity/channels'],
+    ['ADMIN', '/ota-connectivity/reconciliation'],
+    ['ADMIN', '/ota-connectivity/finance'],
+    ['ADMIN', '/ota-connectivity/add-ons'],
+    ['STAFF', '/ota-connectivity/channels'],
+    ['STAFF', '/ota-connectivity/finance'],
+  ])('does not mount the page or call the API for %s at %s', async (role, path) => {
+    account.role = role;
+    const calls = mockFetch({});
+    renderRoutes([...otaConnectivityRoutes, { path: '/404', element: <p>not-found-page</p> }], { path, language: 'en' });
+    expect(await screen.findByText('not-found-page')).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+    account.role = 'MANAGER';
   });
 });

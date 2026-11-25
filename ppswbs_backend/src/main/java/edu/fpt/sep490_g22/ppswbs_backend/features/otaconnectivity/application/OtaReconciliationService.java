@@ -60,14 +60,14 @@ public class OtaReconciliationService {
     }
 
     /**
-     * Manager home (013 R-4): the one meaning of "needing attention" for reconciliation, used by both the card count
+     * navigation shell and dashboard (014 R-4): the one meaning of "needing attention" for reconciliation, used by both the card count
      * and the list the card opens (FR-004): OPEN and ESCALATED. IN_PROGRESS is being handled and RESOLVED is closed.
      */
     public static final List<String> NEEDS_ATTENTION = List.of(OPEN, ESCALATED);
 
     @Transactional(readOnly = true)
     public List<OtaReconciliationWorkItemView> listNeedingAttention(AccountSummary actor) {
-        requireManagerOrAdmin(actor);
+        requireManager(actor);
         return workItemRepository.findByStatusInOrderByCreatedAtAsc(NEEDS_ATTENTION).stream().map(this::view).toList();
     }
 
@@ -89,7 +89,7 @@ public class OtaReconciliationService {
 
     @Transactional
     public List<OtaReconciliationWorkItemView> listWorkItems(String status, String category, AccountSummary actor) {
-        requireManagerOrAdmin(actor);
+        requireManager(actor);
         String normalizedStatus = status == null || status.isBlank() ? null : status.trim();
         if (normalizedStatus != null && !List.of(OPEN, IN_PROGRESS, RESOLVED, ESCALATED).contains(normalizedStatus)) {
             throw new IllegalArgumentException("Unsupported reconciliation status");
@@ -120,7 +120,7 @@ public class OtaReconciliationService {
     public OtaOperationAccepted requestSync(Long mappingId, String mode, String reason,
                                             String idempotencyKey, AccountSummary actor) {
         validateAction(mappingId, reason, idempotencyKey);
-        requireManagerOrAdmin(actor);
+        requireManager(actor);
         boolean fullResync = "FULL_RESYNC".equals(mode);
         if (!fullResync && !"PREPARATION".equals(mode)) {
             throw new IllegalArgumentException("Sync mode must be PREPARATION or FULL_RESYNC");
@@ -178,7 +178,7 @@ public class OtaReconciliationService {
     public OtaReconciliationActionResult resolve(Long workItemId, String resolution, String reason,
                                                   String idempotencyKey, AccountSummary actor) {
         validateAction(workItemId, reason, idempotencyKey);
-        requireManagerOrAdmin(actor);
+        requireManager(actor);
         if (!List.of(RESYNC_REQUESTED, "ACCEPTED", "REJECTED", ESCALATED).contains(resolution)) {
             throw new IllegalArgumentException("Unsupported reconciliation resolution");
         }
@@ -197,7 +197,7 @@ public class OtaReconciliationService {
         }
         OtaChannelMapping mapping = item.getMapping();
         Long sourceVersion = null;
-        String actionScope = actor.role() == ActorRole.ADMIN ? "RECOVERY" : "RECONCILIATION";
+        String actionScope = "RECONCILIATION";
         String outcome;
 
         if (RESYNC_REQUESTED.equals(resolution)) {
@@ -252,7 +252,7 @@ public class OtaReconciliationService {
     @Transactional
     public OtaReconciliationActionResult resolveByPublicReference(String workItemPublicReference, String resolution,
             String reason, String idempotencyKey, AccountSummary actor) {
-        requireManagerOrAdmin(actor);
+        requireManager(actor);
         UUID reference;
         try {
             reference = UUID.fromString(OtaPublicReference.require(workItemPublicReference));
@@ -364,17 +364,10 @@ public class OtaReconciliationService {
                 UUID.fromString(decision.getCorrelationReference()), decision.getOutcome());
     }
 
-    private static void requireManagerOrAdmin(AccountSummary actor) {
-        if (actor == null || actor.accountId() == null || actor.status() != ActorStatus.ACTIVE
-                || (actor.role() != ActorRole.MANAGER && actor.role() != ActorRole.ADMIN)) {
-            throw new OtaMappingLifecycleException("An active Manager or Admin is required");
-        }
-    }
-
     private static void requireManager(AccountSummary actor) {
-        requireManagerOrAdmin(actor);
-        if (actor.role() != ActorRole.MANAGER) {
-            throw new OtaMappingLifecycleException("This business action requires an active Manager");
+        if (actor == null || actor.accountId() == null || actor.status() != ActorStatus.ACTIVE
+                || actor.role() != ActorRole.MANAGER) {
+            throw new OtaMappingLifecycleException("An active Manager is required");
         }
     }
 

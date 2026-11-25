@@ -181,17 +181,31 @@ class TicketMlandRemedyServiceTest {
     }
 
     @Test
-    @DisplayName("createOffer: throws CONFLICT when final bill is not OPEN")
+    @DisplayName("createOffer: throws CONFLICT when the final bill is CLOSED")
     void createOffer_billNotOpen() {
         TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
         SettlementFinalBill bill = createBill(TICKET_CODE, 100_000L);
-        bill.setLifecycleStatus("FINALIZED");
+        bill.setLifecycleStatus("CLOSED");
         lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(bill));
 
         assertThatThrownBy(() -> service.createOffer(TICKET_CODE, "S1", List.of("S2"), Instant.now().plus(48, ChronoUnit.HOURS), "CORR"))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("FINAL_BILL_NOT_OPEN");
+    }
+
+    @Test
+    @DisplayName("FR-043: a FINALIZED or OPEN folio gets a remedy, a CLOSED one does not")
+    void canOpenRemedy_includesFinalizedFolio() {
+        SettlementFinalBill bill = createBill(TICKET_CODE, 100_000L);
+        lenient().when(bills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(bill));
+
+        bill.setLifecycleStatus("FINALIZED");
+        assertThat(service.canOpenRemedy(TICKET_CODE, "S1")).isTrue();
+        bill.setLifecycleStatus("OPEN");
+        assertThat(service.canOpenRemedy(TICKET_CODE, "S1")).isTrue();
+        bill.setLifecycleStatus("CLOSED");
+        assertThat(service.canOpenRemedy(TICKET_CODE, "S1")).isFalse();
     }
 
     @Test
