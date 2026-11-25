@@ -1,4 +1,4 @@
 #### a. Screen Flow
 
-{{r3-screen-flow-feature-rebaseline width=100% align=center}}
+<!-- Temporarily disabled: r3-screen-flow-feature-rebaseline. The approved Drive image will be reconnected after the shared asset update. -->
 

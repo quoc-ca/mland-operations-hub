@@ -1,0 +1,45 @@
+@startuml
+!include r4-sequence-style.puml
+title FE-13 Send Message with Scope and Idempotency Checks
+actor "Participant" as participantActor
+participant "ConsultationController" as consultationController
+participant "ConsultationApplicationService" as consultationService
+database "ConsultationIdempotencyRecordRepository" as idempotencyRepository
+database "ConsultationMessageRepository" as messageRepository
+database "ConsultationAuditEventRepository" as auditRepository
+
+participantActor -> consultationController : send UTF-8 text + key
+activate consultationController
+consultationController -> consultationService : authenticate and authorize participant
+activate consultationService
+consultationService -> idempotencyRepository : find command key
+activate idempotencyRepository
+idempotencyRepository --> consultationService : existing or absent command
+deactivate idempotencyRepository
+alt new command
+  consultationService -> messageRepository : save immutable message
+  activate messageRepository
+  messageRepository --> consultationService : saved message
+  deactivate messageRepository
+  consultationService -> auditRepository : save safe metadata audit
+  activate auditRepository
+  auditRepository --> consultationService : audit recorded
+  deactivate auditRepository
+  consultationService -> idempotencyRepository : save outcome
+  activate idempotencyRepository
+  idempotencyRepository --> consultationService : outcome recorded
+  deactivate idempotencyRepository
+else same key and same payload
+  consultationService --> consultationController : return original result
+else same key and changed payload
+  consultationService --> consultationController : 409 key conflict
+end
+consultationService --> consultationController : message result
+deactivate consultationService
+consultationController --> participantActor : message result
+deactivate consultationController
+
+note over participantActor,consultationController
+Empty, overlong, closed or rate-limited commands are rejected.
+end note
+@enduml

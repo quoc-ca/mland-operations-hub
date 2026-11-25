@@ -13,11 +13,17 @@ start
 :Open saved design or design-request workspace;
 if (Consultation?) then (yes)
   :Start context-linked or general consultation;
-  |Staff or Manager|
-  :Claim/assign within role scope;
+  |Staff|
+  :Handle conversation within assigned location scope;
+  |Manager|
+  :Handle conversation with global operational scope;
   :Exchange immutable UTF-8 messages;
   |Member|
   :Close conversation or continue;
+  |Staff or Manager|
+  :Close or reopen conversation;
+  |Member|
+  :Hide only a closed conversation from own sidebar;
 else (Custom request)
   :Submit description/images/design snapshot;
   |System|
@@ -28,6 +34,24 @@ else (Custom request)
   :Record decision and mandatory explanation;
   |Member|
   :Read result or submit clarification;
+  if (Accepted?) then (yes)
+    |Staff or Manager|
+    :Prepare quote;
+    |Manager|
+    :Approve quote;
+    |Member|
+    :Pay full amount before expiry;
+    |System|
+    :Verify payment;
+    |Staff or Manager|
+    :Produce and fulfil custom order;
+  endif
 endif
 stop
+
+note right
+Member-only business chat; Guest sees the entry point but must sign in.
+Feature-012 design is an optional reference and remains independent from booking.
+An accepted design request continues only through quote, full payment and fulfilment.
+end note
 @enduml
