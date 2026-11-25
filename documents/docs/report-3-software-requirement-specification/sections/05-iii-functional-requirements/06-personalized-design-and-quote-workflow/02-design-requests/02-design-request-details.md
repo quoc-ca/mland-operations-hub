@@ -8,11 +8,11 @@ This screen allows the owning Member or Guest to:
 - Copy the tracking link when viewing as a Guest.
 - Start a new design request or, as a Member, return to their request history.
 
-A Member can open only their own requests; a Guest opens a request through the tracking link that carries its private token. Requests not yet decided show a waiting notice.
+A Member can open only their own requests. A Guest sees the protected-entry sign-in prompt and has no private tracking-token view. Requests not yet decided show a waiting notice.
 
 | Field Name | Description |
 | --- | --- |
-| Guest banner | Shown when viewing by tracking token: "Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi.", with **Sao chép liên kết**. |
+| Guest banner | Guest cannot open a private Design Request. The entry point shows a sign-in prompt instead of a tracking-token view. |
 | Title and reference | "Chi tiết Yêu cầu Thiết kế" with "Mã tham chiếu: {ref}". |
 | Review status badge | "Đang chờ nhân viên thẩm duyệt", "Đã chấp nhận thiết kế" or "Từ chối thiết kế". |
 | Decision card | Shown after acceptance or rejection: "Thiết kế đã được chấp nhận" or "Thiết kế bị từ chối" with the reviewer's explanation. |

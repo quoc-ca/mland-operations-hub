@@ -99,7 +99,7 @@ local function make_table(fields)
     pandoc.TableHead(),
     bodies,
     pandoc.TableFoot(),
-    pandoc.Attr("", {}, { ["custom-style"] = "Metadata Table" })
+    pandoc.Attr("", {}, { ["custom-style"] = "MetadataTable" })
   )
 end
 

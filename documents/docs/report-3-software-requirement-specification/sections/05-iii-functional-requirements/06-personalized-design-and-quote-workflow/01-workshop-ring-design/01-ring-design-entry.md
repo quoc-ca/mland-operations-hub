@@ -6,7 +6,7 @@ This screen allows Guests and Members to:
 - Read that the ring design applies only to the workshop session and that its estimated price does not change the package price or the booking deposit.
 - Start from a model suggested for the package, which opens Ring Model Selection.
 - Start from a blank ring band, which opens Ring Configuration in blank mode.
-- Use the designer without signing in; a Guest's design is kept in a design session that expires after 20 minutes of inactivity.
+- Guest may open the designer and browse a local preview, but must sign in before any design is created, evaluated or saved. No Guest design session is stored.
 
 | Field Name | Description |
 | --- | --- |

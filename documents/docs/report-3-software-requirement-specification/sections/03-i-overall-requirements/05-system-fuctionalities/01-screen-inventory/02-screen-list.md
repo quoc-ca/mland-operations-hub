@@ -31,7 +31,7 @@
 | 27 | Refund Account | Workshop Settlement | Allows a refund recipient to enter their bank account through a single-use link sent by email. |
 | 28 | Public Review List | Review Management | Lists public reviews with target and rating filters, masked names and rating aggregates calculated from public reviews only. |
 | 29 | Review Details | Review Management | Displays one public review with the current Manager reply, if any. |
-| 30 | Guest Review Lookup | Review Management | Allows a Guest to find the workshop attendances and retail purchases they can review by email or phone. |
+| 30 | Member Eligible Review Sources | Review Management | Allows an authenticated Member to view workshop attendances and retail purchases eligible for review. Guest access shows a sign-in prompt instead. |
 | 31 | Create Review | Review Management | Collects a 1–5 rating and optional text up to 2,000 characters for a checked-in workshop or a picked-up or delivered retail item; a valid review is public at once. |
 | 32 | Shopping Cart | Order Management and Fulfillment | Allows Members to review their own cart, update variant quantities, remove items and apply vouchers; prices remain indicative until checkout. |
 | 33 | Retail Checkout | Order Management and Fulfillment | Allows Members to choose GHTK delivery or branch pickup, the address and the payment method (VNPay or cash at the counter), review the payable amount and place the order. |
@@ -40,7 +40,7 @@
 | 36 | Point History | Loyalty and Promotion Management | Allows Members to review their own point transactions (earned, held, spent, released and refunded) with their source and balance changes. |
 | 37 | My Saved Vouchers | Loyalty and Promotion Management | Allows Members to review their saved vouchers by scope, separated into usable and expired or unusable, and go to products or workshops to use them. |
 | 38 | My Ring Designs | Workshop Ring Design | Lists the workshop ring designs the Member has saved. |
-| 39 | Design Request Workspace | Personalized Design and Quote Workflow | Allows a Member, or a Guest within a daily limit, to upload reference images, receive quality feedback and submit a custom design request for human review. |
+| 39 | Design Request Workspace | Personalized Design and Quote Workflow | Allows an authenticated Member to upload up to five reference images, receive quality feedback and submit a custom design request for human review; a Guest sees a sign-in prompt. |
 | 40 | Design Request Details | Personalized Design and Quote Workflow | Allows the owner to follow a design request's status and read the reviewer's written decision. |
 | 41 | My Custom Orders | Custom Manufacturing | Lists the Member's custom manufacturing orders and their status. |
 | 42 | Custom Order Details | Custom Manufacturing | Displays one custom order with its approved quote, the full-payment request and its fulfilment progress. |

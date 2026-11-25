@@ -2,7 +2,7 @@
 
 Full = unrestricted  ·  Restricted = conditions apply (see footnotes)  ·  No = denied
 
-The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, Google Maps, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
+The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
 
 |Entity / Function|Action|Guest|Member|Staff|Manager|Admin|
 |---|---|---|---|---|---|---|
@@ -36,13 +36,13 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Retail fulfilment|Record customer pickup and counter cash collection|No|No|Full|Restricted|Restricted|
 |Retail shipment|Record the courier pickup and the delivery of a GHTK shipment|No|No|No|No|No|
 |Custom manufacturing|Submit and view own custom order|No|Full|No|No|Restricted|
-|Custom manufacturing|Configure queue rules and unavailable deadline dates|No|No|No|Full|Full|
+|Custom manufacturing|Configure queue rules and unavailable deadline dates|Retired|Retired|Retired|Retired|Retired|
 |Custom manufacturing|Set final custom amount and request final payment|No|No|Full|Full|Restricted|
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
 |Operational parameters|Configure deadlines, loyalty rates, point value, and discount caps|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
 |Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|
-|Public store review|Open the Google Maps review link|Full|Full|Full|Full|Full|
+|Public Mland reviews|Browse public workshop-session and retail-product reviews|Full|Full|Full|Full|Full|
 
 #### Permission Matrix Footnotes
 
@@ -52,4 +52,4 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.
 5. Admin manages technical configuration, accounts, RBAC, and approved integration credentials. Admin may view purpose-limited parameter-impact information in FE-09 but has no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace Staff or Manager business approvals unless an explicit authorized override is defined.
 6. GHTK shipments are recorded in the platform; V1 calls GHTK only for the delivery-fee quote and has no shipment-creation, tracking, or webhook integration. Staff packs the order and marks it ready for the courier. The GHTK partner account (role `CARRIER`) records only "Đã lấy hàng" (courier pickup) and "Giao thành công" (delivery) for the GHTK shipments of every branch, and sees the pickup branch, recipient name, phone and address, item count, and shipping fee, never product prices, vouchers, points, or Member account data. Only that account records the Retail shipment row; the platform roles cannot.
-7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
+7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public Mland reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.

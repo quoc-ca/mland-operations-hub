@@ -1,0 +1,47 @@
+{
+  "scenarioId": "E2E-XF-004-012-013-001",
+  "status": "PASS",
+  "isolationKey": "iso_sc1_1795543059431",
+  "designId": "DSG-4688b5f4-0690-4e2f-9972-4de9cafe4afc",
+  "designRequestId": "b9a89e21-6d32-4062-b7e5-3dfafc33e668",
+  "customOrderId": "CO-94153A26",
+  "navCount": 14,
+  "timings": [
+    {
+      "stepName": "1. Member Sign In",
+      "durationSec": "4.68"
+    },
+    {
+      "stepName": "2-4. Ring Configurator & Dynamic Preview",
+      "durationSec": "5.17"
+    },
+    {
+      "stepName": "5-7. Save & Evaluate Design",
+      "durationSec": "2.88"
+    },
+    {
+      "stepName": "8-11. Submit Custom Design Request",
+      "durationSec": "5.77"
+    },
+    {
+      "stepName": "12-18. Staff Review Decision ACCEPTED",
+      "durationSec": "10.92"
+    },
+    {
+      "stepName": "19. Staff Prepare Quote",
+      "durationSec": "3.14"
+    },
+    {
+      "stepName": "20-23. Manager Approve Quote",
+      "durationSec": "13.19"
+    },
+    {
+      "stepName": "24-30. Member 100% Full Payment",
+      "durationSec": "26.29"
+    },
+    {
+      "stepName": "31-35. Production & Fulfilment Completion",
+      "durationSec": "13.63"
+    }
+  ]
+}

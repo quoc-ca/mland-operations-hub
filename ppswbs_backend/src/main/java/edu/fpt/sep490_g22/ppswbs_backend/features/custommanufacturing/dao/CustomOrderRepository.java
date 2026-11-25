@@ -12,4 +12,7 @@ public interface CustomOrderRepository extends JpaRepository<CustomOrder, String
     Optional<CustomOrder> findByCustomOrderReference(String customOrderReference);
     Optional<CustomOrder> findByDesignRequestId(String designRequestId);
     List<CustomOrder> findByMemberAccountIdOrderByCreatedAtDesc(Long memberAccountId);
+    List<CustomOrder> findAllByOrderByCreatedAtDesc();
+    List<CustomOrder> findByStatusOrderByCreatedAtDesc(String status);
+    List<CustomOrder> findByStatusInOrderByCreatedAtDesc(java.util.Collection<String> statuses);
 }

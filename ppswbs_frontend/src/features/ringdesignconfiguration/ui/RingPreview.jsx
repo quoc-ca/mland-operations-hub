@@ -696,7 +696,15 @@ export default function RingPreview({
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#1e293b' }}>
             {t('laserPreviewTitle')}
           </h4>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              alignItems: 'flex-start',
+            }}
+          >
             {customImages.map((img, idx) => (
               <LaserPreviewThumbnail key={img.id || idx} img={img} />
             ))}
@@ -711,9 +719,22 @@ function LaserPreviewThumbnail({ img }) {
   const t = useT(messages);
   const [loadError, setLoadError] = React.useState(false);
   const imageSrc = img.previewDataUrl || img.processedPreviewReference || img.imageReference || img.imageUrl;
+  const placementText = img.placement === 'OUTER_BAND' ? t('preview.outerPlus') : t('preview.innerPlus');
+  const detailsText = img.contrast !== undefined ? ` · C:${img.contrast} S:${img.sharpness}` : '';
+  const fullCaption = `${placementText}${detailsText}`;
 
   return (
-    <div style={{ textAlign: 'center' }} data-testid={`laser-preview-item-${img.id || 'custom'}`}>
+    <div
+      style={{
+        width: '160px',
+        maxWidth: '160px',
+        minWidth: '160px',
+        flex: '0 0 160px',
+        textAlign: 'center',
+        boxSizing: 'border-box',
+      }}
+      data-testid={`laser-preview-item-${img.id || 'custom'}`}
+    >
       <div
         style={{
           width: '160px',
@@ -726,6 +747,7 @@ function LaserPreviewThumbnail({ img }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          boxSizing: 'border-box',
         }}
       >
         {imageSrc && !loadError ? (
@@ -762,9 +784,23 @@ function LaserPreviewThumbnail({ img }) {
           </div>
         )}
       </div>
-      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
-        {img.placement === 'OUTER_BAND' ? t('preview.outerPlus') : t('preview.innerPlus')}
-        {img.contrast !== undefined && ` · C:${img.contrast} S:${img.sharpness}`}
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: '#64748b',
+          display: 'block',
+          marginTop: '0.25rem',
+          width: '100%',
+          maxWidth: '160px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box',
+        }}
+        title={fullCaption}
+      >
+        {placementText}
+        {detailsText}
       </span>
     </div>
   );

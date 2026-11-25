@@ -15,6 +15,15 @@ The feature is intentionally separate from Feature-004 AI analysis and from
 Feature-003 workshop booking. It belongs to the broader FE-05 Personalized
 Design and Quote Workflow.
 
+## 1.1 Member-only rebaseline — 2026-11-25
+
+Guest access is limited to viewing the entry point, catalogue options and a local
+unsaved preview. Guest parameter changes are browser-local and are discarded when
+the preview is abandoned; Guest cannot create, evaluate, save, archive or persist
+a design. The former Guest server-session, 20-minute expiry and Guest persistence
+assumptions are retired. Only authenticated active Members use the persisted
+design lifecycle.
+
 ## 2. Sources inspected
 
 | Source | Evidence used |

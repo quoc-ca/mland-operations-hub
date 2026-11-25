@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos.*;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.SecurityIdentityExtractor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.service.CustomOrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class MemberCustomOrderController {
     private final CustomOrderService customOrderService;
     private final DesignAnalysisService designAnalysisService;
     private final AccountFacade accountFacade;
+    private final CustomOrderRepository customOrderRepository;
 
     @GetMapping("/custom-orders")
     public ResponseEntity<CustomOrderListProjectionDto> listMyCustomOrders(
@@ -105,7 +107,8 @@ public class MemberCustomOrderController {
         String callerUid = SecurityIdentityExtractor.requireUid(authentication);
         List<DesignAnalysisService.DesignRequestViewDto> list = designAnalysisService.getMyDesignRequests(callerUid);
 
-        List<CustomDesignRequestProjectionDto> items = list.stream().map(dto -> CustomDesignRequestProjectionDto.builder()
+        List<CustomDesignRequestProjectionDto> items = list.stream().map(dto -> {
+            CustomDesignRequestProjectionDto.CustomDesignRequestProjectionDtoBuilder builder = CustomDesignRequestProjectionDto.builder()
                 .requestReference(dto.getRequestReference())
                 .status(dto.getReviewStatus())
                 .version(dto.getRequestVersion())
@@ -116,9 +119,15 @@ public class MemberCustomOrderController {
                 .images(dto.getImages())
                 .trackingLink(dto.getTrackingLink())
                 .createdAt(dto.getCreatedAt() != null ? dto.getCreatedAt().toString() : null)
-                .updatedAt(dto.getUpdatedAt() != null ? dto.getUpdatedAt().toString() : null)
-                .build()
-        ).collect(Collectors.toList());
+                .updatedAt(dto.getUpdatedAt() != null ? dto.getUpdatedAt().toString() : null);
+
+            if (dto.getId() != null) {
+                customOrderRepository.findByDesignRequestId(dto.getId())
+                        .ifPresent(co -> builder.customOrderReference(co.getCustomOrderReference()));
+            }
+
+            return builder.build();
+        }).collect(Collectors.toList());
 
         return ResponseEntity.ok(CustomRequestListProjectionDto.builder().items(items).build());
     }

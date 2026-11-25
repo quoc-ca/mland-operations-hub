@@ -24,6 +24,12 @@ assess images, decide feasibility, set a price, approve a request, or reject a
 request. It does not own Feature-012 validation, workshop booking, payment
 settlement, production, or fulfilment.
 
+Before a Member uploads or submits any reference image, the system must record
+affirmative, versioned consent for temporary storage and sharing the image with
+authorized Staff/Manager reviewers. The consent message describes human design-
+request review only and must not claim that an AI provider analyzes the image.
+Without consent, the image cannot be stored or submitted.
+
 ## 2. Actors and permissions
 
 | Capability | Guest | Member | Staff | Manager | Admin |
@@ -62,9 +68,10 @@ At least one description or image is required. Each image is validated in the
 browser for type, size and readable quality, then revalidated by the backend.
 `TOO_BLURRY` blocks submission. The backend owns all quality thresholds.
 
-Feature-012 design attachment is optional. If supplied, only a Member-owned,
-readable design snapshot may be used; Feature-004 stores its own immutable
-snapshot and later edits to the source design do not alter the request.
+Feature-012 design attachment is optional. If supplied, it must belong to the
+current Member and be in any non-`ARCHIVED` state. Feature-004 stores its own
+immutable snapshot at submission time; later edits to the source design do not
+alter the request. An archived design cannot be attached.
 
 ## 4. Human review lifecycle
 

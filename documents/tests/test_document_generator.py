@@ -388,7 +388,7 @@ This heading remains outside the generated table.
         self.assertEqual(len(tables), 1)
         table_style = tables[0].find("./w:tblPr/w:tblStyle", namespace)
         self.assertIsNotNone(table_style)
-        self.assertEqual(table_style.attrib.get(f"{{{namespace['w']}}}val"), "Metadata Table")
+        self.assertEqual(table_style.attrib.get(f"{{{namespace['w']}}}val"), "MetadataTable")
         rows = tables[0].findall("w:tr", namespace)
         self.assertEqual(len(rows), 7)
         self.assertEqual(len(rows[0].findall("w:tc", namespace)), 4)

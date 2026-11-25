@@ -67,11 +67,11 @@ and Frontend React + Vite configurator using Figma frames (457:1553, 457:1554, 4
 ## Conditions before implementation
 
 1. [x] Approve physical mapping of configured-design versions and P2.9 snapshot persistence. (Row-per-version `ring_designs`, `source_design_id` lineage, JSON snapshot).
-2. [x] Approve the Feature-012-owned Guest session table and cleanup/replay rules. (`guest_design_sessions` with 20-min inactivity expiry, SHA-256 digest, on-read touch and `@Scheduled` cleanup).
+2. [x] Retire the Feature-012-owned Guest session table and cleanup/replay rules. Guest preview is local-only and no Guest design state is persisted.
 3. [x] Approve the Manager-owned option/rule facade and its versioned evaluation input/output contract. (`DesignOptionRulesPort`, advisory estimate, difficulty score, `DesignOptionsResponse`).
 4. [ ] Approve the superseding removal of Workshop Booking attachment. The former `attachAndLockDesignForBooking(...)` and REST attachment endpoint are retired and must not be implemented in the current baseline.
 5. [x] Verify Flyway version/history; repository baseline verified at `V109__catalogue_variant_branch_stock.sql`. Next append-only migration is confirmed as `V110__workshop_ring_design_configuration.sql`.
-6. [x] Approve Frontend visual baseline and Figma node IDs (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`), `sessionStorage` for Guest session token, and 2D SVG Live Preview.
+6. [x] Approve Frontend visual baseline and Figma node IDs (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`), local-only Guest preview state, and 2D SVG Live Preview.
 
 ## Figma evidence — historical baseline pending superseding review
 
