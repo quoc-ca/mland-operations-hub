@@ -45,8 +45,8 @@ export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
   const effective = session.rescheduleQuota;
   const used = session.rescheduleQuotaUsed;
   return (
-    <article className="ota-panel" aria-labelledby="reschedule-quota-title">
-      <div className="ota-panel-head"><h2 id="reschedule-quota-title">{t('quota.title')}</h2></div>
+    <article className="wsp-panel" aria-labelledby="reschedule-quota-title">
+      <div className="wsp-panel-head"><h2 id="reschedule-quota-title">{t('quota.title')}</h2></div>
       <dl className="ops-facts">
         <div><dt>{t('quota.effective')}</dt><dd>{effective ?? '—'}{effective === 0 ? t('quota.closedSuffix') : ''}</dd></div>
         <div><dt>{t('quota.source')}</dt><dd>{session.rescheduleQuotaOverridden ? t('quota.sourceManager') : t('quota.sourceDefault')}</dd></div>
@@ -55,7 +55,7 @@ export function RescheduleQuotaPanel({ api, session, onSaved, onReload }) {
       {closed ? (
         <p className="muted small">{t('quota.cannotChange')}</p>
       ) : (
-        <form className="ota-form" onSubmit={submit} aria-label={t('quota.formAria')}>
+        <form className="wsp-form" onSubmit={submit} aria-label={t('quota.formAria')}>
           <Field label={t('quota.new')} hint={t('quota.hint')}>
             <input type="number" min="0" step="1" value={quota} onChange={e => setQuota(e.target.value)} />
           </Field>

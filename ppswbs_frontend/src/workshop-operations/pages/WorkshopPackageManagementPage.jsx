@@ -10,7 +10,7 @@ import { HeaderActions } from '../../shared/ui/OperationsShell';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createWorkshopPackageApi } from '../api/packageApi';
 import '../workshop-operations.css';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 
 const emptyForm = {
   name: '',
@@ -71,9 +71,9 @@ function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode 
   const t = useT(messages);
   const ts = useT(sharedMessages);
   const set = field => event => setForm(current => ({ ...current, [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
-  return <form className="ota-panel ota-form package-admin-form" onSubmit={onSubmit} noValidate>
-    <div className="ota-panel-head"><div><h2>{mode === 'edit' ? t('pkg.form.edit') : t('pkg.form.create')}</h2><p className="muted small">{t('pkg.form.note')}</p></div></div>
-    <div className="ota-evidence-grid">
+  return <form className="wsp-panel wsp-form package-admin-form" onSubmit={onSubmit} noValidate>
+    <div className="wsp-panel-head"><div><h2>{mode === 'edit' ? t('pkg.form.edit') : t('pkg.form.create')}</h2><p className="muted small">{t('pkg.form.note')}</p></div></div>
+    <div className="wsp-evidence-grid">
       <Field label={t('pkg.form.name')} error={errors.name}><input value={form.name} onChange={set('name')} maxLength={180} /></Field>
       <Field label={t('pkg.form.price')} error={errors.publicPrice}><input inputMode="numeric" value={form.publicPrice} onChange={set('publicPrice')} /></Field>
       <Field label={t('pkg.form.minTickets')} error={errors.minParticipants}><input inputMode="numeric" value={form.minParticipants} onChange={set('minParticipants')} /></Field>
@@ -142,12 +142,12 @@ export default function WorkshopPackageManagementPage() {
     }
   };
 
-  return <div className="ota-workspace">
-    <main className="ota-main"><div className="ota-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>{t('pkg.create')}</button></HeaderActions><p className="muted">{t('pkg.intro')}</p>
+  return <div className="wsp-workspace">
+    <main className="wsp-main"><div className="wsp-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>{t('pkg.create')}</button></HeaderActions><p className="muted">{t('pkg.intro')}</p>
       <SuccessNotice>{notice}</SuccessNotice><ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} /><ErrorNotice error={command.error} onRetry={command.retry} />
-      {resource.loading ? <Loading /> : <section className="ota-panel"><div className="ota-panel-head"><h2>{t('pkg.all')}</h2><span>{t('records', { count: packages.length })}</span></div>{packages.length === 0 ? <div className="empty-state"><p>{t('pkg.empty')}</p><button className="button outline" type="button" onClick={startCreate}>{t('pkg.createFirst')}</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{stateLabel(item.state)}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>{t('pkg.price')}</dt><dd>{fmt.money(String(item.publicPrice))}</dd></div><div><dt>{t('pkg.tickets')}</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>{t('pkg.sessions')}</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>{t('pkg.edit')}</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>{t('pkg.retire')}</button>}</div></article>)}</div>}</section>}
+      {resource.loading ? <Loading /> : <section className="wsp-panel"><div className="wsp-panel-head"><h2>{t('pkg.all')}</h2><span>{t('records', { count: packages.length })}</span></div>{packages.length === 0 ? <div className="empty-state"><p>{t('pkg.empty')}</p><button className="button outline" type="button" onClick={startCreate}>{t('pkg.createFirst')}</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{stateLabel(item.state)}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>{t('pkg.price')}</dt><dd>{fmt.money(String(item.publicPrice))}</dd></div><div><dt>{t('pkg.tickets')}</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>{t('pkg.sessions')}</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>{t('pkg.edit')}</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>{t('pkg.retire')}</button>}</div></article>)}</div>}</section>}
       {mode && <PackageForm form={form} setForm={setForm} errors={errors} pending={command.pending} onSubmit={save} onCancel={() => setMode(null)} mode={mode} />}
-      {selected?.state === 'DRAFT' && mode === 'edit' && <section className="ota-panel draft-publish-panel"><div><h2>{t('pkg.draftReady')}</h2><p>{t('pkg.draftReadyBody')}</p></div><button className="button primary" type="button" disabled={command.pending} onClick={() => transition(selected, 'PUBLISHED')}>{t('pkg.publishDraft')}</button></section>}
+      {selected?.state === 'DRAFT' && mode === 'edit' && <section className="wsp-panel draft-publish-panel"><div><h2>{t('pkg.draftReady')}</h2><p>{t('pkg.draftReadyBody')}</p></div><button className="button primary" type="button" disabled={command.pending} onClick={() => transition(selected, 'PUBLISHED')}>{t('pkg.publishDraft')}</button></section>}
       <ConfirmDialog open={Boolean(retireTarget)} title={t('pkg.retireTitle')} confirmLabel={t('pkg.retireConfirm')} danger pending={command.pending} onCancel={() => setRetireTarget(null)} onConfirm={() => transition(retireTarget, 'RETIRED')}><p>{t('pkg.retireBody')}</p></ConfirmDialog>
     </main></div>;
 }

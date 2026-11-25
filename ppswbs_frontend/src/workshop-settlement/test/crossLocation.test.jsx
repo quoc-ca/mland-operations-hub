@@ -131,7 +131,8 @@ describe('Mland remedy across locations', () => {
   };
 
   it('shows the location next to each offered session and names it in the confirmation; an old offer shows the time only', async () => {
-    mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER) });
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }), 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER) });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy' });
     const radios = await screen.findAllByRole('radio');
@@ -144,6 +145,7 @@ describe('Mland remedy across locations', () => {
 
   it('says a session no longer sold at its location is unavailable', async () => {
     mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER),
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(409, { code: 'REPLACEMENT_SESSION_UNAVAILABLE', correlationId: 'c' }),
     });

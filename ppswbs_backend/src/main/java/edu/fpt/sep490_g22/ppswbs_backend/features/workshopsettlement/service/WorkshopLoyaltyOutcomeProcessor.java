@@ -140,7 +140,7 @@ public class WorkshopLoyaltyOutcomeProcessor {
             return;
         }
         // FR-046: the single direct flow is gone, so a folio without a booking group has no Member Loyalty source;
-        // OTA and any leftover non-group folio is only marked processed so the scheduler stops scanning it.
+        // any leftover non-group folio is only marked processed so the scheduler stops scanning it.
         markProcessed(bill);
     }
 

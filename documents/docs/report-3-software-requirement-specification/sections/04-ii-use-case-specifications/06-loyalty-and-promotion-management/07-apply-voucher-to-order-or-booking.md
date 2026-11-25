@@ -71,10 +71,6 @@ The system rejects the booking, holds nothing and lets the actor adjust (MSG52).
 
 Workshop vouchers and points are for Members only. A Guest booking that requests a voucher or points is rejected as ineligible; the Guest can still book with the automatic discount.
 
-**Workshop Step 1 — Booking is not made directly on the website**
-
-Workshop vouchers and automatic discounts are not extended to external booking channels.
-
 **Retail Step 8 / Workshop Step 7 — Payment not verified in time**
 
 The held use is released under UC-50.

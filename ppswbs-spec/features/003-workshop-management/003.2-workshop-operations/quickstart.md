@@ -18,33 +18,10 @@ authorize a production migration or a reset of existing workshop data.
 - Set a future `checkInOpensAt`; at that instant verify check-in becomes
   available while the session remains `PUBLISHED` or `SALES_PAUSED` *(extended 2026-11-15, Q2, T114; was "`PUBLISHED`")*. At the session's scheduled
   start time verify the scheduler moves it to `IN_PROGRESS` and records a
-  system audit event. Verify it also persists one complete `CLOSED` OTA snapshot
-  and event in that same transaction; a repeated scheduler run must not create
-  a second transition, audit row, snapshot version or publication. Finalizing
-  attendance must retain the closed snapshot version unless another observable
-  field changed.
+  system audit event. A repeated scheduler run must not create a second transition or audit row.
 
-## T053-T055 OTA snapshot boundary
+## Scheduler repeat checks
 
-- Change one OTA-observable session value and verify a complete
-  `WorkshopSessionOtaSnapshotChanged` publication is persisted in the same
-  Operations transaction with a strictly newer per-session `sourceVersion`.
-- Verify `PUBLISHED` to `IN_PROGRESS` at `scheduledStartAt` changes OTA sale
-  state to `CLOSED` and publishes the complete snapshot atomically; because
-  `ATTENDANCE_FINALIZED` is already closed, that transition alone does not
-  create another version/publication.
-- Verify `SALES_PAUSED` to `IN_PROGRESS` (scheduled start and manual) publishes the complete closed snapshot with `sourceVersion` +1, and a replay (repeated scheduler run) adds no duplicate publication or version.
-- Change schedule, availability and sale state together and verify they share
-  one new version; internal-only Staff/assignment changes create no snapshot.
-- Deliver the same publication twice and deliver an older version; 003.4 must
-  ignore both. Deliver a version gap and verify 003.4 requests the
-  one-session Operations resync, which returns the complete current snapshot
-  without increasing the version.
-- Force a 003.4 consumer/provider failure and verify only its OTA mapping is
-  suspended; Operations capacity, sale state and direct booking remain usable.
-- Verify the event and resync payload contain no booking/payment, ticket,
-  attendance, Staff, PII or OTA mapping data and that Operations makes no
-  external OTA call inside its transaction.
 - Repeat scheduler execution/restart and verify no duplicate transition or
   duplicate audit side effect occurs.
 - Verify Staff outside the session location is denied and Staff cannot perform
@@ -111,24 +88,13 @@ run is not sufficient proof of index, lock or migration behaviour.
    existing sessions remain intact while new generation cannot use it.
 5. Create a future `DRAFT` session, then publish it. Run a bulk generation for
    at most 90 future days twice: the first creates sessions and the second
-   reports duplicates rather than creating more. Verify `DRAFT` creates no
-   OTA-observable snapshot. On publication, verify the session (no package filter; spec Q8, 2026-11-15)
-   exposes its schedule and availability/sale-state snapshots using one unified
-   source-version sequence.
+   reports duplicates rather than creating more.
 6. Configure capacity for two published sessions. Request N seats for both and
    verify holds exist for both sessions. Repeat with one session full or in
    `SALES_PAUSED` and verify no hold exists for either session. Create
    simultaneous holds whose total exceeds a session capacity and verify only
    capacity-safe requests succeed. Pause sales: a new hold is rejected, while
    a previously unexpired hold can still confirm.
-   Verify the availability/sale-state snapshot exposed to 003.4 subtracts both
-   confirmed ticket seats and active unexpired direct-Mland holds. Verify active
-   hold creation, release and expiry produce an update only when sellable
-   availability changes; verify hold-to-ticket commitment produces none when the
-   exposed post-state is unchanged. Change a session schedule and verify the
-   schedule snapshot shares the same per-session version sequence. Change only
-   Staff assignment and verify it produces neither source-version advance nor
-   OTA-observable snapshot.
 7. After valid commercial payment evidence, commit a booking's complete active
    hold set and verify that an absent or expired hold commits none of the set.
    Send a repeated or late release and verify capacity is returned no more than
@@ -222,19 +188,8 @@ run is not sufficient proof of index, lock or migration behaviour.
 13. Request cancellation on a session with commitments. Verify normal check-in
    stops, a 003.3 handoff exists, and no automatic refund, reschedule or ticket
    replacement occurs in this feature.
-14. Pause/resume sales and cancel/close a session. Verify each resulting
-    OTA-observable sale-state change is available to 003.4 with no customer,
-    booking, payment or ticket-detail data. Verify `SALES_PAUSED` is a normal
-    closed/zero-availability snapshot, not a mapping failure. Deliver duplicate
-    and older updates and verify 003.4 keeps the newer source version; simulate
-    a gap and verify it obtains one authoritative complete-session Operations
-    resync at the existing source version. Simulate 003.4 sync failure and
-    verify only its affected OTA mapping is suspended: Operations capacity,
-    session sale state and direct-Mland booking behaviour remain unchanged.
-    Verify the internal snapshot publication is committed with the successful
-    Operations change, survives a consumer failure/restart for at-least-once
-    handling, and does not make an external OTA call inside the Operations
-    transaction.
+14. Pause/resume sales and cancel/close a session. Verify
+    no customer, booking, payment or ticket-detail data is exposed.
 
 ## Package availability per location (proposed 2026-11-17)
 

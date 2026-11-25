@@ -1,5 +1,7 @@
 # Feature Specification: Navigation Shell
 
+> **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
+
 **Date created**: 2026-11-22 (decisions); split out of `013-manager-home` on 2026-11-25
 **Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
@@ -20,7 +22,7 @@ is not rewritten.
 ## Scope and source alignment
 
 The navigation shell is the frame around every operations page used by Manager and Staff. It replaces the
-long sidebar with a narrow **rail** of 10 groups, **tabs** inside a group, a **page header** (breadcrumb, title,
+long sidebar with a narrow **rail** of 9 groups, **tabs** inside a group, a **page header** (breadcrumb, title,
 action buttons, tabs) and **count badges** that show how much work is waiting in each operational queue.
 
 The shell **only reads, links and arranges**. It owns no business data, changes nothing, and does not replace
@@ -31,7 +33,7 @@ any screen it links to. Each page, queue and count belongs to its owning feature
 | Feature | Relationship |
 | --- | --- |
 | 010 Manager Dashboard | Owns the page `/manager/dashboard` and its blocks. The shell's `home` group opens it for a Manager. `/manager/home` redirects there. |
-| 003.1 / 003.2 / 003.3 / 003.4 | Own the queues the badges count: late payments, refund queue, ticket change requests, cash-close differences, OTA reconciliation. The shell never owns or edits them. |
+| 003.1 / 003.2 / 003.3 | Own the queues the badges count: late payments, refund queue, ticket change requests, cash-close differences. The shell never owns or edits them. |
 | 004 Customer design review | Owns the design-review queue that the `customers/design-review` badge counts. |
 | 011 Review management | Has no "awaiting moderation" queue, so the `customers/reviews` tab has no badge (decision 2026-11-18). |
 | 001 Account management | Role and sign-in. Decides which groups a role sees together with the route access matrix. |
@@ -45,7 +47,7 @@ any screen it links to. Each page, queue and count belongs to its owning feature
 ### Session 2026-11-18 (as Manager Home)
 
 - Q: Must the first version show all queue counts at once, or may they appear as they become available? → A: They ship incrementally. A count appears only when it matches the owning list (FR-005); a queue without a working count has no badge.
-- Q: Is there a count for reviews awaiting moderation? → A: No. Feature 011 has no such concept, so it is dropped (owner decision Hồ Hoàng Quốc, 2026-11-18). Six queues are counted and the shell does not wait for the 011 owner.
+- Q: Is there a count for reviews awaiting moderation? → A: No. Feature 011 has no such concept, so it is dropped (owner decision Hồ Hoàng Quốc, 2026-11-18). Six queues are counted and the shell does not wait for the 011 owner. *(Five since 2026-11-25: the OTA queue was removed.)*
 - Q: Should a count be highlighted when an item has waited too long? → A: No, count only in the first version. A threshold can be added once each queue's owner defines it.
 
 ### Session 2026-11-22 (navigation shell; owner directive, design approved on a prototype)
@@ -126,7 +128,7 @@ A user collapses the rail to icons only to gain room, and the choice is remember
 ### Functional Requirements
 
 - **FR-001** *(access)*: The rail shows a group to a role by the same rules the old sidebar used (Manager only, Manager and Staff, everyone but Admin). The server decides every permission; hiding a menu entry is not the control. Staff, Admin, Member and signed-out visitors see no Manager figure.
-- **FR-002** *(rail and tabs)*: The rail has the 10 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
+- **FR-002** *(rail and tabs)*: The rail has the 9 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
 
   | Group (id) | Tabs (id) |
   | --- | --- |
@@ -138,13 +140,12 @@ A user collapses the rail to icons only to gain room, and the choice is remember
   | Workshop (`workshop`) | Bảng điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và khung giờ `locations`, Gói workshop `packages`, Hiệu lực gói `availability`, Add-on gói `add-ons` |
   | Thu tiền (`collect`) | Folio vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán về trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
   | Vé và hoàn tiền (`tickets`) | Hủy và đổi vé `ticket-actions`, Yêu cầu đổi vé `change-requests`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases` |
-  | Kết nối OTA (`ota`) | Kênh đối tác `channels`, Đối soát đồng bộ `reconciliation`, Bằng chứng tài chính `finance`, Add-on tại xưởng `add-ons` |
   | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit` |
 
 - **FR-003** *(rail width and collapse)*: The rail is 112 px wide (icon above a 13 px label). A toggle at the top collapses it to 60 px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`). The toggle is hidden at 640 px and below, where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
 - **FR-004** *(page header)*: Every operations page has a header with breadcrumb, title, action buttons and the group's tabs. The own title of about 25 pages is removed so it does not repeat the header; the content below is unchanged. A page with its own header button registers it into the header.
 - **FR-005** *(badges and count equals list)*: The rail and tabs show count badges. Hook `useNavBadges(role)` returns `{ status: 'loading' | 'ready', counts: { [groupId]: number, [`${groupId}/${tabId}`]: number } }`. A badge's number MUST equal the number of items the linked list shows when opened from the badge, and the tab opens that list filtered to exactly the counted set. A badge MUST NOT show a number it cannot back with that list.
-  Manager counts come from the existing count reads (design review `customers/design-review`, change requests `tickets/change-requests`, refund queue `tickets/refunds`, cash-close differences `collect/cash-close`, late payments `collect/late-payments`, OTA reconciliation `ota/reconciliation`); see `contracts/reads.md`. Staff: `counts` is empty for now (the Staff badges are a later change by another owner).
+  Manager counts come from the existing count reads (design review `customers/design-review`, change requests `tickets/change-requests`, refund queue `tickets/refunds`, cash-close differences `collect/cash-close`, late payments `collect/late-payments`); see `contracts/reads.md`. Staff: `counts` is empty for now (the Staff badges are a later change by another owner).
 - **FR-006** *(group sums and failures)*: A group count is the sum of its tabs' counts and exists only when every one of them was read. A count that cannot be read has no key and no badge, and the rail keeps working. Zero shows no badge. An unreadable count is never shown as 0.
 - **FR-007** *(refresh)*: Counts are read once on entry, cached 30 seconds, and refreshed every 60 seconds while the page is visible. The badges are not dashboard data, so the dashboard's "no timer" rule (010 FR-023) does not apply to them.
 - **FR-008** *(read-only)*: The shell creates, changes or deletes no business data.

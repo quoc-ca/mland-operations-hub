@@ -215,7 +215,7 @@ class BankRefundServiceTest {
 
     @Test
     void staffMayEnterTheAccountAtTheCounterAndThatKillsTheLink() {
-        var opened = service.open(TICKET, GROUP, RefundReason.OTA_ADDON_OVERCHARGE, "addon-1", 50_000,
+        var opened = service.open(TICKET, GROUP, RefundReason.OVERCHARGE_AFTER_FINALIZED, "correction-1", 50_000,
                 "corr");
 
         var request = service.submitAccountAtCounter(opened.request().getRequestReference(), "BIDV",

@@ -681,7 +681,8 @@ paths:
         '503': {description: 'Problem code RECONCILIATION_SOURCE_UNAVAILABLE: the filter includes BOOKING_TIME and the 003.1 facade failed or timed out; no partial list is returned (R02, 2026-11-16).', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-refund-requests:
     get:
-      summary: List refund requests (Manager; transfer actors see PENDING_TRANSFER)
+      summary: List refund requests (Manager sees all; Staff see only refunds of tickets on sessions assigned to them)
+      description: 'Owner decision 2026-11-26. A refund of a whole booking group is listed for a Manager only. With waiting=true the route is Manager only (403 for Staff).'
       security: [{bearerAuth: []}]
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/RefundStatus'}}
@@ -1107,7 +1108,7 @@ paths:
         from-session at a time (the other stays where it is); `pairs` is returned only when two `from` values are given
         (both sessions move together). An option the system could only auto-approve with a Manager
         (RESCHEDULE_QUOTA_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, CHANGE_ALLOWANCE_EXHAUSTED) is listed with
-        requiresManager=true and the rule names; a full session, a package-rule break, an OTA ticket or a folio that
+        requiresManager=true and the rule names; a full session, a package-rule break or a folio that
         is not OPEN is never selectable. remainingCapacity is exact for every caller. Served Cache-Control no-store.
       security: [{bearerAuth: []}]
       parameters:
@@ -1120,7 +1121,7 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-tickets/{ticketCode}/change-option-lookups:
     post:
@@ -1151,7 +1152,7 @@ paths:
         '200': {description: Options of the ticket, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOptions'}}}}
         '400': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {description: 'TICKET_FOLIO_NOT_OPEN, or OTA_TICKET_NOT_SUPPORTED', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '409': {description: 'TICKET_FOLIO_NOT_OPEN', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '429': {description: 'Rate limit of the 003.1 group lookup reached; retry later', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /api/v1/workshop-booking-groups/{groupCode}/ticket-changes:
@@ -1478,8 +1479,8 @@ components:
         groupCode: {type: string, nullable: true}
         source:
           type: string
-          description: The stored refund reason (decision 2026-11-13; the five values the backend persists).
-          enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY, OTA_ADDON_OVERCHARGE]
+          description: The stored refund reason (decision 2026-11-13; the four values the backend persists).
+          enum: [MLAND_CANCELLATION, LATE_PAYMENT_NOT_RECONFIRMED, OVERCHARGE_AFTER_FINALIZED, EXCESS_OR_DUPLICATE_MONEY]
         amount: {$ref: '#/components/schemas/Vnd'}
         status: {$ref: '#/components/schemas/RefundStatus'}
         accountNumberMasked: {type: string, nullable: true}
@@ -1694,7 +1695,7 @@ components:
         locationName: {type: string, nullable: true, description: 'Display name of the location (003.2 FR-044). A change to another location where the package is ACTIVE needs no Manager (FR-059); the client shows the name next to every row (FR-058, FR-063).'}
         remainingCapacity: {type: integer, minimum: 1, description: 'Exact seats left, shown to every caller (decision 2026-11-16). A session with no free seat is not listed.'}
         remainingRescheduleQuota: {type: integer, minimum: 1, description: 'Customer-change quota left on the target session (003.2 FR-035). A session whose quota is used up is not listed (user decision 2026-11-16); the quota is still rechecked on confirm, so RESCHEDULE_QUOTA_EXHAUSTED can only come from a race.'}
-        selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; an OTA ticket or a folio that is not OPEN answers 409 for the whole request.'}
+        selectable: {type: boolean, description: 'False for a full session; never lifted by a Manager. A target outside the package rules or past the LATE_ARRIVAL 7-day window is not listed at all; a folio that is not OPEN answers 409 for the whole request.'}
         reasonCode: {type: string, nullable: true, description: 'Set when selectable is false: INSUFFICIENT_CAPACITY.'}
         requiresManager: {type: boolean, description: 'True when only a Manager could allow it (the change is then queued, 202).'}
         managerRules: {type: array, items: {type: string, enum: [CHANGE_ALLOWANCE_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, RESCHEDULE_QUOTA_EXHAUSTED]}}

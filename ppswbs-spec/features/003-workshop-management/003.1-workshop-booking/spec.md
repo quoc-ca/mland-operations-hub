@@ -1,5 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-06
 **Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
@@ -25,7 +27,7 @@ the Java backend does not render application UI.
 
 Every active canonical `MANAGER` has global location scope for Manager-authorized
 actions throughout Feature 003, including booking support, operations,
-settlement/changes and OTA connectivity. Manager authorization does not depend
+settlement/changes. Manager authorization does not depend
 on `activeLocationIds`. Staff actions that are assigned to Staff remain scoped
 to their active locations; Member ownership checks and explicitly Admin-only
 technical actions remain unchanged. There is no Central Manager tier.
@@ -80,7 +82,7 @@ evidence; the Member quote itself is superseded for direct bookings by FR-044)*.
 ## Direct-booking payment and folio policy (2026-11-05)
 
 The owner-approved policy is
-[Direct Booking Open Folio and OTA Financial Separation](../direct-booking-open-folio-policy.md).
+[Direct Booking Open Folio](../direct-booking-open-folio-policy.md).
 
 For direct Guest and Member bookings, the booking owns the deposit and its
 verified payment evidence:
@@ -99,10 +101,7 @@ verified payment evidence:
 - Direct deposits are non-refundable and ordinary closure does not call VNPay
   QueryDR/refund.
 - Exceptional Mland-caused/provider refunds remain a separate audited flow.
-- OTA bookings: the OTA collects 100% of the ticket price; they do not use the
-  direct Mland folio or VNPay collection. Mland shop add-ons for an OTA booking
-  use a separate Mland bill. Free laser engraving is an OTA-only entitlement and
-  creates no bill.
+
 - Loyalty contract: a verified deposit continues to emit
   `WORKSHOP_DEPOSIT_ACCEPTED` (the event is not renamed).
 
@@ -451,8 +450,7 @@ FR-007–FR-007d, FR-008/FR-009, FR-010–FR-013d, FR-014h, FR-016–FR-017k,
 FR-020, FR-021a–c, FR-022a, FR-024, user stories US2–US4, the Scope paragraph
 below and the Key Entities "Workshop Booking"/"Booking Ticket" as applied to
 direct bookings. Each still-wanted behaviour is restated for groups in
-FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
-`WorkshopBooking`, have no Mland folio and no customer lookup.
+FR-030–FR-043 or below. *(The former OTA exception on `WorkshopBooking` was removed 2026-11-25.)*
 
 - **FR-044**: A booking group (FR-030) MUST be the only way to create a direct
   booking; one person is a group with one ticket (FR-043). The system MUST NOT
@@ -475,8 +473,7 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   `GET /api/v1/members/me/workshop-bookings` and
   `GET /api/v1/members/me/workshop-bookings/{bookingCode}`. *Decided 2026-11-13:*
   `POST /api/v1/booking-lookups` and `POST /api/v1/booking-magic-links/exchanges`
-  are removed too, because they project only a direct `WorkshopBooking` and an
-  OTA booking has no customer lookup.
+  are removed too, because they project only a direct `WorkshopBooking`.
   *State 2026-11-14:* every route above, its controller, its services and their
   tests are removed (T100, T104), and no frontend file calls them (T103).
   **Updated 2026-11-15: no longer pending.** T100 removed the five booking-wide
@@ -618,9 +615,7 @@ FR-030–FR-043 or below. **Not changed:** OTA bookings (003.4) keep
   `WorkshopBooking` rows and their dependent rows (dev/test only, FR-043), then
   drops tables used only by the removed flow. Candidates: Member quotes,
   single-booking deposit attempts and reconciliation, single-booking Magic
-  Links; the backend step confirms each against code still used by groups and
-  OTA and lists the result in `data-model.md`. Applied migrations are not edited.
-  Tables still used by OTA bookings stay. Environments are reseeded.
+  Links; the backend step confirms each against code still used by groups and lists the result in `data-model.md`. Applied migrations are not edited. Environments are reseeded.
 
 ## Public package price shows the automatic discount (decision 2026-11-14)
 
@@ -810,15 +805,14 @@ other Operations rejection to `PACKAGE_SELECTION_INVALID`.
 **Edge cases:** a cart line whose Package is deactivated between quote and
 confirmation fails only that confirmation (all or none, FR-031); an existing
 confirmed group, ticket, hold or payment is untouched when a pair is set
-`INACTIVE` (003.2 FR-040), so 003.1 never cancels or hides them; an OTA booking
-is not affected (003.2 FR-039, 003.4). A ticket whose sessions all moved to
+`INACTIVE` (003.2 FR-040), so 003.1 never cancels or hides them. A ticket whose sessions all moved to
 location B is read as B at once, with no job and no data backfill.
 
 ## Scope and source alignment
 
 > **Superseded 2026-11-13** for direct bookings by FR-044–FR-051: a direct
 > booking is a booking group; the "one booking, no cart" scope below now
-> applies only to OTA bookings received through 003.4.
+> no longer applies to any live booking.
 
 This feature defines the first customer-facing Workshop Booking slice for Guests
 and Members. It owns one booking for one selected workshop package/course,
@@ -848,8 +842,7 @@ The source use cases are:
 
 Workshop schedule configuration, slot capacity configuration, staff assignment,
 participant check-in, attendance finalization/no-show processing, post-session
-settlement, customer cancellation/refund, manual rescheduling, and external OTA
-synchronization are explicitly deferred to later features. This feature consumes
+settlement, customer cancellation/refund, and manual rescheduling are explicitly deferred to later features. This feature consumes
 published package, session, capacity, and supported-material information; it
 does not own their operational configuration workflows.
 
@@ -1340,7 +1333,7 @@ package, and see enough information to decide whether to continue to booking.
 
 ### User Story 2 - Create a pending workshop booking (Priority: P1)
 
-*(Superseded for direct bookings 2026-11-13 by FR-030/FR-032/FR-044 and User Stories 5-6: one cart creates a booking group with a 12-minute hold and per-ticket collection, not one booking with a 10-minute hold and a deposit. Kept as history and for OTA.)*
+*(Superseded for direct bookings 2026-11-13 by FR-030/FR-032/FR-044 and User Stories 5-6: one cart creates a booking group with a 12-minute hold and per-ticket collection, not one booking with a 10-minute hold and a deposit. Kept as history.)*
 
 As a Guest or Member, I want to select a package/course and participant count
 so that the system can prepare my deposit payment and reserve every session
@@ -1377,7 +1370,7 @@ required session.
 
 ### User Story 3 - Pay the workshop deposit (Priority: P1)
 
-*(Superseded for direct bookings 2026-11-12/13 by FR-032, FR-035, FR-036, FR-040 and FR-044 and User Story 6: the booking-time amount is the per-ticket collection of the group, not `ceil(post/2)`, and a late payment is reviewed per FR-040. Kept as history and for OTA.)*
+*(Superseded for direct bookings 2026-11-12/13 by FR-032, FR-035, FR-036, FR-040 and FR-044 and User Story 6: the booking-time amount is the per-ticket collection of the group, not `ceil(post/2)`, and a late payment is reviewed per FR-040. Kept as history.)*
 
 As a Guest or Member, I want to pay the required workshop deposit so that my
 booking is confirmed and I receive a booking reference and check-in ticket.
@@ -1419,7 +1412,7 @@ payment confirmation is received.
 
 ### User Story 4 - Look up a booking (Priority: P2)
 
-*(Superseded for direct bookings 2026-11-13 by FR-044 and FR-047–FR-049 and User Story 7: lookup is by booking group code. Kept as history and for OTA.)*
+*(Superseded for direct bookings 2026-11-13 by FR-044 and FR-047–FR-049 and User Story 7: lookup is by booking group code. Kept as history.)*
 
 As a Guest or Member, I want to look up my booking so that I can review its
 status, workshop information, payment state, and check-in ticket.
@@ -1722,7 +1715,7 @@ deadline.
 > direct booking is only a booking group, so for direct bookings:
 >
 > - **Superseded for direct bookings** (exactly the list of the FR-044
->   section, kept for history and for OTA `WorkshopBooking`): FR-003 ("no
+>   section, kept for history): FR-003 ("no
 >   generic cart"), FR-004, FR-006, FR-006a/b, FR-007–FR-007d (incl. FR-007a
 >   and FR-007a1), FR-008/FR-009, FR-010–FR-013d (incl. QueryDR at minutes 8/9
 >   → FR-032, late payment → FR-040/FR-040a), FR-014h, FR-016–FR-017k, FR-020
@@ -1908,10 +1901,7 @@ deadline.
   (003.2) owns cancellation eligibility and no-show determination; Settlement
   (003.3) owns folio closure and financial state. A booking is a no-show only
   when every ticket on every required session has a final `NO_SHOW`; partial
-  attendance proceeds to normal checkout. OTA bookings are separate: the
-  OTA collects 100% of the ticket price, they do not use the direct Mland folio
-  or VNPay collection, Mland shop add-ons use a separate Mland bill, and free
-  laser engraving is an OTA-only entitlement that creates no bill.
+  attendance proceeds to normal checkout.
 - **FR-008**: The system MUST hold the requested capacity temporarily in every
   required session for a pending booking, for no longer than 10 minutes.
 - **FR-009**: The system MUST release the temporary capacity hold when valid
@@ -1922,7 +1912,7 @@ deadline.
 - **FR-010a**: The Payment Gateway MUST own payment authorization steps such as
   QR scanning or OTP entry; the Workshop Booking system MUST NOT capture, store,
   or independently validate gateway OTP values.
-- **FR-010b** *(superseded for direct bookings by FR-032/FR-044, 2026-11-12/13; applies to OTA only)*: While the payment hold remains active, the system MUST run
+- **FR-010b** *(superseded for direct bookings by FR-032/FR-044, 2026-11-12/13; its remaining OTA use removed 2026-11-25)*: While the payment hold remains active, the system MUST run
   bounded automatic signed QueryDR recovery only for a payment attempt with no
   terminal IPN outcome. A QueryDR result MUST pass the same signature, booking
   reference, amount, currency, status, idempotency and capacity-commit
@@ -2083,7 +2073,7 @@ deadline.
   `GroupConfirmationService` currently accept and ignore such a payment on a
   confirmed group (replay path), so the money is neither recorded nor refunded
   (task T124).
-- **FR-013b** *(superseded for direct bookings by FR-040/FR-040a, 2026-11-12: a late signed success is re-confirmed or reviewed per group, not rejected outright; applies to OTA only)*: A signed success result received after the related hold has
+- **FR-013b** *(superseded for direct bookings by FR-040/FR-040a, 2026-11-12: a late signed success is re-confirmed or reviewed per group, not rejected outright; its remaining OTA use removed 2026-11-25)*: A signed success result received after the related hold has
   expired MUST NOT confirm or reactivate the booking, restore capacity, issue a
   ticket, or start a new payment link. The system MUST retain only safe
   reconciliation evidence. Any active Manager globally
@@ -2222,7 +2212,7 @@ deadline.
   contact email, Guest lookup using the booking code and stored contact phone
   MUST provide the same read-only booking and ticket view. V1 MUST NOT
   automatically change the contact email or send a Magic Link to a new email.
-- **FR-017b4** *(superseded for groups 2026-11-15: the group Magic Link gives the buyer's full group view of FR-049, see Session 2026-11-15; kept for OTA/history)*: A valid Magic Link projection MUST contain only booking code,
+- **FR-017b4** *(superseded for groups 2026-11-15: the group Magic Link gives the buyer's full group view of FR-049, see Session 2026-11-15; kept for history)*: A valid Magic Link projection MUST contain only booking code,
   booking/deposit status, package, branch, required-session schedule,
   participant count, and ticket codes with the opaque Operations-issued
   `qrReference` needed to render each ticket QR. That reference is a bearer
@@ -2564,7 +2554,7 @@ never matched by email.)*
 
 *(Entities added 2026-11-15 for the group model of FR-030–FR-044; the Workshop
 Booking, Package Invoice and Booking Ticket entries above describe the
-superseded single-booking design and survive only for OTA bookings. Full
+superseded single-booking design (history only). Full
 definitions are in [data-model.md](data-model.md).)*
 
 - **Booking Group** *(FR-030, FR-044)*: The one direct booking created by
@@ -2760,7 +2750,7 @@ definitions are in [data-model.md](data-model.md).)*
   folio at the verified collected amount.
 - Exceptional Mland-caused or provider-driven refunds are a separate audited
   flow and are not part of ordinary cancellation/no-show.
-- OTA payment and provider facts are never mutated by the direct-booking flow.
+
 - The exact database baseline and provider-specific contract details are selected
   in the implementation plan, not invented in this specification.
 

@@ -76,15 +76,6 @@ public class WorkshopPackageReservationPolicy {
 
     @Transactional
     public RejectionReason validate(ReserveBookingCapacityCommand command) {
-        return validate(command, true);
-    }
-
-    /**
-     * @param enforceAvailability false only for OTA acceptance, which is never refused at an INACTIVE pair
-     *                            (003.2 FR-039: the order is already sold on the external platform)
-     */
-    @Transactional
-    public RejectionReason validate(ReserveBookingCapacityCommand command, boolean enforceAvailability) {
         Long packageId = parsePackageReference(command.packageReference());
         if (packageId == null) {
             return RejectionReason.PACKAGE_SELECTION_INVALID;
@@ -98,8 +89,8 @@ public class WorkshopPackageReservationPolicy {
         List<String> sortedReferences = selectedReferences.stream().map(UUID::toString).sorted().toList();
         List<WorkshopSession> locked = sessionRepository.findByReferenceInWithLock(sortedReferences);
         // 003.2 FR-039: PACKAGE_NOT_PUBLISHED wins; then one INACTIVE pair refuses the whole command, before any hold.
-        // Not rechecked at hold commit (FR-040) and not applied to OTA acceptance (FR-039).
-        if (enforceAvailability && locked.size() == selectedReferences.size() && locked.stream().anyMatch(session ->
+        // Not rechecked at hold commit (FR-040).
+        if (locked.size() == selectedReferences.size() && locked.stream().anyMatch(session ->
                 session.getLocation() == null
                         || !availabilityService.isSellable(packageId, session.getLocation().getId()))) {
             return RejectionReason.PACKAGE_NOT_AVAILABLE_AT_LOCATION;
@@ -284,42 +275,6 @@ public class WorkshopPackageReservationPolicy {
             }
         }
         return true;
-    }
-
-    /**
-     * Validates the current Basic Ring package configuration for OTA acceptance.
-     * The editable package name is not used as a type discriminator; the supported
-     * configuration is one required session, same-location and no same-day gap.
-     */
-    @Transactional
-    public RejectionReason validateOtaBooking(String packageReference, UUID sessionReference, int participantCount) {
-        Long packageId = parsePackageReference(packageReference);
-        if (packageId == null) {
-            return RejectionReason.PACKAGE_SELECTION_INVALID;
-        }
-        WorkshopPackage workshopPackage = packageRepository.findByIdWithLock(packageId).orElse(null);
-        if (workshopPackage == null || workshopPackage.getState() != WorkshopPackageState.PUBLISHED) {
-            return RejectionReason.PACKAGE_NOT_PUBLISHED;
-        }
-        if (workshopPackage.getRequiredSessionCount() != 1
-                || !workshopPackage.isSameLocationRequired()
-                || workshopPackage.getMinimumSameDaySlotGap() != 0
-                || participantCount < workshopPackage.getMinParticipants()
-                || participantCount > workshopPackage.getMaxParticipants()) {
-            return RejectionReason.PACKAGE_SELECTION_INVALID;
-        }
-
-        List<WorkshopSession> lockedSessions = sessionRepository.findByReferenceInWithLock(
-                List.of(sessionReference.toString()));
-        if (lockedSessions.size() != 1) {
-            return RejectionReason.PACKAGE_SELECTION_INVALID;
-        }
-        WorkshopSession session = lockedSessions.getFirst();
-        if (session.getState() != SessionState.PUBLISHED || session.getScheduledStartAt() == null
-                || !session.getScheduledStartAt().isAfter(Instant.now())) {
-            return RejectionReason.SALE_NOT_ELIGIBLE;
-        }
-        return null;
     }
 
     private RejectionReason validateSameDaySlotGap(List<WorkshopSession> sessions, int minimumGap) {

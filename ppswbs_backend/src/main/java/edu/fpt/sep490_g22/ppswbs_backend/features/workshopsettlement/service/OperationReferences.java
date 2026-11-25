@@ -7,7 +7,7 @@ import java.util.HexFormat;
 
 /**
  * Builds operation references that fit the 128-character reference columns
- * (idempotency ledgers, OTA snapshots, outboxes). The Idempotency-Key header may be up to 128
+ * (idempotency ledgers, outboxes). The Idempotency-Key header may be up to 128
  * characters, so "PREFIX-ticket-key" can overflow; an over-long result keeps the readable prefix
  * and replaces the key by its SHA-256 hex, which stays deterministic for replays.
  */

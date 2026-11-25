@@ -1,7 +1,7 @@
 /* Simulated GHTK partner portal (Session 2026-11-20): operations layout with a green partner accent. */
 .carrier-brand span{background:#069255}
 .carrier-sim{color:#b45309;font-weight:600}
-.carrier-main .ota-topline a{color:#6b7280;text-decoration:none}
+.carrier-main .wsp-topline a{color:#6b7280;text-decoration:none}
 .carrier-orders .order-tabs .active{border-bottom-color:#069255}
 .carrier-route{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 20px}
 .carrier-route>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid #eef0f3;border-radius:8px;background:#fafbfc;min-width:0}

@@ -1,5 +1,7 @@
 # Feature 003.2 frontend administration evidence
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
+
 ## Scope
 
 The frontend administration surface is implemented in `ppswbs_frontend`:

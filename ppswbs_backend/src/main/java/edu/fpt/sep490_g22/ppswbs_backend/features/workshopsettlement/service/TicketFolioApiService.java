@@ -513,7 +513,7 @@ public class TicketFolioApiService {
         FolioBalanceService.FolioBalance balance = folioBalances.balanceOf(folio);
         long chargeTotal = charges.findByBillReferenceAndLifecycleStatusOrderByIdAsc(folio.getBillReference(), "CONFIRMED")
                 .stream().mapToLong(c -> c.getAmountVnd() == null ? 0L : c.getAmountVnd()).sum();
-        long totalAmount = Math.addExact(folio.getPostPromotionAmountVnd(), chargeTotal);
+        long totalAmount = Math.addExact(folio.ticketPriceVnd(), chargeTotal);
         long balanceDue = balance.balanceDue();
         long pendingAmount = balance.pendingVnd();
         long paidAmount = Math.max(0L, totalAmount - balanceDue);

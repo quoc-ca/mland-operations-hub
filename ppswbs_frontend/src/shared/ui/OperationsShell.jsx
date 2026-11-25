@@ -10,7 +10,7 @@ import {
   groupLabel, locate, pageActions, pageTitle, tabKey, tabLabel, visibleGroups, visibleTabs,
 } from '../nav/navModel';
 import { useNavBadges } from '../nav/useNavBadges';
-import '../../ota-connectivity/ota-connectivity.css';
+import './workspace.css';
 import './operationsShell.css';
 
 const ICONS = {
@@ -22,7 +22,6 @@ const ICONS = {
   cal: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM16 3v4M8 3v4M3 11h18',
   cash: 'M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
   ticket: 'M3 9V6h18v3a3 3 0 0 0 0 6v3H3v-3a3 3 0 0 0 0-6zM13 6v12',
-  plug: 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4',
   gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
   truck: 'M1 5h13v11H1zM14 9h4l4 4v3h-8zM5.5 18.5a1.5 1.5 0 1 0 0-.01M17.5 18.5a1.5 1.5 0 1 0 0-.01',
 };

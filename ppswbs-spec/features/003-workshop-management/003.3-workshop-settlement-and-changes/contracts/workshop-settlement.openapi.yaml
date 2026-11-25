@@ -10,7 +10,8 @@ info:
     T123/T139/T175 (2026-11-16): the booking-wide /workshop-bookings/{bookingCode}/... blocks and the
     /workshop-refund-policies routes are removed from this file; per-ticket routes are in
     workshop-settlement-ticket.openapi.yaml. Still served from this file:
-    /workshop-settlement-cases and the OTA add-on bill routes.
+    /workshop-settlement-cases.
+    2026-11-25: the OTA add-on bill routes (/ota-addon-bills/**) were removed with OTA.
 paths:
   /api/v1/workshop-settlement-cases:
     get:
@@ -44,74 +45,6 @@ paths:
                 items: {$ref: '#/components/schemas/SettlementCaseProjection'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
-        '422': {$ref: '#/components/responses/Problem'}
-  /api/v1/ota-addon-bills/{billReference}:
-    parameters:
-      - name: billReference
-        in: path
-        required: true
-        schema: {type: string}
-    get:
-      summary: Read OTA add-on bill details and latest payment attempt
-      description: "Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16)."
-      security: [{bearerAuth: []}]
-      responses:
-        '200': {$ref: '#/components/responses/OtaAddonBill'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '404': {$ref: '#/components/responses/Problem'}
-  /api/v1/ota-addon-bills/{billReference}/payment-attempts:
-    parameters:
-      - name: billReference
-        in: path
-        required: true
-        schema: {type: string}
-    post:
-      summary: Create a short-lived VNPay payment checkout attempt for an OTA add-on bill (SHOP_ADDON)
-      description: >-
-        Staff assigned to the booking's session, or Manager (fix A26, 2026-11-16), may initiate checkout for an OPEN OTA add-on bill.
-        Exact bill amount only. Only one active pending attempt per bill. Idempotent on Idempotency-Key.
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      responses:
-        '201': {$ref: '#/components/responses/OtaAddonPaymentAttempt'}
-        '400': {$ref: '#/components/responses/Problem'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
-  /api/v1/ota-addon-bills/{billReference}/refunds:
-    parameters:
-      - name: billReference
-        in: path
-        required: true
-        schema: {type: string}
-    post:
-      summary: Manager-only overcharge refund for a paid OTA add-on bill (ADDON_REFUND)
-      description: >-
-        Only an active Manager (global scope) may open a refund for an overcharge on a PAID OTA add-on bill,
-        with a required reason. Refund amount must be <= unrefunded verified SHOP_ADDON collections.
-        Superseded 2026-11-12 (FR-038a, T104): no VNPay partial refund or QueryDR is used. The refund
-        opens a bank refund request (reason OTA_ADDON_OVERCHARGE) that follows the FR-039/FR-040 lifecycle
-        (PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER, PENDING_RECONCILIATION, REFUNDED, CLOSED_UNREACHABLE)
-        under /workshop-refund-requests; Staff may enter the account at the counter, and the case resolves only
-        when a Manager confirms REFUNDED. (Earlier wording: executed via VNPay partial refund adapter and
-        completed upon signed QueryDR verification.)
-        Idempotent on Idempotency-Key.
-      security: [{bearerAuth: []}]
-      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/OtaAddonRefundCommand'}
-      responses:
-        '201': {$ref: '#/components/responses/OtaAddonRefund'}
-        '400': {$ref: '#/components/responses/Problem'}
-        '401': {$ref: '#/components/responses/Problem'}
-        '403': {$ref: '#/components/responses/Problem'}
-        '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
 components:
   securitySchemes:
@@ -226,56 +159,6 @@ components:
         bookingCode: {type: string}
         correlationReference: {type: string}
         policyOrAmountOutcome: {type: string, description: Present only when authorized for that outcome.}
-    OtaAddonPaymentAttemptResponse:
-      type: object
-      required: [attemptReference, billReference, merchantReference, amountVnd, currency, expiresAt, status]
-      properties:
-        attemptReference: {type: string}
-        billReference: {type: string}
-        merchantReference: {type: string}
-        amountVnd: {type: integer, format: int64, minimum: 1}
-        currency: {type: string}
-        paymentUrl: {type: string, nullable: true}
-        expiresAt: {type: string, format: date-time}
-        status: {type: string}
-    OtaAddonRefundCommand:
-      type: object
-      required: [amountVnd, reason]
-      properties:
-        amountVnd: {type: integer, format: int64, minimum: 1}
-        reason: {type: string}
-    OtaAddonRefundProjection:
-      type: object
-      required: [refundReference, caseReference, billReference, channelBookingReference, amountVnd, currency, reason, lifecycleStatus, createdAt, updatedAt]
-      properties:
-        refundReference: {type: string}
-        caseReference: {type: string}
-        billReference: {type: string}
-        channelBookingReference: {type: string}
-        amountVnd: {type: integer, format: int64, minimum: 1}
-        currency: {type: string}
-        reason: {type: string}
-        lifecycleStatus: {type: string}
-        createdAt: {type: string, format: date-time}
-        updatedAt: {type: string, format: date-time}
-    OtaAddonBillProjection:
-      type: object
-      required: [billReference, channelBookingReference, quoteReference, itemCode, itemDescription, amountVnd, currency, lifecycleStatus, locationId, createdAt, refunds]
-      properties:
-        billReference: {type: string}
-        channelBookingReference: {type: string}
-        quoteReference: {type: string}
-        itemCode: {type: string}
-        itemDescription: {type: string}
-        amountVnd: {type: integer, format: int64, minimum: 1}
-        currency: {type: string}
-        lifecycleStatus: {type: string}
-        locationId: {type: string}
-        createdAt: {type: string, format: date-time}
-        latestPaymentAttempt: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}
-        refunds:
-          type: array
-          items: {$ref: '#/components/schemas/OtaAddonRefundProjection'}
     Problem:
       type: object
       required: [code, correlationReference]
@@ -304,15 +187,6 @@ components:
     SettlementCase:
       description: Safe settlement case projection
       content: {application/json: {schema: {$ref: '#/components/schemas/SettlementCaseProjection'}}}
-    OtaAddonBill:
-      description: OTA add-on bill projection
-      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonBillProjection'}}}
-    OtaAddonPaymentAttempt:
-      description: Short-lived payment checkout attempt for OTA add-on bill
-      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonPaymentAttemptResponse'}}}
-    OtaAddonRefund:
-      description: Overcharge refund projection for OTA add-on bill
-      content: {application/json: {schema: {$ref: '#/components/schemas/OtaAddonRefundProjection'}}}
     Problem:
       description: Safe typed error
       content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}

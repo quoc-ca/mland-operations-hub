@@ -43,7 +43,6 @@ public class CapacityHoldService {
     private final OperationsAuditEventRepository auditEventRepository;
     private final FacadeCommandIdempotencyManager idempotencyManager;
     private final ObjectMapper objectMapper;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     /**
      * Reserves capacity for one or multiple required sessions (all-or-nothing).
@@ -180,10 +179,6 @@ public class CapacityHoldService {
             holdRefs.add(UUID.fromString(holdRef));
         }
 
-        for (WorkshopSession session : orderedSessions) {
-            otaSnapshotService.publishForObservableChange(session, UUID.randomUUID().toString(), now);
-        }
-
         recordBusinessAudit(ACTION_RESERVE, command.correlationReference(), "SUCCESS", orderedSessions.getFirst().getId());
 
         CapacityHoldOutcome outcome = CapacityHoldOutcome.accepted(holdRefs, expiresAt);
@@ -302,16 +297,11 @@ public class CapacityHoldService {
 
         List<CapacityHold> holds = capacityHoldRepository.findByReferenceInWithLock(sortedHoldRefs);
         Instant now = Instant.now();
-        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (CapacityHold hold : holds) {
             if (hold.getState() == CapacityHoldState.ACTIVE) {
                 hold.setState(CapacityHoldState.RELEASED);
                 capacityHoldRepository.save(hold);
-                changedSessions.put(hold.getSession().getId(), hold.getSession());
             }
-        }
-        for (WorkshopSession changedSession : changedSessions.values()) {
-            otaSnapshotService.publishForObservableChange(changedSession, UUID.randomUUID().toString(), now);
         }
 
         Long sessionId = holds.isEmpty() ? null : holds.getFirst().getSession().getId();
@@ -333,17 +323,12 @@ public class CapacityHoldService {
         Instant now = Instant.now();
         List<CapacityHold> expiredList = capacityHoldRepository.findExpiredActiveHolds(now);
         int count = 0;
-        Map<Long, WorkshopSession> changedSessions = new LinkedHashMap<>();
         for (CapacityHold hold : expiredList) {
             if (hold.getState() == CapacityHoldState.ACTIVE && !hold.getExpiresAt().isAfter(now)) {
                 hold.setState(CapacityHoldState.EXPIRED);
                 capacityHoldRepository.save(hold);
-                changedSessions.put(hold.getSession().getId(), hold.getSession());
                 count++;
             }
-        }
-        for (WorkshopSession changedSession : changedSessions.values()) {
-            otaSnapshotService.publishForObservableChange(changedSession, UUID.randomUUID().toString(), now);
         }
         if (count > 0) {
             log.info("Expired {} pending capacity holds past expiresAt {}", count, now);

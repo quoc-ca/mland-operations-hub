@@ -31,7 +31,6 @@ const MANAGER_COUNTS = [
   ['tickets/refunds', 'countRefundWaiting'],
   ['collect/cash-close', 'countCashCloseDifferences'],
   ['collect/late-payments', 'countLatePayments'],
-  ['ota/reconciliation', 'countOtaNeedingAttention'],
 ];
 
 const EMPTY = { status: 'ready', counts: {} };

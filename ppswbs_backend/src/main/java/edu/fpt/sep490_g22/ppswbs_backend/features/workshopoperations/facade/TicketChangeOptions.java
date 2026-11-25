@@ -10,7 +10,7 @@ import java.util.UUID;
  */
 public record TicketChangeOptions(Status status, List<FromSession> perFromSession, List<Pair> pairs) {
 
-    public enum Status { OK, TICKET_NOT_FOUND, TICKET_NOT_ACTIVE, OTA_TICKET_NOT_SUPPORTED, FROM_SESSION_NOT_OF_TICKET }
+    public enum Status { OK, TICKET_NOT_FOUND, TICKET_NOT_ACTIVE, FROM_SESSION_NOT_OF_TICKET }
 
     public TicketChangeOptions {
         perFromSession = perFromSession == null ? List.of() : List.copyOf(perFromSession);

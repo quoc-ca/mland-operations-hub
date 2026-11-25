@@ -19,7 +19,6 @@ const counts = (overrides = {}) => ({
   'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
   'GET /api/v1/workshop-refund-requests/waiting-count': json(200, { waiting: 4 }),
   'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(200, { waiting: 1 }),
-  'GET /api/v1/ota-reconciliation-work-items/needing-attention-count': json(200, { waiting: 2 }),
   ...overrides,
 });
 
@@ -36,14 +35,13 @@ describe('useNavBadges', () => {
       'customers/design-review': 1, customers: 1,
       'tickets/change-requests': 2, 'tickets/refunds': 4, tickets: 6,
       'collect/cash-close': 1, 'collect/late-payments': 3, collect: 4,
-      'ota/reconciliation': 2, ota: 2,
     });
   });
 
   it('leaves out a count that cannot be read, and the group it would have completed, and stays ready', async () => {
     mockFetch(counts({
       'GET /api/v1/workshop-refund-requests/waiting-count': json(500, { code: 'X' }),
-      'GET /api/v1/ota-reconciliation-work-items/needing-attention-count': json(200, {}),
+      'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(200, {}),
     }));
     mount('MANAGER');
     await waitFor(() => expect(read().status).toBe('ready'));
@@ -51,9 +49,9 @@ describe('useNavBadges', () => {
     expect(shown['tickets/change-requests']).toBe(2);
     expect(shown).not.toHaveProperty('tickets/refunds');
     expect(shown).not.toHaveProperty('tickets');
-    expect(shown).not.toHaveProperty('ota/reconciliation');
-    expect(shown).not.toHaveProperty('ota');
-    expect(shown.collect).toBe(4);
+    expect(shown).not.toHaveProperty('collect/cash-close');
+    expect(shown).not.toHaveProperty('collect');
+    expect(shown['collect/late-payments']).toBe(3);
   });
 
   const hour = 60 * 60 * 1000;
@@ -124,9 +122,9 @@ describe('useNavBadges', () => {
     const calls = mockFetch(counts());
     mount('MANAGER');
     await waitFor(() => expect(read().status).toBe('ready'));
-    expect(calls).toHaveLength(6);
+    expect(calls).toHaveLength(5);
     await act(async () => { vi.advanceTimersByTime(BADGE_REFRESH_MS + 100); });
-    await waitFor(() => expect(calls).toHaveLength(12));
+    await waitFor(() => expect(calls).toHaveLength(10));
     expect(calls.every(call => call.method === 'GET')).toBe(true);
   });
 
@@ -138,6 +136,6 @@ describe('useNavBadges', () => {
     mount('MANAGER');
     expect(read().status).toBe('ready');
     await new Promise(resolve => setTimeout(resolve, 30));
-    expect(calls).toHaveLength(6);
+    expect(calls).toHaveLength(5);
   });
 });
