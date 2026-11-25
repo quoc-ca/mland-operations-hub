@@ -1,6 +1,20 @@
 ## 3. Database Design
 
-{{r4-db width=100% align=center}}
+The ERD is intentionally divided into three focused diagrams so that table names, keys and relationships remain readable in the published report.
+
+### 3.0a Core Catalogue and Workshop ERD
+
+{{r4-db-01-core-catalogue-workshop width=100% align=center}}
+
+### 3.0b Design and Customer Interaction ERD
+
+{{r4-db-02-design-customer-interaction width=100% align=center}}
+
+### 3.0c Commerce and Operations ERD
+
+{{r4-db-03-commerce-operations width=100% align=center}}
+
+Each diagram uses orthogonal relationship routing. A relationship must not pass through an entity or label, and no more than two relationships may cross the same relationship line. Cross-context relationships are represented by a labelled external-reference node instead of repeated long crossing lines.
 
 ### Table Inventory
 

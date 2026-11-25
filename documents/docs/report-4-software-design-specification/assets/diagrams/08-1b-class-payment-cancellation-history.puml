@@ -8,7 +8,7 @@ skinparam classAttributeIconSize 0
 skinparam nodesep 30
 skinparam ranksep 50
 skinparam ArrowColor #000000
-skinparam defaultFontSize 12
+skinparam defaultFontSize 16
 skinparam class {
   BorderColor #000000
   BackgroundColor #F5F5F5
@@ -24,7 +24,7 @@ skinparam class {
   AttributeFontStyle plain
   StereotypeFontStyle plain
 }
-left to right direction
+top to bottom direction
 hide circle
 
 class CheckoutController <<controller>> {
