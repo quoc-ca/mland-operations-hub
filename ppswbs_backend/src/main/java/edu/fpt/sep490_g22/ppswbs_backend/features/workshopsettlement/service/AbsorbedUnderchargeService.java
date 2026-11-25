@@ -135,7 +135,7 @@ public class AbsorbedUnderchargeService {
             throw new WorkshopSettlementConflictException("FOLIO_NOT_FINALIZED");
         }
         // T156: the folio lock is already held, so the ACTIVE sum cannot change between this check and the insert.
-        long folioTotal = Math.addExact(folio.getPostPromotionAmountVnd(),
+        long folioTotal = Math.addExact(folio.ticketPriceVnd(),
                 balances.confirmedCharges(folio.getBillReference()));
         long alreadyAbsorbed = undercharges.sumActiveByTicketCode(folio.getBookingReference());
         if (amountVnd > folioTotal || Math.addExact(alreadyAbsorbed, amountVnd) > folioTotal) {

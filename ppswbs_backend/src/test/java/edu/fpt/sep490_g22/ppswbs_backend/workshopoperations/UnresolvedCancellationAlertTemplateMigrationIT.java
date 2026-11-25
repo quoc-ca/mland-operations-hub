@@ -1,6 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
-import edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.persistence.OtaMigrationTestSupport;
+import edu.fpt.sep490_g22.ppswbs_backend.testsupport.MigrationTestSupport;
 import edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement.service.RenditionService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /** T133: V159 inserts the alert template definition and its active first version, on MySQL. */
 class UnresolvedCancellationAlertTemplateMigrationIT {
 
-    private static final OtaMigrationTestSupport DB = OtaMigrationTestSupport.fromEnvironment().orElse(null);
+    private static final MigrationTestSupport DB = MigrationTestSupport.fromEnvironment().orElse(null);
     private static String schema;
 
     @BeforeAll

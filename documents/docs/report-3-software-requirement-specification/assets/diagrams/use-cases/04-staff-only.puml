@@ -35,7 +35,6 @@ rectangle "Mland Operations System" {
     usecase "Change Ticket Sessions" as UC85
     usecase "Decide Ticket Change Request" as UC86
     usecase "Submit Refund Account" as UC89
-    usecase "Record OTA Shop Add-on" as UC95
   }
   package "Design and consultation" {
     usecase "Chat with Staff Consultant" as UC38
@@ -69,7 +68,6 @@ Staff --> UC84
 Staff --> UC85
 Staff --> UC86
 Staff --> UC89
-Staff --> UC95
 Staff --> UC38
 Staff --> UC40
 Staff --> UC58

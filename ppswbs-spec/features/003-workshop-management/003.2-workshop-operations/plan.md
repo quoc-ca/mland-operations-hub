@@ -1,5 +1,7 @@
 # Implementation Plan: Workshop Operations
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
@@ -141,55 +143,7 @@ global workshop actor: `isGlobalWorkshopActor` no longer accepts `ADMIN`, and
 location creation (`WorkshopLocationService`) requires an active Manager
 instead of the ADMIN-only `requireAllBranchActor` (T129).
 
-### Resolved OTA-Observable Snapshot Boundary
-
-Operations remains the sole source of session schedule, capacity and direct-
-Mland sale state. For a session (no package filter; the offer mapping is 003.4's, spec Q8, 2026-11-15), it makes a schedule snapshot
-and an availability/sale-state snapshot available to 003.4 only after a
-completed local change alters OTA-observable data. The schedule snapshot is
-limited to opaque session identity, location, scheduled start/end, source change
-identity/version and effective time. The availability/sale-state snapshot is
-limited to opaque session identity, location scope, sellable availability, sale
-state, source change identity/version and effective time. Neither contains PII,
-Booking/payment data, ticket detail or OTA mapping. Sellable availability
-subtracts confirmed ticket seats and active, unexpired direct-Mland holds.
-
-Each session has one monotonically increasing source-version sequence shared by
-both snapshot kinds. A completed transaction that changes one or more
-OTA-observable values advances it once and exposes the complete post-state; an
-internal-only change does neither. An authoritative resync returns the current
-complete snapshot for one affected session at its existing version. 003.4 owns
-provider mapping/delivery: it deduplicates at-least-once delivery, resyncs after
-a gap, and suspends only its affected mapping on a gap/order or provider
-delivery failure. Operations does not call an external OTA and that failure
-never pauses direct-Mland sales or changes Operations capacity.
-
 ### Resolved Ticket/Session Boundary
-
-### Approved OTA Publication Contract (T053-T055)
-
-The Operations module owns the internal `WorkshopSessionOtaSnapshot` boundary
-and its durable per-session source version. The snapshot contains only
-`sessionReference`, `locationReference`, `scheduledStart`, `scheduledEnd`,
-`sellableAvailability`, `saleState`, `sourceVersion`, `changeReference` and
-`effectiveAt`. `WorkshopSessionOtaSnapshotChanged` is the persistent internal
-Spring Modulith publication. It carries the complete snapshot and no booking,
-payment, ticket, attendance, Staff, PII or OTA mapping data.
-
-The source version is allocated in the same Operations transaction that changes
-an observable session value. A unique `(sessionReference, sourceVersion)`
-invariant and conditional publication claim make retries at-least-once but
-ordered. An internal-only change does not allocate a version. The resync
-boundary is an Operations-owned read-only facade query returning the complete
-current snapshot for exactly one session at its existing version; resync never
-allocates a version or changes business state.
-
-003.4 consumes the event, ignores duplicate/older versions, requests resync on
-a gap or unknown order, and owns provider mapping/delivery. A 003.4 failure
-may suspend only its own mapping. It cannot mutate Operations capacity, sale
-state or direct-Mland booking. V1 uses no broker and no external OTA call in
-the Operations transaction. Migration version remains a tech-lead-selected
-append-only value at implementation time.
 
 One participant has one persistent QR ticket, including for a multi-session
 package such as Wax Casting. Its
@@ -395,29 +349,6 @@ boundary.
    *(replaces "verified-refund consequence", spec Clarifications Q5, 2026-11-15)*
    therefore becomes visible to the existing Booking/Magic-Link access without
    Booking copying or owning a session schedule.
-   For 003.4, Operations exposes only the approved semantic schedule and
-   availability/sale-state snapshots for sessions *(2026-11-15, spec Q8: sessions are
-   shared by all Packages, so the snapshot is the session's full remaining
-   capacity with no per-package filter or OTA-only quota; which offer is sold is
-   the 003.4 mapping, not 003.2; was "mapped Basic Ring sessions")*. `DRAFT`
-   produces none; `PUBLISHED` makes the current snapshot available, while
-   `IN_PROGRESS`, `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and
-   `CANCELLED` have closed sale state. At scheduled start the scheduler changes
-   `PUBLISHED` or `SALES_PAUSED` *(Q2, 2026-11-15)* to `IN_PROGRESS`, within 5 minutes
-   of the start time with a failure beyond that logged at ERROR with a metric, no email (F14), and catch-up on
-   restart *(Q7, task T119)*, and persists the complete closed snapshot in
-   the same Operations transaction. `ATTENDANCE_FINALIZED` does not allocate a
-   second version when the snapshot is already closed and otherwise unchanged.
-   Hold creation, release and expiry notify when availability changes;
-   pause/resume, start and session cancellation/closure notify when sale state
-   changes. Hold-to-ticket commitment creates no notification when the
-   post-state is unchanged. Both snapshot kinds use one per-session source-version sequence;
-   a resync returns the one affected session's complete current post-state at
-   its existing version. The handoff is a persistent internal Spring Modulith
-   event publication recorded in the same Operations transaction; 003.4 consumes
-   it at-least-once and owns its separate durable provider delivery. V1 uses no
-   message broker. Concrete event/facade types, payload, schema, retry values
-   and provider policy remain unapproved.
    Java method names remain implementation details. Public HTTP location routes
    and REST DTO fields are defined in the OpenAPI contract. The approved
    facade-command idempotency boundary uses a
@@ -452,15 +383,6 @@ boundary.
    idempotent and cannot return capacity twice. Each booking-critical capacity
    command joins the caller's one local MySQL transaction, while gateway calls
    remain outside that transaction.
-   After a completed local transaction alters OTA-observable schedule,
-   sellable availability or sale state, advance that session's unified source
-   version once and make its complete post-state available to 003.4. The
-   notification is persisted as an internal Spring Modulith event in that same
-   transaction and is at-least-once: 003.4 applies only a newer source
-   version/change identity and requests an authoritative resync of the one
-   affected session on a gap or uncertain order. Resync does not advance the
-   source version. A 003.4 sync failure affects only that feature's OTA mapping
-   and reconciliation; it never changes an Operations session or direct booking.
 7. **Implement tickets and check-in.** Generate individual opaque QR references
    and unique ticket codes. Validate the scanner's current session/location,
    ticket entitlement, ticket validity, that ticket/session pair's attendance
@@ -532,16 +454,10 @@ ticket's own sessions, which is what `BookingAttendanceOutcomeService.evaluateTi
 already measures. The correction deadline follows the same anchor, so no
 correction can land after that ticket's terminal event (spec FR-032).
 
-**Decided 2026-11-14 (Hồ Hoàng Quốc): 003.2 enforces FR-036.**
-`cancelTicket`, `replaceTicketSessions` and `reissueTicketQr` refuse a ticket of
-an OTA-origin booking with one typed failure of their own, whatever the caller
-is; no such guard exists today, so it is part of the FR-036 work and T096
-verifies it.
-
 **Booking-wide types still present:** `BookingSettlementReadinessQuery`,
 `BookingCancellationEligibilityQuery`, `ReplaceRequiredSessionsCommand` and
 `CancelBookingCommand` stay on `WorkshopOperationsFacade` until 003.3 T106
-leaves no caller; their removal is T097 and keeps whatever OTA users remain.
+leaves no caller; their removal is T097.
 *(Updated 2026-11-15: T097 is done. It removed `BookingCancellationEligibilityQuery`,
 `ReplaceRequiredSessionsCommand`, `CancelBookingCommand` and the booking-wide
 settlement/attendance facade methods. Only `BookingSettlementReadinessQuery`
@@ -598,7 +514,7 @@ names are chosen at implementation.
 | T120 | Read-only check that Loyalty `BRANCH` equals `workshop_location.id`; defect task in Loyalty/Booking if not. |
 | T121 | Verify and test the Staff location-plus-assignment rule on every Staff operation (`WorkshopOperationsAuthorizationService`). |
 | T122 | Verify that `completeCancellation` (facade method `completeCancellationHandoff`) moves `CANCELLATION_REQUESTED` to `CANCELLED` only when every ticket is resolved, rejects an early call with `CANCELLATION_HANDOFF_UNRESOLVED` (no state change, repeatable; decided 2026-11-16), is idempotent by `operationReference`, and that `CANCELLED` rejects check-in. |
-| T123 | New OTA-only ticket revocation facade operation for 003.4, idempotent per OTA event reference. |
+| T123 | *(Removed 2026-11-25 with OTA.)* |
 | T124 | Delete the operational-lead code and the "responsible operator" guard; T115 rule replaces it. |
 | T125 | Per-session `REQUIRES_NEW` transaction in `WorkshopSessionStartScheduler.transitionDueSessions` through a separate bean. |
 
@@ -609,8 +525,7 @@ T122 then verifies the transition end to end.
 
 **Spec:** "Package availability per location", FR-037–FR-046, SC-009–SC-012, US6
 (owner answers 2026-11-17). Backend and contract scope partially approved the
-same day in `approval.md` (PARTIALLY APPROVED); UI, 003.1, 003.3 and the OTA push
-step stay excluded there. Tasks: Phase 18 (T144–T162) in `tasks.md`.
+same day in `approval.md` (PARTIALLY APPROVED); UI, 003.1, 003.3 stay excluded there. Tasks: Phase 18 (T144–T162) in `tasks.md`.
 
 **Design decisions (proposed):**
 
@@ -665,8 +580,6 @@ new module dependency, no cycle. `ApplicationModules.verify()` must still pass.
   of record, re-attributes the folio to the new location and lists the old-
   location add-ons to the Manager (FR-045). The change-option wording of
   003.3 FR-044/FR-044a needs a matching edit.
-- **003.4 (OTA):** inventory is per session already; verify the OTA session
-  projection is not changed by availability (open check, T-task).
 
 **Resolved with the owner / verified 2026-11-17:**
 
@@ -688,12 +601,6 @@ new module dependency, no cycle. `ApplicationModules.verify()` must still pass.
   (id 3, inactive). The latest migration in the repo is `V177`; choose the next
   free version when implementing, after fetching `origin/develop`. Not checked
   against a live database (no credentials used).
-
-**Decided 2026-11-17 (owner Hồ Hoàng Quốc, found in design review):** an OTA
-booking (`acceptOtaBooking`) is NOT refused at an `INACTIVE` pair; blocking it
-would desync an order already sold on the external platform. The matrix never
-updates an OTA listing; pushing a change to the OTA is a separate explicit step
-of 003.4 (open for the 003.4 owner, outside this feature). See spec FR-039.
 
 **Frontend:** a Manager-only matrix page (rows = locations, columns = Packages,
 checkbox = `ACTIVE`; Đà Nẵng row present but empty while inactive); location
@@ -812,14 +719,6 @@ verify; FE component and page tests, then a real-backend run against the dev DB.
   each `reason`; denied-attempt audit rows without PII (T126–T131).
 - Modulith-test that Operations does not depend on Booking internals and that
   Booking uses only the Operations facade.
-- Verify the OTA-observable boundary using session publication, schedule change,
-  active-hold creation/release/expiry, sale pause/resume and session
-  cancellation/closure; verify `DRAFT` and internal-only changes produce no
-  snapshot and a hold-to-ticket commitment produces none when the exposed
-  post-state is unchanged. Verify duplicate/older notifications are harmless,
-  a gap triggers one-session authoritative resync at the existing version, and
-  003.4 mapping suspension never changes Operations capacity or direct-Mland
-  sale state.
 
 ## Complexity Tracking
 

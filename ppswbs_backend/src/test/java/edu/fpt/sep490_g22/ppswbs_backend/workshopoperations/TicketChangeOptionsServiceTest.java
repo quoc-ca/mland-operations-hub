@@ -6,7 +6,6 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.Worksho
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.AttendanceTicket;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.SessionState;
-import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSalesChannel;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketSessionEntitlement;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.TicketValidityState;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopLocation;
@@ -61,8 +60,7 @@ class TicketChangeOptionsServiceTest {
     @BeforeEach
     void setUp() {
         ticket = AttendanceTicket.builder().id(100L).reference(UUID.randomUUID().toString())
-                .bookingReference(BOOKING_LINE).validityState(TicketValidityState.ACTIVE)
-                .salesChannel(TicketSalesChannel.DIRECT).build();
+                .bookingReference(BOOKING_LINE).validityState(TicketValidityState.ACTIVE).build();
         when(tickets.findByReference(ticket.getReference())).thenReturn(Optional.of(ticket));
         when(policy.packageIdOf(BOOKING_LINE)).thenReturn(Optional.of(5L));
         when(availability.activeLocationIds(5L)).thenReturn(List.of(7L));
@@ -279,7 +277,7 @@ class TicketChangeOptionsServiceTest {
     }
 
     @Test
-    @DisplayName("refuses an OTA ticket, an inactive ticket, an unknown ticket and a from session of another ticket")
+    @DisplayName("refuses an inactive ticket, an unknown ticket and a from session of another ticket")
     void refusals() {
         WorkshopSession held = session(80, SessionState.PUBLISHED);
         ticketHolds(held);
@@ -290,11 +288,6 @@ class TicketChangeOptionsServiceTest {
         ticket.setValidityState(TicketValidityState.REVOKED);
         assertThat(list(TicketReplacementType.CUSTOMER_ADVANCE, held).status())
                 .isEqualTo(TicketChangeOptions.Status.TICKET_NOT_ACTIVE);
-
-        ticket.setValidityState(TicketValidityState.ACTIVE);
-        ticket.setSalesChannel(TicketSalesChannel.OTA);
-        assertThat(list(TicketReplacementType.CUSTOMER_ADVANCE, held).status())
-                .isEqualTo(TicketChangeOptions.Status.OTA_TICKET_NOT_SUPPORTED);
 
         assertThat(service.list(new ListTicketChangeOptionsQuery(UUID.randomUUID(),
                 TicketReplacementType.CUSTOMER_ADVANCE, List.of())).status())

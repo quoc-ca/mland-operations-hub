@@ -1,5 +1,7 @@
 # Data Model: Workshop Operations
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
@@ -269,68 +271,11 @@ scheduled start/end, sale state, `customerSelectable` and exact current
 PII data, and its capacity value is a selection snapshot rather than a reserve
 guarantee.
 
-### OTA-observable session projection
+### OTA-observable session projection *(removed 2026-11-25)*
 
-#### Approved T053-T055 boundary
-
-Operations owns the durable `WorkshopSessionOtaSnapshot` projection and one
-monotonic `sourceVersion` sequence per session. Its allowed fields are
-`sessionReference`, `locationReference`, `scheduledStart`, `scheduledEnd`,
-`sellableAvailability`, `saleState`, `sourceVersion`, `changeReference` and
-`effectiveAt`. The persistent internal event is
-`WorkshopSessionOtaSnapshotChanged`, carrying the complete snapshot after the
-owning transaction commits. It contains no booking/payment, ticket,
-attendance, Staff, PII or OTA mapping data.
-
-The source-version row is updated transactionally with every completed change
-to an OTA-observable value. `(sessionReference, sourceVersion)` is unique and
-versions increase once per transaction even when schedule, availability and
-sale state change together. Internal-only changes do not advance the version.
-The Operations resync query returns one complete current snapshot at the
-existing version; it never creates a business change.
-
-003.4 is a consumer only: it deduplicates older/equal versions, requests the
-single-session resync on a gap or unknown ordering, and owns OTA mapping and
-provider delivery. Consumer or provider failure cannot mutate Operations
-capacity, sale state or direct booking. No broker or external OTA call is part
-of the Operations transaction.
-
-Operations makes conceptual, non-public schedule and availability/sale-state
-snapshots available to 003.4 after a completed local change alters
-OTA-observable data. They are not Operations entities, physical schema
-proposals, public REST DTOs, or OTA provider payloads. The schedule snapshot
-contains opaque session identity, location, scheduled start/end, source change
-identity/version and effective time. The availability/sale-state snapshot
-contains opaque session identity, location scope, sellable availability, sale
-state, source change identity/version and effective time. Neither contains PII,
-Booking/payment data, ticket detail or OTA mapping.
-
-Sellable availability is total capacity less confirmed ticket seats and active,
-unexpired direct-Mland holds. Each session has one monotonically increasing
-source-version sequence across both snapshot kinds. A completed transaction that
-changes one or more OTA-observable values advances it once and yields the full
-post-state; internal-only changes do not advance it or expose a snapshot. A
-`DRAFT` session exposes none. `PUBLISHED` makes the snapshot available;
-`SALES_PAUSED` retains its distinct sale state. `IN_PROGRESS`,
-`ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` and `CANCELLED` expose closed
-sale state. The scheduled-start transition from `PUBLISHED` or `SALES_PAUSED` to `IN_PROGRESS` *(within 5 minutes, Q7)*
-persists the session state, complete closed snapshot/version and Modulith event
-in the same Operations transaction. *(F04 reopened 2026-11-16, option B: the OTA `saleState` enum distinguishes `SALES_PAUSED` from `CLOSED`; the automatic `SALES_PAUSED` to `IN_PROGRESS` transition therefore publishes the complete closed snapshot and advances the version exactly once, in the same Operations transaction.)* `ATTENDANCE_FINALIZED` does not create a
-second version when the snapshot is already closed and no other observable
-value changed. Hold creation, release and expiry can change availability;
-pause/resume, start and cancellation/closure can change sale state. Hold-to-
-ticket commitment does not create a snapshot when the exposed post-state is
-unchanged.
-
-The snapshot is carried to 003.4 by a persistent internal Spring Modulith event
-publication recorded in the same local Operations transaction as its source
-change; V1 uses no message broker. Delivery to 003.4 is at-least-once: that
-consumer ignores duplicate/older source versions and requests an authoritative
-resync if it detects a gap or cannot establish order. Resync returns the complete
-current schedule, availability and sale state of the one affected session at its
-existing source version; it is not a business change. A failure in 003.4 can
-suspend only its own OTA mapping and must not mutate Operations capacity, sale
-state or direct-Mland booking behaviour.
+The snapshot projection, its event and resync query are no longer part of the
+design. Flyway V203 dropped table `workshop_session_ota_snapshots`
+([record](../ota-removal-2026-11-25.md)).
 
 ### AttendanceTicket
 
@@ -347,8 +292,8 @@ ticket-validity projection but does not decide those commercial outcomes.
 | --- | --- |
 | `ACTIVE` | ticket issue after verified commercial confirmation |
 | `CANCELLED` | `cancelTicket` (FR-031, T091); the QR value is kept and refused through the ticket state |
-| `REVOKED` | only the OTA path: the OTA-only revocation operation (T123, 003.4 caller) |
-| `REFUNDED` | only the OTA path: `applyVerifiedRefundConsequence` (003.4 only; superseded for every other caller, 2026-11-15 Q5). No non-OTA producer exists in V1; the value stays in the enum for rows already written |
+| `REVOKED` | no producer since 2026-11-25 (the OTA revocation operation was removed); value kept for rows already written |
+| `REFUNDED` | no producer since 2026-11-25 (`applyVerifiedRefundConsequence` was removed with OTA); value kept for rows already written |
 
 Each ticket has one or more **session entitlements**. An entitlement associates
 one ticket with one session and carries that ticket's attendance state for that
@@ -498,11 +443,7 @@ finalization timestamps fail closed and do not establish terminal attendance.
   the local command outcome rather than requiring a compensating hold release.
 - Events may run only after an Operations or Booking local state transition for
   non-critical notification/downstream handoff; they do not replace the
-  synchronous capacity or ticket-projection boundaries. The approved 003.4
-  OTA-observable schedule and availability/sale-state projections are such
-  post-transition handoffs, use the unified source-version/resync behaviour
-  above, and are carried by persistent internal Spring Modulith event
-  publications; no V1 broker is selected.
+  synchronous capacity or ticket-projection boundaries.
 - Audit records use immutable identifiers, actor IDs and safe metadata only;
   no password, Firebase token or unnecessary participant PII is persisted.
 

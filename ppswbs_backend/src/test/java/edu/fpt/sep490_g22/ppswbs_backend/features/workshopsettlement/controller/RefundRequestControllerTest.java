@@ -30,7 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * 003.3 T097 HTTP routes, FR-039/FR-040: the refund queue and its transitions are Manager-only in V1, the
+ * 003.3 T097 HTTP routes, FR-039/FR-040: the refund transitions and the waiting list are Manager-only, assigned Staff read their own tickets' refunds, the
  * counter entry of an account is open to Staff, the full account number is read through one audited route, and
  * a group-level refund (a late payment never re-confirmed) reports no ticket code.
  */
@@ -62,7 +62,7 @@ class RefundRequestControllerTest {
 
     @Test
     void listsOnlyForAManagerAndFiltersByStatus() {
-        when(authorization.requireManager(MANAGER)).thenReturn(MANAGER);
+        when(authorization.requireManagerOrAnyStaff(MANAGER)).thenReturn(MANAGER);
         when(bankRefunds.list(RefundRequestStatus.PENDING_TRANSFER))
                 .thenReturn(List.of(ticketRefund(RefundRequestStatus.PENDING_TRANSFER)));
 
@@ -75,13 +75,13 @@ class RefundRequestControllerTest {
             assertThat(row.status()).isEqualTo("PENDING_TRANSFER");
             assertThat(row.accountNumberMasked()).isEqualTo("****1234");
         });
-        verify(authorization).requireManager(MANAGER);
+        verify(authorization).requireManagerOrAnyStaff(MANAGER);
         verify(bankRefunds).list(RefundRequestStatus.PENDING_TRANSFER);
     }
 
     @Test
     void aLatePaymentRefundOfAWholeGroupReportsNoTicketCode() {
-        when(authorization.requireManager(MANAGER)).thenReturn(MANAGER);
+        when(authorization.requireManagerOrAnyStaff(MANAGER)).thenReturn(MANAGER);
         when(bankRefunds.list(null)).thenReturn(List.of(groupRefund()));
 
         var rows = controller.list(null, auth(MANAGER));
@@ -94,11 +94,30 @@ class RefundRequestControllerTest {
     }
 
     @Test
-    void staffCannotListOrTransitionTheQueue() {
+    void staffListsOnlyTheRefundsOfAssignedTickets() {
+        var operations = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopOperationsSettlementAdapter.class);
+        var booking = mock(edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopBookingSettlementAdapter.class);
+        var scoped = new RefundRequestController(bankRefunds, authorization, idempotency, counterEntry, receiptImages,
+                operations, booking);
+        when(authorization.requireManagerOrAnyStaff(STAFF)).thenReturn(STAFF);
+        when(bankRefunds.list(null)).thenReturn(List.of(ticketRefund(RefundRequestStatus.PENDING_ACCOUNT), groupRefund()));
+        when(booking.getTicketFolioContext("GRP-TEST0001-L0-T1")).thenReturn(java.util.Optional.of(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext(
+                        "GRP-TEST0001-L0-T1", "GRP-TEST0001", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L)));
+
+        assertThat(scoped.list(null, auth(STAFF))).isEmpty();
+
+        when(operations.staffAssignedToBooking(11L, "LINE-1")).thenReturn(true);
+        assertThat(scoped.list(null, auth(STAFF))).singleElement()
+                .satisfies(row -> assertThat(row.ticketCode()).isEqualTo("GRP-TEST0001-L0-T1"));
+    }
+
+    @Test
+    void staffCannotReadTheWaitingListOrTransition() {
         when(authorization.requireManager(STAFF))
                 .thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
 
-        assertThatThrownBy(() -> controller.list(null, auth(STAFF)))
+        assertThatThrownBy(() -> controller.listWaiting(null, auth(STAFF)))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class);
         assertThatThrownBy(() -> controller.applyTransition("REFUND-1", "corr",
                 new RefundRequestController.TransitionRequest(

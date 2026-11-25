@@ -182,15 +182,6 @@ Each block describes one entity in the ERD with its purpose and key business att
 | Business identity | Request reference is unique. |
 | Status / lifecycle | Pending account → Pending approval → Pending transfer → Pending reconciliation → Refunded; or Closed unreachable. |
 
-**Entity: OTA Booking (ota_channel_bookings)**
-
-| Field | Value |
-| --- | --- |
-| Purpose | A booking received from an online travel agency for a Mland session. |
-| Key business attributes | Provider booking reference, mapped session, participant count, retail amount, commission and amount accepted by Mland. |
-| Business identity | Public reference is unique; the provider reference identifies the booking at the OTA. |
-| Status / lifecycle | Follows the provider status reported by the OTA. |
-
 **Entity: Design Request (design_requests)**
 
 | Field | Value |

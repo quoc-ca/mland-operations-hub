@@ -1,5 +1,7 @@
 # Implementation Plan: Workshop Settlement and Changes
 
+> **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
+
 **Date created**: 2026-10-24
 **Date updated**: 2026-11-17
 **Author**: Hồ Hoàng Quốc
@@ -20,13 +22,11 @@ explicitly Admin-only actions remain unchanged. There is no central Manager tier
 booking/package, accepted additional charges, a short-lived final-payment
 checkout attempt, verified final payment before package-output handover,
 non-refundable customer cancellation decision, Manager-mediated required-session change, and
-Mland-caused cancellation remedy. It also owns the separate Mland shop add-on
-bill of an OTA booking (D12) and reports folio outcomes to 003.1 so Booking can
+Mland-caused cancellation remedy. It reports folio outcomes to 003.1 so Booking can
 set `COMPLETED`/`CANCELLED`/`NO_SHOW` and remedy `REFUND_PENDING`/`REFUNDED`
 (D13/D14). Direct customer cancellation records a
 non-refundable deposit decision and does not invoke VNPay refund/QueryDR. It is
-not an item/session finance system, cart,
-OTA payment system, capacity owner, or normal check-in system.
+not an item/session finance system, cart, capacity owner, or normal check-in system.
 *(Superseded 2026-11-12/14 for direct bookings, see "Per-ticket settlement":
 there is one folio per ticket booking, not one bill per booking; cancellation,
 changes and the Mland remedy are per ticket; refunds go by bank, never by
@@ -40,7 +40,7 @@ VNPay.)*
 | Module | Spring Modulith; only explicit owner facades cross business modules. |
 | Persistence | MySQL/JPA and append-only Flyway migrations when implementation is authorized. |
 | Identity | Firebase bearer token proves identity; Account Management supplies canonical role/status, ownership and location facts. Active Manager authority is global for Manager actions; Staff actions use canonical `workshop_location.id` and `activeLocationIds`. |
-| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, checkout URL generation, provider attempt expiry and payment/IPN evidence. Direct customer-deposit cancellation never calls the refund/QueryDR protocol; OTA refunds remain external to this flow. Final-payment checkout uses the server-derived outstanding VND amount and expires after 10 minutes. Browser Return URL is display-only. *(Superseded 2026-11-12/14, see "Per-ticket settlement": the booking-wide 10-minute final-payment checkout gives way to a `VNPAY` folio collection per ticket (FR-049); payment is also by cash or direct transfer (FR-031); no VNPay Refund or refund-QueryDR is used for Mland money (FR-038).)* |
+| Payment | VNPay only. Shared `paymentintegration` owns provider credentials, checkout URL generation, provider attempt expiry and payment/IPN evidence. Direct customer-deposit cancellation never calls the refund/QueryDR protocol;  Final-payment checkout uses the server-derived outstanding VND amount and expires after 10 minutes. Browser Return URL is display-only. *(Superseded 2026-11-12/14, see "Per-ticket settlement": the booking-wide 10-minute final-payment checkout gives way to a `VNPAY` folio collection per ticket (FR-049); payment is also by cash or direct transfer (FR-031); no VNPay Refund or refund-QueryDR is used for Mland money (FR-038).)* |
 | Contract | Versioned `/api/v1` REST contract in `contracts/workshop-settlement.openapi.yaml`. *(Superseded 2026-11-12/14: per-ticket routes are in `contracts/workshop-settlement-ticket.openapi.yaml`; see "Per-ticket settlement" and "Public REST Design".)* |
 | Validation | Module-boundary, authorization, lifecycle, idempotency, facade, contract, migration-upgrade and recovery evidence. |
 
@@ -61,9 +61,9 @@ VNPay.)*
 ## Ownership and Internal Boundaries
 
 ```text
-paymentintegration ─ verified final-payment/OTA shop add-on (SHOP_ADDON) evidence (refund evidence: legacy, no longer produced) ─► 003.3
+paymentintegration ─ verified final-payment evidence (refund evidence: legacy, no longer produced) ─► 003.3
 003.1 Booking ─ confirmed financial projection / FULLY_PAID conclusion ─► 003.3
-003.2 Operations ─ readiness / atomic replacement / verified-refund effect *(OTA-only/legacy since 2026-11-15; a ticket cancellation is the trigger)* ─► 003.3
+003.2 Operations ─ readiness / atomic replacement / verified-refund effect *(removed; a ticket cancellation is the trigger)* ─► 003.3
 FE-001 Account ─ current authorization, ownership and location scope ─► 003.3
 VNPay ─ signed IPN / QueryDR evidence ─► paymentintegration
 003.3 ─ reference-only post-commit settlement notification handoff ─► Feature 007
@@ -136,9 +136,7 @@ active Staff member scoped to the booking location or a global Manager records
 customer consent and the server derives the immutable price from the catalogue
 snapshot. A direct booking appends only to its OPEN folio; after `FINALIZED` no
 add-on may be added, changed, or removed, and only the exceptional correction
-flow (T040) applies. An OTA booking always uses a separate direct-Mland shop
-add-on bill (003.4 `/ota-addon-quotes` flow) and never mutates OTA payment or
-payout facts; free laser engraving is an OTA-only entitlement with no bill.
+flow (T040) applies.  
 
 Staff in the booking location or any active Manager may create/confirm variable material or service
 charges. The command has description, VND amount and reason and produces audit
@@ -187,8 +185,7 @@ The shared `paymentintegration` boundary owns VNPay IPN `GET
 /api/v1/integrations/payments/vnpay/events`, validates signature, resolves the
 immutable owner-qualified merchant reference, deduplicates provider delivery,
 and dispatches redacted evidence to exactly one owner facade. 003.3 receives
-only final-payment, refund, and (for an OTA booking's separate shop add-on
-bill) `SHOP_ADDON` evidence and checks bill/refund reference, amount and
+only final-payment and refund evidence and checks bill/refund reference, amount and
 currency before its local idempotent outcome. QueryDR is outbound Mland-to-VNPay
 reconciliation only. Browser Return URL has no settlement route and never
 confirms a bill.
@@ -247,7 +244,7 @@ person (003.1 FR-044–FR-051, 003.1 numbering), and V132 removed every direct
   and every refund transition are Manager-only until FE-001 grants them per
   person.)*
 - **Money out:** every Mland refund (Mland remedy, overcharge correction, late
-  payment, excess money, OTA add-on overcharge) goes through the bank refund
+  payment, excess money) goes through the bank refund
   lifecycle (FR-038–FR-040, T097/T098/T104); no VNPay refund is used for Mland
   money. No add-on and no reopening after `FINALIZED`; a closed cash day stays
   locked (FR-050).
@@ -422,7 +419,7 @@ themselves are final in the spec.
 
 The contract is the normative transport detail in
 [`contracts/workshop-settlement.openapi.yaml`](./contracts/workshop-settlement.openapi.yaml)
-for the routes still served booking-wide (OTA add-on bills, refund policies
+for the routes still served booking-wide (refund policies
 *(refund policies removed by T139, 2026-11-15; FR-043, FR-021a–FR-021e superseded)*
 and settlement case list; the booking-wide final-bill, charges and folio-correction
 routes were removed 2026-11-15, T106/T121/T123/T124) and

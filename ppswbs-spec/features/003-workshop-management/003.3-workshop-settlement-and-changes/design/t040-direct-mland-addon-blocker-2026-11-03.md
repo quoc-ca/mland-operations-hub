@@ -1,5 +1,7 @@
 # T040 blocker — direct Mland add-on after finalization
 
+> *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
+
 > **Superseded — 2026-11-05.** The owner-approved
 > [open-folio policy](../../direct-booking-open-folio-policy.md) forbids adding,
 > changing, or removing an add-on after a direct folio is `FINALIZED`. The

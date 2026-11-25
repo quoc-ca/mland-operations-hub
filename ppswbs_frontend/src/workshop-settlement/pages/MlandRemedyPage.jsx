@@ -69,7 +69,7 @@ export default function MlandRemedyPage() {
     <CustomerPage title={t('mr.titleCancelled')} intro={t('mr.intro')}>
       <SuccessNotice>{message}</SuccessNotice>
       {known ? <div className="notice error" role="alert"><p>{known}</p></div> : <ProblemNotice error={error} onRetry={command.retry} onReload={offer.reload} />}
-      <section className="ota-panel">
+      <section className="wsp-panel">
         <p>{t('mr.ticket', { code: data.ticketCode })}</p>
         {pending ? <p>{t('mr.answerBefore')}<strong>{fmt.dateTime(data.answerDeadlineAt)}</strong>{t('mr.answerAfter')}</p>
           : <p role="status">{t(data.outcome === 'MOVED' ? 'mr.outcomeMoved' : 'mr.outcomeRefund')}</p>}

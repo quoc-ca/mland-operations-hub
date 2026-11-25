@@ -11,9 +11,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Starts one due session in its own transaction. A separate bean (not a method of the
@@ -27,7 +27,6 @@ public class WorkshopSessionStartTransition {
 
     private final WorkshopSessionRepository sessionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
-    private final WorkshopOtaSnapshotService otaSnapshotService;
 
     /** What was started: the state it left and its planned start, for lateness monitoring. */
     public record Started(String reference, SessionState fromState, Instant scheduledStartAt) {
@@ -51,7 +50,6 @@ public class WorkshopSessionStartTransition {
         SessionState fromState = session.getState();
         session.setState(SessionState.IN_PROGRESS);
         sessionRepository.save(session);
-        otaSnapshotService.publishForObservableChange(session, "SESSION_AUTO_STARTED", now);
         auditEventRepository.save(OperationsAuditEvent.builder()
                 .sessionId(session.getId())
                 .actorId(null)

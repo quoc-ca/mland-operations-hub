@@ -279,7 +279,7 @@ public class BankRefundService {
         return request;
     }
 
-    /** Staff enters the account at the counter, which FR-038a expects for an OTA add-on payer who is there. */
+    /** Staff enters the account at the counter, for a payer who is there. */
     @Transactional
     public SettlementRefundRequest submitAccountAtCounter(String requestReference, String bankCode,
                                                           String accountNumber, String holderName,
@@ -613,7 +613,7 @@ public class BankRefundService {
                 .map(SettlementFinalBill::getAcceptedDepositAmountVnd)
                 .orElse(0L);
         // FOLIO_VNPAY_EXCESS (T110): signed money that settled no part is still money collected for this ticket.
-        long verifiedGatewayCollections = java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED", "SHOP_ADDON_VERIFIED",
+        long verifiedGatewayCollections = java.util.stream.Stream.of("FINAL_PAYMENT_VERIFIED",
                         FinalPaymentService.FOLIO_VNPAY_EXCESS)
                 .flatMap(conclusion -> evidence.findByBookingReferenceAndConclusion(bookingReference, conclusion).stream())
                 .mapToLong(item -> item.getAmountVnd() == null ? 0L : item.getAmountVnd())

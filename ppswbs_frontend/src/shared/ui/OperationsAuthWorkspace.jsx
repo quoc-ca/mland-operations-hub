@@ -2,11 +2,11 @@ import React from 'react';
 import { Link } from 'react-router';
 import { useT } from '../i18n/I18nProvider';
 import { operationsShellMessages } from './operationsShellMessages';
-import '../../ota-connectivity/ota-connectivity.css';
+import './workspace.css';
 
 /**
  * Standard workspace shell rendered when an unauthenticated user visits
- * any Operations, OTA Connectivity, or Settlement manager route.
+ * any Operations or Settlement manager route.
  * Shown inside the operations shell (rail on the left); displays the styled login card.
  */
 export function OperationsAuthWorkspace({
@@ -16,10 +16,10 @@ export function OperationsAuthWorkspace({
   const t = useT(operationsShellMessages);
 
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
-        <div className="ota-topline">
+      <main className="wsp-main">
+        <div className="wsp-topline">
           {topline} <span>● {t('staffManager')}</span>
         </div>
         <div className="empty-state pm-session" role="status">

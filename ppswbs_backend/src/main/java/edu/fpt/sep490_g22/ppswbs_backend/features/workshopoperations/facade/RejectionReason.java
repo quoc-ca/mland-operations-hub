@@ -16,8 +16,6 @@ public enum RejectionReason {
     RESCHEDULE_QUOTA_EXHAUSTED,
     /** 003.2 FR-034: the replacement of a missed session starts after the old session's end plus 7 days. */
     LATE_ARRIVAL_WINDOW_EXPIRED,
-    /** 003.2 FR-036: an OTA-origin ticket keeps the OTA's policy; cancel, replace and QR reissue refuse it. */
-    OTA_TICKET_NOT_SUPPORTED,
     /**
      * 003.2 FR-039/FR-042: the Package is INACTIVE at the location of at least one selected or target session.
      * Returned by the atomic reserve and by {@code replaceTicketSessions}; {@link #PACKAGE_NOT_PUBLISHED} wins.

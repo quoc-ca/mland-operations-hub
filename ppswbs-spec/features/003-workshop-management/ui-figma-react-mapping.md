@@ -1,5 +1,7 @@
 # Feature 003 UI acceptance mapping: Figma ↔ React
 
+> **2026-11-25:** các frame và route OTA đã bị gỡ cùng 003.4 ([record](ota-removal-2026-11-25.md)).
+
 **Ngày xác minh:** 2026-11-04  
 **Figma file:** [mland-operation-hub](https://www.figma.com/design/m5Cyk5rit6lKaX3TPprSow/mland-operation-hub)  
 **Figma file key:** `m5Cyk5rit6lKaX3TPprSow`
@@ -51,18 +53,6 @@ Tài liệu này là inventory chuẩn cho UI Feature 003. `node-id` là ID đã
 | `297:4248` MANAGER · Settlement · Pending provider | `/settlement/cases` | `SettlementCasesPage` | `PENDING_PROVIDER` | Chờ provider evidence/polling, không tự đánh dấu hoàn tất |
 | `297:4293` MANAGER · Settlement · Required session change | `/settlement` | `SettlementWorkspacePage` | Session change | Validate cặp session nguyên tử, không partial mutation |
 | `297:4338` MANAGER · Settlement · Final payment recovery | `/settlement` | `SettlementWorkspacePage` | Recovery | Theo dõi final payment/recovery state |
-| `186:352` MANAGER · OTA finance | `/ota-connectivity/finance` | `OtaFinanceReconciliationPage` | Manager global | Financial evidence, payout reconciliation, dispute |
-| `186:402` MANAGER · OTA reconciliation | `/ota-connectivity/reconciliation` | `OtaReconciliationPage` | Manager global | Work item reconciliation và resolution |
-| `203:157` MANAGER · OTA channels | `/ota-connectivity/channels` | `OtaChannelConfigurationPage` | Manager/Admin | Mapping, readiness, sales-close/booking-enable |
-| `297:4383` MANAGER · OTA finance · Evidence / dispute | `/ota-connectivity/finance` | `OtaFinanceReconciliationPage` | Evidence/dispute | Redact PII/credentials và mở dispute khi lệch |
-| `297:4428` MANAGER · OTA add-on · Quote / acceptance | `/ota-connectivity/add-ons` | `OtaAddonPage` | Staff scoped | Quote và customer consent tại quầy |
-| `297:4473` MANAGER · OTA add-on · Direct bill | `/ota-connectivity/add-ons` | `OtaAddonPage` | Staff scoped | Direct bill Mland sau consent; không qua checkout OTA |
-
-## Admin
-
-| Figma frame | Route | React component | Actor/state | Acceptance |
-|---|---|---|---|---|
-| `192:2` ADMIN · OTA provider configuration | `/ota-connectivity/channels` | `OtaChannelConfigurationPage` | Admin technical | Credential/provider configuration; không expose secret |
 
 ## Quy tắc đồng bộ acceptance
 
@@ -83,16 +73,14 @@ This section records the implementation check against the Figma state frames. A 
 | Staff check-in | `OperationsSessionPage` provides ticket-code and QR-token check-in, booking lookup, session transitions, attendance finalization, and typed error rendering. | PASS for core behavior | Figma `188:52` is covered. `297:1811` uses the shared `ErrorNotice` fail-closed path, but there is no dedicated offline queue/retry UI. |
 | Staff workshop add-on | `OperationsSessionPage` now embeds `StaffWorkshopAddonPanel`, which records a catalogue add-on against a booking only after counter consent. The browser sends only `catalogueAddOnReference`; backend derives amount/currency and enforces Staff/Manager scope. | PASS for core behavior; evidence pending | Covers Figma `188:102` / `297:1856` at `/operations/sessions/:sessionId`. Uses `POST /api/v1/workshop-bookings/{bookingCode}/final-bill/charges` with a generated `Idempotency-Key`. Since 2026-11-05 a `FINALIZED` folio rejects the add-on (no separate direct shop bill); post-finalize corrections follow the Manager-only T040 flow. |
 | Manager settlement | `SettlementCasesPage` supplies case list/detail, status filters, pending-provider and required-session-change views. `SettlementWorkspacePage` supplies final-payment recovery and policy/eligibility actions. | PASS for implemented contract paths | Need state-level UI evidence for `PENDING_PROVIDER`, required session change and final-payment recovery; backend/API tests alone do not prove visual acceptance. |
-| Manager OTA finance | `OtaFinanceReconciliationPage` reads redacted financial evidence and records payout/reconciliation evidence with typed errors and dispute responses. | PASS for core behavior; evidence pending | Covers Figma `186:352` / `297:4383`; capture matched, mismatch/dispute and forbidden-state UI evidence. |
-| Manager OTA add-on | `OtaAddonPage` implements quote, consent and direct-bill for OTA channel bookings; free laser engraving creates no bill and paid options do. | PASS for core behavior; evidence pending | `otaFinanceAddonPages.test.jsx` covers paid, free and validation paths. The direct-booking Staff add-on UI is the OPEN-folio `/final-bill/charges` flow above; it is separate from this OTA bill. |
 
 ### Verified test evidence
 
 On 2026-11-04 the frontend targeted suite completed successfully:
 
-`npm test -- --run src/workshops/workshops-payment-and-recovery.test.js src/ota-connectivity/test/otaFinanceAddonPages.test.jsx src/ota-connectivity/test/otaConnectivityPages.test.jsx`
+`npm test -- --run src/workshops/workshops-payment-and-recovery.test.js `
 
-Result: **3 test files passed, 33 tests passed, 0 failures**. These tests validate payment/recovery and Manager OTA finance/add-on behavior.
+Result (2026-11-04, run together with the since-removed OTA page tests): **3 test files passed, 33 tests passed, 0 failures**.
 
 Staff add-on evidence:
 
@@ -113,13 +101,6 @@ Settlement rendered evidence:
 Result: **1 test file passed, 4 tests passed, 0 failures**. This covers empty case list,
 `PENDING_PROVIDER`, empty refund-policy history, and backend error without a fabricated list.
 
-OTA finance/add-on rendered evidence:
-
-`npm test -- --run src/ota-connectivity/test/otaFinanceAddonPages.test.jsx`
-
-Result: **1 test file passed, 6 tests passed, 0 failures**. This covers empty/error finance
-states plus paid, free and invalid add-on states.
-
 Screenshot verification exception: the configured browser access host was unavailable during
 this run (`browsers: []` from the CUA state), so these entries record rendered test evidence
 and do not claim screenshots.
@@ -128,7 +109,7 @@ and do not claim screenshots.
 
 > **Superseded — 2026-11-05.** Under the
 > [open-folio policy](direct-booking-open-folio-policy.md) a `FINALIZED` direct
-> folio accepts no add-on, and `SHOP_ADDON` is used only for an OTA booking's
+> folio accepts no add-on, and `SHOP_ADDON` was used only for an OTA booking's
 > shop add-on bill (D7–D10, D12). This frame and `StaffWorkshopAddonPanel`'s
 > post-finalize bill/payment flow must be realigned under 003.3 T040 (Manager-only
 > overcharge correction) and T087; the row below is kept as a historical record.

@@ -8,7 +8,7 @@ import { ErrorNotice, Loading, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import StaffHome from './StaffHome';
 import { operatorHomeMessages } from './messages';
-import '../../ota-connectivity/ota-connectivity.css';
+import '../../shared/ui/workspace.css';
 import './operatorHome.css';
 
 /** Home page of Staff and Manager: the work each role does, in one place. Navigation only; the backend decides every permission. */
@@ -37,10 +37,10 @@ export default function OperatorHomePage({ role }) {
 
   const name = profile.data?.fullName || profile.data?.email || '';
   return (
-    <div className="ota-workspace">
+    <div className="wsp-workspace">
       
-      <main className="ota-main">
-        <div className="ota-topline">MLAND / HOME <span>{t('page.authorized')}</span></div>
+      <main className="wsp-main">
+        <div className="wsp-topline">MLAND / HOME <span>{t('page.authorized')}</span></div>
         <StaffHome name={name} />
       </main>
     </div>
