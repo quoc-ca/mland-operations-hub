@@ -4,7 +4,7 @@
 
 ### 11.1 Class Diagram
 
-{{r4-cd-fe11-review-management width=100% align=center}}
+<!-- Temporarily disabled: r4-cd-fe11-review-management. The approved Drive image will be reconnected after the shared asset update. -->
 
 The module owns review, revision, reply and moderation audit data. Public DTOs exclude source IDs, transaction references, email and phone. Guest can read public projections; only an active Member can create or edit.
 
@@ -12,13 +12,13 @@ Reviews are independent from the ring-design recommendation and custom-manufactu
 
 ### 11.2 Sequence Diagram — Member Creates Eligible Review
 
-{{r4-sd-fe11-create-review width=100% align=center}}
+<!-- Temporarily disabled: r4-sd-fe11-create-review. The approved Drive image will be reconnected after the shared asset update. -->
 
 ### 11.3 Sequence Diagram — Owner Edits Published Review
 
-{{r4-sd-fe11-edit-review width=100% align=center}}
+<!-- Temporarily disabled: r4-sd-fe11-edit-review. The approved Drive image will be reconnected after the shared asset update. -->
 
 ### 11.4 Sequence Diagram — Staff/Manager Moderates and Replies
 
-{{r4-sd-fe11-moderate-review width=100% align=center}}
+<!-- Temporarily disabled: r4-sd-fe11-moderate-review. The approved Drive image will be reconnected after the shared asset update. -->
 
