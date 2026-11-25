@@ -88,6 +88,8 @@ Preserve established evidence and show safe pending/retry guidance without parti
 
 A matched, verified definitive terminal failure ends the attempt; the unpaid quantity and benefit reservations are released once when the hold ends. Nonterminal/unknown outcomes do not qualify. Later success after release becomes an exception; reordered failure never undoes an accepted sale. A new checkout creates a new order/attempt after revalidation.
 
+> **Open difference (checked 2026-11-25):** Feature-008 requires an unpaid VNPay hold to expire at its 10-minute deadline. The current code keeps an opened payment without verified failure evidence in QueryDR recovery and then queues it for the Manager.
+
 #### Business Rules
 
 BR-55-01, BR-55-02, BR-55-03, BR-55-04, BR-55-05, BR-55-06, BR-55-07, BR-55-08, BR-55-09
