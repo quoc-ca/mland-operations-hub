@@ -16,20 +16,12 @@ rectangle "Personalized Product Sales and Workshop Booking System" {
   usecase "Manage feasibility hard constraints,\nscores and thresholds" as Rules
   usecase "Approve / reject fee\nwaiver or change" as FeeWaiver
   usecase "Review business audit\nand override records" as Audit
-  usecase "Manually start one-way\nGoogle review import" as ImportReviews
-  usecase "Control imported-review\nvisibility" as ReviewVisibility
 }
 
 Owner --> Catalogue
 Owner --> Rules
 Owner --> FeeWaiver
 Owner --> Audit
-Owner --> ImportReviews
-Owner --> ReviewVisibility
-ImportReviews .> ReviewVisibility : <<extend>>\n[governance prerequisites met]
 
-note bottom of ImportReviews
-Manual import is conditional on verified access and approved governance.
-end note
 @enduml
 

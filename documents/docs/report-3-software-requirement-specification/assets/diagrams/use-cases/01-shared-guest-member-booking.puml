@@ -25,20 +25,17 @@ rectangle "Personalized Product Sales and Workshop Booking System" {
   usecase "Create booking invoice\nwith 50% deposit due" as Invoice
   usecase "Initiate deposit payment" as Deposit
   usecase "Track booking with\ncode and contact information" as Track
-  usecase "Open Google review\nlink / QR" as ReviewLink
 }
 
 Guest --> ViewSessions
 Guest --> Book
 Guest --> Design
 Guest --> Track
-Guest --> ReviewLink
 
 Member --> ViewSessions
 Member --> Book
 Member --> Design
 Member --> Track
-Member --> ReviewLink
 
 Book .> SelectSession : <<include>>
 Book .> Contact : <<include>>

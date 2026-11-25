@@ -2,7 +2,7 @@
 
 Full = unrestricted  ·  Restricted = conditions apply (see footnotes)  ·  No = denied
 
-The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, Google Maps, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
+The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
 
 |Entity / Function|Action|Guest|Member|Staff|Manager|Admin|
 |---|---|---|---|---|---|---|
@@ -42,7 +42,6 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Operational parameters|Configure deadlines, loyalty rates, point value, and discount caps|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
 |Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|
-|Public store review|Open the Google Maps review link|Full|Full|Full|Full|Full|
 
 #### Permission Matrix Footnotes
 

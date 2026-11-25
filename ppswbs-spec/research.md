@@ -5,9 +5,8 @@
 # FE-11 — Review Management
 
 Mland may store reviews only for workshop sessions and retail products when the
-source attendance/order-line eligibility is verified. This does not change the
-read-only Google Maps/Places boundary: Google review content is not persisted
-and nothing is written back to Google. Guest email/phone lookup deliberately has
+source attendance/order-line eligibility is verified. Google Maps/Places is
+not used (removed from V1, confirmed 2026-11-25); nothing is imported from or written back to Google. Guest email/phone lookup deliberately has
 no OTP or rate limit in V1; source matching, one-review-per-source uniqueness,
 idempotency, audit and public identity masking are the selected mitigations.
 See `features/011-review-management/research.md` for evidence and remaining
