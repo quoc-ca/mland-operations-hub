@@ -20,4 +20,8 @@ The feature subsections are:
 - FE-12 Workshop Ring Design Configuration
 - FE-13 Staff Consultation Chat
 
+### Diagram readability rules
+
+All detailed diagrams must use a compact page width, larger text and clear orthogonal routing. A relationship must not pass through a node, label or unrelated entity. No more than two relationships may cross the same relationship line; if the limit is exceeded, the diagram must be reorganised or split into at most three diagrams. Cross-feature links should use a labelled facade or external-reference node rather than multiple long crossing arrows.
+
 

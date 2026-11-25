@@ -1,0 +1,61 @@
+@startuml
+title Report 4 Database Design — Commerce and Operations
+!pragma charset UTF-8
+top to bottom direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontSize 16
+skinparam nodesep 35
+skinparam ranksep 55
+skinparam entity {
+  FontSize 16
+  AttributeFontSize 14
+}
+entity retail_carts
+entity retail_cart_lines
+entity retail_grouped_checkouts
+entity retail_orders
+entity retail_order_items
+entity retail_shipments
+entity custom_orders
+entity custom_order_quotes
+entity settlement_final_bills
+entity settlement_charges
+entity settlement_folio_collections
+entity settlement_ticket_cancellations
+entity settlement_ticket_changes
+entity settlement_refund_requests
+entity loyalty_wallet
+entity loyalty_point_ledger
+entity loyalty_policy
+entity promotion_program
+entity promotion_member_program
+entity notification_template_definition
+entity notification_request
+entity notification_delivery_attempt
+entity accounts
+retail_carts }o--|| accounts
+retail_carts ||--o{ retail_cart_lines
+retail_grouped_checkouts }o--|| accounts
+retail_grouped_checkouts ||--o{ retail_orders
+retail_orders ||--o{ retail_order_items
+retail_orders ||--o| retail_shipments
+custom_orders }o--|| accounts
+custom_orders ||--o{ custom_order_quotes
+settlement_final_bills ||--o{ settlement_charges
+settlement_final_bills ||--o{ settlement_folio_collections
+settlement_final_bills ||--o{ settlement_ticket_cancellations
+settlement_final_bills ||--o{ settlement_ticket_changes
+settlement_final_bills ||--o{ settlement_refund_requests
+accounts ||--o| loyalty_wallet
+loyalty_wallet ||--o{ loyalty_point_ledger
+loyalty_policy ||--o{ loyalty_point_ledger
+promotion_program ||--o{ promotion_member_program
+accounts ||--o{ promotion_member_program
+notification_template_definition ||--o{ notification_request
+notification_request ||--o{ notification_delivery_attempt
+note "Payment gateway callbacks and workshop booking references are external module boundaries." as N1
+N1 .. retail_grouped_checkouts
+note "Custom orders are full-payment orders and are not added to the ready-ring cart." as N2
+N2 .. custom_orders
+@enduml
