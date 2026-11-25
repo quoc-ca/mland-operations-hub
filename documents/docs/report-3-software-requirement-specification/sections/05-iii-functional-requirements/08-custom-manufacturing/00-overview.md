@@ -12,4 +12,6 @@ The customer-facing label is **Đơn hàng cá nhân** and each quote is shown a
 reference regardless of its readable lifecycle state; the custom order keeps
 its own immutable snapshot.
 If payment is not verified before the deadline, the quote can no longer be paid
-and the Member may ask for a new quote.
+and the Member may ask for a new quote. A verified payment that arrives late, is
+for a replaced quote or is for an already paid order is kept for manual review and
+does not mark the order as paid; a payment with a wrong amount is rejected.

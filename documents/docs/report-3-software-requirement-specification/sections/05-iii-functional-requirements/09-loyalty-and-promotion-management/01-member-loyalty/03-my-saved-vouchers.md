@@ -20,3 +20,4 @@ Saving a public voucher does not reserve a use; a use is held only when an order
 | Saved time | "Saved {date-time}": when the Member saved the voucher. |
 | Use now | Shown for a usable voucher; opens the product catalogue or workshop list according to the voucher's scope. |
 | Empty state | "You have not saved any voucher." with **See offers**. |
+| Load more | Loads further saved vouchers when there are more. |

@@ -14,7 +14,7 @@ A source can have only one review. The screen cannot be used without a selected 
 | No source selected | "Vui lòng chọn nguồn đủ điều kiện trước." with links back to `/reviews`. |
 | Source information | Source label and "Mã tham chiếu" of the chosen source; it cannot be changed here. |
 | Số sao (1–5) | Required star rating, 5 by default. |
-| Nội dung đánh giá | Optional text, at most 2,000 characters, with a character counter. |
+| Nội dung đánh giá | Optional text, at most 2,000 characters, with a character counter. Text containing SQL-like syntax (for example `--`, `;` or `/* */`) is refused. |
 | Gắn ảnh trải nghiệm | Optional JPEG, PNG or WebP photos, at most 3 and at most 10MB in total, with previews and a remove button per photo. |
 | Đánh giá ẩn danh | When ticked, the reviewer's name is not shown publicly; otherwise the name is partly masked. |
 | Đăng đánh giá | Submits the review; on success shows "Đánh giá đã được đăng công khai." and opens Review Details. |

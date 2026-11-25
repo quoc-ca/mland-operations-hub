@@ -13,8 +13,8 @@ This screen allows the Carrier to:
 | --- | --- |
 | Kỳ / Ngày | Period type (Ngày, Tuần, Tháng, Năm) and a date no later than today; picking a date switches the period to Ngày. |
 | Vận đơn tiếp nhận | Shipments created in the period. |
-| Đã lấy hàng | Shipments picked up in the period, with Đang chờ lấy: the count still waiting for pickup. |
-| Giao thành công | Shipments delivered in the period, with Đang giao: the count still on the way. |
+| Đã lấy hàng | Shipments picked up in the period, with Đang chờ lấy: the count currently waiting for pickup, whatever the chosen period. |
+| Giao thành công | Shipments delivered in the period, with Đang giao: the count currently on the way, whatever the chosen period. |
 | Thời gian giao trung bình | Average time from pickup to delivery. |
 | Cước vận chuyển | Shipping fees of the shipments delivered in the period. |
 | Trend chart | Tiếp nhận, Lấy hàng and Giao thành công per hour, day or month of the period. |

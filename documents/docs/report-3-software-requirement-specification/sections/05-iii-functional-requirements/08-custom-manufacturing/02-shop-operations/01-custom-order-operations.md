@@ -17,7 +17,7 @@ The screen is at `/staff/custom-orders` (also `/manager/custom-orders`) and the 
 | Search | Matches order code, request code, customer name, email or request description. |
 | Stage tabs | "Chờ chế tác" (default), "Đang gia công", "Sẵn sàng giao hàng", "Đã hoàn tất" and "Tất cả đơn". |
 | Order card | Order code, status badge, linked design request, creation date, quoted amount, customer and delivery information, design details and reference images. |
-| Stage button | **Bắt đầu chế tác**, **Hoàn thành chế tác & Sẵn sàng giao** or **Xác nhận đã bàn giao / Giao hàng**, according to the current stage; only the next stage can be chosen. |
+| Stage button | **Bắt đầu chế tác**, **Hoàn thành chế tác & Sẵn sàng giao** or **Xác nhận đã bàn giao / Giao hàng**, according to the current stage; only the next stage can be chosen, and the server rejects unpaid orders and skipped or backward steps. |
 | Confirmation dialog | Shows the current and new stage before the change is saved. |
 | **Xem thêm** | Quote reference and deadline, production status, handover status and the reviewer's note. |
 | Empty message | "Không tìm thấy đơn gia công nào trong danh mục này." |

@@ -2,7 +2,7 @@
 
 ![](assets/screens/57-retail-order-operations.png)
 
-This screen allows Staff to:
+This screen allows Staff (Managers only as noted below) to:
 
 - Work through the branch's retail orders in tabs: Đơn hàng cần chuẩn bị, Chờ ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận and Hoàn thành.
 - Press Đã chuẩn bị xong on a paid order: a pickup order moves to Chờ khách nhận and a GHTK order to Chờ ĐVVC lấy hàng.
@@ -11,13 +11,13 @@ This screen allows Staff to:
 - Follow a packed GHTK order without acting on it: the GHTK partner records the pickup and the delivery on the carrier portal.
 - Open a card to see its details inline, including the recipient data and status history of a GHTK shipment.
 
-The page is reached at /staff/retail-orders; the former addresses /staff/retail-shipments and /staff/retail-pickups open the same page on the Đơn hàng cần chuẩn bị and Chờ thu tiền mặt tabs. Without a chosen tab it opens the first tab, left to right, that has orders. Only Staff can open it, and the server limits it to the Staff's assigned branches.
+The page is reached at /staff/retail-orders; the former addresses /staff/retail-shipments and /staff/retail-pickups open the same page on the Đơn hàng cần chuẩn bị and Chờ thu tiền mặt tabs. Without a chosen tab it opens the first tab, left to right, that has orders. The server returns its data only to Staff and Managers, limited to their assigned branches. A Manager can view the orders and mark a GHTK order as prepared; preparing and handing over a pickup order and collecting cash are accepted from Staff only.
 
 | Field Name | Description |
 | --- | --- |
 | Summary | Tiền mặt đã thu hôm nay, Sắp quá hạn giữ hàng (dưới 24 giờ) and Việc đang chờ (orders to prepare, collect cash for or hand over). |
 | Search / Làm mới | Matches order code (ML…), tracking number or recipient name; Làm mới reloads every tab. |
-| Tabs | Each tab with its count of orders; Chờ thu tiền mặt is sorted by hold deadline, the others newest first. |
+| Tabs | Each tab except Hoàn thành with its count of orders; Chờ thu tiền mặt is sorted by hold deadline, the others newest first. At most 50 GHTK shipments per shipment status are loaded. |
 | Order card | Order code, branch with Nhận tại cửa hàng or the GHTK tracking number, a stage pill, product lines or recipient name and area, and Thành tiền or Cần thu. |
 | Giữ hàng đến | On Chờ thu tiền mặt: the cash hold deadline and time left, highlighted when under 24 hours. |
 | Xác nhận đã thu | Shows the amount due; records payment of exactly that amount and the handover once. If it fails, nothing is recorded and Staff presses again. |

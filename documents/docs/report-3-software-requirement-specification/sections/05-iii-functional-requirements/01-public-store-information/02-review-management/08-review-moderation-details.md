@@ -8,7 +8,7 @@ This screen allows Staff and Managers to:
 - As a Manager, write the one current reply of the review or edit it.
 - Give a reason with each visibility change; the change is recorded with the actor, role, reason, time and previous and new status.
 
-Removal keeps the review and its history but takes it out of public view for good; a removed review cannot be restored. Only Staff and Managers can open this screen.
+Removal keeps the review and its history but takes it out of public view for good; a removed review cannot be restored. The screen requires sign-in and is for Staff and Managers; other signed-in roles are not redirected, and the server refuses their moderation and reply actions with an error.
 
 | Field Name | Description |
 | --- | --- |
