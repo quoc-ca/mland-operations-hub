@@ -1,0 +1,4 @@
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-LOY-001,Promotion targets selected location,Order uses another location,Promotion is not applied,Security,Passed,2026-11-25,QA Agent,,,,,,,,Promotion location scope
+UT-LOY-002,Member has voucher and points,Combined discount exceeds configured cap,Server clamps or rejects according to policy,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Pricing integrity
+UT-LOY-003,Promotion is inactive,Member attempts to apply it,Promotion is rejected without changing quote,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Lifecycle
