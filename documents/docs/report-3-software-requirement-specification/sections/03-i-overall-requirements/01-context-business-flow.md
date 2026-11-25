@@ -24,4 +24,4 @@ The Mail Gateway delivers account invitations, workshop booking confirmations wi
 
 Mland uses the paid Gemini API only for basic AI chat support: the platform sends the Guest's or Member's chat request and returns the response. Answers are limited to approved public information and FAQs; the AI cannot confirm transactions or make business decisions. AI is not used to analyze design images, suggest prices or review design requests; design-request images are reviewed by Staff or Manager and are never sent to an AI provider.
 
-git add documents/docs/report-3-software-requirement-specification/sections/03-i-overall-requirements/01-context-business-flow.md{{r3-context-diagram width=100% align=center}}
+{{r3-context-diagram width=100% align=center}}
