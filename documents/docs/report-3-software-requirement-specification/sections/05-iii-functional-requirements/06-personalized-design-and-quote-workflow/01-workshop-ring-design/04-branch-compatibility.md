@@ -1,4 +1,4 @@
-#### 6.1.4 Branch Compatibility
+#### 6.1.4 Branch Compatibility (Retired)
 
 This screen allows Members to:
 
@@ -7,7 +7,7 @@ This screen allows Members to:
 - Open the design in Ring Configuration to adjust it.
 - Go to workshop booking to choose another branch for the same package and design.
 
-The design itself is not changed by this screen. Under the current Feature-012 baseline a design is no longer attached to a booking, and no current screen links to this route; it remains available as a recovery page.
+> **Retired:** Feature-012 no longer validates or attaches a design to a selected branch. Branch compatibility belongs to the independent workshop-booking contract. This fragment is retained only for historical traceability and must not be implemented as a Feature-012 screen.
 
 | Field Name | Description |
 | --- | --- |

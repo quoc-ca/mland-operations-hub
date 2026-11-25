@@ -1,0 +1,23 @@
+@startuml
+title FE-04 Submit Member Design Request
+actor Member
+participant DesignRequestController
+participant HumanReviewService
+participant ImageQualityService
+participant DesignSnapshotFacade
+database DesignRequestRepository
+Member -> DesignRequestController : submit description/images/design reference
+DesignRequestController -> HumanReviewService : validate active Member and command
+HumanReviewService -> ImageQualityService : validate consent and image quality
+ImageQualityService --> HumanReviewService : valid or validation error
+HumanReviewService -> DesignSnapshotFacade : copy owned safe design snapshot (optional)
+DesignSnapshotFacade --> HumanReviewService : immutable snapshot
+HumanReviewService -> DesignRequestRepository : save NEED_REVIEW request
+DesignRequestRepository --> HumanReviewService : request version
+HumanReviewService --> DesignRequestController : safe request projection
+DesignRequestController --> Member : status NEED_REVIEW
+note over Member,DesignRequestController
+Guest sees the entry but is sent to sign-in.
+No AI call, booking, cart or payment is created.
+end note
+@enduml

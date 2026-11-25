@@ -6,9 +6,10 @@
 
 **Processing steps**
 
-1. Read the committed task and approved template/recipient contract; unspecified notice contracts remain TBD.
-2. Send through configured Mland SMTP and record a safe provider outcome.
-3. Notification requests are polled every 30 seconds with at most 3 attempts (retries after 1 and 5 minutes). Booking and settlement emails make at most 2 attempts within 24 hours, polled every 5 minutes. Mail failure does not reverse a sale, booking or approval.
+1. Read the committed task and approved template/recipient snapshot. The account service supplies the intended recipient and current invitation reference; booking and retail supply their own approved recipients.
+2. Render and send through configured Mland SMTP, obtaining a current setup URL only transiently for an internal invitation. Persist no raw setup link or secret.
+3. Apply the policy of the message type. General requests make at most three definite attempts; booking requests use their separate two-attempt policy. Internal invitations make at most two definite attempts, initially and after about one minute. A possible SMTP acceptance becomes UNKNOWN_OUTCOME and is not retried automatically.
+4. Record the actual delivery result. Mail failure does not reverse an accepted account, sale or booking; a new internal account stays PENDING_SETUP until setup succeeds.
 
 **Failure behavior**
 

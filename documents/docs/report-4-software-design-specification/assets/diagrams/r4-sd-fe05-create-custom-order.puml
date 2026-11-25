@@ -1,0 +1,18 @@
+@startuml
+title FE-05 Convert Accepted Request to Custom Order
+actor Staff
+actor Manager
+participant HumanReviewService
+participant CustomOrderService
+participant DesignRequestFacade
+database CustomOrderRepository
+database CustomOrderQuoteRepository
+Staff -> HumanReviewService : accept request with explanation
+HumanReviewService -> DesignRequestFacade : request accepted snapshot
+DesignRequestFacade --> CustomOrderService : immutable design/request snapshot
+CustomOrderService -> CustomOrderRepository : create custom order
+CustomOrderService -> CustomOrderQuoteRepository : create quote draft
+CustomOrderService --> Staff : quote preparation result
+Manager -> CustomOrderService : open quote for approval
+CustomOrderService --> Manager : quote projection and version
+@enduml

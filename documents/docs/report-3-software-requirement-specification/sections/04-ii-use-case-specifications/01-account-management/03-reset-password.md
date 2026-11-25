@@ -1,4 +1,4 @@
-### 1.3 Reset Password
+﻿### 1.3 Reset Password
 
 #### Primary Actors
 
@@ -6,62 +6,34 @@ Guest, Member
 
 #### Secondary Actors
 
-Mail Gateway, SSO Provider
+Firebase Authentication
 
 #### Description
 
-As a user who cannot access my password, I want to reset it through the approved recovery flow so that I can sign in again without support staff viewing or receiving my password.
+A person with an eligible email/password identity requests a Firebase recovery link without giving a password to Mland staff.
 
 #### Preconditions
 
-1. The platform is available.
-2. The password-recovery service and Mail Gateway are configured.
-3. The user can provide the email address associated with a local platform account.
-4. The account is eligible for local password recovery.
+Firebase password recovery is configured and the person can provide a sign-in email.
 
 #### Normal Flow
 
-**Reset Password**
-
-1. The user opens the Forgot Password page.
-2. The user enters the email address associated with the account.
-3. The system validates the request format and creates a time-limited recovery request.
-4. The system sends a password-reset link or one-time token to the email address through the Mail Gateway.
-5. The user opens the link or submits the valid token.
-6. The system displays the password-reset form without revealing sensitive account information.
-7. The user enters and confirms a new password.
-8. The system validates the token, password policy, and recovery-request status.
-9. The system stores the new password securely, invalidates applicable previous sessions, and records the change.
-10. The system sends a password-change confirmation and allows the user to Sign In.
+1. The person opens Forgot Password and enters an email address.
+2. The browser requests a recovery email from Firebase and displays a response that does not disclose whether an account exists.
+3. Firebase sends a time-limited recovery link to an eligible identity.
+4. The person opens the link and sets a new password on Firebase's recovery page.
+5. Firebase validates the link and updates the credential; the person signs in again.
 
 #### Alternative Flows
 
-**Step 2 — Email address is unknown or not eligible for local recovery**
+**Unknown email or ineligible identity:** The page gives the same non-disclosing response. Google-only users recover access through Google.
 
-The system displays the same non-disclosing response as a valid request and does not reveal whether an account exists. An SSO-managed user is directed to recover access through the SSO provider.
-
-**Step 5 — Recovery link or token is invalid or expired**
-
-The system rejects the request, displays an error, and allows the user to request a new recovery message.
-
-**Step 7 — New password does not meet the password policy**
-
-The system displays the password requirements and does not change the existing password.
-
-**Step 4 — Mail Gateway cannot deliver the recovery message**
-
-The system records the notification failure, does not change the password, and allows the user to retry later.
-
-**Step 9 — Password update fails**
-
-The system keeps the existing password, records the failure, and asks the user to restart the recovery flow.
+**Expired link, delivery error, or password update failure:** The password remains unchanged and the person receives safe retry guidance.
 
 #### Postconditions
 
-- A valid local account has a new securely stored password after successful token verification.
-- Previous applicable sessions are invalidated after the password is changed.
-- The system does not reveal account existence through the recovery response.
-- An SSO-managed identity is not assigned a local password by this use case.
+- Firebase manages the new password; Mland does not store it.
+- The response does not reveal account existence.
 
 #### Business Rules
 
@@ -70,7 +42,7 @@ BR-03-01, BR-03-02, BR-03-03
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
-| BR-03-01 | Password recovery must use a time-limited, single-use verification link or token. |
-| BR-03-02 | The system must not reveal whether an email address is registered through password-recovery responses. |
-| BR-03-03 | Passwords must be stored securely and must never be sent to Staff, Admin, or external providers. |
+| --- | --- |
+| BR-03-01 | Recovery uses Firebase's time-limited link. |
+| BR-03-02 | Recovery responses must not disclose whether an email is registered. |
+| BR-03-03 | Mland must not store or disclose passwords to Staff or Admin. |

@@ -2,18 +2,18 @@
 
 ![](assets/screens/41-ring-configuration.png)
 
-This screen allows Guests and Members to:
+This screen allows a Member to configure and save a design; a Guest can only change a local preview:
 
 - Configure a ring from a chosen model, from a blank band or from an existing saved design (edit mode), using only the options the server supplies for the package.
 - Choose material, band shape, ring size, thickness and band width, gemstones, decorative attachments and engraving.
 - See a live preview with top and side views, and a summary with the estimated weight.
 - Save with **Lưu & Thẩm định**, which creates the design on first save, stores a new version and opens Design Evaluation.
 
-Both save buttons stay disabled while the configuration fails validation. Price and difficulty are advisory; the official amount follows the selected workshop package. A Guest may only change the local preview: either save button sends a Guest to sign-in, saves nothing and creates no server state. Editing a saved design is for its owning Member.
+Both save buttons stay disabled while the configuration fails validation. Price and difficulty are advisory and do not change any workshop package price. A Guest may only change the local preview; either save button sends the Guest to sign-in, saves nothing and creates no server state. Editing a saved design is for its owning Member.
 
 | Field Name | Description |
 | --- | --- |
-| Advisory banner | States that the price and difficulty are for reference and the official price follows the selected workshop package. |
+| Advisory banner | States that the price and difficulty are for reference only and do not change any workshop package price or payment amount. |
 | 1. Chất liệu nhẫn | Material cards (Bạc Ý 925, đồng, thép không gỉ 316L) with unit price; exactly one is selected. |
 | 2. Dáng đai & Kích thước | Required band shape, ring size from 6 (46 mm) to 29 (69 mm) with circumference and inner diameter, thickness 1.0–3.0 mm and band width 1.5–6.0 mm in 0.1 mm steps. |
 | 3. Đá quý đính kèm | Gemstone cards with per-stone price and quantity controls; at most 10 stones in total, positioned by dragging on the top view. |

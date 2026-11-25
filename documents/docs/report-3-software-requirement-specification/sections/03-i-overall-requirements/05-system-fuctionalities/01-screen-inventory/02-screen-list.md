@@ -17,11 +17,11 @@
 | 13 | Workshop Package List | Workshop Booking | Displays the published workshop packages for browsing and selection. |
 | 14 | Workshop Package Details | Workshop Booking | Displays a package's description, terms, branches and sessions, with a way to start booking. |
 | 15 | Session and Participant Booking | Workshop Booking | Allows a Guest or Member to choose the branch, session and number of participants, enter contact details and place a booking hold. |
-| 16 | Ring Design Entry | Workshop Ring Design | Starts the ring designer for the selected workshop package from a ring model or a blank ring; a Guest may only preview. |
-| 17 | Ring Model Selection | Workshop Ring Design | Allows visitors and Members to browse the base ring models and open one in the designer. |
-| 18 | Ring Configuration | Workshop Ring Design | Allows a Member to configure and save the supported ring options, such as material and pattern, on a chosen model or a blank ring; a Guest may only preview and is sent to sign-in on save. |
-| 19 | Branch Compatibility | Workshop Ring Design | Warns a Member that the selected branch cannot make their design and offers ways to continue, such as changing the branch or the design. The route exists, but no current screen links to it. |
-| 20 | Design Evaluation | Workshop Ring Design | Displays a Member the evaluation of their saved design with recommendations and a path to a consultation. |
+| 16 | Ring Design Entry | Workshop Ring Design | Starts the independent workshop-ring designer from a published model or a blank design; a Guest may only preview locally and is asked to sign in before a protected action. |
+| 17 | Ring Model Selection | Workshop Ring Design | Allows visitors and Members to browse catalogue-controlled base models and open one in the independent designer. |
+| 18 | Ring Configuration | Workshop Ring Design | Allows a Member to configure and save supported ring options, such as material, shape, gemstones and engraving; a Guest may only preview locally. |
+| 19 | Branch Compatibility (Retired) | Workshop Ring Design | Retired: Feature-012 no longer attaches a design to a branch, workshop booking or ticket. Branch selection belongs to the separate booking flow. |
+| 20 | Design Evaluation | Workshop Ring Design | Displays a Member's server evaluation, advisory difficulty/estimate and workshop recommendation without changing package price or creating a booking. |
 | 21 | Workshop Booking Cart | Workshop Booking | Allows the customer to review held workshop bookings, apply eligible benefits and go to the deposit payment. |
 | 22 | Workshop Payment Result | Payment | Displays the system-verified payment outcome and the current status of the booking group after the return from VNPay; the browser return alone does not confirm payment. |
 | 23 | Booking Lookup | Workshop Booking | Allows a Member to open their own booking groups, or a Guest to find one by booking code and contact, and manage it. |
@@ -93,7 +93,6 @@
 | 89 | User Account List | Account Administration | Admin home that allows the Admin to search and filter user accounts and open one. |
 | 90 | New Internal Account | Account Administration | Allows the Admin to create a Staff, Manager or Carrier account. |
 | 91 | User Account Details | Account Administration | Allows the Admin to view an account, edit allowed fields, change its role and location, and suspend or restore it; only suspension asks for confirmation. |
-| 92 | Role Catalogue (Retired) | Account Administration | Retired: the standalone role catalogue is removed; roles are fixed (confirmed 2026-11-25). |
 | 93 | Notification Templates | Notification Management | Allows Admins and Managers to browse the email notification templates. |
 | 94 | Template Details | Notification Management | Allows Admins and Managers to view and edit one email notification template. |
 | 95 | Notification Requests | Notification Management | Displays the delivery log of notification requests with their sending status. |

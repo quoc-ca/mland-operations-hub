@@ -1,0 +1,22 @@
+@startuml
+title FE-13 Create Contextless or Design-Context Conversation
+actor Member
+participant ConsultationController
+participant ConsultationContextService
+participant ConsultationApplicationService
+participant WorkshopDesignContextPort
+participant IndependentDesignRequestContextPort
+database ConsultationConversationRepository
+Member -> ConsultationController : create optional context conversation
+ConsultationController -> ConsultationContextService : validate context if supplied
+alt Feature-012 design context
+  ConsultationContextService -> WorkshopDesignContextPort : validate owned current version
+else Feature-004 request context
+  ConsultationContextService -> IndependentDesignRequestContextPort : validate owned request/version
+else no context
+  ConsultationContextService --> ConsultationController : empty context accepted
+end
+ConsultationContextService --> ConsultationApplicationService : safe immutable context snapshot
+ConsultationApplicationService -> ConsultationConversationRepository : create OPEN conversation
+ConsultationController --> Member : conversation reference and safe context
+@enduml

@@ -1,0 +1,24 @@
+@startuml
+title FE-11 Staff or Manager Moderates and Replies
+actor Staff
+actor Manager
+participant ReviewModerationController
+participant ReviewService
+database ReviewRepository
+database ReviewModerationEventRepository
+database ReviewReplyRepository
+Staff -> ReviewModerationController : hide review + version
+ReviewModerationController -> ReviewService : authorize Staff scope
+ReviewService -> ReviewRepository : set HIDDEN
+ReviewService -> ReviewModerationEventRepository : append audit
+Manager -> ReviewModerationController : remove or reply + version
+ReviewModerationController -> ReviewService : authorize Manager action
+ReviewService -> ReviewRepository : set REMOVED when requested
+ReviewService -> ReviewReplyRepository : create or edit current reply
+ReviewService -> ReviewModerationEventRepository : append audit
+ReviewModerationController --> Staff : result
+ReviewModerationController --> Manager : result
+note over Staff,Manager
+Admin has technical/audit access only.
+end note
+@enduml

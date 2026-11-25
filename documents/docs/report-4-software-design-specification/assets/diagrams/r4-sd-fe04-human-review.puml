@@ -1,0 +1,23 @@
+@startuml
+title FE-04 Staff or Manager Human Review
+actor Reviewer
+participant DesignReviewController
+participant HumanReviewService
+database DesignRequestRepository
+database HumanReviewDecisionRepository
+Reviewer -> DesignReviewController : open NEED_REVIEW request
+DesignReviewController -> HumanReviewService : load scoped request
+HumanReviewService -> DesignRequestRepository : find current version
+DesignRequestRepository --> HumanReviewService : request and snapshot
+HumanReviewService --> DesignReviewController : safe review projection
+Reviewer -> DesignReviewController : decision + mandatory explanation + version
+DesignReviewController -> HumanReviewService : record decision
+HumanReviewService -> DesignRequestRepository : check version and state
+HumanReviewService -> HumanReviewDecisionRepository : append decision and audit
+HumanReviewService -> DesignRequestRepository : update status
+DesignReviewController --> Reviewer : decision result or 409 conflict
+note over Reviewer
+Staff and Manager may review within authority.
+An explanation is mandatory; Admin cannot decide.
+end note
+@enduml

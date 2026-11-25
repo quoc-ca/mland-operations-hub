@@ -1,0 +1,25 @@
+@startuml
+title FE-13 Send Message with Scope and Idempotency Checks
+actor Participant
+participant ConsultationController
+participant ConsultationApplicationService
+database ConsultationIdempotencyRecordRepository
+database ConsultationMessageRepository
+database ConsultationAuditEventRepository
+Participant -> ConsultationController : send UTF-8 text + key
+ConsultationController -> ConsultationApplicationService : authenticate and authorize participant
+ConsultationApplicationService -> ConsultationIdempotencyRecordRepository : find command key
+alt new command
+  ConsultationApplicationService -> ConsultationMessageRepository : save immutable message
+  ConsultationApplicationService -> ConsultationAuditEventRepository : save safe metadata audit
+  ConsultationApplicationService -> ConsultationIdempotencyRecordRepository : save outcome
+else same key and same payload
+  ConsultationApplicationService --> ConsultationController : return original result
+else same key and changed payload
+  ConsultationApplicationService --> ConsultationController : 409 key conflict
+end
+ConsultationController --> Participant : message result
+note over Participant,ConsultationController
+Empty, overlong, closed or rate-limited commands are rejected.
+end note
+@enduml

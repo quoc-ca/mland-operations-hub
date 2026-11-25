@@ -1,0 +1,30 @@
+@startuml
+title FE-04 Design Request and Human Review
+left to right direction
+skinparam classAttributeIconSize 0
+class DesignRequestController
+class HumanReviewService
+class ImageQualityService
+class DesignRequest
+class DesignRequestImage
+class ImageConsent
+class HumanReviewDecision
+class DesignRequestRepository
+class HumanReviewDecisionRepository
+interface DesignSnapshotFacade
+class LegacyGuestAndAiCompatibility <<LEGACY>>
+DesignRequestController --> HumanReviewService
+HumanReviewService --> ImageQualityService
+HumanReviewService --> DesignRequestRepository
+HumanReviewService --> HumanReviewDecisionRepository
+HumanReviewService --> DesignSnapshotFacade
+DesignRequest "1" o-- "0..5" DesignRequestImage
+DesignRequest "1" o-- "0..1" ImageConsent
+DesignRequest "1" o-- "0..*" HumanReviewDecision
+LegacyGuestAndAiCompatibility ..> DesignRequestController : deprecated paths
+note right of LegacyGuestAndAiCompatibility
+Not a current business flow:
+Guest request, AI image analysis
+and AI price suggestion are legacy.
+end note
+@enduml
