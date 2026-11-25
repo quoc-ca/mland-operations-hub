@@ -1,6 +1,6 @@
 #### 6.1.4 Branch Compatibility
 
-This screen allows Guests and Members to:
+This screen allows Members to:
 
 - See that the selected workshop branch does not support some materials or techniques of the current ring design.
 - Read the reason supplied with the warning, or a default reason when none is given.

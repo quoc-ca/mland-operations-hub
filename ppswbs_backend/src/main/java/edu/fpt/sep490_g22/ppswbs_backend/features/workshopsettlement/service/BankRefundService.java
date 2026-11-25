@@ -525,7 +525,7 @@ public class BankRefundService {
     }
 
     /**
-     * Manager home (013 R-2): the one meaning of "waiting" for the refund queue, used by both the card count and the
+     * navigation shell and dashboard (014 R-2): the one meaning of "waiting" for the refund queue, used by both the card count and the
      * list the card opens (FR-004): the four PENDING_* statuses. REFUNDED and CLOSED_UNREACHABLE are not waiting.
      */
     public static final java.util.Set<RefundRequestStatus> WAITING_STATUSES = java.util.EnumSet.of(

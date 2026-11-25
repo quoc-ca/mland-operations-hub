@@ -4,7 +4,7 @@
 
 This screen allows the Carrier to:
 
-- Browse the GHTK shipments of every Mland branch, newest first, in the tabs Đã tiếp nhận, Đang lấy hàng, Đang giao hàng and Đã giao hàng, each with its count; the page opens at the first tab, left to right, that has shipments.
+- Browse the GHTK shipments of every Mland branch, newest first, in the tabs Đã tiếp nhận, Đang lấy hàng, Đang giao hàng and Đã giao hàng, each with its count; the page opens at the first unfinished tab, left to right (never Đã giao hàng), that has shipments, otherwise at Đang lấy hàng.
 - Search by tracking number, order code, recipient name or phone.
 - See where to collect, whom to deliver to and the item count of each shipment.
 - Press Đã lấy hàng after collecting a packed parcel and Giao thành công after delivering it.

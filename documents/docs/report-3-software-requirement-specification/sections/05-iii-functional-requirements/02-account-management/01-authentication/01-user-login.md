@@ -6,10 +6,10 @@ This screen allows users of every role to:
 
 - Sign in with email and password, or with Google, through Firebase Authentication.
 - Have their Mland account resolved (or created on first Google sign-in) by the server after the identity sign-in.
-- Reach the home of their current role: a Member goes to the `returnTo` page if one is given, otherwise to Home Page; Staff goes to Staff Home, a Manager to Manager Dashboard, an Admin to User Account List and the Carrier always to Carrier Portal.
+- Reach their destination: a Carrier always goes to Carrier Portal; others go to the `returnTo` page if one is given, otherwise a Member goes to Home Page, Staff to Staff Home, a Manager to Manager Dashboard and an Admin to User Account List.
 - Open User Register or Forgot Password.
 
-Only a `returnTo` path on this site is followed. The spec sends every non-Carrier sign-in to Home Page; the code sends Staff, Manager and Admin to their own home instead.
+Only a `returnTo` path on this site is followed.
 
 | Field Name | Description |
 | --- | --- |

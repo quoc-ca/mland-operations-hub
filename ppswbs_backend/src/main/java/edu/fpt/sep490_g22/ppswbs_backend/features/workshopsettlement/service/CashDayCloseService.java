@@ -37,13 +37,13 @@ public class CashDayCloseService {
     private final SettlementBusinessAuditRepository audits;
     private final SettlementCashReversalRepository cashReversals;
 
-    /** Manager home (013 R-3): cash closes whose difference waits for a Manager. */
+    /** navigation shell and dashboard (014 R-3): cash closes whose difference waits for a Manager. */
     @Transactional(readOnly = true)
     public long countAwaitingConfirmation() {
         return closes.countByStatus(CashDayCloseStatus.PENDING_MANAGER_CONFIRMATION);
     }
 
-    /** Manager home (013 R-3): the closes counted by {@link #countAwaitingConfirmation()}, oldest first. */
+    /** navigation shell and dashboard (014 R-3): the closes counted by {@link #countAwaitingConfirmation()}, oldest first. */
     @Transactional(readOnly = true)
     public java.util.List<SettlementCashDayClose> listAwaitingConfirmation() {
         return closes.findByStatusOrderByClosedAtAsc(CashDayCloseStatus.PENDING_MANAGER_CONFIRMATION);

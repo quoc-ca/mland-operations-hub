@@ -22,4 +22,4 @@ Recipient addresses are always shown masked. A request in PROCESSING cannot be r
 | Gửi lại thư | Enabled for SENT or FAILED, and for UNKNOWN_OUTCOME to an Admin; the dialog requires a reason of at least 10 characters and, for UNKNOWN_OUTCOME, a duplicate-risk confirmation. |
 | Hủy gửi | Enabled only for PENDING or RETRY_SCHEDULED; the dialog requires a reason. |
 | Gửi lại với link/vé mới | Opens "Cấp lại liên kết và gửi lại" with a required reason; the owning booking or retail feature supplies the new credential. |
-| Pager | "Tổng cộng {n} yêu cầu • Trang x / y" with **Trang trước** and **Trang sau**. |
+| Pager | Shown only when there is more than one page: "Tổng cộng {n} yêu cầu • Trang x / y" with **Trang trước** and **Trang sau**. |

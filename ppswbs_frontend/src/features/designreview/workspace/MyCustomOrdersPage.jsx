@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
+import DesignImage from '../components/DesignImage';
 import { designReviewMessages } from '../messages';
 import { wholeAmount } from '../format';
 import { getOrderBadgeInfo, getProductionStatusLabel, getFulfilmentStatusLabel } from '../customOrderStatus';
@@ -302,8 +303,8 @@ export default function MyCustomOrdersPage() {
                     }}>
                       {/* Thumbnail if available */}
                       {order.designImages && order.designImages.length > 0 ? (
-                        <img
-                          src={order.designImages[0].imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(order.designImages[0].imageReference)}`}
+                        <DesignImage
+                          image={order.designImages[0]}
                           alt="Mẫu thiết kế"
                           style={{
                             width: 64,

@@ -34,7 +34,7 @@ As a Member, I want the cart lines I ticked revalidated and quoted at approved p
 3. For each branch the Member chooses store pickup or GHTK delivery with a recipient address, chooses VNPay or, for store pickup, cash at the counter, and chooses no benefits or available approved voucher/points benefits.
 4. The system revalidates every line for current public eligibility, exact configured variant, applied approved price and logically available quantity.
 5. The system validates selected branch/benefit eligibility and calculates approved variant subtotal, then the best automatic product discount, then at most one voucher on what the automatic discount left of its covered lines, then approved points on the remainder, plus the GHTK delivery fee quoted by GHTK; the automatic and voucher discounts are shown as separate lines (product discount, voucher discount, points discount, savings) and each line's share goes to its branch order and each step must yield whole VND without invented rounding.
-6. The system displays current line/options/quantity/prices, branch, discounts and positive payable total for acceptance; changed terms require explicit Member review and resubmission.
+6. The system displays current line/options/quantity/prices, branch, discounts and non-negative payable total for acceptance; changed terms require explicit Member review and resubmission.
 7. The Member submits acceptance of the complete quote by pressing Đặt hàng.
 8. The system rechecks authority, limits, latest eligibility/quantity and approved terms, then accepts one grouped checkout with one order per branch and the quantity/benefit holds together or none. It freezes policy versions/results and the checkout acceptance time; a VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours.
 9. The system records safe evidence. For VNPay it opens the VNPay payment page straight away (UC55); for cash at the counter it opens Purchase Order History at Chờ nhận tại cửa hàng with where and until when to pay.
@@ -79,7 +79,7 @@ BR-54-01, BR-54-02, BR-54-03, BR-54-04, BR-54-05, BR-54-06, BR-54-07, BR-54-08
 | --- | --- |
 | BR-54-01 | Each ticked line belongs to an active processing branch; the accepted order of each branch freezes that branch and its pickup or GHTK choice. |
 | BR-54-02 | Checkout covers the ticked lines; invalid/unavailable lines are removed and reported without a partial order/hold or variant substitution. |
-| BR-54-03 | Freeze product/variant/options, quantity, prices/currency, branch, policy versions, discounts and positive whole-VND totals; later changes never rewrite accepted terms. |
+| BR-54-03 | Freeze product/variant/options, quantity, prices/currency, branch, policy versions, discounts and non-negative whole-VND totals; later changes never rewrite accepted terms. |
 | BR-54-04 | Allow no-benefit checkout; requested benefits require complete approved policies. The best automatic product discount always applies; at most one voucher stacks on what it left, then points on the remainder, without rounding or silent benefit removal. A voucher that gives nothing more, is not saved when it must be, or does not cover the lines or branch is refused with its reason. |
 | BR-54-05 | Reserve exact-variant quantities and selected benefits together or none; unpaid holds neither deduct sold quantity nor debit points or consume voucher quota. |
 | BR-54-06 | Accepted checkout creates one order per branch and one hold bundle; a VNPay hold lasts 10 minutes and a cash-at-the-counter hold 72 hours, without retry extensions. |

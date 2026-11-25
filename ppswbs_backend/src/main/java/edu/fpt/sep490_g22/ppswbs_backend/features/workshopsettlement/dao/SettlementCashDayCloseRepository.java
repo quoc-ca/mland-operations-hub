@@ -17,10 +17,10 @@ public interface SettlementCashDayCloseRepository extends JpaRepository<Settleme
 
     Optional<SettlementCashDayClose> findByCloseReference(String closeReference);
 
-    /** Manager home (013 R-3): closes in one status, e.g. the differences waiting for a Manager. */
+    /** navigation shell and dashboard (014 R-3): closes in one status, e.g. the differences waiting for a Manager. */
     long countByStatus(CashDayCloseStatus status);
 
-    /** Manager home (013 R-3): the same set as {@link #countByStatus}, oldest close first. */
+    /** navigation shell and dashboard (014 R-3): the same set as {@link #countByStatus}, oldest close first. */
     java.util.List<SettlementCashDayClose> findByStatusOrderByClosedAtAsc(CashDayCloseStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

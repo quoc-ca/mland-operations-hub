@@ -17,6 +17,6 @@ This screen allows Members to:
 | Đơn giá / Số lượng / Số tiền | Indicative unit price, integer quantity with − and + controls, and whole-VND line amount; prices are frozen only at checkout. For a ticked line with an automatic discount or voucher, the old unit price is struck through next to the discounted one with the tag Đã áp dụng mã giảm giá when a voucher applies, otherwise Đang giảm giá, and the line amount is net of that line's own share (automatic discount plus voucher) from the promotion preview; only lines the promotion covers are lowered, and points are not spread over lines. |
 | Select / Chọn tất cả | Ticks the lines to buy; nothing is ticked when the cart opens except the rings re-added by Mua lại. |
 | Voucher / Điểm thành viên | Shows the best eligible voucher or a typed code and the Member's points; the discount is recalculated at checkout. |
-| Xóa | Removes the line from the cart; it creates no hold or order. |
-| Mua hàng | Opens checkout with the ticked lines; with nothing ticked it shows Hãy chọn ít nhất một sản phẩm để mua. |
+| Xóa | On a line, removes that line; at the foot of the cart, removes all ticked lines (disabled when nothing is ticked). It creates no hold or order. |
+| Mua hàng | Opens checkout with the ticked lines; disabled when nothing is ticked. |
 | Empty-cart notice | Giỏ hàng chưa có sản phẩm, with a link to continue shopping. |

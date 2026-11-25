@@ -1,7 +1,7 @@
 # Feature Specification: Customer Workshop Booking Core
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-19
+**Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -1689,6 +1689,10 @@ deadline.
   display a QR ticket.
 - Staff/POS in-store QR scanning, phone/name fallback lookup, identity-document
   checking, and `CHECKED_IN` state transitions are deferred to a later feature.
+- *(2026-11-25, FR-059–FR-062)* A MEMBER starts creating a booking group at the moment FE-001 marks the account as
+  retiring: the group-creation lock makes exactly one of two outcomes true: the group exists before the mark and shows
+  as a blocker in the inventory, or the creation is refused. A Guest booking with the same email is never part of the
+  Member's inventory.
 
 ### Session 2026-11-02
 
@@ -2491,6 +2495,38 @@ reached; none changes a price, a quota, a status or a permission. Code: `ppswbs_
   with From = today and has a "Xóa lọc" button. The Manager dashboard branch table says "Chưa có buổi đã chốt điểm
   danh" when a branch has no finalized session, because fill rate counts finalized sessions only.
 
+### FE-001 MEMBER replacement — Booking data and new-booking block (decision 2026-11-25, Hồ Hoàng Quốc)
+
+*(Source: FE-001 request "feat-031-member-replacement-inventory", owner Phan Sơn. FE-001 owns the consumer contract
+`WorkshopMemberReplacementReader.readForMemberReplacement(AccountId)` returning `WorkshopReplacementInventory`; 003.1
+supplies the live provider that replaces `MockMemberReplacementBookingReader`. Defined by Account ID only: Guests are
+never matched by email.)*
+
+- **FR-059 (Booking inventory of one MEMBER)**: For an Account ID the provider MUST return every booking group whose
+  buyer is that Member, with per ticket: group code, ticket code, accepted time, package and session summary, service
+  status, financial status and outcome time. It MUST NOT return a QR, a Magic Link, contact proofs or payment gateway
+  data.
+- **FR-060 (Open obligation)**: Each of the Member's tickets is judged by its own `ticket_status`, then by money. The
+  inventory is **BLOCKED** when any of these holds: a group in `PENDING_PAYMENT` (hold running, or a live attempt
+  `INITIATED`/`PENDING`); a `group_confirmation_retries` row `WAITING` or an unresolved `booking_deposit_reconciliations`
+  row; a `late_payment_reviews` row in `PENDING_MANAGER` or `REFUND_REQUESTED` not completed; a `group_excess_payments`
+  refund not completed; a ticket still `CONFIRMED` (attendance or cancellation not yet concluded by 003.2/003.3); a
+  ticket with `financial_status = REFUND_PENDING`; or a ticket whose state matches no CLEAR rule below. It is **CLEAR**
+  only when no blocker exists and every ticket is terminal: `COMPLETED`, `NO_SHOW`, `CANCELLED` or `EXPIRED`, with
+  `financial_status` anything except `REFUND_PENDING` (003.3 keeps `DEPOSIT_PAID` on a `NO_SHOW` or `CANCELLED` ticket,
+  so the money status alone never blocks a terminal ticket), and a `COMPLETED` ticket also `FULLY_PAID` (a `COMPLETED`
+  ticket not yet `FULLY_PAID` is BLOCKED until 003.3 records the final balance). It is **UNAVAILABLE** when Operations
+  or Settlement cannot be read; the provider never infers CLEAR from a failed read. Each blocker carries the
+  group/ticket reference and a stable reason code.
+  *Decided 2026-11-25 (Hồ Hoàng Quốc):* a `NO_SHOW` ticket is terminal and never blocks, even if its deposit is not settled (the folio closes at the collected amount, the deposit is forfeited and nothing more is collected); it blocks only when 003.3 reports `REFUND_PENDING`.
+- **FR-061 (Version and live origin)**: A LIVE result carries a `sourceVersion` derived from the versions of the groups
+  read, so FE-001 can re-check it when it commits the replacement. A result is never DEMO in production.
+- **FR-062 (No new booking during retirement)**: While FE-001 marks the MEMBER account as retiring, creating a booking
+  group for that buyer (hold, cart booking, direct booking) MUST be refused, checked under the same group-creation lock
+  that guards the other creation rules, so a booking cannot start between the inventory read and the retirement. The
+  refusal is a typed error that exposes no other account data. Existing groups continue unchanged. The FE-001 signal
+  (a status read on `AccountFacade`) is proposed and agreed with FE-001's owner before implementation.
+
 ### Key Entities
 
 - **Excess Payment** (`group_excess_payments`, FR-013a): verified money
@@ -2693,6 +2729,13 @@ definitions are in [data-model.md](data-model.md).)*
   name. Counted by the tests of T154–T164 (MySQL integration for (a) and (b),
   component tests for (c) and (d)); 100%, no tolerance.
 
+- **SC-010** *(added 2026-11-25, FR-059–FR-062)*: (a) For every Account ID the provider returns BLOCKED when any
+  FR-060 blocker exists and CLEAR only in the terminal states listed there, 100% in the table-driven tests, including a
+  `NO_SHOW` + `DEPOSIT_PAID` ticket (CLEAR) and a `COMPLETED` + `DEPOSIT_PAID` ticket (BLOCKED); (b) a failed read of
+  Operations or Settlement returns UNAVAILABLE, never CLEAR; (c) no result contains a QR, Magic Link, contact proof or
+  gateway data; (d) with a retirement mark set, 100% of booking-group creations for that Member are refused and
+  none for another Member or a Guest is.
+
 ## Assumptions
 
 - Existing authentication and Member profile capabilities are reused; this
@@ -2770,6 +2813,9 @@ definitions are in [data-model.md](data-model.md).)*
   `AccountFacade.listActiveManagerEmails()`: `AccountManagerAlertRecipientSource`
   is wired, the Manager alert email is sent to every active Manager and T094 is
   done `[x]`, see tasks.md T094. The Manager queue stays the in-app path.)*
+  *(Added 2026-11-25, owner decision Hồ Hoàng Quốc, FR-059–FR-062)* 003.1 supplies the live provider of FE-001's
+  `WorkshopMemberReplacementReader` (ADMIN MEMBER-collision review) and reads from FE-001 whether a MEMBER is retiring
+  so it can refuse a new booking group (task T174 agrees the signal with FE-001's owner Phan Sơn; T175–T177 follow).
 - **Feature 007 Notifications** — pulls group notification snapshots through
   `WorkshopBookingNotificationFacade`.
 - **VNPay** — environment-approved configuration (tasks T005/T046).

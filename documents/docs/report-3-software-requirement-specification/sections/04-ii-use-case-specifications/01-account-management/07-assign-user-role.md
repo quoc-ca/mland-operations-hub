@@ -41,7 +41,7 @@ The system displays a not-found result and does not change any role assignment.
 
 **Step 4 — No approved role is available**
 
-The system rejects the operation and informs the Admin that the role catalogue must be configured by an authorized Admin.
+The system rejects the operation and informs the Admin that only the fixed platform roles can be assigned.
 
 **Step 6 — Admin is not authorized for the selected assignment**
 

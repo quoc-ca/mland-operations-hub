@@ -12,6 +12,7 @@ import {
   useResource,
 } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
+import DesignImage from '../components/DesignImage';
 import { designReviewMessages } from '../messages';
 import { LIMITS } from '../rules';
 
@@ -467,13 +468,10 @@ export default function ReviewDetailPage() {
                   style={{ cursor: 'pointer' }}
                   onClick={() => setSelectedPreviewImage(img)}
                 >
-                  <img
-                    src={img.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(img.imageReference)}`}
+                  <DesignImage
+                    image={img}
                     alt={img.originalFilename || `Ảnh ${idx + 1}`}
                     className="image-upload-thumb"
-                    onError={e => {
-                      e.target.style.opacity = '0.5';
-                    }}
                   />
                   <div className="image-upload-info">
                     <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={img.originalFilename}>
@@ -522,8 +520,8 @@ export default function ReviewDetailPage() {
               }}
               onClick={e => e.stopPropagation()}
             >
-              <img
-                src={selectedPreviewImage.imageUrl || `/api/v1/design-requests/images/${encodeURIComponent(selectedPreviewImage.imageReference)}`}
+              <DesignImage
+                image={selectedPreviewImage}
                 alt={selectedPreviewImage.originalFilename || 'Ảnh mẫu thiết kế'}
                 style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
               />

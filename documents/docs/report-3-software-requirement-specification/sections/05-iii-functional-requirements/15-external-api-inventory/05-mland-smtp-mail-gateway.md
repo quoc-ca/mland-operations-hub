@@ -3,7 +3,7 @@
 | Attr | Value |
 | --- | --- |
 | URL | TBD — approved HTTP method and endpoint pattern. |
-| Purpose | Delivers account-security and workflow emails, including OTP or verification messages, workshop QR tickets, payment requests/receipts, booking-design review results, and order-status messages. The mail service does not make business decisions or provide a notification centre. |
+| Purpose | Delivers workflow emails, including workshop QR tickets, payment requests and receipts, design review results and order-status messages. Account verification and password-reset emails are sent by Firebase. The mail service makes no business decision and provides no notification centre. |
 | Caller | System → Mail Gateway |
 | Auth | Configured mail-gateway credentials; exact transport and authentication contract: TBD. |
 

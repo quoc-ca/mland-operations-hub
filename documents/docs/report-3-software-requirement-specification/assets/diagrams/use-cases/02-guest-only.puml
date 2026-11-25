@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title Guest-only Use Cases
+title 4.3.1 Use Cases for Guest
 left to right direction
 skinparam shadowing false
 skinparam usecase {
@@ -11,18 +11,63 @@ skinparam usecase {
 
 actor Guest
 
-rectangle "Personalized Product Sales and Workshop Booking System" {
-  usecase "Register as Member" as Register
-  usecase "Receive optional Member\nregistration invitation" as Invitation
-  usecase "View guest booking\noutcome on web" as ViewOutcome
-  usecase "Use guest booking\ncode / QR" as GuestCode
-  usecase "Access public Google\nreview link / QR" as ReviewLink
+actor "SSO Provider" as SSO
+actor "Payment Gateway" as Pay
+actor "AI API" as AI
+
+rectangle "Mland Operations System" {
+  usecase "Register Account" as UC01
+  usecase "Sign In" as UC02
+  usecase "Reset Password" as UC03
+  usecase "Browse Product Catalogue" as UC10
+  usecase "View Product Details" as UC11
+  usecase "Browse Workshop Packages" as UC19
+  usecase "View Workshop Package Details" as UC20
+  usecase "Create Workshop Booking" as UC21
+  usecase "Pay Workshop Deposit" as UC22
+  usecase "Look Up Booking Details" as UC23
+  usecase "Chat with Basic AI Support" as UC33
+  usecase "View and Save Vouchers" as UC47
+  usecase "Browse Public Reviews" as UC74
+  usecase "View Ticket Folio" as UC77
+  usecase "Cancel Workshop Tickets" as UC84
+  usecase "Change Ticket Sessions" as UC85
+  usecase "Respond to Mland Cancellation Offer" as UC88
+  usecase "Submit Refund Account" as UC89
 }
 
-Guest --> Register
-Guest --> ViewOutcome
-Guest --> GuestCode
-Guest --> ReviewLink
-Invitation .> Register : <<extend>>\n[Guest chooses to join]
-@enduml
+Guest --> UC01
+Guest --> UC02
+Guest --> UC03
+Guest --> UC10
+Guest --> UC11
+Guest --> UC19
+Guest --> UC20
+Guest --> UC21
+Guest --> UC23
+Guest --> UC33
+Guest --> UC47
+Guest --> UC74
+Guest --> UC77
+Guest --> UC84
+Guest --> UC85
+Guest --> UC88
+Guest --> UC89
 
+UC21 ..> UC22 : <<include>>
+
+UC01 -- SSO
+UC02 -- SSO
+UC03 -- SSO
+UC22 -- Pay
+UC33 -- AI
+
+note right of UC47
+Guest only views public vouchers.
+Saving a voucher requires sign-in.
+end note
+
+note right of UC74
+Creating a review requires sign-in.
+end note
+@enduml

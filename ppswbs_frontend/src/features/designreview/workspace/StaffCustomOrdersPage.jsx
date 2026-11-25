@@ -10,6 +10,7 @@ import {
   getProductionStatusLabel,
   getFulfilmentStatusLabel,
 } from '../customOrderStatus';
+import DesignImage from '../components/DesignImage';
 import '../designreview.css';
 
 const formatVND = (val) => {
@@ -468,13 +469,12 @@ export default function StaffCustomOrdersPage() {
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {order.designImages.map((img, idx) => {
-                              const src = `/api/v1/design-requests/${encodeURIComponent(order.designRequestId)}/images/${encodeURIComponent(img.imageReference)}`;
                               return (
-                                <img
+                                <DesignImage
                                   key={img.imageReference || idx}
-                                  src={src}
+                                  image={img}
                                   alt={img.originalFilename || `Ảnh tham khảo ${idx + 1}`}
-                                  onClick={() => setActiveLightboxImg(src)}
+                                  onClick={() => setActiveLightboxImg(img)}
                                   style={{
                                     width: 52,
                                     height: 52,
@@ -517,6 +517,9 @@ export default function StaffCustomOrdersPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                       {ORDER_STAGES.map((stage) => {
                         const isCurrent = currentStageKey === stage.key;
+                        // The server only accepts the next stage of a paid order.
+                        const isNext = ORDER_STAGES[ORDER_STAGES.findIndex((s) => s.key === currentStageKey) + 1]?.key === stage.key
+                          && ORDER_STAGES.some((s) => s.key === currentStageKey);
                         return (
                           <label
                             key={stage.key}
@@ -528,18 +531,18 @@ export default function StaffCustomOrdersPage() {
                               borderRadius: 6,
                               border: isCurrent ? `2px solid ${stage.color}` : '1px solid #cbd5e1',
                               background: isCurrent ? '#ffffff' : '#f8fafc',
-                              cursor: isCurrent ? 'default' : 'pointer',
+                              cursor: isNext ? 'pointer' : 'default',
                               boxShadow: isCurrent ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                               transition: 'all 0.15s ease',
                             }}
-                            title={isCurrent ? 'Trạng thái hiện tại của đơn hàng' : `Bấm để chuyển đơn sang ${stage.label}`}
+                            title={isCurrent ? 'Trạng thái hiện tại của đơn hàng' : isNext ? `Bấm để chuyển đơn sang ${stage.label}` : undefined}
                           >
                             <input
                               type="radio"
                               name={`stage-${order.customOrderReference}`}
                               value={stage.key}
                               checked={isCurrent}
-                              disabled={isBusy}
+                              disabled={isBusy || (!isCurrent && !isNext)}
                               onChange={() => {
                                 if (!isCurrent) {
                                   setPendingTransition({
@@ -549,7 +552,7 @@ export default function StaffCustomOrdersPage() {
                                   });
                                 }
                               }}
-                              style={{ width: 17, height: 17, cursor: isCurrent ? 'default' : 'pointer', accentColor: stage.color }}
+                              style={{ width: 17, height: 17, cursor: isNext ? 'pointer' : 'default', accentColor: stage.color }}
                             />
                             <div>
                               <div style={{ fontSize: '0.88rem', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? stage.color : '#334155' }}>
@@ -860,8 +863,8 @@ export default function StaffCustomOrdersPage() {
             >
               ✕
             </button>
-            <img
-              src={activeLightboxImg}
+            <DesignImage
+              image={activeLightboxImg}
               alt="Ảnh phóng to"
               style={{ maxWidth: '85vw', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
             />

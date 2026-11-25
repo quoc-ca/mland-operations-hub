@@ -493,6 +493,27 @@ public class DesignAnalysisService {
                 "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
     }
 
+    /**
+     * Loads image metadata only for the request owner, Staff or a Manager. Everyone else, Admin included, gets the
+     * same not-found answer as for an unknown reference.
+     */
+    @Transactional(readOnly = true)
+    public DesignRequestImage getImageForViewer(String imageReference, String callerUid,
+            Collection<? extends GrantedAuthority> authorities) {
+        DesignRequestImage image = getImageEntity(imageReference);
+        if (DesignReviewPermissions.isInternalReviewer(authorities)) {
+            return image;
+        }
+        boolean owner = accountFacade.resolveAccount(callerUid)
+                .flatMap(account -> requestRepository.findById(image.getDesignRequestId())
+                        .map(request -> account.accountId().equals(request.getOwnerAccountId())))
+                .orElse(false);
+        if (!owner) {
+            throw DesignReviewException.notFound("IMAGE_NOT_FOUND", "Không tìm thấy hình ảnh.");
+        }
+        return image;
+    }
+
     @Transactional(readOnly = true)
     public byte[] getImageBytes(String imageReference) {
         DesignRequestImage image = designRequestImageRepository.findByImageReference(imageReference)

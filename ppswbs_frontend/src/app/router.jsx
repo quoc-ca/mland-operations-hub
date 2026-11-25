@@ -14,7 +14,7 @@ import { otaConnectivityRoutes } from '../ota-connectivity/routes';
 import { operationsRoutes } from '../workshop-operations/routes';
 import { settlementRoutes } from '../workshop-settlement/routes';
 import { operatorHomeRoutes } from '../features/operatorhome/routes';
-import { managerHomeRoutes } from '../features/managerhome/routes';
+import { managerHomeRoutes } from '../features/manager-dashboard/operations/routes';
 import { managerDashboardRoutes } from '../features/manager-dashboard';
 import { notificationRoutes } from '../features/notification-management';
 import HomePage from '../features/landing/HomePage';

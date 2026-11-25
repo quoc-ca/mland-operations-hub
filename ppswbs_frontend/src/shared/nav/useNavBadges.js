@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useHttp } from '../api/useHttp';
 import { useAuth } from '../auth/AuthProvider';
 import { registerPrivateStateCleanup } from '../auth/privateStateCleanup';
-import { createHomeReads } from '../../features/managerhome/infrastructure/homeReads';
+import { createHomeReads } from '../../features/manager-dashboard/operations/infrastructure/homeReads';
 import { readStaffNavCounts } from '../../features/operatorhome/staffWork';
 
 /**
- * Waiting-work counts for the navigation rail (spec 013, navigation decision of 2026-11-22).
+ * Waiting-work counts for the navigation rail (spec 014, navigation decision of 2026-11-22).
  *
  *   useNavBadges(role) -> { status: 'loading' | 'ready', counts }
  *   counts: { [groupId]: number, [`${groupId}/${tabId}`]: number }

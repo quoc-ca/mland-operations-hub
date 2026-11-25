@@ -78,7 +78,7 @@ public interface TicketSessionEntitlementRepository extends JpaRepository<Ticket
     List<TicketSessionEntitlement> findActiveEntitlementsBySessionIdAndBookingReference(@Param("sessionId") Long sessionId, @Param("bookingReference") String bookingReference);
 
     /**
-     * Manager home (013 R-1): people holding a valid (ACTIVE) ticket for the not-cancelled sessions of one day, i.e.
+     * navigation shell and dashboard (014 R-1): people holding a valid (ACTIVE) ticket for the not-cancelled sessions of one day, i.e.
      * the roster size summed over those sessions. Pass a null {@code attendanceState} for everyone expected.
      */
     @Query("SELECT COUNT(tse) FROM TicketSessionEntitlement tse WHERE tse.session.workshopDate = :day "

@@ -16,6 +16,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.Custom
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderIdempotencyRecord;
+import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderPaymentContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
@@ -227,9 +228,14 @@ class CustomOrderServiceTest {
         when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
         when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
 
+        var context = paymentContext("quote-uuid-123");
+        when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
+
         customOrderService.applyVerifiedFullPayment(
                 orderRef, "MERCH-1", "TXN-VNPAY-999", 4_500_000L, "VND"
         );
+
+        assertThat(context.getStatus()).isEqualTo("PAID");
 
         assertThat(testQuote.getPaymentStatus()).isEqualTo("PAID");
         assertThat(testQuote.getStatus()).isEqualTo("PAID");
@@ -238,6 +244,94 @@ class CustomOrderServiceTest {
 
         verify(quoteRepository).save(testQuote);
         verify(customOrderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("applyVerifiedFullPayment keeps late evidence for review and does not pay the order")
+    void applyVerifiedFullPayment_ExpiredQuote_RequiresReview() {
+        testQuote.setExpiresAt(Instant.now().minus(Duration.ofMinutes(1)));
+
+        assertReviewRequired(paymentContext("quote-uuid-123"));
+    }
+
+    @Test
+    @DisplayName("applyVerifiedFullPayment keeps evidence of a replaced quote for review")
+    void applyVerifiedFullPayment_ReplacedQuote_RequiresReview() {
+        assertReviewRequired(paymentContext("older-quote"));
+    }
+
+    @Test
+    @DisplayName("applyVerifiedFullPayment keeps a second payment of a paid order for review")
+    void applyVerifiedFullPayment_AlreadyPaidOrder_RequiresReview() {
+        testOrder.setStatus("IN_PRODUCTION");
+        testQuote.setStatus("PAID");
+        var context = paymentContext("quote-uuid-123");
+        when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
+
+        customOrderService.applyVerifiedFullPayment(orderRef, "MERCH-1", "TXN-2", 4_500_000L, "VND");
+
+        assertThat(context.getStatus()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(testOrder.getStatus()).isEqualTo("IN_PRODUCTION");
+        verify(customOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("status update moves a paid order one stage forward and derives the other statuses")
+    void updateStatus_NextStage_Succeeds() {
+        paidOrder("PAID");
+
+        customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "IN_PRODUCTION");
+
+        assertThat(testOrder.getStatus()).isEqualTo("IN_PRODUCTION");
+        assertThat(testOrder.getProductionStatus()).isEqualTo("IN_PRODUCTION");
+        verify(customOrderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("status update refuses skipped stages, unknown statuses and unpaid orders")
+    void updateStatus_Invalid_Rejected() {
+        paidOrder("PAID");
+        assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "CLOSED"))
+                .isInstanceOf(DesignReviewException.class).hasMessageContaining("bước kế tiếp");
+        assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "PAID"))
+                .isInstanceOf(DesignReviewException.class).hasMessageContaining("không hợp lệ");
+        testQuote.setPaymentStatus("UNPAID");
+        assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "IN_PRODUCTION"))
+                .isInstanceOf(DesignReviewException.class).hasMessageContaining("chưa được thanh toán");
+        verify(customOrderRepository, never()).save(any());
+    }
+
+    private void paidOrder(String status) {
+        testOrder.setStatus(status);
+        testQuote.setStatus("PAID");
+        testQuote.setPaymentStatus("PAID");
+        when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        lenient().when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
+    }
+
+    private CustomOrderPaymentContext paymentContext(String quoteId) {
+        return CustomOrderPaymentContext.builder()
+                .customOrderId(orderId)
+                .quoteId(quoteId)
+                .merchantReference("MERCH-1")
+                .status("INITIATED")
+                .build();
+    }
+
+    private void assertReviewRequired(CustomOrderPaymentContext context) {
+        when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
+
+        customOrderService.applyVerifiedFullPayment(orderRef, "MERCH-1", "TXN-LATE", 4_500_000L, "VND");
+
+        assertThat(context.getStatus()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(testOrder.getStatus()).isEqualTo("FULL_PAYMENT_PENDING");
+        assertThat(testQuote.getPaymentStatus()).isEqualTo("UNPAID");
+        verify(quoteRepository, never()).save(any());
     }
 
     @Test

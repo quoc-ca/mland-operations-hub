@@ -153,7 +153,6 @@ flowchart LR
     Lookup["Booking Lookup"]
     Details["Booking Details / QR Ticket"]
     Store["Store Information"]
-    StoreInfo["Mland Store Information"]
     AI(["Basic AI Chat — chatbox"])
 
     Home --> Login
@@ -193,7 +192,7 @@ flowchart LR
     Home --> Lookup -->|"Kiểm tra quyền tra cứu phù hợp"| Details
     Details -->|"Pending và payment/hold còn đủ điều kiện"| Deposit
     Details -->|"Hết hạn; bắt đầu booking mới"| Packages
-    Home --> Store --> Maps
+    Home --> Store
     Home --> AI
 ```
 

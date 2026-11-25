@@ -11,44 +11,50 @@
 
 #### Description
 
-This use case allows authorized Staff or a Manager to review a Member's custom design request, including its description, submitted images, optional Feature-012 snapshot, and review context. The reviewer may accept, reject, or request clarification and must provide an explanation.
+This use case allows Staff or a Manager to review a Member's custom design request, including its description, submitted images, any saved-design snapshot and review context, and to accept it, reject it, or ask for clarification, always with a written explanation. The review is done by a person; no AI result or estimated-value threshold is used.
 
 #### Preconditions
 
-1. A custom design request has been created and is available for review.
-2. The reviewer is authenticated and has the required role.
-3. The request contains at least one valid input and any attached design snapshot has passed ownership validation.
+1. A custom design request is available for review: it is not yet Accepted or Rejected (normally Need Review).
+2. The reviewer is signed in as Staff or Manager and is not the owner of the request.
+3. The request contains at least one valid input: a description, a reference image or a saved ring design.
 
 #### Normal Flow
 
 **Review Custom Design Request**
 
-1. The reviewer opens the pending custom design request queue.
-2. The system displays the request details, submitted images, safe Member context, and optional design snapshot.
-3. The reviewer checks the design requirements and feasibility.
-4. The reviewer selects Accept, Reject, or Clarification Required.
-5. The reviewer enters a mandatory explanation.
-7. The system validates the reviewer's authority and stores the decision, reviewer, timestamp, and note.
-8. The system updates the request status and notifies the member.
+1. The reviewer opens the design review queue.
+2. The reviewer selects a request.
+3. The system displays the request details, description, reference images, safe Member context and any saved-design snapshot, and the reviewer checks the design requirements and feasibility.
+4. The reviewer selects Accept, Reject or Request Clarification.
+5. The reviewer enters the mandatory explanation and confirms.
+6. The system checks the reviewer's role, the request state and version.
+7. The system records the decision with the actor, role, request version, time and audit data, and updates the status.
+8. The Member can read the status, explanation and next action.
 
 #### Alternative Flows
 
-**Step 2 — Required information is missing**
+**Step 4 — Request Clarification**
 
-1. The request does not contain enough usable design information.
-2. The system marks the request as needing clarification and prevents final approval.
+The reviewer uses this when, for example, the request does not contain enough usable design information. The status becomes Clarification Required. When the Member replies with a revision, the request returns to Need Review.
 
-**Step 5 — Request is rejected or returned for revision**
+**Step 5 — Explanation is missing or too long**
 
-1. The reviewer selects Reject or Request Revision and provides a reason.
-2. The system stores the reason, updates the status, and notifies the member.
+The system rejects the decision.
+
+**Step 6 — Request already decided or changed**
+
+The system returns a conflict and asks the reviewer to reload.
+
+**Any step — Actor is not Staff or Manager**
+
+The system denies access. Admin has technical and audit access only and cannot decide.
 
 #### Postconditions
 
-- The custom design request has a recorded decision or remains pending clarification.
-- The reviewer, timestamp, decision, and supporting note are recorded for audit.
-- The member receives the decision status and next action.
-- Approval does not create a payment transaction unless a later order workflow is completed.
+- The request is Accepted, Rejected or Clarification Required with a recorded explanation.
+- Accepted and Rejected are final.
+- Accepting a request creates no payment; the quote and full payment follow in the custom-order flow.
 
 #### Business Rules
 
@@ -60,7 +66,6 @@ This use case allows authorized Staff or a Manager to review a Member's custom d
 
 | ID | Rule Definition |
 |---|---|
-| BR-36-01 | Staff and Manager may review only requests within their approved feature scope; backend authorization is authoritative. |
-| BR-36-02 | Every accept, reject, or clarification decision requires a non-empty explanation. |
-| BR-36-03 | Human review determines feasibility and review outcome; no AI result is required or used. |
-
+| BR-36-01 | Only Staff and Managers may decide a request, within their approved feature scope; backend authorization is authoritative. Every accept, reject or clarification decision requires a non-empty explanation. |
+| BR-36-02 | A reviewer cannot review their own request, and a decision applies only to the current version of an undecided request. |
+| BR-36-03 | Feasibility, review outcome and quotation are decided by people only; no AI result is required or used. |

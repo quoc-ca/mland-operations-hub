@@ -267,6 +267,38 @@ class OtaFinancialEvidenceControllerIT {
                 }
 
                 @Test
+                @DisplayName("Admin and Staff get the same 403 for a real and an unknown booking")
+                void adminAndStaffRefusedBeforeBookingLookup() throws Exception {
+                        when(accountFacade.resolveAccount("admin-303")).thenReturn(Optional.of(
+                                        new AccountSummary(4L, ActorRole.ADMIN, ActorStatus.ACTIVE, "admin@mland.test", null, null)));
+                        String payload = """
+                                        {
+                                            "kind": "PAYOUT",
+                                            "evidenceType": "ELIGIBILITY",
+                                            "amount": { "amount": "80000", "currency": "VND" },
+                                            "reference": "elig-ref-refused",
+                                            "reason": "Refused attempt",
+                                            "occurredAt": "2026-10-31T14:00:00Z"
+                                        }
+                                        """;
+                        for (String auth : List.of("Bearer test-uid:admin-303", STAFF_AUTH)) {
+                                for (String id : List.of(bookingUuid, UUID.randomUUID().toString())) {
+                                        mvc.perform(get("/api/v1/ota-channel-bookings/" + id + "/financial-evidence")
+                                                        .header("Authorization", auth)
+                                                        .accept(MediaType.APPLICATION_JSON))
+                                                        .andExpect(status().isForbidden())
+                                                        .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                                        mvc.perform(post("/api/v1/ota-channel-bookings/" + id + "/payout-reconciliation")
+                                                        .header("Authorization", auth)
+                                                        .contentType(MediaType.APPLICATION_JSON)
+                                                        .content(payload))
+                                                        .andExpect(status().isForbidden())
+                                                        .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                                }
+                        }
+                }
+
+                @Test
                 @DisplayName("Unknown booking UUID returns 404 Not Found")
                 void read_notFoundForMissingBooking() throws Exception {
                         String missingUuid = UUID.randomUUID().toString();

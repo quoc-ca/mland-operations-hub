@@ -15,6 +15,7 @@ databases.
 | [`007-notification-management`](007-notification-management/research.md) | FE-07 Notification Management: business email templates (SMTP); Firebase Auth keeps its own verification/reset emails. | Research only; no spec/plan/tasks yet. |
 | [`012-workshop-ring-design-configuration`](012-workshop-ring-design-configuration/spec.md) | FE-05 workshop ring parameter configuration for Guest and Member, with a Feature-003 booking facade boundary. | Draft — SPEC/DESIGN ready for review; not implementation-ready. |
 | [`013-staff-consultation-chat`](013-staff-consultation-chat/spec.md) | Human text consultation between Member customers and Staff/Manager, linked to approved design contexts. | Draft — SPEC/DESIGN ready for review; facade and migration approval pending. |
+| [`014-navigation-shell`](014-navigation-shell/spec.md) | Rail, tabs, page header and count badges shared by Manager and Staff (split from the former `013-manager-home`; its dashboard blocks moved into 010). | Draft — wave 1 and the 2026-11-22 shell implemented; see `approval.md`. |
 
 ## 003 — Workshop Management
 
