@@ -326,7 +326,8 @@ The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist
   discounts and its share of the five. A list whose source cannot be read MUST
   be shown as unavailable, never as empty (FR-013); an empty period MUST show
   an empty-list notice; a failed load MUST offer Retry without hiding the rest
-  of the dashboard.
+  of the dashboard, except an authentication or authorization failure (401/403),
+  which is access denial under FR-017 and FR-018 and offers no Retry.
 
 ### Key Entities
 

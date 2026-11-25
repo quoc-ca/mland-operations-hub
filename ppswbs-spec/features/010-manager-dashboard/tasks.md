@@ -347,3 +347,4 @@ T038 source-quality value objects
   `$speckit-implement` request.
 - [X] T057 Navigation decision 2026-11-22: the dashboard page is merged with Manager Home (013 T040); `ManagerDashboardPage.jsx` now only composes the blocks and the revenue report lives in `RevenueReport.jsx`; the review-moderation header button is removed (it is a tab of the "Khách hàng" group). Tests: `ManagerDashboardPage.test.jsx`.
 - [X] T058 FR-031 (Session 2026-11-22): full-width colour layout, VI/EN labels, value labels and whole-number axes in `RevenueReport.jsx`, `TrendCharts.jsx`, `managerDashboard.css`; tests `ManagerDashboardPage.test.jsx`, `managerhome/tests/dashboardPage.test.jsx`.
+- [ ] T064 **Open** (2026-11-25): `TopSellers.jsx` shows "Thử lại" for any failed load including 401/403; FR-033 now says an authorization failure is access denial without Retry, as the KPI report already does in `RevenueReport.jsx`.
