@@ -274,6 +274,18 @@ PASS for Phase 1 design:
 - Design artifacts and quickstart scenarios provide traceable evidence for
   `$speckit-tasks` and the required later `$speckit-analyze` run.
 
+## Session 2026-11-25 (reading the sources)
+
+The "no raw SQL" and "facade-only" constraints above describe the target. The approved slice of 2026-11-14
+(`implementation-readiness.md`, "Real data slice") reads committed facts through reporting-owned,
+read-only adapters in `features.reporting.source` (`JdbcReportingSourceAdapter`,
+`JdbcReportingTrendAdapter`, `JdbcReportingTopSellerAdapter`, with the shared `WorkshopFolioSql`), each
+query aggregating by branch in MySQL so that no order, ticket or customer row leaves the database. The facades of
+`accountmanagement`, `readyringsales`, `workshopbooking` and `operations` replace these queries when the source
+owners export them; until then the source owners review the SQL (T056, T063). The contract
+`contracts/manager-dashboard.openapi.yaml` now covers `/executive-reports`, `/executive-reports/trends` and
+`/executive-reports/top-sellers`, and the error body is the one the code returns (`code`, `message`,
+`correlationId`).
 
 ## Operations blocks moved from 014 (2026-11-25)
 

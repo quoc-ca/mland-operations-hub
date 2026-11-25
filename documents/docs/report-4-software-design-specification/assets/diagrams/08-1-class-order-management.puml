@@ -1,0 +1,174 @@
+@startuml
+title 8.1 Class Diagram — Order Management and Fulfillment (FE-08)
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam linetype polyline
+skinparam classAttributeIconSize 0
+skinparam nodesep 50
+skinparam ranksep 90
+skinparam ArrowColor #000000
+skinparam defaultFontSize 12
+skinparam class {
+  BorderColor #000000
+  BackgroundColor #F5F5F5
+  BackgroundColor<<controller>> #DAE8FC
+  BackgroundColor<<service>> #D5E8D4
+  BackgroundColor<<repository>> #E1D5E7
+  BackgroundColor<<interface>> #FFF2CC
+  BackgroundColor<<adapter>> #FFE6CC
+  BackgroundColor<<entity>> #F5F5F5
+  BackgroundColor<<DTO>> #FFFFFF
+  BackgroundColor<<exception>> #F5F5F5
+  FontStyle bold
+  AttributeFontStyle plain
+  StereotypeFontStyle plain
+}
+hide circle
+
+class CartController <<controller>> {
+  + getCart() : RetailCartView
+  + addLine(body) : RetailCartView
+  + updateLine(lineId, body) : RetailCartView
+  + removeLine(lineId) : ResponseEntity<Void>
+}
+
+class CheckoutController <<controller>> {
+  + quoteShipping(body) : ShippingQuoteView
+  + previewBenefits(body) : BenefitPreviewView
+  + createCheckout(idempotencyKey, body) : GroupedCheckoutView
+  + initiatePayment(checkoutId) : PaymentRedirectView
+}
+
+class VnpayPaymentIngressController <<controller>> {
+  + receive(params) : Map<String,String>
+}
+
+class PickupOperationsController <<controller>> {
+  + prepare(orderId) : Result
+  + handOver(orderId) : Result
+  + collectCashAndHandOver(orderId, idempotencyKey) : Result
+}
+
+class CartService <<service>> {
+  + getCart(memberAccountId) : RetailCartView
+  + addLine(memberAccountId, request) : RetailCartView
+  + updateLine(...) : RetailCartView
+  + removeLine(memberAccountId, lineId) : void
+}
+
+class RetailCheckoutQuotePreviewService <<service>> {
+  + quoteShipping(memberId, request) : ShippingQuoteView
+  + preview(memberId, request) : BenefitPreviewView
+}
+
+class RetailCheckoutAcceptanceService <<service>> {
+  + accept(...) : GroupedCheckoutView
+}
+
+class RetailPaymentService <<service>> {
+  + initiate(...) : PaymentRedirectView
+}
+
+class PaymentIngressService <<service>> {
+  + receive(params) : Outcome
+}
+
+class RetailPaymentEvidenceService <<service>> {
+  + applyVerifiedPayment(payment) : void
+}
+
+class PickupOperationsService <<service>> {
+  + prepare(actor, orderId) : Result
+  + handOver(actor, orderId) : Result
+  + collectCashAndHandOver(...) : Result
+}
+
+class RetailCataloguePort <<interface>> {
+  + isEligibleForCart(variantId, locationId) : boolean
+  + readCartProduct(variantId, locationId) : CartProductFact
+}
+
+class LoyaltyFacade <<interface>> {
+  + previewBenefits(context, selection) : BenefitPreview
+  + reserveAcceptedTransaction(...) : AcceptedBenefitRef
+}
+
+class RetailPaymentEvidenceFacade <<interface>> {
+  + applyVerifiedPayment(payment) : void
+}
+
+class RetailCounterCashFacade <<interface>> {
+  + collectExactAmount(...) : CashCollected
+}
+
+class VnpayRetailPaymentAdapter <<adapter>> {
+  + initiate(checkoutId, amount) : PaymentInitiation
+}
+
+class RetailCartRepository <<repository>> {
+  + findByMemberAccountId(...) : Optional<RetailCart>
+  + findLockedByMemberAccountId(...) : Optional<RetailCart>
+}
+
+class GroupedCheckoutRepository <<repository>> {
+  + findByMemberAccountIdAndIdempotencyKey(...) : Optional<GroupedCheckout>
+  + lockOwned(id, memberId) : Optional<GroupedCheckout>
+  + lockById(id) : Optional<GroupedCheckout>
+}
+
+class RetailCart <<entity>> {
+  - id : String
+  - memberAccountId : Long
+  - version : Long
+}
+
+class CartLine <<entity>> {
+  - id : String
+  - cart : RetailCart
+  - variantId : Long
+}
+
+class GroupedCheckout <<entity>> {
+  - id : String
+  - memberAccountId : Long
+  - idempotencyKey : String
+}
+
+class RetailOrder <<entity>> {
+  - id : String
+  - groupedCheckout : GroupedCheckout
+  - locationId : Long
+}
+
+class OrderItem <<entity>> {
+  - id : String
+  - retailOrder : RetailOrder
+  - variantId : Long
+}
+
+CartController ..> CartService : uses
+CheckoutController ..> RetailCheckoutQuotePreviewService : uses
+CheckoutController ..> RetailCheckoutAcceptanceService : uses
+CartService ..> RetailCataloguePort : uses
+CartService ..> RetailCartRepository : uses
+RetailCheckoutQuotePreviewService ..> RetailCartRepository : uses
+RetailCheckoutQuotePreviewService ..> LoyaltyFacade : uses
+RetailCheckoutAcceptanceService ..> RetailCartRepository : uses
+RetailCheckoutAcceptanceService ..> GroupedCheckoutRepository : uses
+RetailCheckoutAcceptanceService ..> LoyaltyFacade : uses
+RetailCartRepository ..> RetailCart : manages
+GroupedCheckoutRepository ..> GroupedCheckout : manages
+RetailCart "1" *-- "*" CartLine
+GroupedCheckout "1" *-- "*" RetailOrder
+RetailOrder "1" *-- "*" OrderItem
+CheckoutController ..> RetailPaymentService : uses
+VnpayPaymentIngressController ..> PaymentIngressService : uses
+PaymentIngressService ..> RetailPaymentEvidenceFacade : uses
+RetailPaymentEvidenceService ..|> RetailPaymentEvidenceFacade : implements
+RetailPaymentEvidenceService ..> GroupedCheckoutRepository : uses
+RetailPaymentEvidenceService ..> LoyaltyFacade : uses
+RetailPaymentService ..> VnpayRetailPaymentAdapter : uses
+PickupOperationsController ..> PickupOperationsService : uses
+PickupOperationsService ..> RetailCounterCashFacade : uses
+@enduml

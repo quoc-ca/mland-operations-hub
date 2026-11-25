@@ -23,6 +23,9 @@ rectangle "Mland Operations System" {
   usecase "View Product Details" as UC11
   usecase "Browse Workshop Packages" as UC19
   usecase "View Workshop Package Details" as UC20
+  usecase "Preview Workshop Ring Designer" as UC36P
+  usecase "View Custom Design Entry" as UC39P
+  usecase "View Consultation Entry" as UC38P
   usecase "Create Workshop Booking" as UC21
   usecase "Pay Workshop Deposit" as UC22
   usecase "Look Up Booking Details" as UC23
@@ -43,6 +46,9 @@ Guest --> UC10
 Guest --> UC11
 Guest --> UC19
 Guest --> UC20
+Guest --> UC36P
+Guest --> UC39P
+Guest --> UC38P
 Guest --> UC21
 Guest --> UC23
 Guest --> UC33
@@ -69,5 +75,20 @@ end note
 
 note right of UC74
 Creating a review requires sign-in.
+end note
+
+note right of UC36P
+Guest may preview catalogue options locally only.
+Saving or evaluating requires Member sign-in.
+end note
+
+note right of UC39P
+The entry point is public; creating or tracking
+a request requires Member sign-in.
+end note
+
+note right of UC38P
+The entry point is visible, but private chat
+requires Member sign-in.
 end note
 @enduml

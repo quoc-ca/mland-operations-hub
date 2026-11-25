@@ -24,8 +24,9 @@ handoff.
 
 The current project business baseline supplies the existing retail rules for
 this draft. GHTK API-based quotation, shipment creation, and status tracking
-are in scope for FE-08; the existing baseline inventories must be synchronized
-with this decision before implementation:
+are in scope for FE-08 (V1 calls GHTK only for the delivery-fee quotation; creating
+shipments and tracking them by API are deferred, see Session 2026-11-25); the existing
+baseline inventories must be synchronized with this decision before implementation:
 
 - Retail checkout is available to authenticated active Members only.
 - Before browsing or selecting products for purchase, the Member selects an
@@ -455,6 +456,56 @@ configuration, accounting, or executive reporting in FE-10.
   only when FE-06 applied that code. A quote without the two parts is shown on
   the line that matches it. Order details show one "Tổng ưu đãi" line.
 
+### Session 2026-11-25 (consolidation against the code and the later sessions)
+
+- Q: Which GHTK functions are in V1? → A: (Thinh, 2026-11-25) Only the delivery-fee
+  quotation (FR-08-024). The shipment record, its internal tracking number and its
+  status history live in the platform; the GHTK partner portal (Session 2026-11-20)
+  records "Đã lấy hàng" and "Giao thành công". Shipment creation, retry, webhook,
+  status API and provider estimated delivery (FR-08-025 to FR-08-034) wait for a real
+  partner agreement. The route allowlist of the partner role includes `/carrier`,
+  `/carrier/orders` and `/carrier/stats`.
+- Q: Does the cart open with every line ticked? → A: No (T077). It opens with nothing
+  ticked; "Mua lại" ticks only the lines it added back and lists those it could not add.
+  FR-08-005a is amended; the best voucher is previewed only for ticked lines.
+- Q: What happens to an unpaid VNPay checkout at the 10-minute deadline? → A: If the
+  Member never opened VNPay, the job expires it. If VNPay was opened, the hold is
+  released only after the IPN or a signed status query shows that no successful payment
+  exists; an unconfirmed result goes to the Manager reconciliation queue and never
+  releases or settles. The Member can cancel at any time before payment (FR-08-039).
+- Q: How is a cash branch order cancelled? → A: Per branch order (FR-08-046): the
+  Member cancels one unpaid cash branch order through its checkout without touching the
+  other branch orders; the 72-hour expiry also works per branch order.
+- Q: Is the Member verified when the order is picked up? → A: FR-08-017 stays the
+  requirement, but the code only checks the order code given to Staff. This is an
+  open gap (T088), not a decision to lower the requirement.
+- Q: How far does a Manager reach in retail? → A: (Thinh, 2026-11-25) Only the branches
+  delegated to the Manager; the counter handover stays with Staff (T089). The global
+  Manager scope of the cross-feature permission matrix does not apply to retail.
+- Q: Does V1 have a delivery note and the FR-08-013 length limits? → A: No. The code
+  has no delivery note, and the checkout takes the recipient from the saved address
+  (FE-01), which accepts a name and an address of up to 255 characters. The note and
+  the limits of FR-08-013 (name 1–100, address 10–500, note up to 500) remain the target
+  and are an open gap, not a decision.
+- Q: Is the 30-day removal of recipient data (FR-08-023) built? → A: No. The owner chose
+  on 2026-11-25 not to build it now; the requirement stays in the spec as not
+  implemented.
+- Q: Which weight does GHTK get for a fee quote? → A: 50 g per ring (FR-08-040).
+- Q: When is the branch chosen? → A: With the size when the Member adds a line from the
+  product page ("Thêm vào giỏ hàng" or "Mua ngay"), not before browsing; each cart line
+  keeps the branch chosen then. "Mua ngay" puts the line in the cart and opens checkout
+  with it ticked.
+- Q: Which orders can be bought again? → A: Delivered, picked-up and cancelled orders
+  ("Mua lại"), adding only the rings that are still sold and listing the ones skipped.
+  When the voucher or the shipping quote is refused at "Đặt hàng" the page shows the
+  reason and "Cập nhật lại" recalculates before the Member orders again.
+- Q: Which product name does an order show? → A: The current catalogue name, SKU and
+  size when they can be read, otherwise the accepted ones; quantity, price, discount and
+  total are always the frozen ones.
+- Q: Do the cash tables still show "Khách đưa" and "Tiền thối"? → A: The Manager's daily
+  cash table keeps both columns; with the one-step collection Staff enter no cash-received
+  value, so "Khách đưa" equals the collected amount and "Tiền thối" is zero.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Prepare a retail purchase (Priority: P1)
@@ -769,7 +820,9 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   by default. Benefit preview, shipping quote, and checkout requests MUST carry
   the ticked cart line identifiers; the server MUST reject an empty, duplicated,
   or unknown selection, and a request without a selection keeps the earlier
-  whole-cart behaviour. Accepting checkout MUST remove only the purchased lines
+  whole-cart behaviour. *(Session 2026-11-25: the cart opens with no line ticked and
+  "Mua lại" ticks only the lines it added back, so the automatic voucher applies only
+  to ticked lines; the earlier "every sellable line ticked by default" is withdrawn.)* Accepting checkout MUST remove only the purchased lines
   from the cart; unticked lines MUST keep their quantities.
 - **FR-08-006**: The system MUST freeze the accepted product/variant identity,
   quantity, branch, fulfilment method, recipient snapshot when applicable,
@@ -782,7 +835,11 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   10-minute unpaid VNPay checkout-hold deadline (Session 2026-11-22); when no valid full payment
   is confirmed within that hold deadline, it MUST expire the hold and release
   the held quantities and benefits, while routing any later payment evidence to
-  manual operational review.
+  manual operational review. A checkout for which VNPay was never opened expires at
+  that deadline; a checkout whose VNPay payment was opened is released at or after
+  the deadline once the signed IPN or status query shows that no successful payment
+  exists, and a result that cannot be confirmed stays in manual review without
+  releasing or settling (FR-08-038; Session 2026-11-25).
 - **FR-08-009**: The system MUST require one verified full payment matching the
   grouped checkout target, combined amount, and currency before marking the
   grouped payment and all branch orders complete, except that an approved
@@ -842,6 +899,14 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   separate checkout line items, MUST exclude unapproved optional components
   such as insurance fees, and MUST include the sum of accepted charges in the
   Member's single VNPay payable amount.
+> **Session 2026-11-25 (V1 scope):** FR-08-025 to FR-08-034 (creating the GHTK
+> shipment by API, retrying creation, webhook and status-API tracking, provider estimated
+> delivery) and the provider part of FR-08-018 and FR-08-019 are deferred beyond V1. V1
+> creates the shipment record inside the platform with an internal tracking number
+> (`mockTrackingNumber`); the courier steps are recorded by the GHTK partner account
+> (role `CARRIER`) in the simulated portal of Session 2026-11-20; GHTK is called only
+> for the delivery fee (FR-08-024).
+
 - **FR-08-025**: After verified full payment, the system MUST create the GHTK
   shipment once using the accepted partner order identifier and MUST persist the
   returned provider label/tracking identifiers without creating COD collection.
@@ -952,11 +1017,12 @@ including frozen items, amounts, payment state, and fulfilment evidence.
 - **FR-08-045**: Only authenticated Staff assigned to the order's branch, or a
   Manager delegated for that branch, MAY confirm a counter cash collection.
   The confirmation MUST be for the exact payable amount of that branch order
-  in one collection (no partial payment) and MUST record the amount received,
-  change returned, actor, branch, order, and time. In one transaction it MUST
+  in one collection (no partial payment) and MUST record the amount collected,
+  actor, branch, order, and time (no cash-received or change entry, Session 2026-11-20). In one transaction it MUST
   mark the branch order paid, convert its held quantity to a sale, settle its
-  benefit share, and grant its earned points. Staff then record the handover
-  with the existing pickup operations (prepared, handed over). A repeated
+  benefit share, and grant its earned points. Staff do not record the handover separately: payment, preparation and handover
+  are recorded in the same transaction (`/counter-cash-handovers`, Session
+  2026-11-20). A repeated
   confirmation MUST be a no-op; a second confirmation of the same order MUST
   never record a second collection.
 - **FR-08-046**: Before Staff confirmation the Member MAY cancel a cash branch
@@ -985,15 +1051,15 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   and whose revenue is its product value after the allocated discount. An
   unconfirmed, cancelled, or expired cash order MUST NOT be exposed as paid.
 - **FR-08-050**: The Member order page MUST group the Member's branch orders
-  into the tabs All, Awaiting payment, Awaiting store pickup, Shipping,
-  Completed, and Cancelled, each with its count, and MUST offer per card only
+  into the tabs All, Awaiting payment, To ship, Shipping, Awaiting store pickup,
+  Delivered, and Cancelled (seven tabs, Session 2026-11-18), each with its count, and MUST offer per card only
   the actions valid in that state: pay or cancel an unpaid VNPay checkout,
-  cancel an unconfirmed cash order, and buy again a completed order by adding
-  its lines back to the cart. Paying an unpaid VNPay checkout pays all branch
+  cancel an unconfirmed cash order, and buy again a delivered or picked-up order, or a
+  cancelled one, by adding its lines back to the cart (Session 2026-11-25). Paying an unpaid VNPay checkout pays all branch
   orders accepted together in it.
 - **FR-08-051**: The Staff retail order page MUST show, only for the actor's
-  branches, the tabs Awaiting counter cash, Awaiting customer collection, To
-  hand to GHTK, Shipping, and History with counts, a search by order code or
+  branches, the six tabs Đơn hàng cần chuẩn bị, Chờ ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ
+  thu tiền mặt, Chờ khách nhận and Hoàn thành (Session 2026-11-20) with counts, a search by order code or
   recipient, and a summary of today's confirmed cash, holds expiring within 24
   hours, and open tasks. The former pickup-desk and shipment addresses MUST
   open the corresponding tab. The page MUST sit in the operations workspace

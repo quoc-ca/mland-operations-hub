@@ -18,10 +18,6 @@ rectangle "Personalized Product Sales and Workshop Booking System" {
   usecase "Book workshop" as Book
   usecase "Select date, session\nand package" as SelectSession
   usecase "Provide / verify\ncontact information" as Contact
-  usecase "Choose ring design\npath" as Design
-  usecase "Select approved model" as Model
-  usecase "Configure approved\ncomponents" as Configure
-  usecase "Submit consented\nreference image" as Image
   usecase "Create booking invoice\nwith the deposit due" as Invoice
   usecase "Initiate deposit payment" as Deposit
   usecase "Track booking with\ncode and contact information" as Track
@@ -29,24 +25,23 @@ rectangle "Personalized Product Sales and Workshop Booking System" {
 
 Guest --> ViewSessions
 Guest --> Book
-Guest --> Design
 Guest --> Track
 
 Member --> ViewSessions
 Member --> Book
-Member --> Design
 Member --> Track
 
 Book .> SelectSession : <<include>>
 Book .> Contact : <<include>>
 Book .> Invoice : <<include>>
 Book .> Deposit : <<include>>
-Design .> Model : <<extend>>\n[model path]
-Design .> Configure : <<extend>>\n[configurator path]
-Design .> Image : <<extend>>\n[reference-image path]
-
 note bottom of Deposit
 Payment confirmation is handled in the dedicated Payment Gateway diagram.
+end note
+
+note bottom
+Workshop booking is independent from Feature-004 design requests and
+Feature-012 saved ring designs. Design entry points are documented separately.
 end note
 @enduml
 

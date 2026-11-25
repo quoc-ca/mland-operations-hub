@@ -2,6 +2,7 @@
 !pragma charset UTF-8
 hide footbox
 skinparam shadowing false
+skinparam defaultFontSize 15
 skinparam roundcorner 0
 skinparam sequenceMessageAlign center
 skinparam SequenceLifeLineBorderColor #555555

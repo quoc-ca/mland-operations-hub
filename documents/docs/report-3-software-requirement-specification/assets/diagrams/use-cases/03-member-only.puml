@@ -22,6 +22,7 @@ rectangle "Mland Operations System" {
   usecase "Manage Personal Profile" as UC05
   usecase "Select Available Ring Model" as UC36
   usecase "Configure Workshop Ring" as UC37
+  usecase "Evaluate Saved Design and View Workshop Recommendation" as UC37E
   usecase "Chat with Staff Consultant" as UC38
   usecase "Submit Custom Design Request" as UC39
   usecase "View Custom Design Request Decision" as UC41
@@ -48,6 +49,7 @@ Member --> UC04
 Member --> UC05
 Member --> UC36
 Member --> UC37
+Member --> UC37E
 Member --> UC38
 Member --> UC39
 Member --> UC41

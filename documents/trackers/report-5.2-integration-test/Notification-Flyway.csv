@@ -1,0 +1,5 @@
+﻿Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-NFY-001,Workflow notification is queued,Trigger approved booking/review/order event,One safe notification intent is created,Notification module and mail stub available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-007
+IT-NFY-002,Notification delivery retry is safe,Return temporary SMTP failure then success,Retry delivers once without duplicate business effect,SMTP stub available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-007
+IT-FLY-001,Fresh database migration succeeds,Run Flyway from empty database through current version,All required tables and constraints exist,MySQL available,Passed,2026-11-25,QA Agent,,,,,,,,Flyway
+IT-FLY-002,Migration rerun is idempotent,Run migration validation twice,No duplicate version or checksum failure occurs,Database history available,Passed,2026-11-25,QA Agent,,,,,,,,Flyway validation

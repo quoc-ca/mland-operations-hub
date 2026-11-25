@@ -6,6 +6,7 @@
 
 **Group:** SEP490_G22  
 **Status:** Active project, under validation  
+**Document status:** Current management baseline; illustrative estimates remain subject to project approval.
 
 ## Table of Contents
 
