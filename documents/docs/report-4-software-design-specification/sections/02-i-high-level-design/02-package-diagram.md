@@ -1,6 +1,6 @@
 ## 2. Package Diagram
 
-The system has two applications: a React single-page front-end (`ppswbs_frontend`) and a Spring Boot back-end (`ppswbs_backend`). Each feature of the front-end lives in its own folder under `src/features` and each feature of the back-end is a Spring Modulith module under `features`; inside a feature both applications use the layered packages shown below. Two older parts keep their own layout: the workshop screens of the front-end (`src/workshops`, `src/workshop-operations`, `src/workshop-settlement` and `src/ota-connectivity`, each with its routes, pages, components and API client), and the back-end module `designreview`, which sits beside `features` and is split into `web`, `application`, `domain`, `infrastructure` and `facade`.
+The system has two applications: a React/Vite single-page front-end (`ppswbs_frontend`) and a Java 21/Spring Boot back-end (`ppswbs_backend`). Frontend capabilities live under `src/features`; the application shell and shared technical foundations live under `src/app` and `src/shared`. Backend business modules live under `features` and follow Spring Modulith boundaries with controller, DTO, service, facade, DAO and entity responsibilities. The legacy `designreview` package remains a separate compatibility layout and must not be treated as the owner of the current Feature-004 human-review contract. Cross-module access uses exported facades or approved events; private controllers, DTOs, entities and repositories are not imported across modules.
 
 ### 2.1 Front-end Package Diagram
 

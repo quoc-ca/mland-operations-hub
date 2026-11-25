@@ -65,7 +65,7 @@ BR-56-01, BR-56-02, BR-56-03, BR-56-04, BR-56-05, BR-56-06, BR-56-07
 | --- | --- |
 | BR-56-01 | Only the active owning Member views retail purchase history; internal roles receive no customer impersonation grant. |
 | BR-56-02 | History is read-only and shows recorded purchase, payment, hold, internal fulfilment and recorded GHTK shipment facts without GHTK provider tracking. |
-| BR-56-03 | Preserve accepted historical names/options/quantities/prices/discounts/totals; missing legacy options remain unknown. |
+| BR-56-03 | Preserve accepted quantities, prices, discounts and totals; the product name, SKU and size shown on an order are read from the current catalogue when it can be read and fall back to the accepted ones otherwise; missing legacy options remain unknown. |
 | BR-56-04 | Sort newest first by creation time then stable identity, grouped in the tabs Tất cả, Chờ thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and Đã hủy; after payment the list opens the tab of that order. |
 | BR-56-05 | Retire carrier recipient/contact/address values 30 days after original actual handoff; five-year minimized evidence does not retain those values. |
 | BR-56-06 | Recheck ownership and record safe read/rejection outcomes; knowing an order reference grants no access. |

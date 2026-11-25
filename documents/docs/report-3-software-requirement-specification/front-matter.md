@@ -29,13 +29,32 @@
     - 5.2 External API Inventory
     - 5.3 Background Job Inventory
 - II. Use Case Specifications
-  - 1. Feature Name 1
-  - 2. Feature Name 2
+  - 1. Account Management
+  - 2. Product Management
+  - 3. Workshop Management
+  - 4. AI Assistance and Consultation
+  - 5. Personalized Design and Quote Workflow
+  - 6. Loyalty and Promotion Management
+  - 7. Order Management and Fulfillment
+  - 8. Administrative Parameter Configuration
+  - 9. Review Management
+  - 10. Custom Manufacturing
 - III. Functional Requirements
-  - 1. Feature Name 1
-  - 2. Feature Name 2
-  - x. Background Job Inventory
-  - (x+1). External API Inventory
+  - 1. Public Store Information
+  - 2. Account Management
+  - 3. Workshop Management
+  - 4. Product Management
+  - 5. Role Dashboards
+  - 6. Personalized Design and Quote Workflow
+  - 7. Order Management and Fulfillment
+  - 8. Custom Manufacturing
+  - 9. Loyalty and Promotion Management
+  - 10. Catalogue Price Approval
+  - 11. AI Assistance and Consultation
+  - 12. Notification Management
+  - 13. Payment
+  - 14. Background Job Inventory
+  - 15. External API Inventory
 - IV. Non-functional Requirements
   - 1. External Interfaces
   - 2. Quality Attributes

@@ -1,0 +1,85 @@
+@startuml
+!pragma charset UTF-8
+title Report 3 Screen Flow — Feature-004, 011, 012 and 013 Baseline
+left to right direction
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FCF9F8
+  BorderColor #807663
+  ArrowColor #5B5E67
+}
+
+|Guest|
+start
+:Home / public entry;
+if (Browse feature?) then (Ring design)
+  :Ring design preview;
+  :Protected action;
+  :Sign-in;
+elseif (Custom request)
+  :Custom design entry;
+  :Protected action;
+  :Sign-in;
+elseif (Reviews)
+  :Public review list/detail;
+  :Write-review action;
+  :Sign-in;
+else (Consultation)
+  :Consultation entry;
+  :Sign-in;
+endif
+stop
+
+|Member|
+start
+:Member home;
+if (Ring design) then (yes)
+  :Model/blank selection;
+  :Configuration;
+  :Save/evaluate;
+  :Design evaluation and workshop recommendation;
+  :My Ring Designs;
+  if (Consultation?) then (yes)
+    :Context-linked consultation chat;
+  endif
+elseif (Design request)
+  :Design Request Workspace;
+  :Consent and image quality checks;
+  :Design Request Details;
+  :Read human review status/explanation;
+  if (Clarification required?) then (yes)
+    :Submit clarification;
+  endif
+elseif (Review)
+  :Eligible Review Sources;
+  :Create or edit own review;
+  :Public review projection;
+else (Consultation)
+  :General or context-linked chat;
+  :OPEN/CLOSED conversation;
+endif
+stop
+
+|Staff or Manager|
+start
+:Role home;
+if (Design review) then (yes)
+  :Design Review Queue;
+  :Design Review Details;
+  :Accept, reject or request clarification;
+  :Mandatory explanation and audit;
+elseif (Review moderation)
+  :Review Moderation Queue;
+  :Moderation Details;
+  :Staff hide / Manager hide-remove-reply;
+else (Consultation)
+  :Consultation Inbox;
+  :Claim/assign/reply/close;
+endif
+stop
+
+note right
+Feature-012 design is not attached to booking.
+Feature-004 uses human review only; Feature-011 is public-read/member-write.
+end note
+@enduml

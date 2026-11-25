@@ -52,28 +52,86 @@ paths:
         '400':
           description: Invalid period or request parameters.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Missing or invalid authenticated identity.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Principal lacks Manager reporting capability or requested an unauthorized branch.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
           description: All required reporting sources are unavailable.
           content:
-            application/problem+json:
+            application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /executive-reports/trends:
+    get:
+      operationId: getExecutiveTrends
+      summary: Get retail and workshop trends against the previous period of the same length
+      description: >-
+        Same filters and Manager scope rule as the KPI report. Points are bucketed in
+        Vietnam time by hour for a day, by day for a week or month and by month for a year.
+        A source that cannot be read is named in unavailable and its values are null.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/periodType'
+        - $ref: '#/components/parameters/anchorDate'
+        - $ref: '#/components/parameters/locationId'
+      responses:
+        '200': { description: Trend data., content: { application/json: { schema: { $ref: '#/components/schemas/ExecutiveTrendResponse' } } } }
+        '400': { description: Invalid period or request parameters (REPORTING_FILTER_INVALID)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid authenticated identity (AUTHENTICATION_REQUIRED)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not an active Manager with an active branch assignment, or a branch outside the assignment (MANAGER_REPORTING_FORBIDDEN)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /executive-reports/top-sellers:
+    get:
+      operationId: getExecutiveTopSellers
+      summary: Get the top 5 products and the top 5 workshop packages
+      description: >-
+        Same filters and Manager scope rule as the KPI report. Ties go to the higher amount
+        before discounts, then the lower ID. There is no previous-period comparison.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/periodType'
+        - $ref: '#/components/parameters/anchorDate'
+        - $ref: '#/components/parameters/locationId'
+      responses:
+        '200': { description: Best sellers; a list that cannot be read is null and named in unavailable., content: { application/json: { schema: { $ref: '#/components/schemas/ExecutiveTopSellerResponse' } } } }
+        '400': { description: Invalid period or request parameters (REPORTING_FILTER_INVALID)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid authenticated identity (AUTHENTICATION_REQUIRED)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not an active Manager with an active branch assignment, or a branch outside the assignment (MANAGER_REPORTING_FORBIDDEN)., content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
 components:
+  parameters:
+    periodType:
+      name: periodType
+      in: query
+      required: false
+      description: Calendar period interpreted in Asia/Ho_Chi_Minh. Defaults to MONTH.
+      schema: { $ref: '#/components/schemas/PeriodType' }
+    anchorDate:
+      name: anchorDate
+      in: query
+      required: false
+      description: Local date contained by the requested period. Defaults to today in Asia/Ho_Chi_Minh.
+      schema: { type: string, format: date }
+    locationId:
+      name: locationId
+      in: query
+      required: false
+      description: Repeat to request multiple authorized branches. Omit for all authorized branches.
+      style: form
+      explode: true
+      schema: { type: array, uniqueItems: true, items: { type: integer, format: int64 } }
   securitySchemes:
     bearerAuth:
       type: http
@@ -226,27 +284,87 @@ components:
     ErrorResponse:
       type: object
       additionalProperties: false
-      required: [type, title, status, code, correlationId]
+      required: [code, message, correlationId]
+      description: Safe error body; never SQL, a stack trace or source data.
       properties:
-        type:
-          type: string
-          format: uri-reference
-        title:
-          type: string
-        status:
-          type: integer
-          minimum: 400
-          maximum: 599
         code:
           type: string
           enum:
-            - VALIDATION_ERROR
-            - INVALID_REPORTING_PERIOD
             - AUTHENTICATION_REQUIRED
             - MANAGER_REPORTING_FORBIDDEN
-            - BRANCH_SCOPE_FORBIDDEN
+            - REPORTING_FILTER_INVALID
             - REPORTING_SOURCES_UNAVAILABLE
-        detail:
+        message:
           type: string
         correlationId:
           type: string
+    TrendValues:
+      type: object
+      additionalProperties: false
+      description: A null value means the source could not be read; it is never shown as zero.
+      properties:
+        retailPlaced: { type: integer, format: int64, nullable: true }
+        retailPaid: { type: integer, format: int64, nullable: true }
+        retailCancelled: { type: integer, format: int64, nullable: true }
+        retailExpired: { type: integer, format: int64, nullable: true }
+        retailRevenue: { $ref: '#/components/schemas/NullableDecimalString' }
+        workshopBooked: { type: integer, format: int64, nullable: true }
+        workshopConfirmed: { type: integer, format: int64, nullable: true }
+        workshopCancelled: { type: integer, format: int64, nullable: true }
+        workshopAbandoned: { type: integer, format: int64, nullable: true }
+        placesRegistered: { type: integer, format: int64, nullable: true }
+        placesCheckedIn: { type: integer, format: int64, nullable: true }
+        placesNoShow: { type: integer, format: int64, nullable: true }
+        placesCancelled: { type: integer, format: int64, nullable: true }
+        workshopRevenue: { $ref: '#/components/schemas/NullableDecimalString' }
+    TrendPoint:
+      type: object
+      additionalProperties: false
+      required: [startAt, label, values]
+      properties:
+        startAt: { type: string, format: date-time }
+        label: { type: string }
+        values: { $ref: '#/components/schemas/TrendValues' }
+    ExecutiveTrendResponse:
+      type: object
+      additionalProperties: false
+      required: [scope, granularity, points, current, previous, previousStartAt, previousEndAt, unavailable, lastUpdatedAt]
+      properties:
+        scope: { $ref: '#/components/schemas/ReportingScope' }
+        granularity: { type: string, enum: [HOUR, DAY, MONTH], description: 'HOUR for a day, DAY for a week or month, MONTH for a year' }
+        points: { type: array, items: { $ref: '#/components/schemas/TrendPoint' } }
+        current: { $ref: '#/components/schemas/TrendValues' }
+        previous: { $ref: '#/components/schemas/TrendValues' }
+        previousStartAt: { type: string, format: date-time }
+        previousEndAt: { type: string, format: date-time }
+        unavailable: { type: array, items: { type: string }, description: Names of the trend sources that could not be read. }
+        lastUpdatedAt: { type: string, format: date-time }
+    TopSeller:
+      type: object
+      additionalProperties: false
+      required: [id, name, quantity, revenue]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        quantity: { type: integer, format: int64, description: Units for a product and confirmed tickets for a workshop package. }
+        revenue: { type: string, description: Whole VND before discounts as a decimal string. }
+    ExecutiveTopSellerResponse:
+      type: object
+      additionalProperties: false
+      required: [scope, products, packages, unavailable, lastUpdatedAt]
+      properties:
+        scope: { $ref: '#/components/schemas/ReportingScope' }
+        products:
+          type: array
+          nullable: true
+          maxItems: 5
+          description: Top 5 products by units in VND branch orders paid in the period. Null means the source could not be read; an empty list means nothing was sold.
+          items: { $ref: '#/components/schemas/TopSeller' }
+        packages:
+          type: array
+          nullable: true
+          maxItems: 5
+          description: Top 5 workshop packages by tickets confirmed, completed or no-show in booking groups placed in the period, at the branch of the first session.
+          items: { $ref: '#/components/schemas/TopSeller' }
+        unavailable: { type: array, items: { type: string, enum: [TOP_PRODUCTS, TOP_PACKAGES] } }
+        lastUpdatedAt: { type: string, format: date-time }

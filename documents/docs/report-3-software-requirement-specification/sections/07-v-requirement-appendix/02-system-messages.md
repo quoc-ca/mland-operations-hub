@@ -83,7 +83,7 @@
 |79|MSG79|Success|A retail order is placed, for VNPay or for cash at the counter (UC-54, UC-55).|Order placed, opening the VNPay payment page… / Order placed. Please go to {branch} before {deadline} and pay cash on pickup.|
 |80|MSG80|Error|The order is placed but the VNPay page does not open (UC-55).|The order is placed but the VNPay page did not open. Press pay to try again, or pay later from My orders.|
 |81|MSG81|Success|The VNPay payment of a retail order is verified (UC-55).|Payment successful. Mland is preparing your order.|
-|82|MSG82|Warning|The hold of an unpaid retail order has ended (UC-55, UC-56).|The hold has ended. The order will cancel itself and give back the voucher and points.|
+|82|MSG82|Warning|The hold of an unpaid retail order has ended (UC-55, UC-56).|The hold has ended. If VNPay does not confirm a payment, the order will cancel itself and give back the voucher and points.|
 |83|MSG83|Success|Staff marks a pickup order ready, hands it to the customer or records the counter cash (UC-58 to UC-60).|Order {code} is packed and waits for the customer. / Order {code} handed to the customer. / Order {code}: {payableAmount} collected, order completed.|
 |84|MSG84|Error|An account that is not an active GHTK partner account opens the partner shipment page (UC-61).|This account is not an active GHTK partner account.|
 |85|MSG85|Error|The dashboard or one of its parts cannot be loaded (UC-64).|The dashboard could not be loaded. You can try again. / The trend charts could not be loaded. / The best sellers could not be loaded.|

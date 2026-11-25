@@ -30,9 +30,9 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 1. The Manager opens Dashboard, the Manager's home page and the first group of the navigation rail.
 2. The system shows today's operations and recent events, and loads the revenue report for the default reporting period (the current month) and all authorized branches.
-3. The Manager selects a day, week, month or year (Vietnam time) and all branches or one branch with a single click.
-4. The system retrieves and aggregates verified revenue, workshop, order, and branch data: finalized workshop folios, workshop tickets and check-ins, and retail orders.
-5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, each compared with the previous period of the same length, and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid and cancelled, and retail revenue. Each figure keeps one colour, every chart writes its values, and all labels follow the VI/EN switch.
+3. The Manager selects a day, week, month or year (Vietnam time) and all branches or one branch with a single click, only among the branches assigned to the Manager. The page reloads only when it opens, a filter changes or the Manager refreshes; it never refreshes on a timer.
+4. The system retrieves and aggregates verified revenue, workshop, order, and branch data in VND: finalized workshop folios, workshop tickets and check-ins, and retail orders. An amount in another currency is not converted or added; the figure becomes incomplete.
+5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, with the trend figures compared with the previous period of the same length (the KPI cards and the best sellers are not), and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid, cancelled and expired, and retail revenue; workshop tickets booked, paid, cancelled and abandoned; and places registered, checked in, no-show and cancelled. When a period has more than 16 points only each series' peak is labelled, count axes use whole numbers and a value that could not be read is a gap, never a zero. The page shows the time of the last successful update in Vietnam time. Each figure keeps one colour, every chart writes its values, and all labels follow the VI/EN switch.
 6. For the same period and branches, the system lists the best sellers: the top 5 products by units in paid retail orders and the top 5 workshop packages by confirmed tickets, each row with its rank, name, count and a bar; hovering or focusing a row shows its amount before discounts and its share of the five.
 7. The Manager reviews the dashboard, changes the filters or switches the language.
 
@@ -40,7 +40,7 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 **Step 2 — No data is available**
 
-The system displays a zero/empty state with the selected period and does not infer missing transactions.
+The system displays an explicit empty state with the selected period and does not infer missing transactions; a source that cannot be read is shown as unknown, never as zero.
 
 **Step 3 — Invalid period or unauthorized branch scope**
 
@@ -69,4 +69,4 @@ BR-64-01, BR-64-02, BR-64-03, BR-64-04
 | BR-64-01 | Only an authorized Manager may view executive revenue and branch KPI data.                                             |
 | BR-64-02 | Dashboard metrics must be calculated from verified recorded business data for the selected period and scope.           |
 | BR-64-03 | Missing, delayed, or partial data must be clearly identified and must not be silently presented as complete analytics. |
-| BR-64-04 | Best sellers count products by units in VND branch orders paid in the period, and workshop packages by tickets confirmed, completed or marked no-show in booking groups placed in the period at the branch of the first session; ties go to the higher amount before discounts. |
+| BR-64-04 | Best sellers count products by units in VND branch orders paid in the period, and workshop packages by tickets confirmed, completed or marked no-show in booking groups placed in the period at the branch of the first session; ties go to the higher amount before discounts, then to the lower ID; a package that no longer exists keeps the name recorded on its booking line. |
