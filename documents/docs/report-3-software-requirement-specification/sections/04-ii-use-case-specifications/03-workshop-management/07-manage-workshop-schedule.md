@@ -30,7 +30,7 @@ Allows the Manager to create workshop sessions, one at a time or in bulk, change
 2. The Manager creates one session, or generates sessions for a location, slots, date range, and weekdays, entering the capacity.
 3. The system validates the slot, the date, uniqueness, and the capacity.
 4. The system saves the sessions as Draft by default, or Published when chosen, and reports created and skipped sessions.
-5. The Manager changes the state or capacity of a session when needed.
+5. The Manager changes capacity or uses the direct state transition only to publish or pause sales; cancellation uses the separate reasoned cancellation flow.
 6. The system records an audit entry. Enabled partner availability is published automatically.
 
 #### Alternative Flows
@@ -50,6 +50,10 @@ The system refuses the change. The Manager cancels the session and creates anoth
 **Step 5 — Cancellation of a session with confirmed tickets or live holds**
 
 The session moves to Cancellation Requested and is handed to ticket settlement. A session without them is cancelled directly.
+
+**Step 5 — The Manager selects cancellation in the direct state transition**
+
+The direct transition does not accept `CANCELLED`. The Manager starts the cancellation flow, provides its reason, and follows the settlement handoff when tickets or live holds exist.
 
 #### Business Rules
 

@@ -15,7 +15,7 @@ As the Guest or Member payer, or as Staff or a Manager at the counter, I want to
 #### Preconditions
 
 1. A refund request is waiting for an account.
-2. The payer holds a usable single-use link (valid 7 days), or a Manager or Staff assigned to the ticket records the account at the counter.
+2. The payer holds a usable single-use link (valid 7 days), or a Manager or Staff assigned to the ticket records the account at the counter. Group-level refunds without a ticket accept the account only through the link.
 
 #### Postconditions
 
@@ -34,7 +34,7 @@ As the Guest or Member payer, or as Staff or a Manager at the counter, I want to
 
 **Step 1 — Counter entry**
 
-Staff or a Manager enters and confirms the payer's account; the actor, channel, and time are recorded.
+Staff assigned to a session of the ticket, or a Manager, enters and confirms the payer's account; the actor, channel, and time are recorded. Staff may resend the account link only for refunds in their assigned-session scope.
 
 **Step 1 — Link used, revoked, or expired**
 

@@ -25,10 +25,10 @@ As the Guest or Member buyer of a ticket affected by an Mland cancellation, I wa
 
 **Respond to Mland Cancellation Offer**
 
-1. The buyer opens the offer announced by email.
-2. The buyer views the equivalent sessions offered, each with its location.
-3. The buyer chooses one session.
-4. The system verifies the buyer and the session and moves the ticket without extra charge.
+1. The buyer opens the offer announced by email, or an in-scope Staff member or Manager opens it while assisting the buyer.
+2. The actor views the equivalent sessions offered, each with its location.
+3. The buyer chooses a session or refund; an operator confirms the buyer's choice and verifies the buyer with the booking code.
+4. The system verifies the buyer proof and the selected outcome, then moves the ticket without extra charge or starts the refund path.
 
 #### Alternative Flows
 

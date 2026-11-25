@@ -6,7 +6,7 @@ Manager
 
 #### Secondary Actors
 
-Mail Gateway
+Staff (assigned-ticket refund lookup and account-link assistance only); Mail Gateway
 
 #### Description
 
@@ -39,7 +39,7 @@ The Manager returns the request to pending account with a reason; the approval i
 
 **Before Step 1 — Account not yet received**
 
-The Manager (or Staff, for the resend only) may resend the link; the Manager may close the request as unreachable after 30 days and reopen it later.
+The Manager may view all requests. Staff may view only refunds for tickets on sessions assigned to them and may enter the recipient account or resend its link for those refunds. A group-level refund without an assigned ticket is visible only to the Manager. The Manager may close the request as unreachable after 30 days and reopen it later.
 
 **Step 4 — Request already refunded**
 
@@ -55,4 +55,4 @@ BR-90-01, BR-90-02, BR-90-03
 |---|---|
 | BR-90-01 | The system never calls VNPay Refund; there is no terminal rejection of a refund. |
 | BR-90-02 | The total refunded or pending for a ticket never exceeds the money collected for it. |
-| BR-90-03 | Staff may only resend the refund-account link; every refund decision stays with the Manager. |
+| BR-90-03 | Staff may view only ticket refunds for sessions assigned to them and may enter the recipient account or resend its link; every refund decision stays with the Manager. Group-level refunds are Manager-only in the queue. |
