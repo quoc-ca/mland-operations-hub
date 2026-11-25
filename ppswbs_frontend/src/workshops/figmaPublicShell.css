@@ -339,3 +339,8 @@
 .filter-bar.ws-filter-grid select, .filter-bar.ws-filter-grid input { min-width: 0; }
 
 @media (max-width: 480px) { .ws-filter-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Workshop detail left column: sticky only while it sits beside the schedule. Below 600px .detail-grid is one column,
+   and a sticky block would cover the session list under it (BUG-E2E-0025). */
+.workshop-detail-aside { position: sticky; top: 125px; display: grid; gap: 16px; }
+@media (max-width: 600px) { .workshop-detail-aside { position: static; } }

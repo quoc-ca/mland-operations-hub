@@ -311,7 +311,7 @@ export function WorkshopDetailPage({ packageId }) {
 
       <div className="detail-grid" style={{ alignItems: 'start', marginTop: '24px' }}>
         {/* The left column stays in view while the long right column scrolls, and carries the package rules so it is not an empty gap. */}
-        <div style={{ position: 'sticky', top: '125px', display: 'grid', gap: '16px' }}>
+        <div className="workshop-detail-aside">
           <div className="ring-visual gold" aria-label={t('detail.visualAria')} style={{ height: '320px' }}>
             <span />
           </div>
