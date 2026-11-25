@@ -10,6 +10,6 @@
 
 *Alternative end conditions*:
 
-- If payment fails or the 15-minute payment window expires, the booking is cancelled or marked as expired, the temporarily held seat is released, and the system displays an appropriate notification.
+- The booking group is held for 12 minutes and its VNPay link expires 2 minutes before the hold ends. If no valid payment confirmation exists when the hold ends, the booking group expires, the held seats are released, and the system displays an appropriate notification.
 
 {{r3-swl-booking-workshop width=100% align=center}}

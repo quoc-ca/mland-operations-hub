@@ -288,7 +288,7 @@ def build_markdown():
     output = []
     output.append("## 3. Database Design\n")
     output.append("(*DB Diagrams Images*)\n")
-    output.append("The database architecture for the Personalized Product Sales and Workshop Booking System is implemented on MySQL 8.0+ / 9.x utilizing the InnoDB storage engine with `utf8mb4` encoding for comprehensive Unicode support. Database schema versions and automated migrations are versioned via Flyway across migrations V4 through V88. The schema comprises 99 normalized tables structured across 10 functional business domains:\n")
+    output.append("The database architecture for the Personalized Product Sales and Workshop Booking System is implemented on MySQL 8.0+ / 9.x utilizing the InnoDB storage engine with `utf8mb4` encoding for comprehensive Unicode support. Database schema versions and automated migrations are versioned via Flyway across migrations V4 through V203. The schema comprises 99 normalized tables structured across 10 functional business domains:\n")
     
     # Table of domains
     output.append("1. **Account & Identity Management** (5 tables): User authentication, RBAC authorization, location permissions, and provisioning.")
