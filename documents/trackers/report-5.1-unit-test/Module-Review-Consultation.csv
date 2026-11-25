@@ -1,7 +1,7 @@
-Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
-UT-REV-001,Member owns eligible source,Rating is outside one to five,Review is rejected,Boundary,Not Run,,,,,,,,,,Feature-011
-UT-REV-002,Review is PUBLIC,Owner edits text,Review remains PUBLIC and revision audit is appended,Normal,Not Run,,,,,,,,,,Feature-011
-UT-REV-003,Review is PUBLIC,Staff attempts REMOVED,Command is denied and state is unchanged,Security,Not Run,,,,,,,,,,Feature-011
-UT-REV-004,Conversation is OPEN,Member sends Vietnamese text with markup,Text is normalized as UTF-8 plain text and unsafe markup is not executed,Security,Not Run,,,,,,,,,,Feature-013
-UT-REV-005,Conversation is CLOSED,Member attempts to send a message,Command is rejected and history is preserved,Abnormal,Not Run,,,,,,,,,,Feature-013
-UT-REV-006,Member has hidden a CLOSED conversation,Member lists conversations,Hidden conversation is excluded while store history remains,Normal,Not Run,,,,,,,,,,Feature-013
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-REV-001,Member owns eligible source,Rating is outside one to five,Review is rejected,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-011
+UT-REV-002,Review is PUBLIC,Owner edits text,Review remains PUBLIC and revision audit is appended,Normal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-011
+UT-REV-003,Review is PUBLIC,Staff attempts REMOVED,Command is denied and state is unchanged,Security,Passed,2026-11-25,QA Agent,,,,,,,,Feature-011
+UT-REV-004,Conversation is OPEN,Member sends Vietnamese text with markup,Text is normalized as UTF-8 plain text and unsafe markup is not executed,Security,Passed,2026-11-25,QA Agent,,,,,,,,Feature-013
+UT-REV-005,Conversation is CLOSED,Member attempts to send a message,Command is rejected and history is preserved,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-013
+UT-REV-006,Member has hidden a CLOSED conversation,Member lists conversations,Hidden conversation is excluded while store history remains,Normal,Passed,2026-11-25,QA Agent,,,,,,,,Feature-013

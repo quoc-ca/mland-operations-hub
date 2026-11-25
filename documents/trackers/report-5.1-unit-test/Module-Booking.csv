@@ -1,7 +1,7 @@
-Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
-UT-BOOK-001,Implementation baseline available,Booking payment event is browser redirect only,Booking remains pending; no confirmation is created,Abnormal,Not Run,,,,,,,,,,Requirement baseline only
-UT-BOOK-002,Published package and available session exist,Package is not selected before session submission,Command is rejected and no hold is created,Abnormal,Not Run,,,,,,,,,,GBR-01
-UT-BOOK-003,Available capacity exists,Two commands consume the final capacity concurrently,At most one valid hold/booking is created and the other receives a conflict,Boundary,Not Run,,,,,,,,,,Capacity atomicity
-UT-BOOK-004,Pending booking invoice exists,Valid verified 50 percent deposit evidence is processed twice,One confirmation and one payment effect are retained,Abnormal,Not Run,,,,,,,,,,Payment idempotency
-UT-BOOK-005,Pending booking invoice exists,Invalid amount or signature is submitted,Payment is rejected and booking remains unconfirmed,Security,Not Run,,,,,,,,,,Payment integrity
-UT-BOOK-006,Booking has group participants,Participant count is zero or exceeds configured capacity,Validation rejects the command without partial booking state,Boundary,Not Run,,,,,,,,,,Capacity validation
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-BOOK-001,Implementation baseline available,Booking payment event is browser redirect only,Booking remains pending; no confirmation is created,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Requirement baseline only
+UT-BOOK-002,Published package and available session exist,Package is not selected before session submission,Command is rejected and no hold is created,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,GBR-01
+UT-BOOK-003,Available capacity exists,Two commands consume the final capacity concurrently,At most one valid hold/booking is created and the other receives a conflict,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Capacity atomicity
+UT-BOOK-004,Pending booking invoice exists,Valid verified 50 percent deposit evidence is processed twice,One confirmation and one payment effect are retained,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Payment idempotency
+UT-BOOK-005,Pending booking invoice exists,Invalid amount or signature is submitted,Payment is rejected and booking remains unconfirmed,Security,Passed,2026-11-25,QA Agent,,,,,,,,Payment integrity
+UT-BOOK-006,Booking has group participants,Participant count is zero or exceeds configured capacity,Validation rejects the command without partial booking state,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Capacity validation

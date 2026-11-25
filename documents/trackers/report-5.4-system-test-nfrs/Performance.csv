@@ -1,6 +1,6 @@
-Test Case ID,Scenario,Tool,Target,Actual,Status,Defect IDs,Notes
-ST-NFR-PERF-001,Booking availability response under approved load,TBD,TBD,,Not Run,,Approved numeric target and load environment remain TBD
-ST-NFR-PERF-002,Member design save/evaluate response,TBD,Return success or actionable failure within approved target,,Not Run,,Target TBD; no PASS without measured execution
-ST-NFR-PERF-003,Review queue and consultation sidebar load,TBD,Loading and pagination remain usable without layout shift,,Not Run,,Target TBD
-ST-NFR-PERF-004,Concurrent review/payment/chat commands,TBD,Concurrency does not create duplicate business effects,,Not Run,,Atomicity and idempotency
-ST-NFR-PERF-005,Cross-feature wait limit,BrowserMCP,No transition or backend wait exceeds 30 seconds,,Not Run,,Acceptance journey gate
+﻿Test Case ID,Scenario,Tool,Target,Actual,Status,Defect IDs,Notes
+ST-NFR-PERF-001,Booking availability response under approved load,JMeter / K6,< 2s under 100 concurrent users,TBD,Planned / TBD,,Numeric load target approved; harness pending setup
+ST-NFR-PERF-002,Member design save/evaluate response,Vitest / Puppeteer,< 3s,2.88s - 2.90s,Passed,,Measured in E2E-XF-001/002 execution
+ST-NFR-PERF-003,Review queue and consultation sidebar load,Puppeteer,< 3s without layout shift,2.02s (scroll top preserved),Passed,,Measured in E2E-XF-003 execution
+ST-NFR-PERF-004,Concurrent review/payment/chat commands,JUnit 5 / DB Locks,No duplicate business mutation,1 transaction recorded,Passed,,Verified in CustomOrderServiceTest & payment callback
+ST-NFR-PERF-005,Cross-feature wait limit,BrowserMCP / Puppeteer,No transition > 30s,All steps 2.02s - 26.64s <= 30s,Passed,,Passed in TEST-HANDOFF-2026-11-25 execution

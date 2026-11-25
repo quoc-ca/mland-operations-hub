@@ -1,4 +1,4 @@
-Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
-IT-RVW-001,Public review aggregate excludes hidden review,Create public and hidden reviews then load aggregate,Only PUBLIC reviews contribute,Review data available,Not Run,,,,,,,,,,Feature-011
-IT-RVW-002,Consultation context is safe,Open chat from an owned design,Context is available without raw internal ID or private data,Member design and chat services available,Not Run,,,,,,,,,,Feature-013
-IT-RVW-003,Closed conversation cannot receive message,Close conversation then send message,Message is rejected and history remains,Member and Staff fixtures available,Not Run,,,,,,,,,,Feature-013
+﻿Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-RVW-001,Public review aggregate excludes hidden review,Create public and hidden reviews then load aggregate,Only PUBLIC reviews contribute,Review data available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-011
+IT-RVW-002,Consultation context is safe,Open chat from an owned design,Context is available without raw internal ID or private data,Member design and chat services available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-013
+IT-RVW-003,Closed conversation cannot receive message,Close conversation then send message,Message is rejected and history remains,Member and Staff fixtures available,Passed,2026-11-25,QA Agent,,,,,,,,Feature-013

@@ -1,10 +1,10 @@
-Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
-UT-DES-001,Member session is active,Description is empty and no image is attached,Design request is rejected,Boundary,Not Run,,,,,,,,,,Feature-004
-UT-DES-002,Five valid images are attached,Attempt to attach a sixth image,Input is rejected and existing five images remain unchanged,Boundary,Not Run,,,,,,,,,,Feature-004
-UT-DES-003,Image consent is absent,Submit request with image,Storage and request creation do not occur,Security,Not Run,,,,,,,,,,Feature-004 consent
-UT-DES-004,Image quality checker is available,Image is too blurry,Submission is blocked with quality error,Abnormal,Not Run,,,,,,,,,,Human review baseline
-UT-DES-005,Request requires review,Decision explanation is blank,Accept/reject/clarification command is rejected,Boundary,Not Run,,,,,,,,,,Mandatory explanation
-UT-DES-006,Member is configuring a ring,Eleventh gemstone is added,Command is blocked and total remains ten,Boundary,Not Run,,,,,,,,,,Feature-012
-UT-DES-007,Member has two text engravings,Third text engraving is added,Command is blocked and preview remains unchanged,Boundary,Not Run,,,,,,,,,,Feature-012
-UT-DES-008,Member has two image engravings,Third image engraving is added,Command is blocked and preview remains unchanged,Boundary,Not Run,,,,,,,,,,Feature-012
-UT-DES-009,Guest is unauthenticated,Save or evaluate command is submitted,Command is denied and no persisted design is created,Security,Not Run,,,,,,,,,,Guest local preview only
+﻿Test Case ID,Pre-conditions,Input parameters,Expected Results,Type,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+UT-DES-001,Member session is active,Description is empty and no image is attached,Design request is rejected,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-004
+UT-DES-002,Five valid images are attached,Attempt to attach a sixth image,Input is rejected and existing five images remain unchanged,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-004
+UT-DES-003,Image consent is absent,Submit request with image,Storage and request creation do not occur,Security,Passed,2026-11-25,QA Agent,,,,,,,,Feature-004 consent
+UT-DES-004,Image quality checker is available,Image is too blurry,Submission is blocked with quality error,Abnormal,Passed,2026-11-25,QA Agent,,,,,,,,Human review baseline
+UT-DES-005,Request requires review,Decision explanation is blank,Accept/reject/clarification command is rejected,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Mandatory explanation
+UT-DES-006,Member is configuring a ring,Eleventh gemstone is added,Command is blocked and total remains ten,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-012
+UT-DES-007,Member has two text engravings,Third text engraving is added,Command is blocked and preview remains unchanged,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-012
+UT-DES-008,Member has two image engravings,Third image engraving is added,Command is blocked and preview remains unchanged,Boundary,Passed,2026-11-25,QA Agent,,,,,,,,Feature-012
+UT-DES-009,Guest is unauthenticated,Save or evaluate command is submitted,Command is denied and no persisted design is created,Security,Passed,2026-11-25,QA Agent,,,,,,,,Guest local preview only
