@@ -1,5 +1,7 @@
 #### 3.5.1 Customer Folio
 
+{{r3-customer-folio width=100% align=center}}
+
 This screen allows the buyer of a workshop ticket (Member or Guest) to:
 
 - Open the folio of one ticket from its ticket code, without signing in.

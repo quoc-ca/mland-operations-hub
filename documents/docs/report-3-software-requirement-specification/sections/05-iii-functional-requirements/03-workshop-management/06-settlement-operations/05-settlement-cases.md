@@ -1,5 +1,7 @@
 #### 3.6.5 Settlement Cases
 
+{{r3-settlement-cases width=100% align=center}}
+
 This screen allows Managers to:
 
 - List the settlement and compensation cases that the server still serves.

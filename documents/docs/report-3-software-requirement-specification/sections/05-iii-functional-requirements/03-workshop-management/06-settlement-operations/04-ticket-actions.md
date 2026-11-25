@@ -1,5 +1,7 @@
 #### 3.6.4 Ticket Actions
 
+{{r3-ticket-actions width=100% align=center}}
+
 This screen allows Staff and Managers to:
 
 - Cancel one ticket, or several tickets of the same booking group all or none, on behalf of the buyer at the counter.

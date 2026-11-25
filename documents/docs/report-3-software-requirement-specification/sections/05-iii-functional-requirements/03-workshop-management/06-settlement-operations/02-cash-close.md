@@ -1,5 +1,7 @@
 #### 3.6.2 Cash Close
 
+{{r3-cash-close width=100% align=center}}
+
 This screen allows Staff and Managers to:
 
 - Choose a branch and working day and read the expected cash computed by the server.

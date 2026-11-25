@@ -1,5 +1,7 @@
 #### 3.6.9 Refund Account Key
 
+{{r3-refund-account-key width=100% align=center}}
+
 This screen allows Managers to:
 
 - Run the refund-account key replacement after the encryption key setting has been changed and the service restarted.

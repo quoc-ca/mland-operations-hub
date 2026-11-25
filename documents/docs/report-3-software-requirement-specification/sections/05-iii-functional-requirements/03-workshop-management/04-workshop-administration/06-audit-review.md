@@ -1,5 +1,7 @@
 #### 3.4.6 Audit Review
 
+{{r3-audit-review width=100% align=center}}
+
 This screen allows Managers to:
 
 - Read the audit log of workshop operations and of workshop settlement in two tabs.

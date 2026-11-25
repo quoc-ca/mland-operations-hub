@@ -1,5 +1,7 @@
 #### 3.4.1 Workshop Packages
 
+{{r3-workshop-packages width=100% align=center}}
+
 This screen allows Managers to:
 
 - See all workshop packages with their state, price, ticket range and required sessions.

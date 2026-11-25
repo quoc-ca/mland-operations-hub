@@ -1,5 +1,7 @@
 #### 3.1.3 Session and Participant Booking
 
+{{r3-session-and-participant-booking width=100% align=center}}
+
 This screen allows Guests and Members to:
 
 - Review the sessions chosen on the package page and swap a session for another one with enough seats.

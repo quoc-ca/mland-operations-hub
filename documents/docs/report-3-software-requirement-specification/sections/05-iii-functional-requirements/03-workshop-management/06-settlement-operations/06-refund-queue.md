@@ -1,5 +1,7 @@
 #### 3.6.6 Refund Queue
 
+{{r3-refund-queue width=100% align=center}}
+
 This screen allows Managers to:
 
 - List bank refund requests and filter them by status, including all waiting statuses together.

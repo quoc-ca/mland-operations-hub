@@ -1,5 +1,7 @@
 #### 3.5.3 Refund Account
 
+{{r3-refund-account width=100% align=center}}
+
 This screen allows a refund recipient to:
 
 - Open the page from the single-use link in their refund email; no sign-in is required.
