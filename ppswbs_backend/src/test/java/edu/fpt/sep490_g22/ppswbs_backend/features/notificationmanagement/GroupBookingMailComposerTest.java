@@ -25,6 +25,18 @@ class GroupBookingMailComposerTest {
     }
 
     @Test
+    void groupKind_rendersAccessLinkAsAbsoluteUrl() {
+        BookingNotificationDeliveryPayload payload = new BookingNotificationDeliveryPayload("GROUP_CONFIRMATION",
+                "buyer@example.com", "Xin chào", List.of("Mã vé: TK-1"), "/workshop-booking/access#tok", "corr",
+                "MLAND – Xác nhận");
+
+        MailMessage message = BookingMailComposer.compose("GROUP_CONFIRMATION", "GRP-1", payload, "https://site.test/");
+
+        assertThat(message.text()).contains("https://site.test/workshop-booking/access#tok");
+        assertThat(message.html()).contains("href=\"https://site.test/workshop-booking/access#tok\"");
+    }
+
+    @Test
     void groupKind_withoutSubject_isNotMailed() {
         BookingNotificationDeliveryPayload payload = new BookingNotificationDeliveryPayload("GROUP_TICKET_RECIPIENT",
                 "friend@example.com", "body", List.of(), "", "corr", null);

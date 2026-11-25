@@ -48,6 +48,10 @@ The system does not add points a second time; balance and history stay consisten
 
 The system does not report success, keeps the transaction available for safe reprocessing, and never substitutes the current policy.
 
+**Step 1 — Guest workshop booking with an automatic discount**
+
+The booking has no Member, so no points are earned and no loyalty account is opened; the earning result is closed with 0 points.
+
 **Step 1 — Browser shows success only**
 
 A browser message is not enough evidence to award points.

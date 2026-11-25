@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
-import { useFormat } from '../../../../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
 import { useRetailApi } from '../../application/useRetailApi';
 import { RetailBenefitPanel } from './RetailBenefitPanel';
 import { ProductThumb } from '../ProductThumb';
-import { bestVoucherCode, savedProductVouchers, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from './voucherOptions';
+import { messages as retailMessages } from '../../messages';
+import { sharedMessages } from '../../../../shared/ui/messages';
+import { useDisplayTime } from '../orderCode';
+import { bestVoucherCode, isKnownReason, NO_AUTO_DISCOUNT_REASON, reasonText, savedProductVouchers, usePublicProductVouchers, useVoucherOptions, voucherCheckBase, withPublicVouchers } from './voucherOptions';
 import { AddressModal, addressApiClient, useProfile } from '../../../accountmanagement';
 
 const initialSelection = { choice: 'AUTO', voucherCode: '', requestedPoints: '0' };
@@ -15,6 +18,23 @@ const TOAST_MS = 3000;
 // A quote or preview this close to expiry is refreshed before the order is placed.
 const EXPIRY_MARGIN_MS = 10_000;
 const hasAmount = value => /^[0-9]+$/.test(String(value ?? '')) && BigInt(value) > 0n;
+
+/**
+ * Payment-detail lines in the Shopee order (Thinh, 2026-11-22): the automatic product discount ("Ưu đãi sản phẩm")
+ * and the voucher ("Voucher giảm giá") are separate lines. FE-06 stacks them (Session 2026-11-22) and the quote
+ * carries both parts (`autoDiscountAmount`, `voucherDiscountAmount`); a quote without them is labelled by whether a
+ * voucher code was applied.
+ */
+export function discountLines(quote) {
+  if (!quote) return { product: null, voucher: null, points: null, saved: '0' };
+  const split = quote.autoDiscountAmount != null || quote.voucherDiscountAmount != null;
+  const product = split ? quote.autoDiscountAmount : (quote.appliedVoucherCode ? null : quote.discountAmount);
+  const voucher = split ? quote.voucherDiscountAmount : (quote.appliedVoucherCode ? quote.discountAmount : null);
+  const points = quote.pointsDiscountAmount;
+  const saved = [product, voucher, points].filter(hasAmount).reduce((sum, value) => sum + BigInt(value), 0n).toString();
+  return { product: hasAmount(product) ? product : null, voucher: hasAmount(voucher) ? voucher : null,
+    points: hasAmount(points) ? points : null, saved };
+}
 const isExpired = at => !at || new Date(at).getTime() - Date.now() < EXPIRY_MARGIN_MS;
 const newIdempotencyKey = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
@@ -31,13 +51,36 @@ const recipientOf = address => address ? {
   recipientPhone: address.phoneNumber,
 } : null;
 
+/**
+ * Why a saved address cannot be used for GHTK, or '' when it can. Same rule as the server's checkout check
+ * (RetailCheckoutQuoteValidator): recipient name 1-100 characters, phone 0 or +84 followed by 9 digits, province,
+ * ward and a street address of at most 500 characters. Older saved addresses may not meet it.
+ */
+export function ghtkAddressProblem(address, t) {
+  if (!address) return t('checkout.addAndChooseADelivery');
+  const problems = [];
+  const name = String(address.recipientName || '').trim();
+  if (!name) problems.push(t('checkout.noRecipientName'));
+  else if ([...name].length > 100) problems.push(t('checkout.theRecipientNameHasCharacters', { count: [...name].length }));
+  if (!/^(?:0|\+84)\d{9}$/.test(String(address.phoneNumber || '').replace(/ /g, ''))) problems.push(t('checkout.invalidPhoneNumberA10'));
+  if (!String(address.provinceName || '').trim() || !wardOf(address).trim()) problems.push(t('checkout.provinceOrWardMissing'));
+  const street = [address.detailAddress, address.hamletName].filter(Boolean).join(', ').trim();
+  if (!street) problems.push(t('checkout.streetAddressMissing'));
+  else if ([...street].length > 500) problems.push(t('checkout.streetAddressLongerThan500'));
+  return problems.length ? t('checkout.thisAddressCannotBeUsed', { problems: problems.join('; ') }) : '';
+}
+
 export default function MemberCheckoutPage() {
-  return <main className="container public-page retail-page retail-shopping"><div className="retail-page-heading"><div><p className="retail-kicker">FE-08 · MEMBER</p><h1>Thanh toán</h1><p>Kiểm tra sản phẩm, nhận hàng và ưu đãi trước khi đặt hàng.</p></div><Link to="/member/cart" className="retail-back-link">← Quay lại giỏ hàng</Link></div><RequireSession requiredText="Đăng nhập để thanh toán."><CheckoutContent /></RequireSession></main>;
+  const t = useT(retailMessages);
+  return <main className="container public-page retail-page retail-shopping"><div className="retail-page-heading"><div><p className="retail-kicker">{t('common.memberKicker')}</p><h1>{t('checkout.checkout')}</h1><p>{t('checkout.checkTheItemsDeliveryAnd')}</p></div><Link to="/member/cart" className="retail-back-link">{t('checkout.backToCart')}</Link></div><RequireSession requiredText={t('checkout.signInToCheckOut')}><CheckoutContent /></RequireSession></main>;
 }
 
 function CheckoutContent() {
   const api = useRetailApi();
   const format = useFormat();
+  const t = useT(retailMessages);
+  const ts = useT(sharedMessages);
+  const time = useDisplayTime();
   const cart = useResource(() => api.getCart(), []);
   const addresses = useResource(() => addressApiClient.getOwnAddresses(), []);
   const savedVoucherResource = useResource(() => api.listSavedVouchers(), []);
@@ -103,8 +146,9 @@ function CheckoutContent() {
     return addresses.data.find(item => item.id === Number(selectedAddressId)) || addresses.data.find(item => item.isDefault) || addresses.data[0];
   }, [addresses.data, selectedAddressId]);
   const recipient = recipientOf(selectedAddress);
+  const addressProblem = selectedAddress ? ghtkAddressProblem(selectedAddress, t) : '';
   const branchNames = useMemo(() => new Map((branches.data?.items || branches.data || []).map(item => [String(item.id), item.name])), [branches.data]);
-  const branchName = locationId => branchNames.get(String(locationId)) || `Chi nhánh #${locationId}`;
+  const branchName = locationId => branchNames.get(String(locationId)) || t('common.branchNumber', { locationId });
   const methodFor = locationId => fulfilmentByLocation[String(locationId)] || 'PICKUP';
   const branchOrders = useMemo(() => groups.map(group => {
     const method = methodFor(group.locationId);
@@ -156,13 +200,20 @@ function CheckoutContent() {
 
   const quoteDelivery = async (locationId, address = selectedAddress) => {
     const to = recipientOf(address);
-    if (!to) { setShippingMessage('Hãy thêm và chọn một địa chỉ nhận hàng trước khi dùng GHTK.'); return; }
+    if (!to) { setShippingMessage(t('checkout.addAndChooseADelivery')); return; }
+    const problem = ghtkAddressProblem(address, t);
+    if (problem) {
+      setShippingQuotes(current => { const next = { ...current }; delete next[locationId]; return next; });
+      setFulfilmentByLocation(current => ({ ...current, [locationId]: 'PICKUP' }));
+      setShippingMessage(problem);
+      return null;
+    }
     setShippingMessage('');
     setShippingQuotes(current => { const next = { ...current }; delete next[locationId]; return next; });
     const result = await shippingCommand.run(() => api.quoteShipping({ locationId: Number(locationId), recipient: to, ...(cartLineIds ? { cartLineIds } : {}) }));
     if (!result.ok) return null;
     setShippingQuotes(current => ({ ...current, [locationId]: result.result }));
-    if (!result.result.deliveryAvailable || !result.result.quoteId) setShippingMessage(result.result.message || 'GHTK chưa hỗ trợ giao đến địa chỉ này. Hãy chọn nhận tại cửa hàng hoặc một địa chỉ khác.');
+    if (!result.result.deliveryAvailable || !result.result.quoteId) setShippingMessage(result.result.message || t('checkout.ghtkDoesNotDeliverTo'));
     return result.result;
   };
   const changeMethod = async (locationId, method) => {
@@ -218,7 +269,9 @@ function CheckoutContent() {
         const code = selection.voucherCode;
         setRejectedCodes(current => new Set([...current, code]));
         setSelection(current => ({ ...current, choice: 'NONE', voucherCode: '' }));
-        setToast(`Voucher ${code} chưa áp dụng được cho đơn này.`);
+        // FE-06 says why when it knows (Session 2026-11-22): not saved yet, or nothing left after the automatic discount.
+        const known = (quote.reasons || []).find(reason => isKnownReason(reason) && reason !== NO_AUTO_DISCOUNT_REASON);
+        setToast(known ? t('checkout.voucherRefusedWhy', { code, reason: reasonText(known, t) }) : t('checkout.voucherDoesNotApplyTo', { code }));
       }
       return;
     }
@@ -264,10 +317,13 @@ function CheckoutContent() {
         if (methodFor(group.locationId) === 'GHTK') await quoteDelivery(group.locationId); // eslint-disable-line no-await-in-loop
       }
       setQuotedKey(null); setRefreshTick(tick => tick + 1);
-      // The server message is already a Vietnamese sentence for benefit refusals; other conflicts keep the generic text.
-      const specific = ['RETAIL_VOUCHER_REFUSED', 'RETAIL_POINTS_CHANGED'].includes(result.error?.code) || /^(Voucher|Ưu đãi|Số điểm)/.test(result.error?.message || '');
-      const notice = specific ? result.error.message
-        : 'Báo giá đơn hàng đã thay đổi hoặc hết hạn. Hãy kiểm tra lại tổng tiền mới rồi bấm Đặt hàng, hoặc bấm Cập nhật lại.';
+      // Refusals are recognised by the backend code and shown from the dictionary, so the notice follows the language switch.
+      // The backend sends the generic benefit-changed case under RETAIL_CONFLICT with only a Vietnamese sentence, so that one
+      // is still matched by its text until the backend gives it a code (ERROR-LOG FE-DESIGN-0009).
+      const code = result.error?.code;
+      const notice = code === 'RETAIL_VOUCHER_REFUSED' || code === 'RETAIL_POINTS_CHANGED' ? t(`error.${code}`)
+        : /^Ưu đãi của đơn vừa thay đổi/.test(result.error?.message || '') ? t('checkout.benefitChanged')
+        : t('checkout.theOrderQuoteChangedOr');
       setToast(notice);
       setConflictNotice(notice);
     }
@@ -293,7 +349,7 @@ function CheckoutContent() {
         if (!fresh?.quoteId) return;
         if (String(fresh.deliveryFee) !== String(before)) changes.push(`${format.money(before)} → ${format.money(fresh.deliveryFee)}`);
       }
-      if (changes.length) { setToast(`Phí vận chuyển đã thay đổi (${changes.join(', ')}). Kiểm tra lại tổng tiền rồi bấm Đặt hàng.`); return; }
+      if (changes.length) { setToast(t('checkout.theShippingFeeChangedCheck', { changes: changes.join(', ') })); return; }
       setPendingPlace({ total: shownTotal });
       return;
     }
@@ -308,7 +364,7 @@ function CheckoutContent() {
     const expected = pendingPlace.total;
     setPendingPlace(null);
     if (String(quote.payableAmount) !== String(expected)) {
-      setToast(`Tổng thanh toán đã thay đổi thành ${format.money(quote.payableAmount)}. Bấm Đặt hàng để xác nhận.`);
+      setToast(t('checkout.theTotalChangedToPress', { payableAmount: format.money(quote.payableAmount) }));
       return;
     }
     placeOrder();
@@ -329,41 +385,42 @@ function CheckoutContent() {
 
   if (cart.loading && !cart.data) return <Loading />;
   if (cart.error) return <ErrorNotice error={cart.error} onRetry={cart.reload} />;
-  if (!groups.length) return <section className="workspace-card empty-state"><p>{cartLineIds ? 'Sản phẩm bạn chọn không còn trong giỏ hàng.' : 'Giỏ hàng đã trống.'}</p><Link className="button outline" to="/member/cart">Về giỏ hàng</Link><Link className="button primary" to="/products">Xem sản phẩm</Link></section>;
+  if (!groups.length) return <section className="workspace-card empty-state"><p>{cartLineIds ? t('checkout.theItemsYouChoseAre') : t('checkout.yourCartIsEmpty')}</p><Link className="button outline" to="/member/cart">{t('checkout.backToCart2')}</Link><Link className="button primary" to="/products">{t('common.browseProducts')}</Link></section>;
   const updating = !quoteMatches && !hasUnquotedDelivery;
   return <div className="retail-checkout-layout">
     {toast && <div className="checkout-toast" role="status" aria-live="polite">{toast}</div>}
     <section className="workspace-card retail-address-card">
       {addresses.loading && !addresses.data && <Loading />}
       {addresses.error && <ErrorNotice error={addresses.error} onRetry={addresses.reload} />}
-      {selectedAddress ? <button type="button" className="retail-address-row" disabled={Boolean(checkout)} onClick={openAddressPicker} aria-label="Đổi địa chỉ nhận hàng">
+      {selectedAddress ? <button type="button" className="retail-address-row" disabled={Boolean(checkout)} onClick={openAddressPicker} aria-label={t('checkout.changeDeliveryAddress')}>
         <span className="retail-address-pin" aria-hidden="true">📍</span>
         <span className="retail-address-lines">
-          <span className="retail-address-who"><strong>{selectedAddress.recipientName}</strong><span>{selectedAddress.phoneNumber}</span>{selectedAddress.isDefault && <span className="retail-address-default">Mặc định</span>}</span>
+          <span className="retail-address-who"><strong>{selectedAddress.recipientName}</strong><span>{selectedAddress.phoneNumber}</span>{selectedAddress.isDefault && <span className="retail-address-default">{t('checkout.default')}</span>}</span>
           <span>{[wardOf(selectedAddress), selectedAddress.districtName, selectedAddress.provinceName].filter(Boolean).join(', ')}</span>
           <span>{[selectedAddress.detailAddress, selectedAddress.hamletName].filter(Boolean).join(', ')}</span>
         </span>
         <span className="retail-address-chevron" aria-hidden="true">›</span>
       </button> : addresses.data && <button type="button" className="retail-address-row" onClick={() => openAddressForm(null)}>
         <span className="retail-address-pin" aria-hidden="true">📍</span>
-        <span className="retail-address-lines"><strong>Thêm địa chỉ nhận hàng</strong></span>
+        <span className="retail-address-lines"><strong>{t('checkout.addADeliveryAddress')}</strong></span>
         <span className="retail-address-chevron" aria-hidden="true">›</span>
       </button>}
+      {addressProblem && !checkout && <p className="notice error retail-address-problem" role="alert">{addressProblem} <button type="button" className="text-link" onClick={() => openAddressForm(selectedAddress)}>{t('checkout.update')}</button></p>}
     </section>
-    {addressPickerOpen && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker address-picker" role="dialog" aria-modal="true" aria-label="Địa chỉ của tôi">
-      <div className="card-head"><h2>Địa chỉ của tôi</h2></div>
-      <div className="address-options" role="radiogroup" aria-label="Chọn địa chỉ nhận hàng">{(addresses.data || []).map(address => <label key={address.id} className={`address-option${Number(draftAddressId) === address.id ? ' selected' : ''}`}>
+    {addressPickerOpen && <div className="benefit-picker-backdrop" role="presentation"><section className="benefit-picker address-picker" role="dialog" aria-modal="true" aria-label={t('checkout.myAddresses')}>
+      <div className="card-head"><h2>{t('checkout.myAddresses')}</h2></div>
+      <div className="address-options" role="radiogroup" aria-label={t('checkout.chooseADeliveryAddress')}>{(addresses.data || []).map(address => <label key={address.id} className={`address-option${Number(draftAddressId) === address.id ? ' selected' : ''}`}>
         <input type="radio" name="checkout-address" checked={Number(draftAddressId) === address.id} onChange={() => setDraftAddressId(address.id)} />
-        <span><strong>{address.recipientName}</strong> <span className="muted">| {address.phoneNumber}</span><small>{fullAddress(address)}</small>{address.isDefault && <span className="retail-address-default">Mặc định</span>}</span>
-        <button type="button" className="text-link address-edit" onClick={event => { event.preventDefault(); openAddressForm(address); }}>Cập nhật</button>
+        <span><strong>{address.recipientName}</strong> <span className="muted">| {address.phoneNumber}</span><small>{fullAddress(address)}</small>{address.isDefault && <span className="retail-address-default">{t('checkout.default')}</span>}</span>
+        <button type="button" className="text-link address-edit" onClick={event => { event.preventDefault(); openAddressForm(address); }}>{t('checkout.update')}</button>
       </label>)}</div>
-      <button type="button" className="button outline address-add" onClick={() => openAddressForm(null)}>+ Thêm địa chỉ mới</button>
-      <div className="address-picker-actions"><button type="button" className="button outline" onClick={() => setAddressPickerOpen(false)}>Hủy</button><button type="button" className="button primary" disabled={draftAddressId == null} onClick={confirmAddress}>Xác nhận</button></div>
+      <button type="button" className="button outline address-add" onClick={() => openAddressForm(null)}>{t('checkout.addANewAddress')}</button>
+      <div className="address-picker-actions"><button type="button" className="button outline" onClick={() => setAddressPickerOpen(false)}>{ts('cancel')}</button><button type="button" className="button primary" disabled={draftAddressId == null} onClick={confirmAddress}>{ts('confirm')}</button></div>
     </section></div>}
     <AddressModal isOpen={Boolean(addressForm)} onClose={closeAddressForm} onSave={saveAddress} initialAddress={addressForm?.address || null}
       profileDefaults={{ fullName: profile?.fullName, phone: profile?.phone }} isFirstAddress={!addresses.data?.length} />
-    <section className="workspace-card retail-checkout-products"><div className="retail-card-title"><div><span className="retail-kicker">ĐƠN HÀNG CỦA BẠN</span><h2>Sản phẩm theo chi nhánh</h2></div></div>{groups.map(group => { const method = methodFor(group.locationId); const shipping = shippingQuotes[group.locationId]; return <div className="checkout-branch" key={group.locationId}><strong>{branchName(group.locationId)}</strong>{group.lines.map(line => <div className="retail-checkout-item" key={line.id}><ProductThumb className="retail-product-placeholder" productId={line.productId} /><span><strong>{line.productName || `Sản phẩm #${line.variantId}`}</strong><small>Size {line.size ?? '—'} · Số lượng {line.quantity}</small></span><b>{line.indicativePrice == null ? 'Chưa có giá' : format.money((BigInt(line.indicativePrice) * BigInt(line.quantity)).toString())}</b></div>)}<div className="retail-fulfilment-options"><label className={method === 'PICKUP' ? 'selected' : ''}><input type="radio" name={`fulfilment-${group.locationId}`} checked={method === 'PICKUP'} disabled={Boolean(checkout)} onChange={() => changeMethod(group.locationId, 'PICKUP')} /><span className="fulfil-name">Nhận tại cửa hàng<small>Tại {branchName(group.locationId)}</small></span><b className="fulfil-fee">Miễn phí</b></label><label className={method === 'GHTK' ? 'selected' : ''}><input type="radio" name={`fulfilment-${group.locationId}`} checked={method === 'GHTK'} disabled={!selectedAddress || shippingCommand.pending || Boolean(checkout)} onChange={() => changeMethod(group.locationId, 'GHTK')} /><span className="fulfil-name">Giao tận nơi qua GHTK<small>Nhanh</small></span><b className="fulfil-fee">{shipping?.quoteId ? format.money(shipping.deliveryFee) : method === 'GHTK' && shippingCommand.pending ? 'Đang tính…' : ''}</b></label></div></div>; })}{(shippingMessage || shippingCommand.error) && <p className="notice error">{shippingMessage || shippingCommand.error?.message}</p>}</section>
-    <section className="workspace-card retail-checkout-benefits"><div className="retail-card-title"><div><span className="retail-kicker">DÀNH RIÊNG CHO BẠN</span><h2>Ưu đãi & điểm</h2></div></div><RetailBenefitPanel selection={selection} onChange={changeBenefits} savedVouchers={savedVouchers} voucherSubtotal={voucherSubtotal} rejectedCodes={rejectedCodes} voucherOptions={voucherOptions} maxPoints={quote?.maxPoints ?? null} minRedeemPoints={quote?.minRedeemPoints ?? null} quote={quote} quoteMatches={quoteMatches} autoQuote pending={createCommand.pending || Boolean(checkout)} hideActions />{savedVoucherResource.error && <ErrorNotice error={savedVoucherResource.error} onRetry={savedVoucherResource.reload} />}{quoteCommand.error && <ErrorNotice error={quoteCommand.error} onRetry={quoteCommand.retry} onReload={cart.reload} />}</section>
-    <section className="retail-summary retail-payment-section"><div className="retail-payment-method"><h2>Phương thức thanh toán</h2><div className="retail-payment-options" role="radiogroup" aria-label="Phương thức thanh toán"><label className={paymentMethod === 'VNPAY' ? 'selected' : ''}><input type="radio" name="payment-method" checked={paymentMethod === 'VNPAY'} disabled={Boolean(checkout)} onChange={() => setPaymentMethod('VNPAY')} /> VNPay <span>Thanh toán online ngay, tối thiểu 5.000đ</span></label><label className={`${paymentMethod === 'CASH_AT_COUNTER' ? 'selected' : ''}${cashAllowed ? '' : ' disabled'}`}><input type="radio" name="payment-method" checked={paymentMethod === 'CASH_AT_COUNTER'} disabled={!cashAllowed || Boolean(checkout)} onChange={() => setPaymentMethod('CASH_AT_COUNTER')} /> Tiền mặt tại quầy <span>{cashAllowed ? (groups.length > 1 ? 'Trả riêng tại quầy từng chi nhánh khi nhận hàng, giữ hàng tối đa 3 ngày' : 'Trả khi nhận hàng tại chi nhánh, giữ hàng tối đa 3 ngày') : 'Chỉ áp dụng khi mọi chi nhánh đều nhận tại cửa hàng'}</span></label></div></div><div className={`retail-payment-details${updating && quote ? ' is-updating' : ''}`}><h2>Chi tiết thanh toán</h2>{quote ? <><div><span>Tiền hàng</span><strong>{format.money(quote.merchandiseSubtotal)}</strong></div>{hasAmount(quote.discountAmount) && <div><span>Voucher giảm giá</span><strong>−{format.money(quote.discountAmount)}</strong></div>}{hasAmount(quote.pointsDiscountAmount) && <div><span>Giảm bằng điểm</span><strong>−{format.money(quote.pointsDiscountAmount)}</strong></div>}{hasAmount(quote.shippingTotal) && <div><span>Phí vận chuyển</span><strong>{format.money(quote.shippingTotal)}</strong></div>}<div className="retail-total"><span>Tổng thanh toán</span><strong>{format.money(quote.payableAmount)}</strong></div>{updating && <p className="muted small">Đang cập nhật tổng tiền…</p>}</> : <p className="muted">{hasUnquotedDelivery ? 'Đang chờ phí giao hàng GHTK…' : 'Đang tính tổng tiền…'}</p>}</div>{conflictNotice && !checkout && <div className="retail-conflict-notice" role="alert"><p>{conflictNotice}</p><button type="button" className="button small outline" onClick={refreshAfterConflict}>Cập nhật lại</button></div>}<div className="retail-payment-actions"><button type="button" className="button primary" disabled={!quote?.eligible || !quoteMatches || createCommand.pending || Boolean(pendingPlace) || Boolean(checkout) || hasUnquotedDelivery} onClick={create}>{createCommand.pending ? 'Đang đặt hàng…' : checkout && !isCashCheckout && paymentCommand.pending ? 'Đang chuyển sang VNPay…' : pendingPlace ? 'Đang cập nhật…' : 'Đặt hàng'}</button></div>{createCommand.error && <ErrorNotice error={createCommand.error} onRetry={createCommand.retry} onReload={cart.reload} />}{checkout && isCashCheckout && <><SuccessNotice>Đã đặt hàng. Vui lòng đến {checkout.branchOrders?.length > 1 ? 'từng chi nhánh' : 'chi nhánh'} trước {checkout.counterPaymentDeadline ? new Date(checkout.counterPaymentDeadline).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'hạn giữ hàng'} và trả tiền mặt khi nhận hàng{checkout.branchOrders?.length > 1 ? <>: {checkout.branchOrders.map(order => `${branchName(order.locationId)} ${format.money(order.payableAmount)}`).join(' · ')}</> : <> {format.money(checkout.combinedPayableAmount)}</>}.</SuccessNotice><Link className="button primary" to={`/member/orders?checkout=${encodeURIComponent(checkout.id)}`}>Xem đơn mua</Link></>}{checkout && !isCashCheckout && !paymentCommand.error && <p className="muted small" role="status">Đã đặt hàng, đang chuyển sang trang thanh toán VNPay…</p>}{checkout && !isCashCheckout && paymentCommand.error && <><SuccessNotice>Đã đặt hàng nhưng chưa mở được trang thanh toán VNPay. Bấm thanh toán để thử lại, hoặc thanh toán sau trong Đơn mua.</SuccessNotice><button type="button" className="button primary" disabled={paymentCommand.pending} onClick={pay}>{paymentCommand.pending ? 'Đang chuyển VNPay…' : 'Thanh toán qua VNPay'}</button><Link className="text-link" to={`/member/orders?checkout=${encodeURIComponent(checkout.id)}`}>Xem đơn mua</Link></>}{paymentCommand.error && <ErrorNotice error={paymentCommand.error} onRetry={paymentCommand.retry} />}</section>
+    <section className="workspace-card retail-checkout-products"><div className="retail-card-title"><div><span className="retail-kicker">{t('checkout.yourOrder')}</span><h2>{t('checkout.itemsByBranch')}</h2></div></div>{groups.map(group => { const method = methodFor(group.locationId); const shipping = shippingQuotes[group.locationId]; return <div className="checkout-branch" key={group.locationId}><strong>{branchName(group.locationId)}</strong>{group.lines.map(line => <div className="retail-checkout-item" key={line.id}><ProductThumb className="retail-product-placeholder" productId={line.productId} /><span><strong>{line.productName || t('common.productNumber', { variantId: line.variantId })}</strong><small>{t('common.size', { size: line.size ?? '—' })} · {t('common.quantity')} {line.quantity}</small></span><b>{line.indicativePrice == null ? t('common.noPriceYet') : format.money((BigInt(line.indicativePrice) * BigInt(line.quantity)).toString())}</b></div>)}<div className="retail-fulfilment-options"><label className={method === 'PICKUP' ? 'selected' : ''}><input type="radio" name={`fulfilment-${group.locationId}`} checked={method === 'PICKUP'} disabled={Boolean(checkout)} onChange={() => changeMethod(group.locationId, 'PICKUP')} /><span className="fulfil-name">{t('common.storePickup')}<small>{t('checkout.at', { branch: branchName(group.locationId) })}</small></span><b className="fulfil-fee">{t('checkout.free')}</b></label><label className={method === 'GHTK' ? 'selected' : ''}><input type="radio" name={`fulfilment-${group.locationId}`} checked={method === 'GHTK'} disabled={!selectedAddress || Boolean(addressProblem) || shippingCommand.pending || Boolean(checkout)} onChange={() => changeMethod(group.locationId, 'GHTK')} /><span className="fulfil-name">{t('common.homeDeliveryByGhtk')}<small>{t('checkout.fast')}</small></span><b className="fulfil-fee">{shipping?.quoteId ? format.money(shipping.deliveryFee) : method === 'GHTK' && shippingCommand.pending ? t('checkout.calculating') : ''}</b></label></div></div>; })}{(shippingMessage || shippingCommand.error) && <p className="notice error">{shippingMessage || shippingCommand.error?.message}</p>}</section>
+    <section className="workspace-card retail-checkout-benefits"><div className="retail-card-title"><div><span className="retail-kicker">{t('checkout.justForYou')}</span><h2>{t('checkout.discountsPoints')}</h2></div></div><RetailBenefitPanel selection={selection} onChange={changeBenefits} savedVouchers={savedVouchers} voucherSubtotal={voucherSubtotal} rejectedCodes={rejectedCodes} voucherOptions={voucherOptions} maxPoints={quote?.maxPoints ?? null} minRedeemPoints={quote?.minRedeemPoints ?? null} quote={quote} quoteMatches={quoteMatches} autoQuote pending={createCommand.pending || Boolean(checkout)} hideActions />{savedVoucherResource.error && <ErrorNotice error={savedVoucherResource.error} onRetry={savedVoucherResource.reload} />}{quoteCommand.error && <ErrorNotice error={quoteCommand.error} onRetry={quoteCommand.retry} onReload={cart.reload} />}</section>
+    <section className="retail-summary retail-payment-section"><div className="retail-payment-method"><h2>{t('checkout.paymentMethod')}</h2><div className="retail-payment-options" role="radiogroup" aria-label={t('checkout.paymentMethod')}><label className={paymentMethod === 'VNPAY' ? 'selected' : ''}><input type="radio" name="payment-method" checked={paymentMethod === 'VNPAY'} disabled={Boolean(checkout)} onChange={() => setPaymentMethod('VNPAY')} /> VNPay <span>{t('checkout.payOnlineNowAtLeast')}</span></label><label className={`${paymentMethod === 'CASH_AT_COUNTER' ? 'selected' : ''}${cashAllowed ? '' : ' disabled'}`}><input type="radio" name="payment-method" checked={paymentMethod === 'CASH_AT_COUNTER'} disabled={!cashAllowed || Boolean(checkout)} onChange={() => setPaymentMethod('CASH_AT_COUNTER')} /> {t('common.cashAtCounter')} <span>{cashAllowed ? (groups.length > 1 ? t('checkout.payAtEachBranchCounter') : t('checkout.payAtTheBranchOn')) : t('checkout.onlyWhenEveryBranchOrder')}</span></label></div></div><div className={`retail-payment-details${updating && quote ? ' is-updating' : ''}`}><h2>{t('checkout.paymentDetails')}</h2>{quote ? (lines => <><div><span>{t('common.merchandiseSubtotal')}</span><strong>{format.money(quote.merchandiseSubtotal)}</strong></div>{hasAmount(quote.shippingTotal) && <div><span>{t('common.shippingTotal')}</span><strong>{format.money(quote.shippingTotal)}</strong></div>}{lines.product && <div className="retail-minus"><span>{t('checkout.productDiscount')}</span><strong>−{format.money(lines.product)}</strong></div>}{lines.voucher && <div className="retail-minus"><span>{t('checkout.voucherDiscount')}{quote.appliedVoucherCode ? <small> ({quote.appliedVoucherCode})</small> : null}</span><strong>−{format.money(lines.voucher)}</strong></div>}{lines.points && <div className="retail-minus"><span>{t('checkout.pointsDiscount')}</span><strong>−{format.money(lines.points)}</strong></div>}<div className="retail-total"><span>{t('checkout.totalPayment')}</span><strong>{format.money(quote.payableAmount)}</strong></div>{hasAmount(lines.saved) && <div className="retail-saved"><span>{t('common.youSave')}</span><strong>{format.money(lines.saved)}</strong></div>}{updating && <p className="muted small">{t('checkout.updatingTheTotal')}</p>}</>)(discountLines(quote)) : <p className="muted">{hasUnquotedDelivery ? t('checkout.waitingForTheGhtkShipping') : t('checkout.calculatingTheTotal')}</p>}</div>{conflictNotice && !checkout && <div className="retail-conflict-notice" role="alert"><p>{conflictNotice}</p><button type="button" className="button small outline" onClick={refreshAfterConflict}>{t('checkout.update2')}</button></div>}<div className="retail-payment-actions"><button type="button" className="button primary" disabled={!quote?.eligible || !quoteMatches || createCommand.pending || Boolean(pendingPlace) || Boolean(checkout) || hasUnquotedDelivery} onClick={create}>{createCommand.pending ? t('checkout.placingOrder') : checkout && !isCashCheckout && paymentCommand.pending ? t('checkout.openingVnpay') : pendingPlace ? t('checkout.updating') : t('checkout.placeOrder')}</button></div>{createCommand.error && <ErrorNotice error={createCommand.error} onRetry={createCommand.retry} onReload={cart.reload} />}{checkout && isCashCheckout && <><SuccessNotice>{t('checkout.cashOrderPlaced', { where: checkout.branchOrders?.length > 1 ? t('checkout.eachBranch') : t('checkout.theBranch'), deadline: checkout.counterPaymentDeadline ? time(checkout.counterPaymentDeadline) : t('checkout.holdEnds') })}{checkout.branchOrders?.length > 1 ? <>: {checkout.branchOrders.map(order => `${branchName(order.locationId)} ${format.money(order.payableAmount)}`).join(' · ')}</> : <> {format.money(checkout.combinedPayableAmount)}</>}.</SuccessNotice><Link className="button primary" to={`/member/orders?checkout=${encodeURIComponent(checkout.id)}`}>{t('checkout.viewOrders')}</Link></>}{checkout && !isCashCheckout && !paymentCommand.error && <p className="muted small" role="status">{t('checkout.orderPlacedOpeningTheVnpay')}</p>}{checkout && !isCashCheckout && paymentCommand.error && <><SuccessNotice>{t('checkout.theOrderIsPlacedBut')}</SuccessNotice><button type="button" className="button primary" disabled={paymentCommand.pending} onClick={pay}>{paymentCommand.pending ? t('checkout.openingVnpay2') : t('checkout.payWithVnpay')}</button><Link className="text-link" to={`/member/orders?checkout=${encodeURIComponent(checkout.id)}`}>{t('checkout.viewOrders')}</Link></>}{paymentCommand.error && <ErrorNotice error={paymentCommand.error} onRetry={paymentCommand.retry} />}</section>
   </div>;
 }

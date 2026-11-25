@@ -1,11 +1,34 @@
 # Feature-012 Tasks: Workshop Ring Design Configuration
 
+> Superseding baseline 2026-11-22: booking attachment and the Feature-003
+> facade are retired. Current implementation tasks end at saved-design
+> recommendation and Feature-013 consultation handoff.
+
+> Actor rebaseline 2026-11-25: Guest access is limited to local preview. Guest
+> session persistence, Guest save, Guest evaluation and Guest design history are
+> retired. Member authentication is required for all server commands and
+> persisted design data; older Guest-session tasks are historical only.
+
 Date created: 2026-11-08  
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt  
 Last updated by: Ngô Tiến Đạt  
 
 ## Phase 0 — Baseline and Decisions
+
+## Phase 4 — 2026-11-22 change request: saved recommendation and custom reference
+
+- [ ] Remove current booking attachment endpoint/facade from the implementation
+  path; preserve legacy rows as read-only compatibility data.
+- [ ] Add `SAVED` lifecycle semantics and separate technical evaluation from
+  human approval terminology.
+- [ ] Add catalogue-backed recommendation projection for Signature Silver/Brass,
+  Silver Clay and Wax Casting.
+- [ ] Preserve Explore workshops and make recommendation non-blocking.
+- [ ] Allow Feature-004 to snapshot any owner-visible design state.
+- [ ] Add the saved-design consultation entry point for Guest and Member.
+- [ ] Retire or supersede booking-attachment tests and add recommendation/state
+  regression scenarios.
 
 - [x] Read and apply `ppswbs-spec/AGENT.md`, constitution and design kit.
 - [x] Confirm Feature-012 boundary: Guest and Member workshop ring configuration; advisory price & difficulty scoring only; no direct booking/payment side effects.
@@ -84,14 +107,14 @@ Last updated by: Ngô Tiến Đạt
 
 ## Phase 9 — Quota, preprocessing, preview and encoding correction
 
-- [ ] Update backend and frontend contract for aggregate gemstone quantity `<= 10`.
-- [ ] Add separate `TEXT <= 2`, `SYMBOL <= 2` and `CUSTOM_IMAGE <= 2` validation.
-- [ ] Add localized quota counters, disabled controls and boundary messages.
-- [ ] Add persisted image `contrast` and `sharpness` values (`0..100`, default `50`).
-- [ ] Restore image source/processed preview safely after saved-design reload.
-- [ ] Render all text, symbol and image engraving items in configurator and evaluation previews.
-- [ ] Remove preview dependence on the first text item or transient browser-only data URL.
-- [ ] Normalize Feature-012 message resources and SVG labels to UTF-8 with one active locale.
-- [ ] Add unit, component, integration and Browser MCP E2E scenarios E2E-012-007 through E2E-012-011.
-- [ ] Do not mark this phase complete until new execution evidence and screenshots exist.
+- [x] Update backend and frontend contract for aggregate gemstone quantity `<= 10`.
+- [x] Add separate `TEXT <= 2`, `SYMBOL <= 2` and `CUSTOM_IMAGE <= 2` validation.
+- [x] Add localized quota counters, disabled controls and boundary messages.
+- [x] Add persisted image `contrast` and `sharpness` values (`0..100`, default `50`).
+- [x] Restore image source/processed preview safely after saved-design reload.
+- [x] Render all text, symbol and image engraving items in configurator and evaluation previews.
+- [x] Remove preview dependence on the first text item or transient browser-only data URL.
+- [x] Normalize Feature-012 message resources and SVG labels to UTF-8 with one active locale.
+- [x] Add unit, component, integration and Browser MCP E2E scenarios E2E-012-007 through E2E-012-011.
+- [x] Do not mark this phase complete until new execution evidence and screenshots exist.
 

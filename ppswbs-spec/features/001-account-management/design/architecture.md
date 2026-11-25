@@ -1,7 +1,9 @@
 # Architecture Design: Account Management (FE-001)
 
+> **R-INV scoped design approved; implementation open:** [canonical revision](revision-2026-11-24.md). FE-001 owns AdminCollisionController (lookup/review/export), invitation setup, identity reconciliation, durable invitation outbox, creation-based expiry, ADMIN invitation status and the published at-send/manual-content materialization/status facade. FE-007 owns the invitation template, event consumer, two-attempt worker, FAILED state and ADMIN-only transient manual-content API; its module depends on FE-001's named interface only. FE-001 defines the Retail and Workshop Booking consumer readers and DTOs; local-only mock implementations live in the source modules' `facade` packages and yield DEMO/UNAVAILABLE preview data. The browser-only workshop cart has no server facade. Account bootstrap denies reserved pending-email direct login/register and permits only scoped setup exchange before activation. RoleCataloguePage/Controller are removed; business routes gain pre-mount role allowlists. MEMBER retirement and its service/repository remain T117, dependent on authoritative live readers and an approved acceptance/retirement fence. These units remain to be implemented.
+
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -162,10 +164,12 @@ Existing backend paths and completed task markers only show that code exists. Th
 | Unit | Status | Public responsibility | Allowed dependencies |
 | --- | --- | --- | --- |
 | `shared/auth/AuthProvider` | existing, revision required | Firebase session snapshot and terminal outcome emission | Firebase client only; no Router navigation, account data or role decision |
-| `shared/auth/SessionNavigationBoundary` | proposed | one-time cleanup, flash construction and `replace` navigation for `USER_SIGN_OUT`, `SESSION_LOST`, or safe `403` recovery | Router, AuthProvider, registered private-state cleanup interface |
+| `shared/auth/SessionNavigationBoundary` | proposed | one-time cleanup, flash construction and `replace` navigation for `USER_SIGN_OUT` or `SESSION_LOST` | Router, AuthProvider, registered private-state cleanup interface; does not handle route denial or API `403` |
 | `shared/auth/RequireSession` | existing, revision required | resolved guest guard and neutral/unavailable states | AuthProvider, Router only |
+| `shared/auth/RouteAccessGuard` | proposed | reads role/status from existing Account bootstrap and applies the exact route allowlist before a child mounts | Router and Account bootstrap only; unavailable/retry on technical resolution failure, `/404` on inactive or disallowed Account |
+| `app/NotFoundPage` | existing, revision required | generic `/404` presentation | Router only; one Home link and no route/role/status disclosure |
 | Router route registry | existing, revision required | applies public/Member/internal inventory, canonical URLs and aliases | RequireSession; feature route declarations |
 | Home notice component | proposed | renders/dismisses transient navigation-state flash | Router location state and shared i18n; no storage |
 | `FirebaseAuthClient` / `AuthPage` | existing, revision required | redirect Google initiation/result/error mapping | Firebase Web SDK redirect API only |
 
-The session source has one direction: `Firebase observer or HTTP outcome → AuthProvider → SessionNavigationBoundary → cleanup/navigation → Router/Home`. `useCurrentAccount` is downstream of a signed-in snapshot and cannot emit terminal navigation. Server responses remain authoritative: `401` reports session loss; `403` reports authorization denial and retains the session. No module stores a password, token, refresh credential, notice, or discarded private draft.
+The session source has one direction: `Firebase observer or HTTP outcome → AuthProvider → SessionNavigationBoundary → cleanup/navigation → Router/Home`. `RouteAccessGuard` is a separate pre-mount boundary: `Router → current server-derived actor → explicit route allowlist → protected page` or `navigate('/404', { replace: true })`; it never makes a backend authorization decision. `useCurrentAccount` is downstream of a signed-in snapshot and cannot emit terminal navigation. Server responses remain authoritative: `401` reports session loss; an API `403` after entry reports authorization denial and retains the session for feature-owned recovery. No module stores a password, token, refresh credential, notice, attempted route, or discarded private draft.

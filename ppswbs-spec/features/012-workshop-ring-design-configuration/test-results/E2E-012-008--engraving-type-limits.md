@@ -29,3 +29,14 @@ cleanup:
 - The UI displays a localized limit message and keeps existing items.
 - Removing an item releases only that item type's quota.
 - A bypassed API payload returns the matching limit error.
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-20 02:10:00
+- Executed by: Antigravity QA Agent
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Quota độc lập đạt chuẩn: Chữ: 2/2 vô hiệu hóa nút thêm chữ ("Đã đạt tối đa 2 mục chữ khắc."); Biểu tượng: 2/2 vô hiệu hóa nút thêm biểu tượng ("Đã đạt tối đa 2 biểu tượng khắc."); Ảnh: 2/2 vô hiệu hóa nút upload ("Đã đạt tối đa 2 ảnh khắc laser."); Xóa 1 mục chữ chỉ mở lại quota chữ mà không ảnh hưởng biểu tượng; Backend từ chối với các mã lỗi TEXT_ENGRAVING_LIMIT_EXCEEDED, SYMBOL_ENGRAVING_LIMIT_EXCEEDED, IMAGE_ENGRAVING_LIMIT_EXCEEDED.
+- Evidence screenshot: screenshots/E2E-012-008--engraving-limits.jpg
+- Bug reference: NONE
+<!-- EXECUTION:END -->

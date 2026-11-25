@@ -1,8 +1,20 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { designReviewRoutes } from '../routes';
+
+beforeEach(() => {
+  clearRoleCache();
+});
+
+function simulateScroll(element, { scrollTop = 0, scrollHeight = 600, clientHeight = 250 } = {}) {
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: scrollHeight });
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: clientHeight });
+  Object.defineProperty(element, 'scrollTop', { configurable: true, value: scrollTop });
+  fireEvent.scroll(element);
+}
 
 const open = (path, options) => renderRoutes(designReviewRoutes, { path, ...options });
 
@@ -112,19 +124,19 @@ describe('F04-AI-CHAT Screen (/ai-support)', () => {
 });
 
 describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
-  it('requires session when signed out and renders inline empty state with login CTA', async () => {
+  it('requires Member session for guests attempting to access workspace', async () => {
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-out') });
     expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /đăng nhập/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
 
-  it('renders independent boundary notice and validates empty input', async () => {
+  it('renders design workspace and validates empty input', async () => {
     const user = userEvent.setup();
     mockFetch({});
     open('/design-requests/new', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText(/Yêu cầu thiết kế độc lập không tạo, liên kết hay ràng buộc với mã đặt chỗ workshop/)).toBeInTheDocument();
+    expect(await screen.findByText(/Biến ý tưởng của bạn thành hiện thực/)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);
@@ -164,13 +176,32 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     await user.upload(fileInput, file);
 
     // Consent box must appear
-    expect(await screen.findByText('Chấp thuận Xử lý Hình ảnh Tham khảo')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 3, name: /Chấp thuận/i })).toBeInTheDocument();
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     expect(submitBtn).toBeDisabled();
 
-    // Check consent checkbox
+    // Check consent checkbox - opens terms popup
     const consentCheckbox = screen.getByRole('checkbox');
     await user.click(consentCheckbox);
+
+    // Terms modal appears
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Điều khoản Sử dụng Hình ảnh & Miễn trừ/i })).toBeInTheDocument();
+
+    const acceptBtn = screen.getByRole('button', { name: 'Chấp nhận' });
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Scroll to bottom of terms
+    const termsBox = screen.getByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 500, scrollHeight: 600, clientHeight: 250 });
+    expect(acceptBtn).not.toBeDisabled();
+    expect(declineBtn).not.toBeDisabled();
+
+    // Accept terms
+    await user.click(acceptBtn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(submitBtn).not.toBeDisabled();
 
     await user.click(submitBtn);
@@ -223,6 +254,11 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     const consentCheckbox = await screen.findByRole('checkbox');
     await user.click(consentCheckbox);
 
+    // Accept via modal
+    const termsBox = await screen.findByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 500, scrollHeight: 600, clientHeight: 250 });
+    await user.click(screen.getByRole('button', { name: 'Chấp nhận' }));
+
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);
 
@@ -230,34 +266,82 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     // Form data is preserved
     expect(descInput).toHaveValue('Nhẫn vàng trắng 18k.');
   });
+
+  it('enforces scrolling to bottom before enabling Accept and Decline buttons in terms modal', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    const file = new File(['image-bytes'], 'ring.png', { type: 'image/png' });
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    await user.upload(fileInput, file);
+
+    const openTermsBtn = await screen.findByRole('button', { name: /Đọc & Chấp thuận Điều khoản/i });
+    await user.click(openTermsBtn);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Điều khoản Sử dụng Hình ảnh & Miễn trừ/i })).toBeInTheDocument();
+    expect(screen.getByTestId('scroll-warning')).toBeInTheDocument();
+
+    const acceptBtn = screen.getByRole('button', { name: 'Chấp nhận' });
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Partial scroll (not reaching bottom)
+    const termsBox = screen.getByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 50, scrollHeight: 600, clientHeight: 250 });
+    expect(acceptBtn).toBeDisabled();
+    expect(declineBtn).toBeDisabled();
+
+    // Full scroll to bottom
+    simulateScroll(termsBox, { scrollTop: 400, scrollHeight: 600, clientHeight: 250 });
+    expect(screen.getByTestId('scroll-success')).toBeInTheDocument();
+    expect(acceptBtn).not.toBeDisabled();
+    expect(declineBtn).not.toBeDisabled();
+  });
+
+  it('navigates back to previous screen when user declines terms in popup after scrolling', async () => {
+    const user = userEvent.setup();
+    mockFetch({});
+    const { router } = open('/design-requests/new', { session: fakeSession('signed-in') });
+
+    const file = new File(['image-bytes'], 'ring.png', { type: 'image/png' });
+    const fileInput = screen.getByLabelText(/Hình ảnh tham khảo mẫu thiết kế/);
+    await user.upload(fileInput, file);
+
+    const openTermsBtn = await screen.findByRole('button', { name: /Đọc & Chấp thuận Điều khoản/i });
+    await user.click(openTermsBtn);
+
+    const termsBox = await screen.findByTestId('terms-scroll-box');
+    simulateScroll(termsBox, { scrollTop: 400, scrollHeight: 600, clientHeight: 250 });
+
+    const declineBtn = screen.getByRole('button', { name: 'Từ chối' });
+    expect(declineBtn).not.toBeDisabled();
+
+    await user.click(declineBtn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
 
 describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () => {
-  it('displays safe candidate features, confidence, explanation without raw payload', async () => {
+  it('displays human review status, description, and reviewer feedback without AI', async () => {
     mockFetch({
       'GET /api/v1/design-requests/req-123': json(200, {
         id: 'req-123',
         requestReference: 'DR-REF-123',
         requestVersion: 1,
         requestStatus: 'ACTIVE',
-        analysisStatus: 'SUCCEEDED',
-        reviewStatus: 'NEED_REVIEW',
-        nextAction: 'AWAITING_STAFF_REVIEW',
+        reviewStatus: 'ACCEPTED',
         description: 'Nhẫn bạc đính đá topaz',
-        candidateFeatures: {
-          style: 'Solitaire Classic',
-          metal: '925 Sterling Silver',
-          gemstone: 'Blue Topaz',
-          estimatedValue: 1800000,
-        },
-        imageQuality: {
-          lighting: 'Good',
-          sharpness: 'High',
-        },
-        confidence: {
-          styleConfidence: 0.92,
-        },
-        safeExplanation: 'Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.',
+        decisionExplanation: 'Thiết kế nhẫn hoa văn rất đẹp, độ dày 1.8mm hoàn toàn phù hợp để gia công.',
+        images: [
+          {
+            imageReference: 'IMG-001',
+            originalFilename: 'topaz-ring.jpg',
+            fileSizeBytes: 204800,
+          },
+        ],
       }),
     });
 
@@ -265,31 +349,18 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
 
     expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
     expect(screen.getByText('Mã tham chiếu: DR-REF-123')).toBeInTheDocument();
-    expect(screen.getByText('Trạng thái phân tích AI: SUCCEEDED')).toBeInTheDocument();
-    expect(screen.getByText('Solitaire Classic')).toBeInTheDocument();
-    expect(screen.getByText('925 Sterling Silver')).toBeInTheDocument();
-    expect(screen.getByText(/1\.800\.000/)).toBeInTheDocument();
-    expect(screen.getByText('Thiết kế nhẫn phong cách Solitaire đơn giản với đá chủ topaz.')).toBeInTheDocument();
+    expect(screen.getByText('Đã chấp nhận thiết kế')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn bạc đính đá topaz')).toBeInTheDocument();
+    expect(screen.getByText('Thiết kế nhẫn hoa văn rất đẹp, độ dày 1.8mm hoàn toàn phù hợp để gia công.')).toBeInTheDocument();
+    expect(screen.getByText('topaz-ring.jpg')).toBeInTheDocument();
   });
 
-  it('allows Guest to view request details and review status without being blocked', async () => {
-    mockFetch({
-      'GET /api/v1/design-requests/guest-req-1': json(200, {
-        id: 'guest-req-1',
-        requestReference: 'DR-GUEST-01',
-        requestVersion: 1,
-        requestStatus: 'ACTIVE',
-        analysisStatus: 'SUCCEEDED',
-        reviewStatus: 'NEED_REVIEW',
-        description: 'Nhẫn bạc đính đá topaz tự nhiên.',
-      }),
-    });
+  it('requires Member session when guest attempts to view request details without login', async () => {
+    mockFetch({});
+    open('/design-requests/guest-req-1?token=token-guest-xyz', { session: fakeSession('signed-out') });
 
-    open('/design-requests/guest-req-1', { session: fakeSession('signed-out') });
-
-    expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
-    expect(screen.getByText('Nhẫn bạc đính đá topaz tự nhiên.')).toBeInTheDocument();
-    expect(screen.getByText(/Đang đợi phản hồi của nhân viên/)).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng đăng nhập để xem tiến độ yêu cầu thiết kế.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
 });
 
@@ -311,7 +382,7 @@ describe('F04-REVIEW-QUEUE Screen (/design-review-requests)', () => {
 
     open('/design-review-requests', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Hàng đợi Thẩm duyệt Thiết kế')).toBeInTheDocument();
+    expect(await screen.findByText(/Danh sách các yêu cầu thiết kế đang chờ nhân sự thẩm duyệt/)).toBeInTheDocument();
     expect(screen.getByText('rev-01')).toBeInTheDocument();
     expect(screen.getByText('DR-001')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Thẩm duyệt' })).toHaveAttribute('href', '/design-review-requests/rev-01');
@@ -408,6 +479,198 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     await user.click(confirmBtn);
 
     expect(await screen.findByText(/Bạn không thể tự thẩm duyệt yêu cầu thiết kế do chính mình tạo ra/)).toBeInTheDocument();
+  });
+
+  it('prompts confirmation popup when staff sends quote, hides the button after sending and shows success message', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/design-requests/rev-quote-01': json(200, {
+        id: 'rev-quote-01',
+        requestReference: 'DR-Q01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn đính kim cương tự nhiên',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-01/quote': json(200, {
+        quoteReference: 'QUO-88889999',
+        totalAmount: '800000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Vàng 18k và kim cương 4.5mm',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-01', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByTestId('quote-amount-input');
+    await user.type(amountInput, '800000');
+
+    const reasonInput = screen.getByPlaceholderText(/Ghi chú cơ cấu vật liệu/);
+    await user.type(reasonInput, 'Vàng 18k và kim cương 4.5mm');
+
+    const submitQuoteBtn = screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' });
+    await user.click(submitQuoteBtn);
+
+    // Confirmation dialog must appear
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Xác nhận gửi báo giá cho Quản lý')).toBeInTheDocument();
+    expect(within(dialog).getByText(/800\.000 đ/)).toBeInTheDocument();
+
+    // Confirm sending
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
+    await user.click(confirmBtn);
+
+    // Success notice displayed
+    expect(await screen.findByText(/Gửi báo giá cho Quản lý \(Manager\) phê duyệt thành công!/)).toBeInTheDocument();
+    expect(screen.getByText('QUO-88889999')).toBeInTheDocument();
+    expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
+
+    // The submit button must disappear so staff cannot click again
+    expect(screen.queryByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeNull();
+  });
+
+  it('shows error banner when quote submission fails and keeps button for retry', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/design-requests/rev-quote-err': json(200, {
+        id: 'rev-quote-err',
+        requestReference: 'DR-QERR',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn hoa văn chạm trổ',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-err/quote': json(500, {
+        code: 'INTERNAL_ERROR',
+        message: 'Lỗi máy chủ khi tạo báo giá.',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-err', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByTestId('quote-amount-input');
+    await user.type(amountInput, '500000');
+
+    const submitQuoteBtn = screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' });
+    await user.click(submitQuoteBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Xác nhận gửi' });
+    await user.click(confirmBtn);
+
+    expect(await screen.findByText(/✕ Thất bại:/)).toBeInTheDocument();
+    // Button is still present for retrying
+    expect(screen.getByRole('button', { name: 'Gửi báo giá cho Manager duyệt' })).toBeInTheDocument();
+  });
+
+  it('validates quote amount <= 1000000000 and duration 24-72 hours on ReviewDetailPage', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
+      'GET /api/v1/design-requests/rev-validate-01': json(200, {
+        id: 'rev-validate-01',
+        requestReference: 'DR-V01',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        description: 'Mẫu nhẫn test validation',
+      }),
+    });
+
+    open('/design-review-requests/rev-validate-01', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Báo giá Gia công Tùy chỉnh (Custom Quote)')).toBeInTheDocument();
+
+    const amountInput = screen.getByTestId('quote-amount-input');
+    const hoursInput = screen.getByTestId('quote-hours-input');
+
+    // Amount > 1000000000 shows error
+    await user.type(amountInput, '1500000000');
+    expect(screen.getByTestId('quote-amount-error')).toHaveTextContent('Số tiền tối đa không được vượt quá 1.000.000.000 VNĐ.');
+
+    // Clear and type valid amount
+    await user.clear(amountInput);
+    await user.type(amountInput, '50000000');
+    expect(screen.queryByTestId('quote-amount-error')).toBeNull();
+
+    // Hours < 24 shows error
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '12');
+    expect(screen.getByTestId('quote-hours-error')).toHaveTextContent('Thời hạn thanh toán chỉ được phép từ 24 đến 72 giờ.');
+
+    // Hours > 72 shows error
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '100');
+    expect(screen.getByTestId('quote-hours-error')).toHaveTextContent('Thời hạn thanh toán chỉ được phép từ 24 đến 72 giờ.');
+
+    // Valid hours
+    await user.clear(hoursInput);
+    await user.type(hoursInput, '48');
+    expect(screen.queryByTestId('quote-hours-error')).toBeNull();
+  });
+
+  it('allows Manager to approve pending quote on ReviewDetailPage', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
+      'GET /api/v1/design-requests/rev-quote-mgr': json(200, {
+        id: 'rev-quote-mgr',
+        requestReference: 'DR-QMGR',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        quoteReference: 'QUO-PENDING-01',
+        description: 'Mẫu nhẫn cưới vàng hồng',
+      }),
+      'GET /api/v1/custom-design-requests/rev-quote-mgr/quote': json(200, {
+        quoteReference: 'QUO-PENDING-01',
+        totalAmount: '25000000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Chất liệu vàng hồng 18k đính 3 viên kim cương tấm',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-mgr/quote/approve': json(200, {
+        quoteReference: 'QUO-PENDING-01',
+        totalAmount: '25000000',
+        currency: 'VND',
+        status: 'QUOTE_READY',
+        quoteGeneration: 1,
+        approvedByManager: true,
+        managerReason: 'Quản lý phê duyệt báo giá',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-mgr', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('QUO-PENDING-01')).toBeInTheDocument();
+    expect(await screen.findByText(/25\.000\.000 đ/)).toBeInTheDocument();
+    expect(screen.getByText(/Chờ Quản lý \(Manager\) duyệt/)).toBeInTheDocument();
+
+    const approveBtn = await screen.findByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' });
+    await user.click(approveBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Xác nhận phê duyệt báo giá')).toBeInTheDocument();
+
+    const confirmApproveBtn = within(dialog).getByRole('button', { name: 'Phê duyệt báo giá' });
+    await user.click(confirmApproveBtn);
+
+    expect(await screen.findByText(/Đã phê duyệt báo giá thành công!/)).toBeInTheDocument();
+    expect(screen.getByText(/Quản lý đã duyệt/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' })).toBeNull();
   });
 });
 

@@ -13,8 +13,10 @@ public final class PromotionUsageDtos {
     public sealed interface Summary permits ProgramUsage, AutoUsage {
     }
 
+    /** {@code claimedCount} (Session 2026-11-22): saved uses of a CLAIM_REQUIRED voucher not yet used; "0" for PUBLIC. */
     public record ProgramUsage(String programId, String totalLimit, String perMemberLimit, String heldCount,
-                               String consumedCount, String committedDiscountAmount) implements Summary {
+                               String consumedCount, String committedDiscountAmount, String claimedCount)
+            implements Summary {
     }
 
     public record AutoUsage(String programId, String acceptedCount, String committedDiscountAmount) implements Summary {

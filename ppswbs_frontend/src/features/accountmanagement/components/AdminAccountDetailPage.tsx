@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router';
 import { useAdminAccounts } from '../hooks/useAdminAccounts';
+import { useWorkshopLocations } from '../hooks/useWorkshopLocations';
 import { ApiError } from '../../../shared/api/http';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
+import {
+  accountManagementApiClient,
+  InvitationStatusResponse,
+} from '../api/AccountManagementApiClient';
+import { ManualInvitationCopyModal } from './ManualInvitationCopyModal';
 import '../accountmanagement.css';
 
-const AVAILABLE_LOCATIONS = [
-  { id: 1, name: 'Cơ sở Quận 1 (Mland Center)' },
-  { id: 2, name: 'Cơ sở Quận 3 (Mland Workshop)' },
-  { id: 3, name: 'Cơ sở Thủ Đức (Mland Studio)' },
-];
-
 export const AdminAccountDetailPage: React.FC = () => {
+  const t = useT(accountMessages);
+  const fmt = useFormat();
   const { accountId } = useParams<{ accountId: string }>();
+  const { locations, error: locationsError } = useWorkshopLocations();
   const {
     selectedAccount,
     loading,
@@ -48,6 +53,45 @@ export const AdminAccountDetailPage: React.FC = () => {
   // Invitation resend state
   const [resendNotice, setResendNotice] = useState<string | null>(null);
 
+  // R-INV Invitation tracking state
+  const [invitationStatus, setInvitationStatus] = useState<InvitationStatusResponse | null>(null);
+  const [manualCopyOpen, setManualCopyOpen] = useState(false);
+  const [countdownText, setCountdownText] = useState<string>('');
+  const [showResendConfirm, setShowResendConfirm] = useState(false);
+
+  const fetchInvitationStatus = () => {
+    if (selectedAccount && selectedAccount.status === 'PENDING_SETUP' && selectedAccount.role !== 'CARRIER') {
+      accountManagementApiClient
+        .getCurrentInvitationStatus(selectedAccount.accountId)
+        .then(res => setInvitationStatus(res))
+        .catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    fetchInvitationStatus();
+  }, [selectedAccount]);
+
+  useEffect(() => {
+    if (!invitationStatus?.expiresAt) return;
+    const updateTimer = () => {
+      const now = Date.now();
+      const exp = new Date(invitationStatus.expiresAt).getTime();
+      const diff = exp - now;
+      if (diff <= 0) {
+        setCountdownText('Đã hết hạn');
+      } else {
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        setCountdownText(`${h}h ${m}m ${s}s`);
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [invitationStatus]);
+
   useEffect(() => {
     if (accountId) {
       loadDetail(accountId);
@@ -71,7 +115,7 @@ export const AdminAccountDetailPage: React.FC = () => {
     return (
       <div className="account-page-container">
         <div className="account-card">
-          <p style={{ color: '#6b717f' }}>Đang tải thông tin tài khoản #{accountId}…</p>
+          <p style={{ color: '#6b717f' }}>{t('detail.loading', { id: accountId ?? '' })}</p>
         </div>
       </div>
     );
@@ -81,10 +125,10 @@ export const AdminAccountDetailPage: React.FC = () => {
     return (
       <div className="account-page-container">
         <div className="account-alert account-alert-error" role="alert">
-          <span>{error?.message || `Không tìm thấy tài khoản #${accountId}.`}</span>
+          <span>{error?.message || t('detail.notFound', { id: accountId ?? '' })}</span>
         </div>
         <Link to="/admin/accounts" className="account-btn account-btn-secondary">
-          Quay lại danh sách
+          {t('detail.backToList')}
         </Link>
       </div>
     );
@@ -102,7 +146,7 @@ export const AdminAccountDetailPage: React.FC = () => {
     setProfileActionSuccess(null);
 
     if (!editName.trim()) {
-      setProfileActionError('Họ và tên là bắt buộc.');
+      setProfileActionError(t('detail.nameRequired'));
       return;
     }
 
@@ -115,13 +159,13 @@ export const AdminAccountDetailPage: React.FC = () => {
         selectedAccount.version
       );
       if (result) {
-        setProfileActionSuccess('Cập nhật hồ sơ tài khoản thành công.');
+        setProfileActionSuccess(t('detail.profileSaved'));
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
-        setProfileActionError('Dữ liệu đã bị thay đổi bởi phiên khác. Đã tải lại thông tin mới nhất.');
+        setProfileActionError(t('detail.profileConflict'));
       } else {
-        setProfileActionError(err?.message || 'Không thể lưu thay đổi hồ sơ.');
+        setProfileActionError(err?.message || t('detail.profileError'));
       }
     } finally {
       setSavingProfile(false);
@@ -134,11 +178,11 @@ export const AdminAccountDetailPage: React.FC = () => {
     setRoleActionSuccess(null);
 
     if (editLocations.length === 0) {
-      setRoleActionError('Phải chọn ít nhất 1 cơ sở.');
+      setRoleActionError(t('detail.locationRequired'));
       return;
     }
     if (editRole === 'STAFF' && editLocations.length !== 1) {
-      setRoleActionError('Nhân viên (Staff) chỉ được phân công chính xác 1 cơ sở.');
+      setRoleActionError(t('detail.staffOneLocation'));
       return;
     }
 
@@ -151,13 +195,13 @@ export const AdminAccountDetailPage: React.FC = () => {
         selectedAccount.version
       );
       if (result) {
-        setRoleActionSuccess('Cập nhật vai trò và phân công cơ sở thành công. Thay đổi đã được máy chủ xác nhận và có hiệu lực trên hệ thống.');
+        setRoleActionSuccess(t('detail.roleSaved'));
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
-        setRoleActionError('Dữ liệu đã bị thay đổi bởi phiên khác (xung đột phiên bản). Đã tải lại thông tin mới nhất từ máy chủ, vui lòng kiểm tra và thử lại.');
+        setRoleActionError(t('detail.roleConflict'));
       } else {
-        setRoleActionError(err?.message || 'Không thể phân công vai trò/cơ sở.');
+        setRoleActionError(err?.message || t('detail.roleError'));
       }
     } finally {
       setSavingRole(false);
@@ -166,7 +210,7 @@ export const AdminAccountDetailPage: React.FC = () => {
 
   const handleSuspendConfirm = async () => {
     if (!suspendReason.trim()) {
-      setSuspendError('Lý do tạm khóa là bắt buộc.');
+      setSuspendError(t('detail.reasonRequired'));
       return;
     }
 
@@ -181,13 +225,13 @@ export const AdminAccountDetailPage: React.FC = () => {
       if (result) {
         setShowSuspendModal(false);
         setSuspendReason('');
-        setStatusActionSuccess('Tài khoản đã được chuyển sang trạng thái tạm khóa (SUSPENDED).');
+        setStatusActionSuccess(t('detail.suspended'));
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
-        setSuspendError('Xung đột phiên bản: thông tin tài khoản đã thay đổi. Vui lòng thử lại.');
+        setSuspendError(t('detail.suspendConflict'));
       } else {
-        setSuspendError(err?.message || 'Lỗi khi tạm khóa tài khoản.');
+        setSuspendError(err?.message || t('detail.suspendError'));
       }
     } finally {
       setActionPending(false);
@@ -200,14 +244,14 @@ export const AdminAccountDetailPage: React.FC = () => {
     try {
       const result = await restoreAccount(selectedAccount.accountId, selectedAccount.version);
       if (result) {
-        setStatusActionSuccess('Khôi phục tài khoản thành công. Người dùng cần đăng nhập lại.');
+        setStatusActionSuccess(t('detail.restored'));
       }
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 409) {
         setStatusActionSuccess(null);
-        alert('Không thể khôi phục tài khoản trong khi lệnh thu hồi phiên Firebase chưa hoàn tất.');
+        alert(t('detail.restoreBlocked'));
       } else {
-        alert(err?.message || 'Lỗi khi khôi phục tài khoản.');
+        alert(err?.message || t('detail.restoreError'));
       }
     } finally {
       setActionPending(false);
@@ -216,14 +260,16 @@ export const AdminAccountDetailPage: React.FC = () => {
 
   const handleResendInvitation = async () => {
     setResendNotice(null);
+    setShowResendConfirm(false);
     setActionPending(true);
     try {
       const result = await resendInvitation(selectedAccount.accountId);
       if (result) {
-        setResendNotice('Thư mời thiết lập tài khoản đã được gửi lại thành công.');
+        setResendNotice(t('detail.invitationSent'));
+        fetchInvitationStatus();
       }
     } catch (err: any) {
-      setResendNotice(err?.message || 'Không thể gửi lại thư mời. Vui lòng kiểm tra thời gian chờ.');
+      setResendNotice(err?.message || t('detail.invitationError'));
     } finally {
       setActionPending(false);
     }
@@ -234,17 +280,14 @@ export const AdminAccountDetailPage: React.FC = () => {
       {/* Back button matching Figma */}
       <div>
         <Link to="/admin/accounts" className="account-back-btn">
-          ← Quay lại danh sách tài khoản
+          {t('detail.back')}
         </Link>
       </div>
 
-      {/* Admin Navigation Tabs (Figma F08-F11) */}
-      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+      {/* Admin Navigation Tabs (Figma F08-F11; role catalogue removed per T113) */}
+      <nav className="admin-nav-tabs" aria-label={t('detail.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab active">
-          Tài khoản
-        </Link>
-        <Link to="/admin/roles" className="admin-nav-tab">
-          Vai trò
+          {t('detail.navAccounts')}
         </Link>
       </nav>
 
@@ -252,10 +295,10 @@ export const AdminAccountDetailPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 className="account-page-title">
-              {selectedAccount.profile?.fullName ? `${selectedAccount.profile.fullName} · ACC-${selectedAccount.accountId}` : `Tài khoản #ACC-${selectedAccount.accountId}`}
+              {selectedAccount.profile?.fullName ? `${selectedAccount.profile.fullName} · ACC-${selectedAccount.accountId}` : t('detail.accountFallback', { id: selectedAccount.accountId })}
             </h1>
             <p className="account-page-description">
-              Định danh đăng nhập: <strong>{selectedAccount.loginEmail}</strong>
+              {t('detail.loginIdentity')} <strong>{selectedAccount.loginEmail}</strong>
             </p>
           </div>
           <div>
@@ -268,7 +311,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                   : 'account-badge-suspended'
               }`}
             >
-              {selectedAccount.status === 'ACTIVE' ? 'ACTIVE · Đang hoạt động' : selectedAccount.status === 'PENDING_SETUP' ? 'PENDING_SETUP · Chờ kích hoạt' : 'SUSPENDED · Đã đình chỉ'}
+              {selectedAccount.status === 'ACTIVE' ? t('detail.status.ACTIVE') : selectedAccount.status === 'PENDING_SETUP' ? t('detail.status.PENDING_SETUP') : t('detail.status.SUSPENDED')}
             </span>
           </div>
         </div>
@@ -282,66 +325,66 @@ export const AdminAccountDetailPage: React.FC = () => {
 
       {/* Account Overview Table */}
       <section className="account-card" aria-labelledby="overview-heading">
-        <h2 id="overview-heading" className="account-card-title">Tổng quan tài khoản</h2>
+        <h2 id="overview-heading" className="account-card-title">{t('detail.overview')}</h2>
         <table className="account-table">
           <tbody>
             <tr>
-              <th style={{ width: '220px' }}>Vai trò hệ thống:</th>
+              <th style={{ width: '220px' }}>{t('detail.systemRole')}</th>
               <td><strong>{selectedAccount.role}</strong></td>
             </tr>
             <tr>
-              <th>Trạng thái hoạt động:</th>
+              <th>{t('detail.activeStatus')}</th>
               <td>{selectedAccount.status}</td>
             </tr>
             <tr>
-              <th>{isCarrier ? 'Cơ sở phân công:' : selectedAccount.role === 'MANAGER' ? 'Cơ sở phân công tổ chức:' : 'Cơ sở phân công:'}</th>
+              <th>{isCarrier ? t('detail.branchAssigned') : selectedAccount.role === 'MANAGER' ? t('detail.branchAssignedOrg') : t('detail.branchAssigned')}</th>
               <td>
                 {isCarrier ? (
-                  <span style={{ color: '#6b717f' }}>Không áp dụng (Đối tác giao vận toàn quốc)</span>
+                  <span style={{ color: '#6b717f' }}>{t('detail.notApplicableCarrier')}</span>
                 ) : selectedAccount.locationAssignments && selectedAccount.locationAssignments.filter(l => l.active).length > 0 ? (
                   <div>
                     <span>
                       {selectedAccount.locationAssignments
                         .filter(l => l.active)
                         .map(l => {
-                          const locObj = AVAILABLE_LOCATIONS.find(loc => loc.id === l.locationId);
-                          return locObj ? locObj.name : `Cơ sở #${l.locationId}`;
+                          const locObj = locations.find(loc => loc.id === l.locationId);
+                          return locObj ? locObj.name : t('detail.branchFallback', { id: l.locationId });
                         })
                         .join(', ')}
                     </span>
                     <div style={{ fontSize: '0.8rem', color: '#6b717f', marginTop: '0.25rem' }}>
                       {selectedAccount.role === 'MANAGER'
-                        ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống.'
-                        : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff).'}
+                        ? t('detail.managerScope')
+                        : t('detail.staffScope')}
                     </div>
                   </div>
                 ) : (
-                  <span style={{ color: '#6b717f' }}>Chưa phân công</span>
+                  <span style={{ color: '#6b717f' }}>{t('detail.unassigned')}</span>
                 )}
               </td>
             </tr>
             <tr>
-              <th>Thu hồi phiên Firebase:</th>
+              <th>{t('detail.revocation')}</th>
               <td>
                 {selectedAccount.revocationStatus === 'PENDING' ? (
-                  <span style={{ color: '#b45309', fontWeight: 600 }}>Đang chờ xử lý (Pending)</span>
+                  <span style={{ color: '#b45309', fontWeight: 600 }}>{t('detail.revocationPending')}</span>
                 ) : selectedAccount.revocationStatus === 'CONFIRMED' ? (
-                  <span style={{ color: '#15803d', fontWeight: 600 }}>Đã thu hồi (Confirmed)</span>
+                  <span style={{ color: '#15803d', fontWeight: 600 }}>{t('detail.revocationConfirmed')}</span>
                 ) : (
-                  'Không áp dụng'
+                  t('detail.notApplicable')
                 )}
               </td>
             </tr>
             <tr>
-              <th>Phiên bản ghi (Version):</th>
+              <th>{t('detail.version')}</th>
               <td>{selectedAccount.version}</td>
             </tr>
             <tr>
-              <th>Ngày khởi tạo:</th>
+              <th>{t('detail.createdAt')}</th>
               <td>{selectedAccount.createdAt}</td>
             </tr>
             <tr>
-              <th>Cập nhật gần nhất:</th>
+              <th>{t('detail.updatedAt')}</th>
               <td>{selectedAccount.updatedAt}</td>
             </tr>
           </tbody>
@@ -353,10 +396,23 @@ export const AdminAccountDetailPage: React.FC = () => {
             <button
               type="button"
               className="account-btn account-btn-secondary account-btn-sm"
-              onClick={handleResendInvitation}
+              onClick={() => setShowResendConfirm(true)}
               disabled={actionPending}
+              data-testid="resend-invitation-btn"
             >
-              Gửi lại thư mời (Resend Invitation)
+              {t('detail.resend')}
+            </button>
+          )}
+
+          {isPendingSetup && !isCarrier && invitationStatus?.deliveryState === 'FAILED' && (
+            <button
+              type="button"
+              className="account-btn account-btn-primary account-btn-sm"
+              onClick={() => setManualCopyOpen(true)}
+              disabled={countdownText === 'Đã hết hạn'}
+              data-testid="manual-invitation-btn"
+            >
+              Sao chép nội dung email thủ công
             </button>
           )}
 
@@ -367,7 +423,7 @@ export const AdminAccountDetailPage: React.FC = () => {
               onClick={() => setShowSuspendModal(true)}
               disabled={actionPending}
             >
-              Tạm khóa tài khoản (Suspend)
+              {t('detail.suspend')}
             </button>
           )}
 
@@ -377,15 +433,15 @@ export const AdminAccountDetailPage: React.FC = () => {
               className="account-btn account-btn-primary account-btn-sm"
               onClick={handleRestore}
               disabled={actionPending || isRevocationPending}
-              title={isRevocationPending ? 'Chưa thể khôi phục trong khi Firebase đang xử lý thu hồi phiên' : undefined}
+              title={isRevocationPending ? t('detail.restoreTitle') : undefined}
             >
-              Khôi phục tài khoản
+              {t('detail.restore')}
             </button>
           )}
 
           {isAdminAccount && (
             <span style={{ fontSize: '0.85rem', color: '#6b717f', alignSelf: 'center' }}>
-              * Tài khoản ADMIN được bảo vệ, không thể tạm khóa hoặc chỉnh sửa trực tiếp.
+              {t('detail.adminProtected')}
             </span>
           )}
         </div>
@@ -395,12 +451,100 @@ export const AdminAccountDetailPage: React.FC = () => {
             <span>{resendNotice}</span>
           </div>
         )}
+
+        {showResendConfirm && (
+          <div
+            className="account-alert account-alert-warning"
+            style={{ marginTop: '1rem', backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}
+            data-testid="resend-confirm-dialog"
+          >
+            <p style={{ margin: '0 0 0.5rem 0', color: '#92400e', fontSize: '0.875rem' }}>
+              <strong>Cảnh báo:</strong> Gửi lại thư mời sẽ vô hiệu hóa ngay lập tức liên kết trước đó (và bất kỳ nội dung nào đã sao chép thủ công). Một thời hạn 48 giờ mới sẽ bắt đầu tính từ bây giờ.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="account-btn account-btn-primary account-btn-sm"
+                onClick={handleResendInvitation}
+                disabled={actionPending}
+                data-testid="confirm-resend-action-btn"
+              >
+                Xác nhận gửi lại
+              </button>
+              <button
+                type="button"
+                className="account-btn account-btn-secondary account-btn-sm"
+                onClick={() => setShowResendConfirm(false)}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* R-INV Invitation Detail Card for Pending Internal Accounts */}
+      {isPendingSetup && !isCarrier && (
+        <section className="account-card" aria-labelledby="invitation-heading" data-testid="invitation-status-card">
+          <h2 id="invitation-heading" className="account-card-title">
+            Thông tin thư mời kích hoạt (R-INV)
+          </h2>
+          <table className="account-table">
+            <tbody>
+              <tr>
+                <th style={{ width: '220px' }}>Trạng thái gửi thư:</th>
+                <td>
+                  <span
+                    className={`account-badge ${
+                      invitationStatus?.deliveryState === 'SENT'
+                        ? 'account-badge-active'
+                        : invitationStatus?.deliveryState === 'FAILED'
+                        ? 'account-badge-danger'
+                        : 'account-badge-pending'
+                    }`}
+                  >
+                    {invitationStatus?.deliveryState || 'QUEUED'}
+                  </span>
+                </td>
+              </tr>
+              {invitationStatus && (
+                <>
+                  <tr>
+                    <th>Thời điểm tạo thư mời:</th>
+                    <td>{fmt.dateTime(invitationStatus.createdAt)}</td>
+                  </tr>
+                  <tr>
+                    <th>Hạn chót kích hoạt (48 giờ):</th>
+                    <td>{fmt.dateTime(invitationStatus.expiresAt)}</td>
+                  </tr>
+                  <tr>
+                    <th>Thời gian còn lại:</th>
+                    <td>
+                      <strong
+                        data-testid="invitation-countdown"
+                        style={{
+                          color: countdownText === 'Đã hết hạn' ? '#b91c1c' : '#15803d',
+                        }}
+                      >
+                        {countdownText || 'Đang tính…'}
+                      </strong>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Số lần thử gửi SMTP:</th>
+                    <td>{invitationStatus.attempts ?? 1} / 2</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {/* Edit Internal Profile */}
       {!isAdminAccount && (
         <section className="account-card" aria-labelledby="edit-profile-heading">
-          <h2 id="edit-profile-heading" className="account-card-title">Chỉnh sửa thông tin hồ sơ</h2>
+          <h2 id="edit-profile-heading" className="account-card-title">{t('detail.editProfile')}</h2>
 
           {profileActionSuccess && (
             <div className="account-alert account-alert-success" role="status">
@@ -417,7 +561,7 @@ export const AdminAccountDetailPage: React.FC = () => {
           <form className="account-form" onSubmit={handleProfileSave}>
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="edit-name">
-                Họ và tên
+                {t('detail.fullName')}
               </label>
               <input
                 id="edit-name"
@@ -432,7 +576,7 @@ export const AdminAccountDetailPage: React.FC = () => {
 
             <div className="account-field">
               <label className="account-label" htmlFor="edit-phone">
-                Số điện thoại
+                {t('detail.phone')}
               </label>
               <input
                 id="edit-phone"
@@ -451,7 +595,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                 className="account-btn account-btn-primary account-btn-sm"
                 disabled={savingProfile}
               >
-                {savingProfile ? 'Đang lưu…' : 'Lưu hồ sơ'}
+                {savingProfile ? t('detail.saving') : t('detail.saveProfile')}
               </button>
             </div>
           </form>
@@ -461,7 +605,7 @@ export const AdminAccountDetailPage: React.FC = () => {
       {/* Assign Role and Location (STAFF / MANAGER only) */}
       {(selectedAccount.role === 'STAFF' || selectedAccount.role === 'MANAGER') && (
         <section className="account-card" aria-labelledby="assign-heading">
-          <h2 id="assign-heading" className="account-card-title">Phân công vai trò & cơ sở</h2>
+          <h2 id="assign-heading" className="account-card-title">{t('detail.assignHeading')}</h2>
 
           {roleActionSuccess && (
             <div className="account-alert account-alert-success" role="status">
@@ -478,7 +622,7 @@ export const AdminAccountDetailPage: React.FC = () => {
           <form className="account-form" onSubmit={handleRoleLocationSave}>
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="edit-role-select">
-                Vai trò nội bộ
+                {t('detail.internalRole')}
               </label>
               <select
                 id="edit-role-select"
@@ -493,30 +637,35 @@ export const AdminAccountDetailPage: React.FC = () => {
                 }}
                 disabled={savingRole}
               >
-                <option value="STAFF">Nhân viên cơ sở (STAFF)</option>
-                <option value="MANAGER">Quản lý cơ sở (MANAGER)</option>
+                <option value="STAFF">{t('detail.optStaff')}</option>
+                <option value="MANAGER">{t('detail.optManager')}</option>
               </select>
               <span className="account-field-hint" data-testid="edit-role-scope-hint">
                 {editRole === 'MANAGER'
-                  ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống. Quản lý cần ít nhất một cơ sở.'
-                  : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff). Nhân viên phân công đúng một cơ sở.'}
+                  ? t('detail.hintManager')
+                  : t('detail.hintStaff')}
               </span>
             </div>
 
             {editRole !== selectedAccount.role && (
               <div className="account-alert account-alert-info" role="note" data-testid="role-transition-notice" style={{ marginTop: '0.5rem', marginBottom: '0.75rem' }}>
                 <span>
-                  Lưu ý khi đổi vai trò ({selectedAccount.role} → {editRole}): Quyền hạn chỉ thay đổi sau khi máy chủ xác nhận lưu thành công. Quản lý có phạm vi vận hành toàn hệ thống cho các tác vụ quản lý; Nhân viên bị giới hạn trong cơ sở phân công.
+                  {t('detail.transition', { from: selectedAccount.role, to: editRole })}
                 </span>
               </div>
             )}
 
             <div className="account-field">
               <span className="account-label account-label-required">
-                {editRole === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
+                {editRole === 'MANAGER' ? t('detail.locationsManager') : t('detail.locationsStaff')}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-                {AVAILABLE_LOCATIONS.map(loc => (
+                {locationsError && (
+                  <span className="account-field-error" role="alert">{locationsError}</span>
+                )}
+                {locations
+                  .filter(loc => loc.active || editLocations.includes(loc.id))
+                  .map(loc => (
                   <label
                     key={loc.id}
                     style={{
@@ -546,7 +695,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                       }}
                       disabled={savingRole}
                     />
-                    <span>{loc.name}</span>
+                    <span>{loc.active ? loc.name : t('detail.inactiveLocation', { name: loc.name })}</span>
                   </label>
                 ))}
               </div>
@@ -558,7 +707,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                 className="account-btn account-btn-primary account-btn-sm"
                 disabled={savingRole}
               >
-                {savingRole ? 'Đang cập nhật…' : 'Cập nhật vai trò & cơ sở'}
+                {savingRole ? t('detail.updating') : t('detail.updateRole')}
               </button>
             </div>
           </form>
@@ -568,10 +717,10 @@ export const AdminAccountDetailPage: React.FC = () => {
       {/* Carrier Role Governance Notice (FR-011, FR-012, FR-017) */}
       {isCarrier && (
         <section className="account-card" aria-labelledby="carrier-governance-heading">
-          <h2 id="carrier-governance-heading" className="account-card-title">Phạm vi & Phân quyền đối tác</h2>
+          <h2 id="carrier-governance-heading" className="account-card-title">{t('detail.carrierGovernance')}</h2>
           <div className="account-alert account-alert-info">
             <span>
-              Vai trò Đối tác vận chuyển (GHTK) là vai trò cố định: không áp dụng phân công cơ sở làm việc và không hỗ trợ chuyển đổi vai trò (FR-011, FR-012). Quản trị viên chỉ có thể cập nhật tên hiển thị, số điện thoại liên hệ hoặc tạm khóa/khôi phục tài khoản.
+              {t('detail.carrierNotice')}
             </span>
           </div>
         </section>
@@ -588,7 +737,7 @@ export const AdminAccountDetailPage: React.FC = () => {
           <div className="account-modal-container account-modal-sm">
             <div className="account-modal-header">
               <h3 id="suspend-modal-title" className="account-modal-title" style={{ color: '#dc2626' }}>
-                Xác nhận tạm khóa tài khoản
+                {t('detail.suspendTitle')}
               </h3>
               <button
                 type="button"
@@ -604,7 +753,7 @@ export const AdminAccountDetailPage: React.FC = () => {
 
             <div className="account-modal-body">
               <p style={{ fontSize: '0.9rem', color: '#6b717f', marginTop: 0 }}>
-                Sau khi xác nhận, tài khoản chuyển sang SUSPENDED và bị thu hồi phiên đăng nhập. Người dùng sẽ không thể tiếp tục truy cập.
+                {t('detail.suspendWarning')}
               </p>
 
               {suspendError && (
@@ -615,7 +764,7 @@ export const AdminAccountDetailPage: React.FC = () => {
 
               <div className="account-field" style={{ marginBottom: '1rem' }}>
                 <label className="account-label account-label-required" htmlFor="suspend-reason">
-                  Lý do tạm khóa
+                  {t('detail.reason')}
                 </label>
                 <textarea
                   id="suspend-reason"
@@ -623,7 +772,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                   rows={3}
                   value={suspendReason}
                   onChange={e => setSuspendReason(e.target.value)}
-                  placeholder="Nhập lý do nghiệp vụ hoặc bảo mật…"
+                  placeholder={t('detail.reasonPlaceholder')}
                 />
               </div>
             </div>
@@ -638,7 +787,7 @@ export const AdminAccountDetailPage: React.FC = () => {
                 }}
                 disabled={actionPending}
               >
-                Hủy bỏ
+                {t('detail.cancel')}
               </button>
               <button
                 type="button"
@@ -646,12 +795,19 @@ export const AdminAccountDetailPage: React.FC = () => {
                 onClick={handleSuspendConfirm}
                 disabled={actionPending}
               >
-                {actionPending ? 'Đang xử lý…' : 'Xác nhận tạm khóa'}
+                {actionPending ? t('detail.processing') : t('detail.confirmSuspend')}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Manual Invitation Content Modal */}
+      <ManualInvitationCopyModal
+        isOpen={manualCopyOpen}
+        onClose={() => setManualCopyOpen(false)}
+        requestId={invitationStatus?.requestId || selectedAccount?.accountId || 0}
+      />
     </div>
   );
 };

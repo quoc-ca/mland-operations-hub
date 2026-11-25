@@ -21,8 +21,9 @@ export { AddressModal } from './components/AddressModal';
 export { InternalAccountCreatePage } from './components/InternalAccountCreatePage';
 export { AdminAccountDetailPage } from './components/AdminAccountDetailPage';
 export { AdminAccountListPage } from './components/AdminAccountListPage';
-export { RoleCataloguePage } from './components/RoleCataloguePage';
+export { InternalAccountSetupPage } from './components/InternalAccountSetupPage';
 export { AdminRouteGuard } from './components/AdminRouteGuard';
+export { RouteAccessGuard } from './components/RouteAccessGuard';
 export { CarrierPortalPage } from './components/CarrierPortalPage';
 export type {
   AccountResponse,
@@ -30,7 +31,6 @@ export type {
   AccountSummary,
   AccountDetailResponse,
   InternalAccountSummaryResponse,
-  RoleCatalogueEntry,
 } from './api/AccountManagementApiClient';
 export type {
   AddressResponse,

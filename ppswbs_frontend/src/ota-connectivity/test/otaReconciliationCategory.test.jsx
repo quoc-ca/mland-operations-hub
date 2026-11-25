@@ -6,6 +6,12 @@ import { json, mockFetch, renderRoutes } from '../../test/render';
 import { createOtaConnectivityClient } from '../api/otaConnectivityApi';
 import { otaConnectivityRoutes } from '../routes';
 
+// The route guard reads the account bootstrap; these tests choose the signed-in role.
+const account = vi.hoisted(() => ({ role: 'MANAGER' }));
+vi.mock('../../features/accountmanagement/hooks/useCurrentAccount', () => ({
+  useCurrentAccount: () => ({ account: { role: account.role, status: 'ACTIVE' }, status: 'ready', retry: () => {} }),
+}));
+
 /**
  * 003.4 T119 / C2: the reconciliation queue filters by `category` through listReconciliationWorkItems. An
  * INBOUND_EVENT work item has no mapping (mappingId null), and the page must not assume one.

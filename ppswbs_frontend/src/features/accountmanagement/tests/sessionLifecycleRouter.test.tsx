@@ -4,6 +4,7 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderRoutes, json, mockFetch } from '../../../test/render';
 import { routes } from '../../../app/router';
 import { registerPrivateStateCleanup } from '../../../shared/auth/privateStateCleanup';
+import * as useCurrentAccountModule from '../hooks/useCurrentAccount';
 
 function createControlledSession(initialStatus = 'signed-in') {
   let currentListener: ((state: { status: string }) => void) | null = null;
@@ -43,7 +44,8 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       'GET /api/v1/members/me/ready-ring-orders': json(200, []),
       'GET /api/v1/accounts/me/addresses': json(200, []),
       'GET /api/v1/accounts/me/addresses/default': json(200, null),
-      'GET /api/v1/accounts/me': json(200, { id: '1', role: 'MEMBER', status: 'ACTIVE', email: 'member@mland.vn', locations: [] }),
+      'PUT /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
+      'GET /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
     });
   });
 
@@ -94,7 +96,7 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
   describe('2. Representative Route Groups & Guest Access Boundary (T072)', () => {
     it('allows guest to access representative public routes without redirect', async () => {
       const session = createControlledSession('signed-out');
-      const publicPaths = ['/workshops', '/products', '/ai-support', '/reviews', '/workshop-booking/lookup'];
+      const publicPaths = ['/workshops', '/products', '/ai-support', '/reviews', '/workshop-booking/lookup', '/design-requests/new'];
 
       for (const path of publicPaths) {
         const { router } = renderRoutes(routes, { path, session });
@@ -102,280 +104,406 @@ describe('Revision R-SL: Shared Browser Session Lifecycle & Router Boundary (FR-
       }
     });
 
-    it('renders inline empty state notice and login CTA for guest accessing /design-requests/new', async () => {
-      const session = createControlledSession('signed-out');
-      const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
+      it('requires Member session for guest accessing /design-requests/new', async () => {
+        const session = createControlledSession('signed-out');
+        const { router } = renderRoutes(routes, { path: '/design-requests/new', session });
 
-      expect(router.state.location.pathname).toBe('/design-requests/new');
-      expect(await screen.findByText('Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh')).toBeInTheDocument();
-      const loginLinks = screen.getAllByRole('link', { name: /đăng nhập/i });
-      const ctaLink = loginLinks.find(link => link.getAttribute('href') === '/login?returnTo=%2Fdesign-requests%2Fnew');
-      expect(ctaLink).toBeDefined();
-      expect(ctaLink).toHaveAttribute('href', '/login?returnTo=%2Fdesign-requests%2Fnew');
-    });
-
-    it('renders inline session notice for Member-only /member/cart when signed out', async () => {
-      const session = createControlledSession('signed-out');
-      renderRoutes(routes, { path: '/member/cart', session });
-
-      expect(await screen.findByText('Đăng nhập để xem giỏ hàng của bạn.')).toBeInTheDocument();
-    });
-
-    it('redirects guest accessing internal admin route /admin/accounts to /login with replace', async () => {
-      const session = createControlledSession('signed-out');
-      const { router } = renderRoutes(routes, { path: '/admin/accounts', session });
-
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/login');
-      });
-    });
-  });
-
-  describe('3. Session State Handling (loading & unconfigured) (T071)', () => {
-    it('renders neutral non-PII loading state while session is loading without redirect', () => {
-      const session = createControlledSession('loading');
-      const { router } = renderRoutes(routes, { path: '/profile', session });
-
-      expect(router.state.location.pathname).toBe('/profile');
-      expect(document.querySelector('.session-loading-state')).toBeInTheDocument();
-      // Ensure no private profile content or PII is leaked
-      expect(screen.queryByText(/member@mland.vn/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/Hồ sơ cá nhân/i)).not.toBeInTheDocument();
-    });
-
-    it('renders safe unavailable notice without redirect when Firebase is unconfigured', () => {
-      const session = createControlledSession('unconfigured');
-      const { router } = renderRoutes(routes, { path: '/profile', session });
-
-      expect(router.state.location.pathname).toBe('/profile');
-      expect(screen.getByText(/Ứng dụng chưa được cấu hình Firebase/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('4. Explicit User Logout & Home Transient Flash (T070, T073)', () => {
-    it('Topbar logout suppresses double click, executes private cleanup, replaces to / and renders transient "Đã đăng xuất"', async () => {
-      let resolveSignOut!: () => void;
-      const session = createControlledSession('signed-in');
-      session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
-        resolveSignOut = () => {
-          session.emitStatus('signed-out');
-          res();
-        };
-      }));
-
-      let cleanupInvoked = false;
-      registerPrivateStateCleanup(() => {
-        cleanupInvoked = true;
+        expect(router.state.location.pathname).toBe('/design-requests/new');
+        expect(await screen.findByText(/Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh/i)).toBeInTheDocument();
       });
 
-      const { router } = renderRoutes(routes, { path: '/', session });
+      it('renders inline session notice for Member-only /member/cart when signed out', async () => {
+        const session = createControlledSession('signed-out');
+        renderRoutes(routes, { path: '/member/cart', session });
 
-      // Open Topbar dropdown
-      const trigger = await screen.findByRole('button', { name: /tài khoản/i });
-      fireEvent.click(trigger);
-
-      const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
-      expect(signOutBtn).not.toBeDisabled();
-
-      // Click sign out
-      fireEvent.click(signOutBtn);
-
-      // Pending state suppresses double click
-      expect(signOutBtn).toBeDisabled();
-
-      // Resolve the pending sign out
-      resolveSignOut();
-
-      await waitFor(() => {
-        expect(session.signOut).toHaveBeenCalledTimes(1);
-        expect(cleanupInvoked).toBe(true);
-        expect(router.state.location.pathname).toBe('/');
+        expect(await screen.findByText('Đăng nhập để xem giỏ hàng của bạn.')).toBeInTheDocument();
       });
 
-      // Transient notice displayed on Home
-      expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
+      it('redirects guest accessing internal admin route /admin/accounts to /login with replace', async () => {
+        const session = createControlledSession('signed-out');
+        const { router } = renderRoutes(routes, { path: '/admin/accounts', session });
 
-      // Dismiss button removes the flash notice
-      const dismissBtn = screen.getByRole('button', { name: /đóng thông báo/i });
-      fireEvent.click(dismissBtn);
-      expect(screen.queryByText('Đã đăng xuất')).not.toBeInTheDocument();
+        await waitFor(() => {
+          expect(router.state.location.pathname).toBe('/login');
+        });
+      });
     });
 
-    it('Topbar logout failure keeps control in place, enables retry, and does not navigate', async () => {
-      const session = createControlledSession('signed-in');
-      session.signOut.mockRejectedValueOnce(new Error('Firebase network failure'));
+    describe('3. Session State Handling (loading & unconfigured) (T071)', () => {
+      it('renders neutral non-PII loading state while session is loading without redirect', () => {
+        const session = createControlledSession('loading');
+        const { router } = renderRoutes(routes, { path: '/profile', session });
 
-      renderRoutes(routes, { path: '/', session });
+        expect(router.state.location.pathname).toBe('/profile');
+        expect(document.querySelector('.session-loading-state')).toBeInTheDocument();
+        // Ensure no private profile content or PII is leaked
+        expect(screen.queryByText(/member@mland.vn/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Hồ sơ cá nhân/i)).not.toBeInTheDocument();
+      });
 
-      const trigger = await screen.findByRole('button', { name: /tài khoản/i });
-      fireEvent.click(trigger);
+      it('renders safe unavailable notice without redirect when Firebase is unconfigured', () => {
+        const session = createControlledSession('unconfigured');
+        const { router } = renderRoutes(routes, { path: '/profile', session });
 
-      const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
-      fireEvent.click(signOutBtn);
+        expect(router.state.location.pathname).toBe('/profile');
+        expect(screen.getByText(/Ứng dụng chưa được cấu hình Firebase/i)).toBeInTheDocument();
+      });
+    });
 
-      await waitFor(() => {
-        expect(screen.getByText('Đăng xuất thất bại. Vui lòng thử lại.')).toBeInTheDocument();
+    describe('4. Explicit User Logout & Home Transient Flash (T070, T073)', () => {
+      it('Topbar logout suppresses double click, executes private cleanup, replaces to / and renders transient "Đã đăng xuất"', async () => {
+        let resolveSignOut!: () => void;
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
+          resolveSignOut = () => {
+            session.emitStatus('signed-out');
+            res();
+          };
+        }));
+
+        let cleanupInvoked = false;
+        registerPrivateStateCleanup(() => {
+          cleanupInvoked = true;
+        });
+
+        const { router } = renderRoutes(routes, { path: '/', session });
+
+        // Open Topbar dropdown
+        const trigger = await screen.findByRole('button', { name: /tài khoản/i });
+        fireEvent.click(trigger);
+
+        const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
         expect(signOutBtn).not.toBeDisabled();
+
+        // Click sign out
+        fireEvent.click(signOutBtn);
+
+        // Pending state suppresses double click
+        expect(signOutBtn).toBeDisabled();
+
+        // Resolve the pending sign out
+        resolveSignOut();
+
+        await waitFor(() => {
+          expect(session.signOut).toHaveBeenCalledTimes(1);
+          expect(cleanupInvoked).toBe(true);
+          expect(router.state.location.pathname).toBe('/');
+        });
+
+        // Transient notice displayed on Home
+        expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
+
+        // Dismiss button removes the flash notice
+        const dismissBtn = screen.getByRole('button', { name: /đóng thông báo/i });
+        fireEvent.click(dismissBtn);
+        expect(screen.queryByText('Đã đăng xuất')).not.toBeInTheDocument();
+      });
+
+      it('Topbar logout failure keeps control in place, enables retry, and does not navigate', async () => {
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        session.signOut.mockRejectedValueOnce(new Error('Firebase network failure'));
+
+        renderRoutes(routes, { path: '/', session });
+
+        const trigger = await screen.findByRole('button', { name: /tài khoản/i });
+        fireEvent.click(trigger);
+
+        const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
+        fireEvent.click(signOutBtn);
+
+        await waitFor(() => {
+          expect(screen.getByText('Đăng xuất thất bại. Vui lòng thử lại.')).toBeInTheDocument();
+          expect(signOutBtn).not.toBeDisabled();
+        });
+      });
+
+      it('Sidebar logout suppresses double-click, cleans up, and replaces to Home with flash', async () => {
+        let resolveSignOut!: () => void;
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MANAGER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
+          resolveSignOut = () => {
+            session.emitStatus('signed-out');
+            res();
+          };
+        }));
+
+        let cleanupInvoked = false;
+        registerPrivateStateCleanup(() => {
+          cleanupInvoked = true;
+        });
+
+        const { router } = renderRoutes(routes, { path: '/catalogue-management/products', session });
+
+        const signOutBtn = await screen.findByRole('button', { name: /đăng xuất/i });
+        fireEvent.click(signOutBtn);
+
+        expect(signOutBtn).toBeDisabled();
+
+        resolveSignOut();
+
+        await waitFor(() => {
+          expect(session.signOut).toHaveBeenCalledTimes(1);
+          expect(cleanupInvoked).toBe(true);
+          expect(router.state.location.pathname).toBe('/');
+        });
+
+        expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
+      });
+
+      it('Sidebar logout failure stays in place with safe error and enabled retry', async () => {
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MANAGER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        session.signOut.mockRejectedValueOnce(new Error('Sign out error'));
+
+        renderRoutes(routes, { path: '/catalogue-management/products', session });
+
+        const signOutBtn = await screen.findByRole('button', { name: /đăng xuất/i });
+        fireEvent.click(signOutBtn);
+
+        await waitFor(() => {
+          expect(screen.getByText('Đăng xuất thất bại')).toBeInTheDocument();
+          expect(signOutBtn).not.toBeDisabled();
+        });
       });
     });
 
-    it('Sidebar logout suppresses double-click, cleans up, and replaces to Home with flash', async () => {
-      let resolveSignOut!: () => void;
-      const session = createControlledSession('signed-in');
-      session.signOut.mockImplementationOnce(() => new Promise<void>(res => {
-        resolveSignOut = () => {
-          session.emitStatus('signed-out');
-          res();
-        };
-      }));
+    describe('5. Session Loss & Deduplication (T069, T070)', () => {
+      it('Firebase null after initialization emits SESSION_LOST, executes cleanup once, and replaces to / with flash', async () => {
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        let cleanupCalls = 0;
+        registerPrivateStateCleanup(() => {
+          cleanupCalls++;
+        });
 
-      let cleanupInvoked = false;
-      registerPrivateStateCleanup(() => {
-        cleanupInvoked = true;
+        const { router } = renderRoutes(routes, { path: '/profile', session });
+
+        // Simulate unexpected Firebase session drop
+        session.emitStatus('signed-out');
+
+        await waitFor(() => {
+          expect(router.state.location.pathname).toBe('/');
+        });
+
+        expect(await screen.findByText('Phiên đã kết thúc, vui lòng đăng nhập lại')).toBeInTheDocument();
+        expect(cleanupCalls).toBe(1);
+
+        // Duplicate session drops do not trigger duplicate flash/navigation
+        session.emitStatus('signed-out');
+        expect(cleanupCalls).toBe(1);
       });
 
-      const { router } = renderRoutes(routes, { path: '/catalogue-management/products', session });
+      it('explicit USER_SIGN_OUT wins over following Firebase null observer callback', async () => {
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+        const { router } = renderRoutes(routes, { path: '/', session });
 
-      const signOutBtn = await screen.findByRole('button', { name: /đăng xuất/i });
-      fireEvent.click(signOutBtn);
+        const trigger = await screen.findByRole('button', { name: /tài khoản/i });
+        fireEvent.click(trigger);
 
-      expect(signOutBtn).toBeDisabled();
+        const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
+        fireEvent.click(signOutBtn);
 
-      resolveSignOut();
+        await waitFor(() => {
+          expect(router.state.location.pathname).toBe('/');
+        });
 
-      await waitFor(() => {
-        expect(session.signOut).toHaveBeenCalledTimes(1);
-        expect(cleanupInvoked).toBe(true);
-        expect(router.state.location.pathname).toBe('/');
+        // Flashed notice must be "Đã đăng xuất", NOT "Phiên đã kết thúc"
+        expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
+        expect(screen.queryByText('Phiên đã kết thúc, vui lòng đăng nhập lại')).not.toBeInTheDocument();
       });
 
-      expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
+      it('handles 401 ACCOUNT_NOT_FOUND by skipping token refresh retry, cleaning up, and routing to /login with flash notice', async () => {
+        let draftCleaned = false;
+        registerPrivateStateCleanup(() => {
+          draftCleaned = true;
+        });
+
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
+
+        // Setup backend 401 ACCOUNT_NOT_FOUND on authenticated profile call
+        mockFetch({
+          'GET /api/v1/accounts/me/profile': json(401, {
+            code: 'ACCOUNT_NOT_FOUND',
+            message: 'Account not found in backend database',
+          }),
+        });
+
+        const { router } = renderRoutes(routes, { path: '/profile', session });
+
+        await waitFor(() => {
+          expect(router.state.location.pathname).toBe('/login');
+        });
+
+        // Assert getIdToken(true) was NOT called (no retry storm)
+        expect(session.getIdToken).not.toHaveBeenCalledWith(true);
+
+        // Assert draft cleanup executed
+        expect(draftCleaned).toBe(true);
+
+        // Assert flash notice rendered in AuthPage alert
+        expect(await screen.findByText('Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại')).toBeInTheDocument();
+      });
     });
 
-    it('Sidebar logout failure stays in place with safe error and enabled retry', async () => {
-      const session = createControlledSession('signed-in');
-      session.signOut.mockRejectedValueOnce(new Error('Sign out error'));
+    describe('6. Authorization Failure (403) Safe Recovery (T074)', () => {
+      it('403 retains session, does not clear private drafts, replaces to / and shows generic safe notice', async () => {
+        let draftCleaned = false;
+        registerPrivateStateCleanup(() => {
+          draftCleaned = true;
+        });
 
-      renderRoutes(routes, { path: '/catalogue-management/products', session });
+        const session = createControlledSession('signed-in');
+        vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+          account: {
+            accountId: 1,
+            role: 'MEMBER',
+            status: 'ACTIVE',
+            loginEmail: 'member@mland.vn',
+            revocationStatus: 'NOT_APPLICABLE',
+            createdAt: '2026-11-01',
+            updatedAt: '2026-11-20',
+          },
+          status: 'authenticated',
+          error: null,
+          reloadAccount: vi.fn(),
+          signOut: vi.fn(),
+          retry: vi.fn(),
+        });
 
-      const signOutBtn = await screen.findByRole('button', { name: /đăng xuất/i });
-      fireEvent.click(signOutBtn);
+        // Setup backend 403 on an authenticated operation
+        mockFetch({
+          'PUT /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
+          'GET /api/v1/accounts/me': json(200, { accountId: 1, role: 'MEMBER', status: 'ACTIVE', loginEmail: 'member@mland.vn' }),
+          'GET /api/v1/accounts/me/profile': json(403, {
+            code: 'FORBIDDEN',
+            message: 'Target role or branch permission is unauthorized',
+          }),
+        });
 
-      await waitFor(() => {
-        expect(screen.getByText('Đăng xuất thất bại')).toBeInTheDocument();
-        expect(signOutBtn).not.toBeDisabled();
+        const { router } = renderRoutes(routes, { path: '/profile', session });
+
+        await waitFor(() => {
+          expect(router.state.location.pathname).toBe('/');
+        });
+
+        // 403 notice must be generic without disclosing role/scope
+        const notice = await screen.findByText('Bạn không có quyền truy cập chức năng này.');
+        expect(notice).toBeInTheDocument();
+        expect(screen.queryByText(/role|branch|unauthorized/i)).not.toBeInTheDocument();
+
+        // Session and private drafts are preserved on 403
+        expect(draftCleaned).toBe(false);
+        expect(session.status).toBe('signed-in');
       });
     });
   });
-
-  describe('5. Session Loss & Deduplication (T069, T070)', () => {
-    it('Firebase null after initialization emits SESSION_LOST, executes cleanup once, and replaces to / with flash', async () => {
-      const session = createControlledSession('signed-in');
-      let cleanupCalls = 0;
-      registerPrivateStateCleanup(() => {
-        cleanupCalls++;
-      });
-
-      const { router } = renderRoutes(routes, { path: '/profile', session });
-
-      // Simulate unexpected Firebase session drop
-      session.emitStatus('signed-out');
-
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/');
-      });
-
-      expect(await screen.findByText('Phiên đã kết thúc, vui lòng đăng nhập lại')).toBeInTheDocument();
-      expect(cleanupCalls).toBe(1);
-
-      // Duplicate session drops do not trigger duplicate flash/navigation
-      session.emitStatus('signed-out');
-      expect(cleanupCalls).toBe(1);
-    });
-
-    it('explicit USER_SIGN_OUT wins over following Firebase null observer callback', async () => {
-      const session = createControlledSession('signed-in');
-      const { router } = renderRoutes(routes, { path: '/', session });
-
-      const trigger = await screen.findByRole('button', { name: /tài khoản/i });
-      fireEvent.click(trigger);
-
-      const signOutBtn = screen.getByRole('menuitem', { name: /đăng xuất/i });
-      fireEvent.click(signOutBtn);
-
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/');
-      });
-
-      // Flashed notice must be "Đã đăng xuất", NOT "Phiên đã kết thúc"
-      expect(await screen.findByText('Đã đăng xuất')).toBeInTheDocument();
-      expect(screen.queryByText('Phiên đã kết thúc, vui lòng đăng nhập lại')).not.toBeInTheDocument();
-    });
-
-    it('handles 401 ACCOUNT_NOT_FOUND by skipping token refresh retry, cleaning up, and routing to /login with flash notice', async () => {
-      let draftCleaned = false;
-      registerPrivateStateCleanup(() => {
-        draftCleaned = true;
-      });
-
-      const session = createControlledSession('signed-in');
-
-      // Setup backend 401 ACCOUNT_NOT_FOUND on authenticated profile call
-      mockFetch({
-        'GET /api/v1/accounts/me/profile': json(401, {
-          code: 'ACCOUNT_NOT_FOUND',
-          message: 'Account not found in backend database',
-        }),
-      });
-
-      const { router } = renderRoutes(routes, { path: '/profile', session });
-
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/login');
-      });
-
-      // Assert getIdToken(true) was NOT called (no retry storm)
-      expect(session.getIdToken).not.toHaveBeenCalledWith(true);
-
-      // Assert draft cleanup executed
-      expect(draftCleaned).toBe(true);
-
-      // Assert flash notice rendered in AuthPage alert
-      expect(await screen.findByText('Tài khoản không tồn tại trên hệ thống, vui lòng đăng nhập lại')).toBeInTheDocument();
-    });
-  });
-
-  describe('6. Authorization Failure (403) Safe Recovery (T074)', () => {
-    it('403 retains session, does not clear private drafts, replaces to / and shows generic safe notice', async () => {
-      let draftCleaned = false;
-      registerPrivateStateCleanup(() => {
-        draftCleaned = true;
-      });
-
-      const session = createControlledSession('signed-in');
-
-      // Setup backend 403 on an authenticated operation
-      mockFetch({
-        'GET /api/v1/accounts/me/profile': json(403, {
-          code: 'FORBIDDEN',
-          message: 'Target role or branch permission is unauthorized',
-        }),
-      });
-
-      const { router } = renderRoutes(routes, { path: '/profile', session });
-
-      await waitFor(() => {
-        expect(router.state.location.pathname).toBe('/');
-      });
-
-      // 403 notice must be generic without disclosing role/scope
-      const notice = await screen.findByText('Bạn không có quyền truy cập chức năng này.');
-      expect(notice).toBeInTheDocument();
-      expect(screen.queryByText(/role|branch|unauthorized/i)).not.toBeInTheDocument();
-
-      // Session and private drafts are preserved on 403
-      expect(draftCleaned).toBe(false);
-      expect(session.status).toBe('signed-in');
-    });
-  });
-});

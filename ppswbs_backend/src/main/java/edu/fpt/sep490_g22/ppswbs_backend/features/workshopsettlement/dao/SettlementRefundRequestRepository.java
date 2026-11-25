@@ -38,7 +38,7 @@ public interface SettlementRefundRequestRepository extends JpaRepository<Settlem
 
     List<SettlementRefundRequest> findByStatusOrderByCreatedAtDesc(RefundRequestStatus status);
 
-    /** Manager home (013 R-2): the requests in any of these statuses, newest first. */
+    /** navigation shell and dashboard (014 R-2): the requests in any of these statuses, newest first. */
     List<SettlementRefundRequest> findByStatusInOrderByCreatedAtDesc(Collection<RefundRequestStatus> statuses);
 
     long countByStatusIn(Collection<RefundRequestStatus> statuses);

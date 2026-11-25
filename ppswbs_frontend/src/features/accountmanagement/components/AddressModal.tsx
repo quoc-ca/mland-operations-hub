@@ -11,7 +11,36 @@ import {
   removeDiacritics,
   useAdministrativeDivisions,
 } from '../hooks/useMemberAddresses';
+import { useT, translate } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
+
+/**
+ * Why a phone number is not accepted, worded for the field, or '' when it is valid. The rule is the same as
+ * validatePhoneNumber (Vietnamese mobile, 10 digits, +84/spaces/dots/dashes normalised).
+ */
+export function phoneNumberProblem(
+  raw: string,
+  t: (key: string, params?: Record<string, string | number>) => string = (key, params) => translate(accountMessages, 'vi', key, params),
+): string {
+  const value = raw.trim();
+  if (!value) return t('addr.phone.required');
+  if (/[^\d\s.\-()+]/.test(value)) return t('addr.phone.digitsOnly');
+  const normalized = normalizePhoneNumber(value);
+  if (!/^\d+$/.test(normalized)) return t('addr.phone.digitsOnly');
+  if (!normalized.startsWith('0')) return t('addr.phone.startZero');
+  if (normalized.length !== 10) return t('addr.phone.length', { count: normalized.length });
+  if (!validatePhoneNumber(normalized)) return t('addr.phone.prefix');
+  return '';
+}
+
+/** Show the phone problem while typing once it is certain: a wrong character, or 10 or more digits typed. */
+function phoneProblemIsCertain(raw: string): boolean {
+  const value = raw.trim();
+  if (!value) return false;
+  if (/[^\d\s.\-()+]/.test(value)) return true;
+  return normalizePhoneNumber(value).replace(/\D/g, '').length >= 10;
+}
 
 export interface AddressModalProps {
   isOpen: boolean;
@@ -30,6 +59,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   profileDefaults, // Kept in interface for backward compatibility, ignored per FR-036 for new address
   isFirstAddress = false,
 }) => {
+  const t = useT(accountMessages);
   const [recipientName, setRecipientName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provinceCode, setProvinceCode] = useState('');
@@ -42,6 +72,9 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   const [isDefault, setIsDefault] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Fields the Member has left at least once: their problem is shown under the field straight away.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (field: string) => setTouched(prev => (prev[field] ? prev : { ...prev, [field]: true }));
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,6 +117,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     if (!isOpen) return;
 
     setFieldErrors({});
+    setTouched({});
     setSubmitError(null);
     setCommuneFilter('');
 
@@ -171,7 +205,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       detailAddress,
     };
 
-    const errors = validateAddressInput(dataToValidate);
+    const errors = validateAddressInput(dataToValidate, t);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -198,13 +232,20 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       });
       onClose();
     } catch (err: any) {
-      setSubmitError(err?.message || 'Có lỗi xảy ra khi lưu địa chỉ. Vui lòng thử lại.');
+      setSubmitError(err?.message || t('addr.modal.saveError'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const isEditing = Boolean(initialAddress);
+  const nameError = fieldErrors.recipientName
+    || (touched.recipientName && !recipientName.trim() ? t('addr.modal.nameRequired') : '');
+  const phoneError = fieldErrors.phoneNumber
+    || (touched.phoneNumber || phoneProblemIsCertain(phoneNumber) ? phoneNumberProblem(phoneNumber, t) : '');
+  const detailError = fieldErrors.detailAddress
+    || (touched.detailAddress && isCommuneValid && !detailAddress.trim()
+      ? t('addr.modal.detailRequired') : '');
   const isDefaultFixed = isFirstAddress || (isEditing && Boolean(initialAddress?.isDefault));
 
   return (
@@ -224,13 +265,13 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       >
         <div className="account-modal-header">
           <h2 id="address-modal-title" className="account-modal-title">
-            {isEditing ? 'Cập nhật địa chỉ nhận hàng' : 'Thêm địa chỉ nhận hàng mới'}
+            {isEditing ? t('addr.modal.titleEdit') : t('addr.modal.titleNew')}
           </h2>
           <button
             type="button"
             className="account-modal-close-btn"
             onClick={onClose}
-            aria-label="Đóng"
+            aria-label={t('addr.close')}
             disabled={submitting}
           >
             ✕
@@ -248,7 +289,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
           <div className="account-form-grid">
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-recipient-name">
-                Họ và tên người nhận
+                {t('addr.modal.recipient')}
               </label>
               <input
                 ref={firstInputRef}
@@ -260,21 +301,22 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   setRecipientName(e.target.value);
                   if (fieldErrors.recipientName) setFieldErrors(prev => ({ ...prev, recipientName: '' }));
                 }}
+                onBlur={() => touch('recipientName')}
                 maxLength={255}
-                aria-invalid={Boolean(fieldErrors.recipientName)}
+                aria-invalid={Boolean(nameError)}
                 disabled={submitting}
-                placeholder="Ví dụ: Nguyễn Văn A"
+                placeholder={t('addr.modal.recipientPlaceholder')}
               />
-              {fieldErrors.recipientName && (
+              {nameError && (
                 <span className="account-field-error" role="alert">
-                  {fieldErrors.recipientName}
+                  {nameError}
                 </span>
               )}
             </div>
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-phone-number">
-                Số điện thoại
+                {t('addr.modal.phone')}
               </label>
               <input
                 id="modal-phone-number"
@@ -285,21 +327,24 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   setPhoneNumber(e.target.value);
                   if (fieldErrors.phoneNumber) setFieldErrors(prev => ({ ...prev, phoneNumber: '' }));
                 }}
+                onBlur={() => touch('phoneNumber')}
                 maxLength={30}
-                aria-invalid={Boolean(fieldErrors.phoneNumber)}
+                aria-invalid={Boolean(phoneError)}
+                aria-describedby="modal-phone-number-message"
                 disabled={submitting || !isNameValid}
-                placeholder={!isNameValid ? '— Nhập Họ và tên trước —' : 'Ví dụ: 0912345678'}
+                placeholder={!isNameValid ? t('addr.modal.phonePlaceholderLocked') : t('addr.modal.phonePlaceholder')}
               />
-              {fieldErrors.phoneNumber && (
-                <span className="account-field-error" role="alert">
-                  {fieldErrors.phoneNumber}
+              {phoneError ? (
+                <span id="modal-phone-number-message" className="account-field-error" role="alert">
+                  {phoneError}
+                </span>
+              ) : (
+                <span id="modal-phone-number-message" className="account-field-hint">
+                  {!isNameValid
+                    ? t('addr.modal.phoneHintLocked')
+                    : t('addr.modal.phoneHint')}
                 </span>
               )}
-              <span className="account-field-hint">
-                {!isNameValid
-                  ? 'Vui lòng nhập Họ tên để mở khóa trường này.'
-                  : 'Số di động 10 chữ số (tự chuẩn hóa +84/dấu cách).'}
-              </span>
             </div>
           </div>
 
@@ -307,7 +352,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
           <div className="account-form-grid">
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-province">
-                Tỉnh / Thành phố
+                {t('addr.modal.province')}
               </label>
               <select
                 id="modal-province"
@@ -319,10 +364,10 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               >
                 <option value="">
                   {loadingProvinces
-                    ? 'Đang tải danh sách…'
+                    ? t('addr.modal.provinceLoading')
                     : !isPhoneValid
-                    ? '— Nhập Số điện thoại hợp lệ trước —'
-                    : '— Chọn Tỉnh/Thành phố —'}
+                    ? t('addr.modal.provinceNeedPhone')
+                    : t('addr.modal.provincePick')}
                 </option>
                 {provinces.map(p => {
                   const val = p.code || p.id;
@@ -342,18 +387,18 @@ export const AddressModal: React.FC<AddressModalProps> = ({
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="modal-commune">
-                Phường / Xã / Khu vực đặc thù
+                {t('addr.modal.commune')}
               </label>
               {communes.length > 5 && isProvinceValid && (
                 <input
                   type="text"
                   className="account-input"
                   style={{ marginBottom: '0.375rem', fontSize: '0.85rem' }}
-                  placeholder="🔍 Lọc nhanh phường, xã..."
+                  placeholder={t('addr.modal.communeFilterPlaceholder')}
                   value={communeFilter}
                   onChange={e => setCommuneFilter(e.target.value)}
                   disabled={submitting || !isProvinceValid || loadingCommunes}
-                  aria-label="Lọc nhanh Phường / Xã"
+                  aria-label={t('addr.modal.communeFilterAria')}
                 />
               )}
               <select
@@ -366,10 +411,10 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               >
                 <option value="">
                   {loadingCommunes
-                    ? 'Đang tải danh sách phường/xã…'
+                    ? t('addr.modal.communeLoading')
                     : !isProvinceValid
-                    ? '— Chọn Tỉnh/Thành trước —'
-                    : '— Chọn Phường/Xã/Khu vực đặc thù —'}
+                    ? t('addr.modal.communeNeedProvince')
+                    : t('addr.modal.communePick')}
                 </option>
                 {filteredCommunes.map(c => {
                   const val = c.code || c.id;
@@ -391,7 +436,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
           {/* Row 3: Progressive Step 5: Detail Address */}
           <div className="account-field">
             <label className="account-label account-label-required" htmlFor="modal-detail-address">
-              Địa chỉ cụ thể (Số nhà, Tòa nhà, Tên đường)
+              {t('addr.modal.detail')}
             </label>
             <input
               id="modal-detail-address"
@@ -402,21 +447,22 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                 setDetailAddress(e.target.value);
                 if (fieldErrors.detailAddress) setFieldErrors(prev => ({ ...prev, detailAddress: '' }));
               }}
+              onBlur={() => touch('detailAddress')}
               maxLength={255}
-              aria-invalid={Boolean(fieldErrors.detailAddress)}
+              aria-invalid={Boolean(detailError)}
               disabled={submitting || !isCommuneValid}
-              placeholder={!isCommuneValid ? '— Vui lòng chọn Phường/Xã trước —' : 'Ví dụ: Số 25, Ngõ 12 Đội Cấn...'}
+              placeholder={!isCommuneValid ? t('addr.modal.detailPlaceholderLocked') : t('addr.modal.detailPlaceholder')}
             />
-            {fieldErrors.detailAddress && (
+            {detailError && (
               <span className="account-field-error" role="alert">
-                {fieldErrors.detailAddress}
+                {detailError}
               </span>
             )}
           </div>
 
           {/* Row 4: Address Type */}
           <div className="account-field">
-            <span className="account-label">Loại địa chỉ</span>
+            <span className="account-label">{t('addr.modal.type')}</span>
             <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.25rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
@@ -427,7 +473,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   onChange={() => setAddressType('HOME')}
                   disabled={submitting}
                 />
-                <span>Nhà riêng</span>
+                <span>{t('addr.type.HOME')}</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
@@ -438,7 +484,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   onChange={() => setAddressType('OFFICE')}
                   disabled={submitting}
                 />
-                <span>Văn phòng</span>
+                <span>{t('addr.type.OFFICE')}</span>
               </label>
             </div>
           </div>
@@ -455,9 +501,9 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                 disabled={submitting || isDefaultFixed}
               />
               <span style={{ fontSize: '0.925rem', color: isDefaultFixed ? '#6b7280' : '#111827' }}>
-                Đặt làm địa chỉ giao hàng mặc định
-                {isFirstAddress && ' (Địa chỉ đầu tiên tự động đặt làm mặc định)'}
-                {!isFirstAddress && isEditing && initialAddress?.isDefault && ' (Đây là địa chỉ mặc định hiện tại)'}
+                {t('addr.modal.makeDefault')}
+                {isFirstAddress && t('addr.modal.firstDefault')}
+                {!isFirstAddress && isEditing && initialAddress?.isDefault && t('addr.modal.currentDefault')}
               </span>
             </label>
           </div>
@@ -469,14 +515,14 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               onClick={onClose}
               disabled={submitting}
             >
-              Hủy
+              {t('addr.cancel')}
             </button>
             <button
               type="submit"
               className="account-btn account-btn-primary"
               disabled={submitting || !isFormValid}
             >
-              {submitting ? 'Đang lưu…' : isEditing ? 'Cập nhật' : 'Hoàn thành'}
+              {submitting ? t('addr.modal.saving') : isEditing ? t('addr.modal.update') : t('addr.modal.complete')}
             </button>
           </div>
         </form>

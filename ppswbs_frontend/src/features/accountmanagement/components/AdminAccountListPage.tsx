@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router';
 import { useAdminAccounts } from '../hooks/useAdminAccounts';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
 
 export const AdminAccountListPage: React.FC = () => {
+  const t = useT(accountMessages);
   const { pagedResult, loading, error, listAccounts } = useAdminAccounts();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,21 +59,21 @@ export const AdminAccountListPage: React.FC = () => {
       <div className="account-page-container">
         <div>
           <Link to="/" className="account-back-btn">
-            ← Quay lại
+            {t('list.back')}
           </Link>
         </div>
         <div className="account-alert account-alert-error" role="alert" style={{ marginTop: '1rem' }}>
-          <span>{error.message || 'Không thể tải danh sách tài khoản. Quyền hạn không hợp lệ (403 Forbidden).'}</span>
+          <span>{error.message || t('list.forbiddenFallback')}</span>
         </div>
         <div className="account-card" style={{ marginTop: '1.5rem', textAlign: 'center', padding: '3rem 1.5rem' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#111827', marginBottom: '0.75rem' }}>
-            Từ chối quyền truy cập (403 Forbidden)
+            {t('list.forbiddenTitle')}
           </h1>
           <p style={{ color: '#4b5563', maxWidth: '520px', margin: '0 auto 1.5rem' }}>
-            Bạn không có quyền truy cập vào danh sách tài khoản quản trị hệ thống.
+            {t('list.forbiddenBody')}
           </p>
           <Link to="/" className="account-btn account-btn-primary" style={{ display: 'inline-block' }}>
-            Về trang chủ
+            {t('list.home')}
           </Link>
         </div>
       </div>
@@ -82,31 +85,28 @@ export const AdminAccountListPage: React.FC = () => {
       {/* Back button matching Figma */}
       <div>
         <Link to="/" className="account-back-btn">
-          ← Quay lại
+          {t('list.back')}
         </Link>
       </div>
 
-      {/* Admin Navigation Tabs (Figma F08-F11) */}
-      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+      {/* Admin Navigation Tabs (Figma F08-F11; role catalogue removed per T113) */}
+      <nav className="admin-nav-tabs" aria-label={t('list.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab active">
-          Tài khoản
-        </Link>
-        <Link to="/admin/roles" className="admin-nav-tab">
-          Vai trò
+          {t('list.navAccounts')}
         </Link>
       </nav>
 
       <header className="account-page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 className="account-page-title">Quản lý tài khoản hệ thống</h1>
+            <h1 className="account-page-title">{t('list.title')}</h1>
             <p className="account-page-description">
-              Tìm kiếm, lọc danh sách tài khoản người dùng và quản trị phân quyền nội bộ.
+              {t('list.description')}
             </p>
           </div>
           <div>
             <Link to="/admin/accounts/new" className="account-btn account-btn-primary">
-              + Tạo tài khoản nội bộ
+              {t('list.create')}
             </Link>
           </div>
         </div>
@@ -114,23 +114,23 @@ export const AdminAccountListPage: React.FC = () => {
 
       {error && (
         <div className="account-alert account-alert-error" role="alert">
-          <span>{error.message || 'Lỗi khi tải danh sách tài khoản.'}</span>
+          <span>{error.message || t('list.loadError')}</span>
         </div>
       )}
 
       {/* Filter and Search Bar */}
       <section className="account-card" aria-labelledby="filter-heading" style={{ padding: '1rem' }}>
-        <h2 id="filter-heading" style={{ display: 'none' }}>Bộ lọc</h2>
+        <h2 id="filter-heading" style={{ display: 'none' }}>{t('list.filters')}</h2>
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div className="account-field" style={{ flex: '1 1 200px' }}>
             <label className="account-label" htmlFor="search-input">
-              Tìm kiếm
+              {t('list.search')}
             </label>
             <input
               id="search-input"
               type="text"
               className="account-input"
-              placeholder="Email hoặc tên người dùng…"
+              placeholder={t('list.searchPlaceholder')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -138,7 +138,7 @@ export const AdminAccountListPage: React.FC = () => {
 
           <div className="account-field" style={{ flex: '0 1 150px' }}>
             <label className="account-label" htmlFor="role-filter">
-              Vai trò
+              {t('list.role')}
             </label>
             <select
               id="role-filter"
@@ -146,7 +146,7 @@ export const AdminAccountListPage: React.FC = () => {
               value={selectedRole}
               onChange={e => setSelectedRole(e.target.value)}
             >
-              <option value="">Tất cả vai trò</option>
+              <option value="">{t('list.allRoles')}</option>
               <option value="MEMBER">MEMBER</option>
               <option value="STAFF">STAFF</option>
               <option value="MANAGER">MANAGER</option>
@@ -157,7 +157,7 @@ export const AdminAccountListPage: React.FC = () => {
 
           <div className="account-field" style={{ flex: '0 1 150px' }}>
             <label className="account-label" htmlFor="status-filter">
-              Trạng thái
+              {t('list.status')}
             </label>
             <select
               id="status-filter"
@@ -165,7 +165,7 @@ export const AdminAccountListPage: React.FC = () => {
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
             >
-              <option value="">Tất cả trạng thái</option>
+              <option value="">{t('list.allStatuses')}</option>
               <option value="ACTIVE">ACTIVE</option>
               <option value="PENDING_SETUP">PENDING_SETUP</option>
               <option value="SUSPENDED">SUSPENDED</option>
@@ -174,7 +174,7 @@ export const AdminAccountListPage: React.FC = () => {
 
           <div>
             <button type="submit" className="account-btn account-btn-primary account-btn-sm" disabled={loading}>
-              {loading ? 'Đang lọc…' : 'Tìm kiếm'}
+              {loading ? t('list.filtering') : t('list.search')}
             </button>
           </div>
         </form>
@@ -186,24 +186,24 @@ export const AdminAccountListPage: React.FC = () => {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Email đăng nhập</th>
-              <th>Vai trò</th>
-              <th>Trạng thái</th>
-              <th>Cập nhật gần nhất</th>
-              <th style={{ textAlign: 'right' }}>Thao tác</th>
+              <th>{t('list.colEmail')}</th>
+              <th>{t('list.role')}</th>
+              <th>{t('list.status')}</th>
+              <th>{t('list.colUpdated')}</th>
+              <th style={{ textAlign: 'right' }}>{t('list.colActions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (!pagedResult || pagedResult.data.length === 0) ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                  Đang tải danh sách tài khoản…
+                  {t('list.loading')}
                 </td>
               </tr>
             ) : !pagedResult || pagedResult.data.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#6b717f' }}>
-                  Không tìm thấy tài khoản nào khớp với điều kiện lọc.
+                  {t('list.empty')}
                 </td>
               </tr>
             ) : (
@@ -235,7 +235,7 @@ export const AdminAccountListPage: React.FC = () => {
                       to={`/admin/accounts/${account.accountId}`}
                       className="account-btn account-btn-secondary account-btn-sm"
                     >
-                      Chi tiết
+                      {t('list.detail')}
                     </Link>
                   </td>
                 </tr>
@@ -249,7 +249,7 @@ export const AdminAccountListPage: React.FC = () => {
       {pagedResult && pagedResult.meta.totalPages > 1 && (
         <div className="account-pagination">
           <span>
-            Trang <strong>{pagedResult.meta.page + 1}</strong> trên <strong>{pagedResult.meta.totalPages}</strong> ({pagedResult.meta.total} tài khoản)
+            {t('list.page')} <strong>{pagedResult.meta.page + 1}</strong> {t('list.pageOf')} <strong>{pagedResult.meta.totalPages}</strong> {t('list.totalAccounts', { total: pagedResult.meta.total })}
           </span>
           <div className="account-pagination-actions">
             <button
@@ -258,7 +258,7 @@ export const AdminAccountListPage: React.FC = () => {
               onClick={handlePrevPage}
               disabled={page === 0 || loading}
             >
-              Trước
+              {t('list.prev')}
             </button>
             <button
               type="button"
@@ -266,7 +266,7 @@ export const AdminAccountListPage: React.FC = () => {
               onClick={handleNextPage}
               disabled={page >= pagedResult.meta.totalPages - 1 || loading}
             >
-              Sau
+              {t('list.next')}
             </button>
           </div>
         </div>

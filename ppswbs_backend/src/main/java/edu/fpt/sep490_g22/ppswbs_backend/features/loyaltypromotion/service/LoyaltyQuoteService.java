@@ -15,6 +15,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.Promot
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionRevision;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.entity.PromotionTarget;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitPreview;
+import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LineDiscount;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReason;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitReasonCode;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.BenefitSelection;
@@ -82,7 +83,23 @@ public class LoyaltyQuoteService {
                 result.pointsUsed(), result.pointDiscount(), result.earnBase(), result.earnBase(),
                 chosen == null ? null : chosen.programId(), chosen == null ? null : chosen.revisionNo(),
                 chosen == null ? null : chosen.normalizedCode(), policy.getRevisionNo(), result.pointsAllowed(),
-                result.reasons(), evaluation.termsDigest(), result.reasonDetails(), result.eligibleLines());
+                result.reasons(), evaluation.termsDigest(), result.reasonDetails(), result.eligibleLines(),
+                result.auto() == null ? null : result.auto().programId(),
+                result.auto() == null ? null : result.auto().revisionNo(),
+                result.autoDiscount(), result.voucherDiscount(), lineDiscounts(result));
+    }
+
+    /** Session 2026-11-22 (FR-047): the two shares of every line/ticket in {@code eligibleLineIndexes}. */
+    static List<LineDiscount> lineDiscounts(RetailQuote.Result result) {
+        List<LineDiscount> shares = new java.util.ArrayList<>();
+        for (int index : result.eligibleLines()) {
+            BigInteger auto = index < result.lineAutoDiscounts().size()
+                    ? result.lineAutoDiscounts().get(index) : BigInteger.ZERO;
+            BigInteger voucher = index < result.lineVoucherDiscounts().size()
+                    ? result.lineVoucherDiscounts().get(index) : BigInteger.ZERO;
+            shares.add(new LineDiscount(index, auto, voucher));
+        }
+        return List.copyOf(shares);
     }
 
     /**
@@ -123,12 +140,14 @@ public class LoyaltyQuoteService {
             String key = LoyaltyValues.normalizeCode("voucherCode", selection.voucherCode()).key();
             voucher = programs.findByCodeKey(key).map(program -> candidate(program, context, TargetScope.PRODUCT)).orElse(null);
         }
-        List<RetailQuote.Candidate> autos = selection.choice() == SelectionChoice.AUTO
-                ? (lockedAutos != null ? lockedAutos : eligibility.findActiveAutoDiscounts(context.at())).stream().map(p -> candidate(p, context, TargetScope.PRODUCT)).toList()
-                : List.of();
+        // Session 2026-11-22 (FR-015): the automatic discount applies whatever the selection.
+        List<RetailQuote.Candidate> autos = (lockedAutos != null ? lockedAutos
+                : eligibility.findActiveAutoDiscounts(context.at())).stream()
+                .map(p -> candidate(p, context, TargetScope.PRODUCT)).toList();
         RetailQuote.Result result = RetailQuote.compute(context.lines(), selection, voucher, autos, policy.terms(),
                 available, strict);
-        return new Evaluation(result, policy, RetailQuote.digest(result, policy.getId(), context.shippingAmount()));
+        return new Evaluation(result, policy,
+                RetailQuote.digest(result, context.lines(), policy.getId(), context.shippingAmount()));
     }
 
     /** The programme as a candidate for this context, with the reason it cannot be used if any. */
@@ -147,8 +166,9 @@ public class LoyaltyQuoteService {
         }
         // Workshop automatic discounts (Session 2026-11-14, FR-044) are read in the (createdAt, id) tie-break order
         // the evaluator relies on, and are targeted by package only, so no other dimension is loaded for them.
-        List<WorkshopBenefitEvaluator.WorkshopCandidate> autos = selection.choice() != SelectionChoice.AUTO ? List.of()
-                : (lockedAutos != null ? lockedAutos : eligibility.findActiveWorkshopAutoDiscounts(context.at()))
+        // Session 2026-11-22 (FR-015): the automatic discount applies whatever the selection.
+        List<WorkshopBenefitEvaluator.WorkshopCandidate> autos =
+                (lockedAutos != null ? lockedAutos : eligibility.findActiveWorkshopAutoDiscounts(context.at()))
                         .stream().map(program -> {
                             RetailQuote.Candidate base = candidate(program, context, TargetScope.WORKSHOP);
                             List<PromotionTarget> rows =
@@ -213,7 +233,17 @@ public class LoyaltyQuoteService {
         if (!at.isBefore(revision.getEndAt())) {
             return BenefitReason.of(BenefitReasonCode.PROMOTION_ENDED);
         }
-        if (program.getKind() == ProgramKind.VOUCHER) {
+        if (program.getKind() == ProgramKind.VOUCHER && program.isClaimRequired()) {
+            // FR-046: only a Member who saved it may use it, and the saved use is the Member's own, so the total
+            // (which counts that saved use) is not checked here.
+            Optional<MemberProgram> counters = memberPrograms.findByProgramIdAndMemberId(program.getId(), memberId);
+            if (counters.isEmpty() || !counters.get().isSaved()) {
+                return BenefitReason.of(BenefitReasonCode.VOUCHER_NOT_SAVED);
+            }
+            if (counters.get().getHeldCount() + counters.get().getConsumedCount() >= program.getMemberLimit()) {
+                return BenefitReason.of(BenefitReasonCode.VOUCHER_MEMBER_LIMIT_REACHED);
+            }
+        } else if (program.getKind() == ProgramKind.VOUCHER) {
             if (program.availableTotal() < 1) {
                 return BenefitReason.of(BenefitReasonCode.VOUCHER_NO_USES_LEFT);
             }

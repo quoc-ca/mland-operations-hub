@@ -1,6 +1,6 @@
 @startuml
 !pragma charset UTF-8
-title AI Vision API Use Cases
+title AI Vision API Use Cases (Retired)
 left to right direction
 skinparam shadowing false
 skinparam usecase {
@@ -24,7 +24,7 @@ ReceiveImage .> Quality : <<include>>
 ReceiveImage .> Features : <<include>>
 
 note bottom of AI
-The API does not generate a design, decide feasibility or decide price.
+Retired (2026-11-25): AI image analysis is no longer used.\nKept only as history.
 end note
 @enduml
 

@@ -6,6 +6,14 @@ export interface LocationRef {
   name: string;
 }
 
+export interface WorkshopLocation {
+  id: number;
+  code: string;
+  name: string;
+  address?: string | null;
+  active: boolean;
+}
+
 export interface AccountResponse {
   id: string;
   email: string;
@@ -91,15 +99,138 @@ export interface InternalAccountSummaryResponse {
   invitationLastSentAt: string | null;
 }
 
-export interface RoleCatalogueEntry {
-  code?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
-  displayName?: string;
-  role?: 'MEMBER' | 'STAFF' | 'MANAGER' | 'CARRIER' | 'ADMIN';
-  description?: string;
+// R-INV Data Types per r-inv.openapi.yaml
+export interface EmailCollisionResponse {
+  normalizedEmail: string;
+  outcome: 'NONE' | 'MEMBER_REVIEW' | 'STAFF_MANAGER_MAINTENANCE' | 'FIREBASE_ONLY' | 'BLOCKED_ROLE';
+  accountId?: number;
 }
 
-export interface RoleCatalogueResponse {
-  roles: RoleCatalogueEntry[];
+export interface ObligationBlocker {
+  reference: string;
+  reasonCode: string;
+  message: string;
+}
+
+export interface RetailCartLine {
+  productReference: string;
+  variantReference: string;
+  displayName: string;
+  quantity: number;
+  updatedAt: string;
+}
+
+export interface RetailOrderSummary {
+  orderId: string;
+  displayCode: string;
+  acceptedAt: string;
+  paymentState: string;
+  fulfilmentState: string;
+  itemSummary: string;
+}
+
+export interface WorkshopBookingSummary {
+  bookingId: string;
+  displayCode: string;
+  workshopDate: string;
+  sessionTime: string;
+  locationName: string;
+  status: string;
+  seatCount: number;
+}
+
+export interface ReplacementReviewResponse {
+  accountId: number;
+  loginEmail: string;
+  fullName: string;
+  phone?: string | null;
+  status: string;
+  dataOrigin: 'LIVE' | 'DEMO';
+  obligationStatus: 'CLEAR' | 'BLOCKED' | 'UNAVAILABLE';
+  reviewVersion: number;
+  sourceVersion: string | null;
+  generatedAt: string;
+  addresses: Array<{
+    id: number;
+    receiverName: string;
+    phone: string;
+    detailAddress: string;
+    isDefault: boolean;
+  }>;
+  serverStoredRetailCart: RetailCartLine[];
+  retailPurchaseHistory: RetailOrderSummary[];
+  workshopBookingHistory: WorkshopBookingSummary[];
+  obligationBlockers?: ObligationBlocker[];
+}
+
+export interface RetirementCommand {
+  reviewVersion: number;
+  sourceVersion?: string | null;
+  normalizedEmail: string;
+  confirmedTargetAccountId: number;
+}
+
+export interface RetirementResultResponse {
+  retiredAccountId: number;
+  stage: string;
+  message: string;
+}
+
+export interface FirebaseOnlyDeleteCommand {
+  normalizedEmail: string;
+  confirmation: boolean;
+}
+
+export interface FirebaseOnlyDeleteResultResponse {
+  normalizedEmail: string;
+  deleted: boolean;
+  message: string;
+}
+
+export interface InvitationStatusResponse {
+  invitationId: number;
+  version: number;
+  createdAt: string;
+  expiresAt: string;
+  serverNow: string;
+  deliveryState: 'QUEUED' | 'PROCESSING' | 'SENT' | 'FAILED' | 'UNKNOWN_OUTCOME';
+  attempts: number;
+  manualContentAvailable: boolean;
+  requestId?: number;
+}
+
+export interface ManualInvitationResponse {
+  requestId: number;
+  invitationVersion: number;
+  subject: string;
+  html: string;
+  plainText: string;
+  expiresAt: string;
+  serverNow: string;
+}
+
+export interface InvitationExchangeCommand {
+  secret: string;
+}
+
+export interface InvitationExchangeResultResponse {
+  customToken: string;
+  setupSession: string;
+  accountId: number;
+  intendedEmail: string;
+  role: 'STAFF' | 'MANAGER';
+}
+
+export interface InvitationCompletionCommand {
+  setupSession: string;
+  setupChoice: 'PASSWORD' | 'GOOGLE';
+}
+
+export interface InvitationCompletionResultResponse {
+  accountId: number;
+  role: 'STAFF' | 'MANAGER';
+  roleHomeRoute: string;
+  status: 'ACTIVE';
 }
 
 export class AccountManagementApiClient {
@@ -367,10 +498,94 @@ export class AccountManagementApiClient {
     });
   }
 
-  // Role Catalogue
-  public async listRoles(correlationId?: string): Promise<RoleCatalogueResponse> {
-    return this.request<RoleCatalogueResponse>('/api/v1/roles', {
+  // Workshop locations (003.2, read-only for Admin) used to assign Staff/Manager
+  public async listWorkshopLocations(correlationId?: string): Promise<WorkshopLocation[]> {
+    return this.request<WorkshopLocation[]>('/api/v1/workshop-locations', {
       method: 'GET',
+      correlationId,
+    });
+  }
+
+  // R-INV Admin Email Collision & Repair endpoints
+  public async resolveEmailCollision(email: string, correlationId?: string): Promise<EmailCollisionResponse> {
+    return this.request<EmailCollisionResponse>('/api/v1/admin/accounts/email-collisions', {
+      method: 'GET',
+      query: { email },
+      correlationId,
+    });
+  }
+
+  public async reviewMemberReplacement(accountId: number | string, correlationId?: string): Promise<ReplacementReviewResponse> {
+    return this.request<ReplacementReviewResponse>(`/api/v1/admin/accounts/${accountId}/replacement-review`, {
+      method: 'GET',
+      correlationId,
+    });
+  }
+
+  public async exportMemberReplacement(accountId: number | string, correlationId?: string): Promise<ReplacementReviewResponse> {
+    return this.request<ReplacementReviewResponse>(`/api/v1/admin/accounts/${accountId}/replacement-export`, {
+      method: 'GET',
+      correlationId,
+    });
+  }
+
+  public async retireMemberForReplacement(
+    accountId: number | string,
+    payload: RetirementCommand,
+    idempotencyKey: string = newCommandId(),
+    correlationId?: string
+  ): Promise<RetirementResultResponse> {
+    return this.request<RetirementResultResponse>(`/api/v1/admin/accounts/${accountId}/retire-for-replacement`, {
+      method: 'POST',
+      body: payload,
+      idempotencyKey,
+      correlationId,
+    });
+  }
+
+  public async deleteFirebaseOnlyCollision(
+    payload: FirebaseOnlyDeleteCommand,
+    idempotencyKey: string = newCommandId(),
+    correlationId?: string
+  ): Promise<FirebaseOnlyDeleteResultResponse> {
+    return this.request<FirebaseOnlyDeleteResultResponse>('/api/v1/admin/firebase-identities/email-collisions/delete', {
+      method: 'POST',
+      body: payload,
+      idempotencyKey,
+      correlationId,
+    });
+  }
+
+  public async getCurrentInvitationStatus(accountId: number | string, correlationId?: string): Promise<InvitationStatusResponse> {
+    return this.request<InvitationStatusResponse>(`/api/v1/admin/accounts/${accountId}/setup-invitations/current`, {
+      method: 'GET',
+      correlationId,
+    });
+  }
+
+  public async getManualInvitation(requestId: number | string, correlationId?: string): Promise<ManualInvitationResponse> {
+    return this.request<ManualInvitationResponse>(`/api/v1/admin/notification-requests/${requestId}/manual-invitation`, {
+      method: 'GET',
+      correlationId,
+    });
+  }
+
+  // Public setup exchange (no bearer required)
+  public async exchangeInternalInvitation(payload: InvitationExchangeCommand): Promise<InvitationExchangeResultResponse> {
+    return this.request<InvitationExchangeResultResponse>('/api/v1/internal-account-invitations/exchanges', {
+      method: 'POST',
+      body: payload,
+    });
+  }
+
+  // Authenticated setup completion (requires bearer from setup session)
+  public async completeInternalInvitation(
+    payload: InvitationCompletionCommand,
+    correlationId?: string
+  ): Promise<InvitationCompletionResultResponse> {
+    return this.request<InvitationCompletionResultResponse>('/api/v1/internal-account-invitations/completions', {
+      method: 'POST',
+      body: payload,
       correlationId,
     });
   }

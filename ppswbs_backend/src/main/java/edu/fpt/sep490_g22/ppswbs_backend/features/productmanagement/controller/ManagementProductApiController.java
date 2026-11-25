@@ -88,9 +88,20 @@ class ManagementProductApiController {
                                                                      @RequestParam(required = false) String categoryId,
                                                                      @RequestParam(required = false) Boolean published,
                                                                      @RequestParam(required = false) Integer page,
-                                                                     @RequestParam(required = false) String locationId) {
+                                                                     @RequestParam(required = false) String locationId,
+                                                                     @RequestParam(required = false) String tab) {
         authorization.require(Capability.READ_INTERNAL);
-        return ok(query.list(q, categoryId, published, page, locationId));
+        // FR-065: the price tab is read like the list (Staff follow their proposals); deciding stays PRICE_APPROVE.
+        return ok(query.list(q, categoryId, published, page, locationId, ManagementProductQueryService.parseTab(tab)));
+    }
+
+    /** FR-064: counts of every list tab, the FR-065 price proposal count included. */
+    @GetMapping("/products/tab-counts")
+    ResponseEntity<ManagementProductDtos.TabCounts> tabCounts(@RequestParam(required = false) String q,
+                                                             @RequestParam(required = false) String categoryId,
+                                                             @RequestParam(required = false) String locationId) {
+        authorization.require(Capability.READ_INTERNAL);
+        return ok(query.tabCounts(q, categoryId, locationId));
     }
 
     /** US10 FR-049: start selling the product at another branch. */
@@ -101,8 +112,32 @@ class ManagementProductApiController {
         List<ProductBranchStockService.SizeQuantity> quantities = body.quantities() == null ? List.of()
                 : body.quantities().stream()
                         .map(entry -> new ProductBranchStockService.SizeQuantity(entry.size(), entry.quantity())).toList();
+        List<ProductBranchStockService.NewSize> newSizes = body.newSizes() == null ? List.of()
+                : body.newSizes().stream()
+                        .map(entry -> entry == null ? null : new ProductBranchStockService.NewSize(entry.size(), entry.proposedPrice()))
+                        .toList();
+        if (!newSizes.isEmpty()) {
+            authorization.require(Capability.PRICE_PROPOSE);
+        }
         return committed(branchStock.addBranch(actor, key, productId, version(body.expectedVersion()),
-                new ProductBranchStockService.BranchInput(required("locationId", body.locationId()), quantities)));
+                new ProductBranchStockService.BranchInput(required("locationId", body.locationId()), quantities), newSizes));
+    }
+
+    /** FR-069 (Session 2026-11-23): add sizes at a branch where the product is sold. */
+    @PostMapping("/products/{productId}/branches/{locationId}/sizes")
+    ResponseEntity<JsonNode> addBranchSizes(@PathVariable String productId, @PathVariable String locationId,
+                                            @RequestHeader(KEY) UUID key,
+                                            @RequestBody CatalogueRequests.BranchSizeAddRequest body) {
+        String actor = authorization.require(Capability.VARIANT_QUANTITY);
+        List<ProductBranchStockService.SizeAdd> lines = body.sizes() == null ? List.of()
+                : body.sizes().stream()
+                        .map(entry -> entry == null ? null
+                                : new ProductBranchStockService.SizeAdd(entry.size(), entry.quantity(), entry.proposedPrice()))
+                        .toList();
+        if (lines.stream().anyMatch(line -> line != null && line.proposedPrice() != null)) {
+            authorization.require(Capability.PRICE_PROPOSE);
+        }
+        return committed(branchStock.addSizes(actor, key, productId, locationId, version(body.expectedVersion()), lines));
     }
 
     /** US10 FR-049: stop or resume selling at one branch. */

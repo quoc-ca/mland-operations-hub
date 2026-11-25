@@ -5,6 +5,7 @@ import { useT } from '../../../shared/i18n/I18nProvider';
 import { useReviewManagementApi } from '../api/useReviewManagementApi';
 import { reviewManagementMessages } from '../messages';
 import ReviewForm from './ReviewForm';
+import SourceHeader from './SourceHeader';
 
 export default function CreateReviewPage() {
   const t = useT(reviewManagementMessages);
@@ -16,7 +17,7 @@ export default function CreateReviewPage() {
 
   if (!source) {
     return (
-      <div className="review-container">
+      <div className="review-container review-theme">
         <div className="notice error" role="alert">
           {t('selectSourceFirst')}
         </div>
@@ -24,11 +25,8 @@ export default function CreateReviewPage() {
           <Link className="button outline" to="/reviews">
             {t('back')}
           </Link>
-          <Link className="button outline" to="/reviews/guest/lookup">
-            {t('lookupTitle')}
-          </Link>
-          <Link className="button primary" to="/reviews/eligible-sources">
-            {t('eligibleTitle')}
+          <Link className="button primary" to="/reviews">
+            {t('tabPending')}
           </Link>
         </div>
       </div>
@@ -36,7 +34,7 @@ export default function CreateReviewPage() {
   }
 
   return (
-    <div className="review-container">
+    <div className="review-container review-theme">
       <header className="page-header">
         <h1>{t('createTitle')}</h1>
         <p className="muted">{t('createSubtitle')}</p>
@@ -49,8 +47,7 @@ export default function CreateReviewPage() {
       )}
 
       <div className="source-info-card">
-        <strong>{source.label || (source.targetType === 'WORKSHOP_SESSION' ? t('sourceWorkshop') : t('sourceRetail'))}</strong>
-        <span>{t('sourceReference')}: {source.sourceReference}</span>
+        <SourceHeader source={source} />
       </div>
 
       <div className="review-panel">

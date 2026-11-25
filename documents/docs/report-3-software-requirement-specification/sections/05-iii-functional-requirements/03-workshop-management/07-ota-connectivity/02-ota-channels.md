@@ -1,0 +1,25 @@
+#### 3.7.2 OTA Channels
+
+{{r3-ota-channels width=100% align=center}}
+
+This screen allows Managers to:
+
+- See every OTA channel mapping (for example Klook) with its state, commercial status, booking and sales-control badges.
+- Create or edit a mapping between a provider product and option and a Mland workshop offer and session.
+- Record externally confirmed price terms for a mapping.
+- Start a preparation sync or a full resync of a mapping, with a reason.
+- Close channel sales for a mapping, with a reason.
+- Enable bookings for a mapping whose sales are closed, after attesting the 12 provider readiness checks.
+
+Only a Manager can open the screen; signed-out users go to sign-in and other roles to the not-found page. Connection credentials are environment configuration and are not shown or edited here.
+
+| Field Name | Description |
+| --- | --- |
+| Mapping card header | Provider name with state badge (DRAFT, PREPARATION_SYNC, SALES_CLOSED, BOOKING_ENABLED, SYNC_SUSPENDED, DISABLED), commercial status (APPROVED or pending), "ĐANG MỞ ĐẶT CHỖ" and any sales-control status. |
+| Mapping details | Mapping ID and version, provider product and option references, workshop offer reference, session reference and readiness review status. |
+| + Tạo ánh xạ / Sửa ánh xạ | Opens the mapping dialog; Provider Product Reference, Provider Option Reference, Workshop Offer Reference and Session Reference are all required. |
+| Điều khoản giá | Opens "Record Confirmed Price Terms": retail amount and currency, target net amount (payout) and currency, a provider confirmation evidence reference (safe reference only, no secrets or personal data) and a reason. The dialog also has "Có hiệu lực từ" (prefilled with the current time) and an optional "Có hiệu lực đến". |
+| Đồng bộ chuẩn bị / Đồng bộ lại toàn bộ | Asks for a reason, then requests a preparation sync or full resync of the mapping. |
+| Đóng bán | Asks for a reason, then closes channel sales; disabled when sales are already closed. |
+| Mở bán | Shown only for a mapping in SALES_CLOSED. Requires a readiness record reference and an attestation reason. Each of the 12 readiness checks has a status select preset to VERIFIED; each check has a stable generated evidence reference independent of its selected outcome; the reference is not editable. |
+| Empty state | "Chưa cấu hình ánh xạ kênh OTA nào." with "Tạo ánh xạ đầu tiên". |

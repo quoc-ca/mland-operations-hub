@@ -10,7 +10,7 @@ function open(role, sessions) {
     'GET /api/v1/accounts/me/profile': json(200, { role }),
     'GET /api/v1/workshop-sessions': json(200, sessions),
   });
-  renderRoutes(operationsRoutes, { path: '/operations/sessions' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions' });
 }
 
 describe('Session list by role', () => {
@@ -19,14 +19,14 @@ describe('Session list by role', () => {
   it('tells a Staff with no assigned session to ask a Manager', async () => {
     open('STAFF', []);
 
-    expect(await screen.findByRole('heading', { name: 'Ca của tôi' })).toBeInTheDocument();
-    expect(await screen.findByText(/Bạn chưa được phân công ca nào/)).toBeInTheDocument();
+    expect(await screen.findByText('Only the sessions a Manager assigned to you are shown.')).toBeInTheDocument();
+    expect(await screen.findByText(/You have not been assigned any session/)).toBeInTheDocument();
   });
 
   it('keeps the Manager board and its own empty message', async () => {
     open('MANAGER', []);
 
-    expect(await screen.findByRole('heading', { name: 'Workshop session board' })).toBeInTheDocument();
+    expect(await screen.findByText(/Coordinate capacity, check-in and attendance/)).toBeInTheDocument();
     expect(await screen.findByText('No sessions match the selected filters.')).toBeInTheDocument();
   });
 });

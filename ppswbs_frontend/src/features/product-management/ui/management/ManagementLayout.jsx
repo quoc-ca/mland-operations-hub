@@ -4,7 +4,7 @@ import { useAuth } from '../../../../shared/auth/AuthProvider';
 import { SignInLink } from '../../../../shared/auth/SignInLink';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { Loading } from '../../../../shared/ui/components';
-import { OperationsSidebar } from '../../../../shared/ui/OperationsSidebar';
+import { HeaderActions } from '../../../../shared/ui/OperationsShell';
 import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
 
@@ -33,7 +33,7 @@ export default function ManagementLayout() {
 
   return (
     <main className="app-shell pm-shell pm-theme">
-      <OperationsSidebar />
+      
       <div className="pm-main">
         <nav className="pm-topbar" aria-label={t('nav.breadcrumb')}>
           <span>MLAND</span>
@@ -67,8 +67,13 @@ function SessionNotice({ text }) {
   );
 }
 
-/** Page heading used by every management screen. */
-export function PageTop({ eyebrow, title, children }) {
+/**
+ * Page heading of the management screens. The operations shell shows the title of a list or form page and its main
+ * action buttons in its own header, so only a page about one record (`entity`) keeps its title here; other
+ * children (buttons) move to the shell header.
+ */
+export function PageTop({ eyebrow, title, children, entity = false }) {
+  if (!entity) return children ? <HeaderActions>{children}</HeaderActions> : null;
   return (
     <div className="workspace-top">
       <div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1></div>

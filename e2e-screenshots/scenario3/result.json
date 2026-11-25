@@ -1,0 +1,65 @@
+{
+  "scenarioId": "E2E-XF-004-012-013-003",
+  "status": "PASS",
+  "isolationKey": "iso_sc3_1795543906862",
+  "designId": "DSG-0c880843-f4ff-4309-964e-d9d0a1ea9bd2",
+  "navCount": 9,
+  "timings": [
+    {
+      "stepName": "1. Member Sign In",
+      "durationSec": "4.58"
+    },
+    {
+      "stepName": "2-4. Create & Save Design",
+      "durationSec": "8.06"
+    },
+    {
+      "stepName": "5-7. Open Consultation with Attached Design",
+      "durationSec": "2.02"
+    },
+    {
+      "stepName": "8. Manager Assign Consultation to Branch",
+      "durationSec": "13.78"
+    },
+    {
+      "stepName": "9. Staff Open & Claim Consultation",
+      "durationSec": "13.46"
+    },
+    {
+      "stepName": "10.1 Exchange Round 1 (M1 + S1)",
+      "durationSec": "5.45"
+    },
+    {
+      "stepName": "10.2 Exchange Round 2 (M2 + S2)",
+      "durationSec": "5.68"
+    },
+    {
+      "stepName": "10.3 Exchange Round 3 (M3 + S3)",
+      "durationSec": "5.87"
+    },
+    {
+      "stepName": "10.4 Exchange Round 4 (M4 + S4)",
+      "durationSec": "5.99"
+    },
+    {
+      "stepName": "10.5 Exchange Round 5 (M5 + S5)",
+      "durationSec": "5.91"
+    },
+    {
+      "stepName": "19. Member Close Consultation",
+      "durationSec": "2.51"
+    },
+    {
+      "stepName": "20. Verify Post-Close Rejection",
+      "durationSec": "0.00"
+    },
+    {
+      "stepName": "21. Staff Verify Closed in History",
+      "durationSec": "4.84"
+    },
+    {
+      "stepName": "22. Manager Operational Smoke Check",
+      "durationSec": "5.44"
+    }
+  ]
+}

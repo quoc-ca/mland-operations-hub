@@ -53,9 +53,14 @@ export function validateRating(rating) {
   return null;
 }
 
+const SQL_INJECTION_REGEX = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|UNION|DECLARE|CAST)\b[\s\S]*?\b(FROM|INTO|SET|TABLE|DATABASE|WHERE|ALL|JOIN|ON)\b)|(--|;|\/\*|\*\/|@@|char\s*\(|nchar\s*\()/i;
+
 export function validateBodyText(text) {
   if (text && text.length > LIMITS.bodyTextMax) {
     return 'validationLength';
+  }
+  if (text && SQL_INJECTION_REGEX.test(text)) {
+    return 'validationSqlInjection';
   }
   return null;
 }

@@ -3,15 +3,25 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
+import { useT, useEnumLabel, useFormat } from '../../shared/i18n/I18nProvider';
+import { otaMessages } from '../messages';
+import { moneyText } from '../moneyText';
 import '../ota-connectivity.css';
 
 const EMPTY_FORM = { kind: 'PAYOUT', evidenceType: 'ELIGIBILITY', amount: '', reference: '', reason: '', occurredAt: '', payoutReference: '', allocationReference: '' };
+const KINDS = ['PAYOUT', 'VARIANCE', 'DISPUTE', 'ADJUSTMENT', 'REVERSAL'];
+const EVIDENCE_TYPES = ['ELIGIBILITY', 'INVOICE', 'REMITTANCE', 'BANK_RECEIPT', 'ADJUSTMENT', 'REVERSAL', 'VARIANCE', 'DISPUTE'];
 
 export default function OtaFinanceReconciliationPage() {
   const { status } = useAuth();
   const api = useOtaConnectivityApi();
+  const t = useT(otaMessages);
+  const fmt = useFormat();
+  const paymentLabel = useEnumLabel(otaMessages, 'payment');
+  const payoutLabel = useEnumLabel(otaMessages, 'payout');
+  const kindLabel = useEnumLabel(otaMessages, 'kind');
+  const evidenceLabel = useEnumLabel(otaMessages, 'evidence');
   const [bookingId, setBookingId] = useState('');
   const [evidence, setEvidence] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +42,7 @@ export default function OtaFinanceReconciliationPage() {
   async function submit(event) {
     event.preventDefault(); setError(null); setSuccess(null);
     if (!bookingId.trim() || !form.amount || !form.reference || !form.reason || !form.occurredAt) {
-      setError(new Error('Booking ID, amount, reference, reason, and occurred time are required.')); return;
+      setError(new Error(t('finance.required'))); return;
     }
     try {
       const result = await api.reconcilePayout(bookingId.trim(), {
@@ -42,7 +52,7 @@ export default function OtaFinanceReconciliationPage() {
         ...(form.payoutReference ? { payoutReference: form.payoutReference } : {}),
         ...(form.allocationReference ? { allocationReference: form.allocationReference } : {}),
       });
-      setEvidence(result); setSuccess('Financial evidence recorded.'); setForm(EMPTY_FORM);
+      setEvidence(result); setSuccess(t('finance.recorded')); setForm(EMPTY_FORM);
     } catch (err) { setError(err); }
   }
 
@@ -51,19 +61,18 @@ export default function OtaFinanceReconciliationPage() {
     return (
       <OperationsAuthWorkspace
         topline="MLAND / OTA CONNECTIVITY"
-        message="Authentication required to access finance reconciliation."
+        message={t('auth.finance')}
       />
     );
   }
 
   return <div className="ota-workspace">
-    <OperationsSidebar />
-    <main className="ota-main"><div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Backend-authorized</span></div>
-      <header className="ota-page-heading"><div><p className="ota-eyebrow">FINANCE OPERATIONS</p><h1>Payout reconciliation</h1><p>Verify channel payment and payout evidence without exposing provider credentials.</p></div></header>
-      <nav className="ota-nav-tabs" aria-label="OTA Navigation"><Link to="/ota-connectivity/channels">Channels</Link><Link to="/ota-connectivity/reconciliation">Queue</Link><Link className="active" to="/ota-connectivity/finance">Finance</Link><Link to="/ota-connectivity/add-ons">Add-ons</Link></nav>
+
+    <main className="ota-main"><div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● {t('finance.sub')}</span></div>
+      <header className="ota-page-heading"><div><p>{t('finance.intro')}</p></div></header>
       <SuccessNotice>{success}</SuccessNotice><ErrorNotice error={error} onRetry={read} onReload={read} />
-      <section className="ota-panel"><div className="ota-panel-head"><h2>Booking evidence</h2><span className="ota-live">MANAGER ONLY</span></div><form className="ota-inline-form" onSubmit={event => { event.preventDefault(); read(); }}><label>Channel booking ID<input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="UUID" /></label><button className="button primary" type="submit" disabled={loading || !bookingId.trim()}>Load evidence</button></form></section>
+      <section className="ota-panel"><div className="ota-panel-head"><h2>{t('finance.bookingEvidence')}</h2><span className="ota-live">{t('finance.managerOnly')}</span></div><form className="ota-inline-form" onSubmit={event => { event.preventDefault(); read(); }}><label>{t('finance.bookingId')}<input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="UUID" /></label><button className="button primary" type="submit" disabled={loading || !bookingId.trim()}>{t('finance.load')}</button></form></section>
       {loading && <Loading />}
-      {evidence && <section className="ota-evidence-grid"><article className="ota-metric"><span>Customer payment</span><strong>{evidence.customerPaymentState || '—'}</strong></article><article className="ota-metric"><span>Payout state</span><strong>{evidence.payoutState || '—'}</strong></article><article className="ota-panel ota-span-2"><div className="ota-panel-head"><h2>Evidence ledger</h2><span>{evidence.entries?.length || 0} entries</span></div><div className="ota-ledger">{(evidence.entries || []).map(entry => <div className="ota-ledger-row" key={entry.entryId}><span>{entry.evidenceType || entry.kind}</span><strong>{entry.amount?.amount || '—'} {entry.amount?.currency || 'VND'}</strong><code>{entry.reference}</code><time>{entry.recordedAt ? new Date(entry.recordedAt).toLocaleString() : '—'}</time></div>)}</div></article><article className="ota-panel"><div className="ota-panel-head"><h2>Record stage</h2></div><form className="ota-form" onSubmit={submit}><label>Kind<select value={form.kind} onChange={e => setForm({...form, kind:e.target.value})}>{['PAYOUT','VARIANCE','DISPUTE','ADJUSTMENT','REVERSAL'].map(v => <option key={v}>{v}</option>)}</select></label><label>Evidence type<select value={form.evidenceType} onChange={e => setForm({...form, evidenceType:e.target.value})}>{['ELIGIBILITY','INVOICE','REMITTANCE','BANK_RECEIPT','ADJUSTMENT','REVERSAL','VARIANCE','DISPUTE'].map(v => <option key={v}>{v}</option>)}</select></label><label>Amount (VND)<input inputMode="decimal" value={form.amount} onChange={e => setForm({...form, amount:e.target.value})} /></label><label>Reference<input value={form.reference} onChange={e => setForm({...form, reference:e.target.value})} /></label><label>Reason<textarea value={form.reason} onChange={e => setForm({...form, reason:e.target.value})} /></label><label>Occurred at<input type="datetime-local" value={form.occurredAt} onChange={e => setForm({...form, occurredAt:e.target.value})} /></label><button className="button primary" type="submit">Record evidence</button></form></article></section>}
+      {evidence && <section className="ota-evidence-grid"><article className="ota-metric"><span>{t('finance.customerPayment')}</span><strong>{paymentLabel(evidence.customerPaymentState)}</strong></article><article className="ota-metric"><span>{t('finance.payoutState')}</span><strong>{payoutLabel(evidence.payoutState)}</strong></article><article className="ota-panel ota-span-2"><div className="ota-panel-head"><h2>{t('finance.ledger')}</h2><span>{t('finance.entries', { count: evidence.entries?.length || 0 })}</span></div><div className="ota-ledger">{(evidence.entries || []).map(entry => <div className="ota-ledger-row" key={entry.entryId}><span>{entry.evidenceType ? evidenceLabel(entry.evidenceType) : kindLabel(entry.kind)}</span><strong>{entry.amount?.amount ? moneyText(fmt, entry.amount) : '—'}</strong><code>{entry.reference}</code><time>{fmt.dateTime(entry.recordedAt)}</time></div>)}</div></article><article className="ota-panel"><div className="ota-panel-head"><h2>{t('finance.recordStage')}</h2></div><form className="ota-form" onSubmit={submit}><label>{t('finance.kind')}<select value={form.kind} onChange={e => setForm({...form, kind:e.target.value})}>{KINDS.map(v => <option key={v} value={v}>{kindLabel(v)}</option>)}</select></label><label>{t('finance.evidenceType')}<select value={form.evidenceType} onChange={e => setForm({...form, evidenceType:e.target.value})}>{EVIDENCE_TYPES.map(v => <option key={v} value={v}>{evidenceLabel(v)}</option>)}</select></label><label>{t('finance.amount')}<input inputMode="decimal" value={form.amount} onChange={e => setForm({...form, amount:e.target.value})} /></label><label>{t('finance.reference')}<input value={form.reference} onChange={e => setForm({...form, reference:e.target.value})} /></label><label>{t('finance.reason')}<textarea value={form.reason} onChange={e => setForm({...form, reason:e.target.value})} /></label><label>{t('finance.occurredAt')}<input type="datetime-local" value={form.occurredAt} onChange={e => setForm({...form, occurredAt:e.target.value})} /></label><button className="button primary" type="submit">{t('finance.record')}</button></form></article></section>}
     </main></div>;
 }

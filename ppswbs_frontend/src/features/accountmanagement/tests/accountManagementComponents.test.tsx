@@ -6,7 +6,6 @@ import AuthPage from '../components/AuthPage';
 import InternalAccountCreatePage from '../components/InternalAccountCreatePage';
 import AdminAccountDetailPage from '../components/AdminAccountDetailPage';
 import AdminAccountListPage from '../components/AdminAccountListPage';
-import RoleCataloguePage from '../components/RoleCataloguePage';
 import { validateProfileInput } from '../hooks/useProfile';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { accountManagementApiClient } from '../api/AccountManagementApiClient';
@@ -15,6 +14,11 @@ import { ApiError } from '../../../shared/api/http';
 describe('FE-001 Account Management Components & Hooks', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(accountManagementApiClient, 'listWorkshopLocations').mockResolvedValue([
+      { id: 1, code: 'HN-HOANKIEM', name: 'Mland Hà Nội – Hoàn Kiếm', address: '83 Mã Mây', active: true },
+      { id: 2, code: 'HN-TAYHO', name: 'Mland Hà Nội – Tây Hồ', address: 'P105', active: true },
+      { id: 3, code: 'DN-HAICHAU', name: 'Mland Đà Nẵng – Hải Châu', address: '88 Bạch Đằng', active: false },
+    ]);
   });
 
   describe('AuthPage (T018)', () => {
@@ -112,6 +116,11 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
   describe('InternalAccountCreatePage (T031)', () => {
     it('enforces Staff exactly 1 location and Manager 1+ locations', async () => {
+      vi.spyOn(accountManagementApiClient, 'resolveEmailCollision').mockResolvedValue({
+        outcome: 'NO_COLLISION',
+        message: 'Email khả dụng để tạo mới tài khoản',
+      });
+
       const createSpy = vi.spyOn(accountManagementApiClient, 'createInternalAccount').mockResolvedValue({
         accountId: 99,
         role: 'STAFF',
@@ -130,6 +139,15 @@ describe('FE-001 Account Management Components & Hooks', () => {
         </MemoryRouter>
       );
 
+      // Locations come from the API; the first active one is preselected (inactive ones are not offered)
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Hoàn Kiếm/i })).toBeChecked();
+      });
+      expect(screen.queryByText(/Hải Châu/)).toBeNull();
+
+      const emailInput = screen.getByLabelText(/Email định danh & nhận thư mời/i);
+      fireEvent.change(emailInput, { target: { value: 'local-staff@example.com' } });
+
       const nameInput = screen.getByLabelText('Họ và tên');
       fireEvent.change(nameInput, { target: { value: 'Nhân viên Cơ sở 1' } });
 
@@ -140,6 +158,7 @@ describe('FE-001 Account Management Components & Hooks', () => {
         expect(createSpy).toHaveBeenCalledWith(
           expect.objectContaining({
             role: 'STAFF',
+            email: 'local-staff@example.com',
             fullName: 'Nhân viên Cơ sở 1',
             locationIds: [1],
           }),
@@ -296,7 +315,7 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
       // Wait for checkboxes to be populated
       await waitFor(() => {
-        expect(screen.getByRole('checkbox', { name: /Cơ sở Quận 1/i })).toBeChecked();
+        expect(screen.getByRole('checkbox', { name: /Hoàn Kiếm/i })).toBeChecked();
       });
 
       // Transition role to STAFF
@@ -362,9 +381,9 @@ describe('FE-001 Account Management Components & Hooks', () => {
 
       // Ensure form state has populated from selectedAccount and select location 1
       await waitFor(() => {
-        expect(screen.getByRole('radio', { name: /Cơ sở Quận 1/i })).toBeInTheDocument();
+        expect(screen.getByRole('radio', { name: /Hoàn Kiếm/i })).toBeInTheDocument();
       });
-      const radio = screen.getByRole('radio', { name: /Cơ sở Quận 1/i });
+      const radio = screen.getByRole('radio', { name: /Hoàn Kiếm/i });
       fireEvent.click(radio);
 
       const updateBtn = screen.getByRole('button', { name: 'Cập nhật vai trò & cơ sở' });
@@ -421,80 +440,6 @@ describe('FE-001 Account Management Components & Hooks', () => {
       });
 
       expect(listSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('RoleCataloguePage (T042)', () => {
-    it('renders read-only fixed role descriptions and has zero permission edit controls', async () => {
-      const mockRoles = {
-        roles: [
-          { role: 'MEMBER' as const, description: 'Khách hàng thành viên / Member' },
-          { role: 'STAFF' as const, description: 'Nhân viên cơ sở / Staff' },
-          { role: 'MANAGER' as const, description: 'Quản lý cơ sở / Manager' },
-          { role: 'ADMIN' as const, description: 'Quản trị viên / Admin' },
-        ],
-      };
-
-      vi.spyOn(accountManagementApiClient, 'listRoles').mockResolvedValue(mockRoles);
-
-      render(
-        <MemoryRouter>
-          <RoleCataloguePage />
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Danh mục vai trò hệ thống (Fixed Roles)')).toBeInTheDocument();
-        expect(screen.getByText('Khách hàng thành viên / Member')).toBeInTheDocument();
-        expect(screen.getByText('Quản trị viên / Admin')).toBeInTheDocument();
-      });
-
-      // Verify that NO edit buttons, form controls for permissions exist
-      expect(screen.queryByRole('button', { name: /chỉnh sửa|edit|thêm|add/i })).toBeNull();
-
-      // Verify governance rules (T080)
-      expect(
-        screen.getByText(/phạm vi vận hành cho các tác vụ quản lý của Manager là toàn hệ thống/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/ADMIN là vai trò quản trị hệ thống cao nhất/i)
-      ).toBeInTheDocument();
-    });
-
-    it('renders OpenAPI standard response with code and displayName properties (BUG-E2E-0005)', async () => {
-      const mockRoles = {
-        roles: [
-          { code: 'MEMBER' as const, displayName: 'Khách hàng thành viên / Member' },
-          { code: 'STAFF' as const, displayName: 'Nhân viên cơ sở / Staff' },
-          { code: 'MANAGER' as const, displayName: 'Quản lý cơ sở / Manager' },
-          { code: 'CARRIER' as const, displayName: 'Đối tác vận chuyển (GHTK)' },
-          { code: 'ADMIN' as const, displayName: 'Quản trị viên / Admin' },
-        ],
-      };
-
-      vi.spyOn(accountManagementApiClient, 'listRoles').mockResolvedValue(mockRoles);
-
-      render(
-        <MemoryRouter>
-          <RoleCataloguePage />
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('MEMBER')).toBeInTheDocument();
-        expect(screen.getByText('Khách hàng thành viên / Member')).toBeInTheDocument();
-        expect(screen.getByText('STAFF')).toBeInTheDocument();
-        expect(screen.getByText('Nhân viên cơ sở / Staff')).toBeInTheDocument();
-        expect(screen.getByText('MANAGER')).toBeInTheDocument();
-        expect(screen.getByText('Quản lý cơ sở / Manager')).toBeInTheDocument();
-        expect(screen.getByText('CARRIER')).toBeInTheDocument();
-        expect(screen.getByText('Đối tác vận chuyển (GHTK)')).toBeInTheDocument();
-        expect(screen.getByText('ADMIN')).toBeInTheDocument();
-        expect(screen.getByText('Quản trị viên / Admin')).toBeInTheDocument();
-      });
-
-      expect(screen.getByText(/5 vai trò cố định/i)).toBeInTheDocument();
-      expect(screen.getByText(/CARRIER là vai trò đối tác vận chuyển \(GHTK\) do Quản trị viên khởi tạo/i)).toBeInTheDocument();
     });
   });
 

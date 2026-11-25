@@ -1,16 +1,16 @@
 # Feature-012 Data Model — Workshop Ring Design Configuration
 
 Date created: 2026-11-08
-Date updated: 2026-11-19
+Date updated: 2026-11-22
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
-**Status:** IMPLEMENTED BASELINE; quota, preprocessing and preview changes pending implementation and verification.
+**Status:** IMPLEMENTED BASELINE; 2026-11-22 lifecycle and recommendation change documented; implementation pending.
 
 ## 1. Ownership boundary
 
 Feature-012 owns configured-design lifecycle, option selections, evaluation
-snapshots, Guest design-session binding and archive/audit evidence. Workshop
+snapshots and archive/audit evidence. Workshop
 Booking owns booking, session, capacity, payment and ticket records. Catalogue
 and Manager administration own the source option/rule facts consumed by this
 feature.
@@ -28,13 +28,13 @@ Logical name: `configured_design`
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `design_reference` | Yes | Opaque external reference; never a raw database ID in a public DTO. |
-| `owner_type` | Yes | `GUEST_SESSION` or `MEMBER`. |
-| `owner_reference` | Yes | Member account reference or feature-owned Guest-session binding. |
+| `owner_type` | Yes | `MEMBER`. |
+| `owner_reference` | Yes | Member account reference. |
 | `package_reference` | Yes | Opaque selected workshop package reference. |
 | `source_model_reference` | No | Published catalogue model used as the starting point. |
 | `design_type` | Yes | `configured_design`; source catalogue models remain `catalogue_model`. |
 | `current_version` | Yes | Latest successful Save/Evaluate version. |
-| `lifecycle_status` | Yes | `DRAFT`, `VALIDATED`, `ATTACHED_TO_BOOKING`, `LOCKED`, `ARCHIVED`. |
+| `lifecycle_status` | Yes | New writes use `DRAFT`, `SAVED`, `ARCHIVED`. `VALIDATED`, `ATTACHED_TO_BOOKING`, and `LOCKED` remain legacy-readable values only. |
 | `created_at` / `updated_at` | Yes | Audit timestamps. |
 
 The existing `ring_designs` proposal may represent this aggregate or each
@@ -113,26 +113,7 @@ Logical fields:
 - Text/placement backward compatibility: `text` and `placement` fields are maintained for legacy consumers.
 - Surface Texture Warning Invariant (Invariant 22): When any engraving item or custom image is placed on `OUTER_BAND` of a textured/hammered shape (`SHP-HAMMERED`, `SHP-BALL-PEEN`, `SHP-SINGLE-TWIST`, `SHP-TWISTED`, `SHP-WAVE`), the evaluation snapshot must record an advisory technical warning.
 
-### 2.6 Guest design session
-
-Logical name: `guest_design_session`
-
-| Field | Meaning |
-| --- | --- |
-| `session_reference` | Opaque client-visible reference. |
-| `session_digest` | Protected server-side lookup value; raw session value is not logged. |
-| `design_reference` | Design set bound to the session. |
-| `issued_at` | Session creation time. |
-| `last_activity_at` | Used for 20-minute inactivity expiry. |
-| `expires_at` | Server-calculated expiry boundary. |
-| `status` | `ACTIVE`, `EXPIRED`, `REVOKED`. |
-| `correlation_id` | Safe operational trace reference. |
-
-The storage mechanism must use an approved shared session boundary or an
-explicitly approved feature-owned store. The data model does not authorize a
-new global authentication/session system.
-
-### 2.7 Evaluation snapshot
+### 2.6 Evaluation snapshot
 
 Logical name: `design_evaluation_snapshot`
 
@@ -148,7 +129,7 @@ Logical name: `design_evaluation_snapshot`
 The snapshot is advisory and is not a payment, invoice or final custom-order
 amount.
 
-### 2.8 Booking attachment snapshot
+### 2.7 Booking attachment snapshot — historical only
 
 Logical name: `booking_design_attachment`
 
@@ -158,10 +139,12 @@ Logical name: `booking_design_attachment`
 - Attach actor/scope and timestamp.
 - Lock state and correlation ID.
 
-Feature-012 returns the snapshot; Feature-003 owns the booking-side persistence
-and transaction boundary.
+This logical structure is retained for migration/audit interpretation only.
+The current Feature-012 flow creates no booking attachment, booking snapshot,
+booking lock or booking-side persistence. Current consumers use the saved-design
+recommendation or an owner-safe Feature-013 consultation/reference projection.
 
-### 2.9 Archive/audit evidence
+### 2.8 Archive/audit evidence
 
 Append-only evidence includes actor scope, action, design/version reference,
 previous/new lifecycle state, outcome, reason where required, timestamp and
@@ -178,12 +161,15 @@ data or unnecessary personal data.
 6. Client-supplied estimate, difficulty or rules version is never authoritative.
 7. Every successful Save/Evaluate creates one immutable version.
 8. Only the latest editable version can receive a new Save/Evaluate command.
-9. A version attached to a booking cannot be edited or archived.
-10. A failed booking submission cannot delete or invalidate the design.
+9. Legacy booking-attached versions are read-only compatibility data; current
+   flow does not create new booking attachments.
+10. A failed recommendation or consultation handoff cannot delete or invalidate
+    the design. Former booking-submission behavior is historical only.
 11. Archive is soft-delete; design history and audit are not hard-deleted.
-12. Guest sessions expire after 20 minutes of inactivity and cannot be reused after expiry.
+12. Guest local preview state is never persisted or treated as a design lifecycle state.
 13. Member reads and writes are restricted to the authenticated Member's own designs.
-14. Booking validates and attaches only a current `VALIDATED` version.
+14. Feature-004 may snapshot any owner-visible state after server ownership
+    validation; Feature-003 does not attach a design through Feature-012.
 15. Feature-003 never queries Feature-012 repositories directly.
 16. Configured designs have no direct FK to Feature-004 image requests.
 17. Ring size must be a recognized standard size in `["6", ..., "29"]` with millimeter perimeter $P = \text{size} + 40\text{mm}$.
@@ -207,19 +193,32 @@ Proposed logical constraints:
 - Unique idempotency key within actor/session scope and command type.
 - No duplicate component selection where the approved variant/placement rule
   says the selection is unique.
-- Optimistic version check on Save/Evaluate, archive and attach commands.
-- Booking attachment is idempotent by booking/design/version command scope.
+- Optimistic version check applies to Save/Evaluate and archive commands.
+- Recommendation reads are non-mutating and require no booking command scope.
 
 The exact physical indexes, FK actions, version column and idempotency table must
 be reconciled with repository Flyway history before migration.
 
+### 2.10 Custom-order reference snapshot
+
+Feature-004 receives a server-built immutable snapshot through the public facade.
+The snapshot records the selected design version, package context, material,
+shape, size, components, attachments, engraving, dimensions and evaluation
+metadata where available. It does not expose the Guest session value or private
+Member data.
+
+Only `DRAFT` and `VALIDATED` versions may create this snapshot. A version already
+attached to or locked by a workshop booking cannot be reused directly; cloning
+creates a new lineage version first. Changes to the source design never mutate an
+existing custom-order snapshot.
+
 ## 5. Retention and deletion
 
-- Guest session and unsubmitted draft data follows the 20-minute inactivity
-  expiry plus approved cleanup process.
+- Guest local preview data is discarded when the preview is abandoned.
 - Member design history is retained for three years.
 - Archived design content is not hard-deleted by normal feature operations.
-- Booking snapshots remain under the Booking/business-record retention policy.
+- Former booking snapshots remain under the Booking/business-record retention
+  policy; the current Feature-012 flow creates no new booking snapshot.
 - No raw image or AI provider payload is owned by this feature.
 
 ## 6. Resolved logical model and remaining gates
@@ -229,15 +228,14 @@ The V1 logical model uses one immutable `ring_designs` row per design version.
 version table is not required. `design_version` is a logical sequence whose
 physical representation still requires schema approval.
 
-`guest_design_sessions` is owned by Feature-012 and stores only an opaque
-reference/digest, bound design reference, `last_activity_at`, `expires_at` and
-`ACTIVE/EXPIRED/REVOKED` state. It must not store raw identity in the client;
-cleanup and replay protection are implementation gates.
+No Guest session table is owned by Feature-012. Guest preview state is local and
+non-authoritative; only authenticated Member design data is persisted.
 
-The booking boundary is `attachAndLockDesignForBooking(...)`. Feature-012
-returns an immutable snapshot; Feature-003 owns booking-side persistence. The
-operation is synchronous in the booking transaction and does not create payment,
-capacity or ticket side effects.
+The former booking boundary `attachAndLockDesignForBooking(...)` is retired by
+the 2026-11-22 change request. Feature-012 no longer attaches or locks a design
+to a workshop ticket. Feature-004 may request an immutable owner-verified
+snapshot from any readable design state; the custom-order module owns the
+snapshot boundary and all later quote/order behavior.
 
 Evaluation reads catalogue data through the Manager-owned rule facade. It stores
 safe input/output, currency, timestamp and `rules_version`; Feature-012 does not

@@ -7,6 +7,13 @@
 - **Date updated**: 2026-11-18
 - **Source of truth**: Feature-011 `spec.md`, `data-model.md`, backend implementation, `V91__review_management.sql`, `V100__review_history_retention.sql`, `V181__review_images.sql`, OpenAPI contract (`review-management.openapi.yaml`) and synchronized project specifications
 
+## Current actor rebaseline — 2026-11-25
+
+Feature-011 is Member-write only. Guest email/phone lookup, opaque eligibility
+handles and Guest review creation are retired. Guest may browse public Mland
+reviews and sees a sign-in prompt for write actions. Older Guest-handle sections
+below are historical implementation evidence and are not current requirements.
+
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-011 artifacts and source code. Phase labels are retained for
 > tracing and audit.
@@ -788,4 +795,42 @@ Toàn bộ 5 kịch bản E2E của Feature 011 đã được thực thi và ngh
    - Bằng chứng ảnh: [`screenshots/E2E-011-005--success.jpg`](test-results/screenshots/E2E-011-005--success.jpg), [`screenshots/E2E-011-005--public-reply.jpg`](test-results/screenshots/E2E-011-005--public-reply.jpg).
 
 **Tổng kết Feature 011**: Đạt **5/5 kịch bản E2E PASS (100%)**, toàn bộ blocker thẩm quyền/dữ liệu và defect `BUG-E2E-0006` đã được đóng hoàn toàn.
+
+## Version 1.1 — Public-read / Member-write rebaseline (2026-11-24)
+
+### Decision
+
+- Guest may read public reviews, aggregates and safe public detail only.
+- Guest may see the review CTA, but clicking it must request Member sign-in.
+- Only an authenticated active Member may look up eligible sources, create a
+  review or edit an own review.
+- Guest email/phone lookup and opaque eligibility handles are retired from the
+  current contract. Existing historical Guest reviews remain readable only as
+  safe public content.
+- Staff/Manager moderation and Admin technical boundaries remain unchanged.
+
+### Code findings to resolve
+
+1. `ReviewController` currently allows a null actor plus Guest eligibility handle
+   to reach create/edit. Make missing identity return `401` before service logic.
+2. Remove or deprecate Guest lookup/handle creation and prevent raw source IDs
+   from being accepted as a compatibility shortcut.
+3. Protect eligible-source, create and edit frontend routes with `RequireSession`;
+   retain public list/detail routes and a sign-in CTA.
+4. Remove Guest-specific request fields from current DTOs/OpenAPI, or isolate
+   them behind a clearly retired compatibility adapter that cannot disclose data.
+5. Re-test public projection filtering so source IDs, owner references, contact
+   data and transaction fields never appear for Guest.
+
+### Implementation and test sequence
+
+1. Add controller/service tests for Guest 401, inactive/non-Member 403, active
+   Member success and owner-only edit.
+2. Keep public list/detail/aggregate tests and add a no-private-call check for a
+   Guest clicking `Write a review`.
+3. Retain and rerun eligibility, duplicate, concurrent create, optimistic edit,
+   Staff hide, Manager remove/reply and Admin-denied tests.
+4. Run Member, Guest, Staff, Manager and Admin Browser MCP regression scenarios.
+
+**Current status:** `SPEC UPDATED — CODE REWORK PLANNED — NO CODE CHANGED IN THIS PASS`
 

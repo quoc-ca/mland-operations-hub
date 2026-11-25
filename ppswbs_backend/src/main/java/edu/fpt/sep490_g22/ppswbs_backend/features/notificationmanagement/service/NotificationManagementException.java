@@ -38,5 +38,13 @@ public class NotificationManagementException extends RuntimeException {
     public static NotificationManagementException unprocessable(String code, String message) {
         return new NotificationManagementException(code, message, HttpStatus.UNPROCESSABLE_ENTITY);
     }
+
+    public static NotificationManagementException gone(String code, String message) {
+        return new NotificationManagementException(code, message, HttpStatus.GONE);
+    }
+
+    public static NotificationManagementException serviceUnavailable(String code, String message) {
+        return new NotificationManagementException(code, message, HttpStatus.SERVICE_UNAVAILABLE);
+    }
 }
 

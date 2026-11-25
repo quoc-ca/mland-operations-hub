@@ -19,7 +19,7 @@ output "ec2_instance_id" {
 }
 
 output "elastic_ip" {
-  description = "Địa chỉ Elastic IP tĩnh công khai (dùng cấu hình DNS trỏ vào Caddy)"
+  description = "Elastic IP của EC2; backend origin đi qua Cloudflare Tunnel"
   value       = module.computes.elastic_ip
 }
 

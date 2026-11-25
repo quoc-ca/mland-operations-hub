@@ -44,7 +44,6 @@ class WorkshopRingDesignApplicationServiceTest {
     private RingDesignIdempotencyService idempotencyService;
     @Mock
     private DesignOptionRulesPort rulesPort;
-    @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
@@ -52,39 +51,20 @@ class WorkshopRingDesignApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "objectMapper", objectMapper);
     }
 
     @Test
-    @DisplayName("createDraft for Guest should issue session if missing, create initial DRAFT, and record idempotency")
-    void createDraft_Guest_Success() {
+    @DisplayName("createDraft for Guest should throw unauthorized since guests are restricted")
+    void createDraft_Guest_ThrowsUnauthorized() {
         CreateDesignRequest request = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE-01")
                 .startMode("BLANK")
                 .build();
 
-        GuestDesignSession guestSession = GuestDesignSession.builder()
-                .sessionReference("GDS-new-session")
-                .sessionDigest("digest-new-session")
-                .status(GuestSessionStatus.ACTIVE)
-                .issuedAt(Instant.now())
-                .lastActivityAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(1200))
-                .build();
-
-        when(idempotencyService.checkReplay(any(), any(), any(), any())).thenReturn(Optional.empty());
-        when(guestSessionService.issueGuestSession(any())).thenReturn(guestSession);
-        when(rulesPort.evaluate(any())).thenReturn(EvaluationResultDto.builder()
-                .estimatedPrice("250000.00").currency("VND").difficultyScore("1.0000").rulesVersion("v1").advisory(true).build());
-        when(rulesPort.validateCompatibility(any(), any())).thenReturn(ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build());
-        when(designRepository.save(any(RingDesign.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DesignResponseDto response = applicationService.createDraft(request, null, null, "IDEMP-CREATE-1");
-
-        assertThat(response.getDesignId()).startsWith("DSG-");
-        assertThat(response.getStatus()).isEqualTo("DRAFT");
-        assertThat(response.getDesignVersion()).isEqualTo(1);
-        assertThat(response.getPackageReference()).isEqualTo("PKG-COUPLE-01");
-        verify(idempotencyService, times(1)).record(eq("IDEMP-CREATE-1"), eq("CREATE_DESIGN"), any(), eq(request), eq(201), any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> applicationService.createDraft(request, null, null, "IDEMP-CREATE-1"))
+                .isInstanceOf(RingDesignException.class)
+                .hasMessageContaining("đăng nhập");
     }
 
     @Test
@@ -112,7 +92,7 @@ class WorkshopRingDesignApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("saveVersion should create new immutable row with incremented version and VALIDATED status")
+    @DisplayName("saveVersion should create new immutable row with incremented version and SAVED status")
     void saveVersion_Success() {
         String designId = "DSG-existing-01";
         RingDesign latestVersion = RingDesign.builder()
@@ -125,7 +105,7 @@ class WorkshopRingDesignApplicationServiceTest {
                 .materialReference("MAT-SILVER-925")
                 .shapeReference("SHP-ROUND")
                 .ringSize("8")
-                .status(RingDesignStatus.DRAFT)
+                .status(RingDesignStatus.SAVED)
                 .build();
 
         SaveDesignVersionRequest saveReq = SaveDesignVersionRequest.builder()
@@ -149,13 +129,60 @@ class WorkshopRingDesignApplicationServiceTest {
 
         assertThat(response.getDesignId()).isEqualTo(designId);
         assertThat(response.getDesignVersion()).isEqualTo(2);
-        assertThat(response.getStatus()).isEqualTo("VALIDATED");
+        assertThat(response.getStatus()).isEqualTo("SAVED");
         assertThat(response.getEvaluation().getEstimatedPrice()).isEqualTo("1800000.00");
 
         verify(designRepository, times(1)).save(argThat(d ->
                 d.getDesignVersion() == 2 &&
                 d.getSourceDesign() == latestVersion &&
-                d.getStatus() == RingDesignStatus.VALIDATED
+                d.getStatus() == RingDesignStatus.SAVED
+        ));
+    }
+
+    @Test
+    @DisplayName("saveVersion should update initial DRAFT in place keeping version 1 and status SAVED")
+    void saveVersion_InitialDraft_KeepsVersion1AndSetsSaved() {
+        String designId = "DSG-draft-01";
+        RingDesign initialDraft = RingDesign.builder()
+                .id(1L)
+                .designReference(designId)
+                .designVersion(1)
+                .ownerType(RingDesignOwnerType.MEMBER)
+                .ownerReference("101")
+                .packageReference("PKG-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .status(RingDesignStatus.DRAFT)
+                .build();
+
+        SaveDesignVersionRequest saveReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-01")
+                .materialReference("MAT-GOLD-14K")
+                .shapeReference("SHP-ROUND")
+                .ringSize("9")
+                .components(Collections.emptyList())
+                .attachments(Collections.emptyList())
+                .engraving(EngravingInputDto.builder().enabled(false).build())
+                .build();
+
+        when(idempotencyService.checkReplay(any(), any(), any(), any())).thenReturn(Optional.empty());
+        when(designRepository.findLatestByDesignReference(designId)).thenReturn(Optional.of(initialDraft));
+        when(rulesPort.validateCompatibility(saveReq, null)).thenReturn(ValidationResultDto.builder().valid(true).reasons(Collections.emptyList()).build());
+        when(rulesPort.evaluate(saveReq)).thenReturn(EvaluationResultDto.builder()
+                .estimatedPrice("1800000.00").currency("VND").difficultyScore("2.5000").rulesVersion("v1").advisory(true).build());
+        when(designRepository.save(any(RingDesign.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DesignResponseDto response = applicationService.saveVersion(designId, saveReq, 101L, null, 1L, "IDEMP-SAVE-DRAFT-1");
+
+        assertThat(response.getDesignId()).isEqualTo(designId);
+        assertThat(response.getDesignVersion()).isEqualTo(1);
+        assertThat(response.getStatus()).isEqualTo("SAVED");
+
+        verify(designRepository, times(1)).save(argThat(d ->
+                d.getDesignVersion() == 1 &&
+                d.getStatus() == RingDesignStatus.SAVED &&
+                "MAT-GOLD-14K".equals(d.getMaterialReference())
         ));
     }
 
@@ -242,6 +269,38 @@ class WorkshopRingDesignApplicationServiceTest {
 
         assertThat(response.getStatus()).isEqualTo("ARCHIVED");
         assertThat(design.getStatus()).isEqualTo(RingDesignStatus.ARCHIVED);
+    }
+
+    @Test
+    @DisplayName("listMyDesigns should filter out ARCHIVED designs for soft delete behavior")
+    void listMyDesigns_ShouldExcludeArchivedDesigns() {
+        RingDesign activeDesign = RingDesign.builder()
+                .designReference("DSG-ACTIVE-01")
+                .designVersion(1)
+                .ownerType(RingDesignOwnerType.MEMBER)
+                .ownerReference("101")
+                .packageReference("PKG-01")
+                .status(RingDesignStatus.VALIDATED)
+                .createdAt(Instant.now())
+                .build();
+
+        RingDesign archivedDesign = RingDesign.builder()
+                .designReference("DSG-ARCHIVED-02")
+                .designVersion(1)
+                .ownerType(RingDesignOwnerType.MEMBER)
+                .ownerReference("101")
+                .packageReference("PKG-01")
+                .status(RingDesignStatus.ARCHIVED)
+                .createdAt(Instant.now().minusSeconds(60))
+                .build();
+
+        when(designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, "101"))
+                .thenReturn(List.of(activeDesign, archivedDesign));
+
+        List<DesignResponseDto> results = applicationService.listMyDesigns(101L, null);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getDesignId()).isEqualTo("DSG-ACTIVE-01");
     }
 
     @Test

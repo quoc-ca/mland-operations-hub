@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
+import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createWorkshopPackageApi } from '../api/packageApi';
 import { createOperationsAdminApi } from '../api/operationsAdminApi';
@@ -15,6 +16,10 @@ const empty = { description: '', priceVnd: '' };
 const unwrap = value => (Array.isArray(value) ? value : value?.items || value?.content || []);
 
 export default function PackageAddOnCataloguePage() {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const packageStateLabel = useEnumLabel(messages, 'packageState');
+  const addOnStateLabel = useEnumLabel(messages, 'addOnState');
   const { status } = useAuth();
   const http = useHttp();
   const packageApi = createWorkshopPackageApi(http);
@@ -81,8 +86,8 @@ export default function PackageAddOnCataloguePage() {
   if (status !== 'signed-in') {
     return (
       <OperationsAuthWorkspace
-        topline="MLAND / WORKSHOP OPERATIONS"
-        message="Yêu cầu đăng nhập để quản lý danh mục package add-ons."
+        topline={t('topline.operations')}
+        message={t('addon.signIn')}
       />
     );
   }
@@ -98,7 +103,7 @@ export default function PackageAddOnCataloguePage() {
     setError(null);
     setNotice('');
     if (!packageId || !locationId || !form.description.trim() || Number(form.priceVnd) <= 0) {
-      setError({ message: 'Vui lòng chọn gói workshop, chi nhánh, nhập mô tả và đơn giá VND hợp lệ.' });
+      setError({ message: t('addon.err.scope') });
       return;
     }
     const body = { description: form.description.trim(), priceVnd: Number(form.priceVnd) };
@@ -108,7 +113,7 @@ export default function PackageAddOnCataloguePage() {
         : addOnApi.create(packageId, locationId, body, key),
     );
     if (outcome.ok) {
-      setNotice(editing ? 'Đã cập nhật add-on thành công.' : 'Đã tạo bản nháp add-on. Hãy kích hoạt khi sẵn sàng.');
+      setNotice(editing ? t('addon.ok.updated') : t('addon.ok.created'));
       reset();
       addOnsResource.reload();
     }
@@ -121,7 +126,7 @@ export default function PackageAddOnCataloguePage() {
       addOnApi.transition(packageId, locationId, item.addOnReference, targetState, key),
     );
     if (outcome.ok) {
-      setNotice(`Add-on đã chuyển sang trạng thái ${targetState}.`);
+      setNotice(t('addon.ok.transition', { state: addOnStateLabel(targetState) }));
       addOnsResource.reload();
     }
   };
@@ -134,17 +139,15 @@ export default function PackageAddOnCataloguePage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
 
       <main className="ota-main">
         <div className="ota-topline">
-          MLAND / WORKSHOP OPERATIONS <span>● Backend-authorized</span>
+          {t('topline.operations')} <span>● {t('authorized')}</span>
         </div>
         <header className="ota-page-heading">
           <div>
-            <p className="ota-eyebrow">CATALOGUE</p>
-            <h1>Package add-on catalogue</h1>
-            <p>Quản lý các tùy chọn Add-on gắn kèm theo từng gói Workshop và Chi nhánh vận hành.</p>
+            <p>{t('addon.intro')}</p>
           </div>
         </header>
 
@@ -162,29 +165,29 @@ export default function PackageAddOnCataloguePage() {
         <section className="ota-panel">
           <div className="ota-panel-head">
             <div>
-              <h2>Phạm vi áp dụng (Scope selection)</h2>
-              <p className="muted small">Chọn gói workshop và chi nhánh để lọc hoặc tạo mới add-on tương ứng.</p>
+              <h2>{t('addon.scope.title')}</h2>
+              <p className="muted small">{t('addon.scope.hint')}</p>
             </div>
           </div>
           <div className="ota-form-grid">
             <label>
-              Gói Workshop (Package) *
+              {t('addon.package')}
               <select value={packageId} onChange={e => handlePackageChange(e.target.value)}>
-                <option value="">-- Chọn gói Workshop --</option>
+                <option value="">{t('addon.pickPackage')}</option>
                 {sortedPackages.map(p => {
                   const id = p.packageId ?? p.id;
                   return (
                     <option key={id} value={id}>
-                      {p.name || p.packageReference || id} {p.state ? `· ${p.state}` : ''}
+                      {p.name || p.packageReference || id} {p.state ? `· ${packageStateLabel(p.state)}` : ''}
                     </option>
                   );
                 })}
               </select>
             </label>
             <label>
-              Chi nhánh (Location) *
+              {t('addon.location')}
               <select value={locationId} onChange={e => handleLocationChange(e.target.value)}>
-                <option value="">-- Chọn chi nhánh --</option>
+                <option value="">{t('addon.pickLocation')}</option>
                 {locations.map(l => {
                   const id = l.id ?? l.locationId;
                   return (
@@ -202,42 +205,42 @@ export default function PackageAddOnCataloguePage() {
         <section className="ota-panel">
           <div className="ota-panel-head">
             <div>
-              <h2>{editing ? 'Chỉnh sửa add-on' : 'Tạo add-on mới (Draft)'}</h2>
+              <h2>{editing ? t('addon.editTitle') : t('addon.createTitle')}</h2>
               <p className="muted small">
-                Đơn giá tính theo VND. Khách chỉ có thể chọn add-on khi ở trạng thái <code>ACTIVE</code>.
+                {t('addon.priceHint', { state: addOnStateLabel('ACTIVE') })}
               </p>
             </div>
           </div>
           <form onSubmit={save}>
             <div className="ota-form-grid">
               <label>
-                Mô tả add-on (Description) *
+                {t('addon.description')}
                 <input
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
                   maxLength={200}
-                  placeholder="Ví dụ: Đính đá phong thủy cao cấp, Khắc tên laser..."
+                  placeholder={t('addon.descriptionPlaceholder')}
                   required
                 />
               </label>
               <label>
-                Đơn giá (VND) *
+                {t('addon.price')}
                 <input
                   inputMode="numeric"
                   value={form.priceVnd}
                   onChange={e => setForm({ ...form, priceVnd: e.target.value })}
-                  placeholder="Ví dụ: 150000"
+                  placeholder={t('addon.pricePlaceholder')}
                   required
                 />
               </label>
             </div>
             <div className="ops-actions" style={{ marginTop: '16px' }}>
               <button className="button primary" type="submit" disabled={command.pending}>
-                {editing ? 'Lưu thay đổi' : 'Tạo bản nháp (Draft)'}
+                {editing ? t('addon.save') : t('addon.createDraft')}
               </button>
               {editing && (
                 <button type="button" className="button outline" onClick={reset}>
-                  Hủy chỉnh sửa
+                  {t('addon.cancelEdit')}
                 </button>
               )}
             </div>
@@ -248,11 +251,11 @@ export default function PackageAddOnCataloguePage() {
         <section className="ota-panel">
           <div className="ota-panel-head">
             <div>
-              <h2>Danh sách Add-on đã cấu hình</h2>
+              <h2>{t('addon.list.title')}</h2>
               <p className="muted small">
                 {packageId && locationId
-                  ? `Đang có ${addOns.length} mục cho gói và chi nhánh đã chọn.`
-                  : 'Vui lòng chọn Gói Workshop và Chi nhánh ở trên.'}
+                  ? t('addon.list.count', { count: addOns.length })
+                  : t('addon.list.chooseScope')}
               </p>
             </div>
           </div>
@@ -260,18 +263,18 @@ export default function PackageAddOnCataloguePage() {
             <Loading />
           ) : addOns.length === 0 ? (
             <div className="empty-state">
-              <p>Chưa có add-on nào trong phạm vi này.</p>
+              <p>{t('addon.list.empty')}</p>
             </div>
           ) : (
             <div className="ops-table-wrap">
               <table className="ops-table">
                 <thead>
                   <tr>
-                    <th>Mô tả Add-on</th>
-                    <th>Mã tham chiếu</th>
-                    <th>Đơn giá</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th>{t('addon.col.description')}</th>
+                    <th>{t('addon.col.reference')}</th>
+                    <th>{t('addon.col.price')}</th>
+                    <th>{t('addon.col.status')}</th>
+                    <th>{t('addon.col.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -284,10 +287,10 @@ export default function PackageAddOnCataloguePage() {
                         <code>{item.addOnReference}</code>
                       </td>
                       <td>
-                        {Number(item.priceVnd || 0).toLocaleString('vi-VN')} {item.currencyCode || 'VND'}
+                        {fmt.money(String(item.priceVnd || 0))}
                       </td>
                       <td>
-                        <span className="ops-status">{item.state}</span>
+                        <span className="ops-status">{addOnStateLabel(item.state)}</span>
                       </td>
                       <td>
                         <div className="ops-actions" style={{ margin: 0 }}>
@@ -296,7 +299,7 @@ export default function PackageAddOnCataloguePage() {
                             onClick={() => startEdit(item)}
                             disabled={item.state === 'RETIRED'}
                           >
-                            Chỉnh sửa
+                            {t('addon.edit')}
                           </button>
                           {item.state === 'DRAFT' && (
                             <button
@@ -304,7 +307,7 @@ export default function PackageAddOnCataloguePage() {
                               onClick={() => transition(item, 'ACTIVE')}
                               disabled={command.pending}
                             >
-                              Kích hoạt
+                              {t('addon.activate')}
                             </button>
                           )}
                           {item.state === 'ACTIVE' && (
@@ -313,7 +316,7 @@ export default function PackageAddOnCataloguePage() {
                               onClick={() => transition(item, 'RETIRED')}
                               disabled={command.pending}
                             >
-                              Ngừng bán
+                              {t('addon.retire')}
                             </button>
                           )}
                         </div>

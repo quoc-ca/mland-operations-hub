@@ -6,7 +6,7 @@
 
 *End condition*:
 
-- The workshop booking is confirmed after successful verification of the 50% deposit payment. The system generates a booking reference and QR check-in ticket, sends a confirmation email, updates the available capacity in the external registration system, and displays the confirmation to the customer.
+- The workshop booking is confirmed after successful verification of the booking-time collection (each ticket up to 200,000 VND), or immediately when nothing has to be collected. The system generates a booking reference and QR check-in ticket, sends a confirmation email, updates the available capacity in the external registration system, and displays the confirmation to the customer.
 
 *Alternative end conditions*:
 

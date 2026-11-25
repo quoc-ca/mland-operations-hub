@@ -29,3 +29,14 @@ cleanup:
 - The backend rejects any bypassed payload with the same error.
 - No invalid design version is created.
 - Capture screenshots before and after the limit.
+
+<!-- EXECUTION:START -->
+- Latest status: PASS
+- Executed at: 2026-11-20 02:07:30
+- Executed by: Antigravity QA Agent
+- Browser tool: browsermcp
+- Failure step: None
+- Actual result: Đá quý chạm mốc 10/10 vô hiệu hóa nút tăng số lượng và nút thêm đá; thử thêm viên thứ 11 không thay đổi draft; hiển thị thông báo "⚠️ Đã đạt giới hạn tối đa 10 viên đá quý."; backend trả về HTTP 422 với mã GEMSTONE_TOTAL_LIMIT_EXCEEDED khi bypass payload.
+- Evidence screenshot: screenshots/E2E-012-007--gemstones-limit.jpg
+- Bug reference: NONE
+<!-- EXECUTION:END -->

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ErrorNotice, SuccessNotice, useCommand } from '../../shared/ui/components';
+import { useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { createSettlementApi } from '../../workshop-settlement/api/settlementApi';
 import FolioCorrectionLookup from '../../workshop-settlement/FolioCorrectionLookup';
 
@@ -9,6 +11,8 @@ import FolioCorrectionLookup from '../../workshop-settlement/FolioCorrectionLook
  * earn and the ticket stay unchanged, and an undercharge is absorbed by Mland and never collected.
  */
 export default function StaffWorkshopAddonPanel({ http }) {
+  const t = useT(messages);
+  const fmt = useFormat();
   const [ticketCode, setTicketCode] = useState('');
   const [amountVnd, setAmountVnd] = useState('');
   const [reason, setReason] = useState('');
@@ -35,32 +39,32 @@ export default function StaffWorkshopAddonPanel({ http }) {
   return <article className="ota-panel staff-addon-panel folio-correction-panel">
     <div className="ota-panel-head">
       <div>
-        <p className="ota-eyebrow">MANAGER / FOLIO CORRECTION</p>
-        <h2>Manager folio correction</h2>
-        <p className="muted small">Overcharge refund for a finalized ticket folio. The finalized folio, Loyalty points, ticket and capacity remain immutable.</p>
+        <p className="ota-eyebrow">{t('folio.eyebrow')}</p>
+        <h2>{t('folio.title')}</h2>
+        <p className="muted small">{t('folio.subtitle')}</p>
       </div>
     </div>
-    <SuccessNotice>{correction ? `Folio correction ${correction.correctionReference} created (${correction.status}). A bank refund request was opened${correction.refundId ? ` (${correction.refundId})` : ''}.` : ''}</SuccessNotice>
+    <SuccessNotice>{correction ? t('folio.created', { ref: correction.correctionReference, status: correction.status, refund: correction.refundId ? ` (${correction.refundId})` : '' }) : ''}</SuccessNotice>
     <ErrorNotice error={createCommand.error} onRetry={createCommand.retry} />
     {!reason.trim() && ticketCode.trim() && Number(amountVnd) > 0 && (
-      <p role="status" className="muted small">A manager correction reason is required before submitting.</p>
+      <p role="status" className="muted small">{t('folio.reasonRequired')}</p>
     )}
-    {createCommand.pending && <p role="status" aria-live="polite" className="muted small">Submitting folio correction...</p>}
+    {createCommand.pending && <p role="status" aria-live="polite" className="muted small">{t('folio.submitting')}</p>}
     <form className="ota-form" onSubmit={submit}>
-      <label>Mã vé (hóa đơn cần sửa)<input value={ticketCode} onChange={event => setTicketCode(event.target.value)} placeholder="GRP-…-L0-T1" autoComplete="off" /></label>
-      <label>Overcharge refund amount (VND)<input inputMode="numeric" value={amountVnd} onChange={event => setAmountVnd(event.target.value)} placeholder="50000" autoComplete="off" /></label>
-      <label>Correction reason<input value={reason} onChange={event => setReason(event.target.value)} placeholder="Staff overcharge at counter..." autoComplete="off" maxLength={1000} /></label>
-      <button className="button primary" type="submit" disabled={createCommand.pending || !!correction || !isValid}>{createCommand.pending ? 'Submitting...' : 'Submit folio correction'}</button>
+      <label>{t('folio.ticketCode')}<input value={ticketCode} onChange={event => setTicketCode(event.target.value)} placeholder="GRP-…-L0-T1" autoComplete="off" /></label>
+      <label>{t('folio.amount')}<input inputMode="numeric" value={amountVnd} onChange={event => setAmountVnd(event.target.value)} placeholder="50000" autoComplete="off" /></label>
+      <label>{t('folio.reason')}<input value={reason} onChange={event => setReason(event.target.value)} placeholder={t('folio.reasonPlaceholder')} autoComplete="off" maxLength={1000} /></label>
+      <button className="button primary" type="submit" disabled={createCommand.pending || !!correction || !isValid}>{createCommand.pending ? t('folio.submittingShort') : t('folio.submit')}</button>
     </form>
     {correction && <div className="staff-addon-result folio-correction-result">
-      <p><strong>Correction: {correction.correctionReference}</strong></p>
-      <p>Ticket {correction.ticketCode} · {correction.overchargeAmount} VND · {correction.status}{correction.refundStatus ? ` · refund ${correction.refundStatus}` : ''}</p>
-      <p className="muted small">The refund is paid by bank transfer after a Manager approves it in the refund queue; an undercharge is never collected.</p>
-      {!viewing && <button type="button" className="button outline" onClick={() => setViewing(true)}>View correction</button>}
+      <p><strong>{t('folio.correction', { ref: correction.correctionReference })}</strong></p>
+      <p>{t('folio.result', { ticket: correction.ticketCode, amount: fmt.money(correction.overchargeAmount), status: correction.status, refund: correction.refundStatus ? t('folio.refundStatus', { status: correction.refundStatus }) : '' })}</p>
+      <p className="muted small">{t('folio.bankNote')}</p>
+      {!viewing && <button type="button" className="button outline" onClick={() => setViewing(true)}>{t('folio.view')}</button>}
       {viewing && <FolioCorrectionLookup api={settlementApi} ticketCode={correction.ticketCode || ticketCode.trim()}
         initialReference={correction.correctionReference} />}
     </div>}
-    <p className="muted small staff-addon-policy">Manager-only overcharge correction on finalized folios. Never alters original invoice lines, Loyalty earn, tickets, or capacity.</p>
+    <p className="muted small staff-addon-policy">{t('folio.policy')}</p>
   </article>;
 }
 

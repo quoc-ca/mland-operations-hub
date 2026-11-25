@@ -526,3 +526,63 @@
   background: rgba(220, 38, 38, 0.9);
 }
 
+
+/* Session 2026-11-23: star picker, "Chưa đánh giá / Đã đánh giá" tabs, product header, per-order review screen */
+.star-picker{display:inline-flex;gap:4px}
+.star-picker-star{border:0;background:transparent;padding:0 2px;font-size:1.9rem;line-height:1;color:#d1d5db;cursor:pointer}
+.star-picker-star.on{color:#d97706}
+.star-picker-star:focus-visible{outline:2px solid #002967;outline-offset:2px;border-radius:4px}
+.review-tabs{display:flex;background:#fff;border:1px solid #e3e3e3;border-radius:10px;margin-bottom:16px;overflow-x:auto}
+.review-tabs button{flex:1 0 auto;padding:14px 18px;border:0;border-bottom:3px solid transparent;background:transparent;color:#4b5563;font-size:15px;cursor:pointer}
+.review-tabs button.active{color:#002967;border-bottom-color:#002967;font-weight:600}
+.review-tab-count{display:inline-block;min-width:20px;margin-left:6px;padding:1px 7px;border-radius:10px;background:#002967;color:#fff;font-size:12px;text-align:center}
+.review-source-header{display:flex;align-items:center;gap:12px;min-width:0}
+.review-source-thumb{flex:0 0 64px;width:64px;height:64px;border-radius:8px;object-fit:cover;background:#f3f4f6;display:inline-flex;align-items:center;justify-content:center;color:#9ca3af;font-size:1.4rem}
+.review-source-text{display:grid;gap:2px;min-width:0}
+.review-source-text strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-pending-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.review-pending-item{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px}
+.review-pending-item .review-source-header{flex:1 1 260px}
+.review-mine-list{display:grid;gap:14px}
+.review-mine-item{display:grid;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px}
+.review-mine-item > .button{justify-self:start}
+.review-order-form{display:grid;gap:16px}
+.review-order-item{display:grid;gap:12px}
+.review-order-item textarea{width:100%}
+.review-order-reviewed{margin-top:24px;display:grid;gap:10px}
+.review-order-reviewed h2{font-size:1.05rem;margin:0}
+/* The Member's tabbed page keeps the full width whatever the tab shows (the "Chưa đánh giá" rows no longer shrink it). */
+.review-mine-page{width:100%;box-sizing:border-box}
+.review-mine-page .review-pending-item{padding:18px 20px}
+.review-mine-page .review-pending-item .button{min-width:120px}
+/* Review detail (session 2026-11-24): one wide card — what was reviewed, the review, then the actions. */
+.review-detail-page{width:100%;max-width:900px;box-sizing:border-box}
+.review-detail-card{display:grid;gap:18px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:24px}
+.review-detail-source{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px;border-bottom:1px solid #eef0f3}
+.review-detail-source .review-source-thumb{flex-basis:80px;width:80px;height:80px}
+.review-detail-source .review-source-text strong{font-size:1.1rem}
+.review-detail-card .review-card{border:0;box-shadow:none;padding:0;margin:0}
+.review-detail-card .review-body{font-size:1.05rem;line-height:1.6}
+.review-detail-card .review-card-img{width:120px;height:120px;object-fit:cover}
+.review-detail-actions{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-top:18px;border-top:1px solid #eef0f3}
+
+/* Customer review pages in the homepage palette (session 2026-11-24): yellow #eedc35 buttons with dark text, gold
+   #c59a27 stars and accents, as on the landing page (landing.css --ml-*). Staff/Manager moderation keeps its own. */
+.review-theme{--rv-primary:#eedc35;--rv-primary-hover:#d6c526;--rv-gold:#c59a27;--rv-gold-bg:#fff7df;--rv-text:#1a1a1a;--rv-muted:#6b7280;--rv-border:#e5e7eb}
+.review-theme .button.primary{background:var(--rv-primary);border-color:var(--rv-primary);color:var(--rv-text);font-weight:700}
+.review-theme .button.primary:hover:not(:disabled){background:var(--rv-primary-hover);border-color:var(--rv-primary-hover);color:var(--rv-text)}
+.review-theme .button.outline{background:#fff;border-color:var(--rv-text);color:var(--rv-text)}
+.review-theme .button.outline:hover:not(:disabled){border-color:var(--rv-gold);color:var(--rv-gold);background:var(--rv-gold-bg)}
+.review-theme .review-stars,.review-theme .star-picker-star.on{color:var(--rv-gold)}
+.review-theme .star-picker-star:focus-visible{outline-color:var(--rv-gold)}
+.review-theme .review-tabs button{color:var(--rv-muted)}
+.review-theme .review-tabs button:hover{color:var(--rv-text)}
+.review-theme .review-tabs button.active{color:var(--rv-text);border-bottom-color:var(--rv-primary);font-weight:700}
+.review-theme .review-tab-count{background:var(--rv-primary);color:var(--rv-text);font-weight:700}
+.review-theme .info-banner{background:var(--rv-gold-bg);border-color:#f1dea0;color:#7a5c0f}
+.review-theme .source-info-card{background:#fff;border-color:var(--rv-border)}
+.review-theme .review-source-text a{color:var(--rv-text);text-decoration:none}
+.review-theme .review-source-text a:hover{color:var(--rv-gold)}
+.review-theme .review-file-upload-label:hover{border-color:var(--rv-gold);color:var(--rv-gold)}
+.review-theme textarea:focus,.review-theme select:focus,.review-theme input:focus{outline:none;border-color:var(--rv-gold);box-shadow:0 0 0 2px var(--rv-gold-bg)}
+.review-form-back{margin-top:16px}

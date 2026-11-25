@@ -9,7 +9,7 @@ import { loyaltyApi } from '../infrastructure/loyaltyApi';
 import { BenefitSelector } from '../ui/checkout/BenefitSelector';
 import { loyaltyPromotionRoutes } from '../routes/loyaltyPromotionRoutes';
 import { serverFieldErrors } from '../domain/promotionRules';
-import { account, policy, program, publicPromotion, transaction, voucherUsage } from './fixtures';
+import { account, policy, program, publicPromotion, signInAs, transaction, voucherUsage } from './fixtures';
 
 const P = '/api/v1/promotion-programs';
 const C = '/api/v1/catalogue-management/products';
@@ -23,7 +23,31 @@ const catalogue = {
 const open = (path, options) => renderRoutes(loyaltyPromotionRoutes, { path, ...options });
 // Only a Member has a voucher wallet (T115); the role is read from the profile and remembered per page, so forget it.
 const MEMBER_PROFILE = { 'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }) };
-beforeEach(() => clearRoleCache());
+beforeEach(() => {
+  clearRoleCache();
+  signInAs('MANAGER');
+});
+
+describe('T117 route masking of /promotion-management/*', () => {
+  const withNotFound = [...loyaltyPromotionRoutes, { path: '/404', element: <p>Không tìm thấy trang</p> }];
+
+  it.each(['MEMBER', 'STAFF', 'ADMIN', 'CARRIER'])('%s is replaced to /404 before render and before any API call', async role => {
+    signInAs(role);
+    const calls = mockFetch({ [`GET ${P}`]: json(200, { items: [program()], nextCursor: null }) });
+    const { router } = renderRoutes(withNotFound, { path: '/promotion-management/programs' });
+    expect(await screen.findByText('Không tìm thấy trang')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/404');
+    expect(screen.queryByText('Giảm 10%')).toBeNull();
+    expect(calls.filter(call => call.path.startsWith(P))).toEqual([]);
+  });
+
+  it('a Manager sees the programme list', async () => {
+    mockFetch({ [`GET ${P}`]: json(200, { items: [program()], nextCursor: null }) });
+    const { router } = renderRoutes(withNotFound, { path: '/promotion-management/programs' });
+    expect(await screen.findByRole('link', { name: 'Giảm 10%' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/promotion-management/programs');
+  });
+});
 
 describe('006 REST operations', () => {
   const request = vi.fn(async () => ({}));
@@ -644,7 +668,7 @@ describe('T055 offer picker for checkout', () => {
     const onConfirm = vi.fn();
     render(<I18nProvider initialLanguage="vi"><Host quote={quote} onRecalculate={onRecalculate} onConfirm={onConfirm} /></I18nProvider>);
 
-    await user.click(screen.getByLabelText('Dùng voucher'));
+    await user.click(screen.getByLabelText('Dùng voucher (cộng thêm giảm tự động nếu có)'));
     expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(['Chọn voucher đã lưu', 'Giảm 10% (MLAND10)']);
     await user.selectOptions(screen.getByLabelText('Chọn từ Voucher của tôi'), 'MLAND10');
     expect(screen.getByLabelText('Mã voucher')).toHaveValue('MLAND10');
@@ -913,7 +937,8 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
     const calls = mockFetch({
       'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
       'GET /api/v1/promotions': json(200, { items: [publicPromotion()], nextCursor: null }),
-      'GET /api/v1/promotions/5': json(200, publicPromotion()),
+      // A voucher that must be saved, so the page would offer Lưu to a Member (Session 2026-11-23).
+      'GET /api/v1/promotions/5': json(200, publicPromotion({ distribution: 'CLAIM_REQUIRED' })),
     });
     const { router } = open('/promotions');
     expect(await screen.findByText('Chỉ thành viên lưu được voucher.')).toBeInTheDocument();

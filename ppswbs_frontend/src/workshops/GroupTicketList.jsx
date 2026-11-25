@@ -10,85 +10,90 @@ import {
   requestBuyerVerification,
   WorkshopApiError,
 } from '../api/workshops';
+import { useFormat, useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { TicketSessionPicker } from '../shared/ui/TicketSessionPicker';
 import { isValidEmail, normalizeEmail } from './contactValidation';
 import {
-  NON_REFUNDABLE_NOTICE,
-  TICKET_NO_SHOW_NOTE,
-  TICKET_STATUS_LABEL,
   collectionKindLabel,
   formatSessionWindow,
+  hasCurrentMoney,
   isTicketNoShow,
+  nonRefundableNotice,
   ticketAttendanceLabel,
+  ticketNoShowNote,
+  ticketStatusLabel,
   vnd,
 } from './groupDisplay';
 
-const RECIPIENT_ERROR_MESSAGE = {
-  BUYER_VERIFICATION_REQUIRED: 'Cần xác minh người đặt trước khi gửi vé. Hãy lấy mã OTP gửi về email đã đặt.',
-  BUYER_VERIFICATION_FAILED: 'Mã OTP không đúng. Bạn còn lượt thử.',
-  BUYER_VERIFICATION_LOCKED: 'Đã nhập sai 5 lần. Vui lòng yêu cầu mã mới.',
-  BUYER_VERIFICATION_EXPIRED: 'Mã xác minh đã hết hạn hoặc được thay bằng mã mới. Hãy lấy mã mới.',
-  RECIPIENT_CHANGE_FORBIDDEN: 'Chỉ người đặt (hoặc nhân viên sau khi xác minh người đặt) mới được đổi người nhận vé.',
-  TICKET_NOT_CONFIRMED: 'Vé chưa được xác nhận nên chưa thể gửi cho người khác.',
-  TICKET_ALREADY_CHECKED_IN: 'Vé đã check-in nên không thể đổi người nhận.',
-  RECIPIENT_CHANGE_LIMIT_REACHED: 'Vé này đã dùng hết 3 lần đổi người nhận online. Vui lòng liên hệ nhân viên tại cửa hàng.',
-};
+const RECIPIENT_ERROR_CODES = new Set([
+  'BUYER_VERIFICATION_REQUIRED',
+  'BUYER_VERIFICATION_FAILED',
+  'BUYER_VERIFICATION_LOCKED',
+  'BUYER_VERIFICATION_EXPIRED',
+  'RECIPIENT_CHANGE_FORBIDDEN',
+  'TICKET_NOT_CONFIRMED',
+  'TICKET_ALREADY_CHECKED_IN',
+  'RECIPIENT_CHANGE_LIMIT_REACHED',
+]);
 
-const describeRecipientError = (error, fallback = 'Không thể gửi vé lúc này.') => (error instanceof WorkshopApiError
-  ? (RECIPIENT_ERROR_MESSAGE[error.code] || error.detail || fallback)
-  : (error?.message || fallback));
+const CHANGE_ERROR_CODES = new Set([
+  'CHANGE_ALLOWANCE_EXHAUSTED',
+  'CHANGE_REQUEST_PENDING',
+  'ADVANCE_CHANGE_WINDOW_EXPIRED',
+  'RESCHEDULE_QUOTA_EXHAUSTED',
+  'INSUFFICIENT_CAPACITY',
+  'INVALID_REPLACEMENT',
+  'TICKET_FOLIO_NOT_OPEN',
+  'OTA_TICKET_NOT_SUPPORTED',
+  'FROM_SESSION_NOT_OF_TICKET',
+  'PACKAGE_NOT_AVAILABLE_AT_LOCATION',
+  'LATE_ARRIVAL_WINDOW_EXPIRED',
+  'FROM_SESSIONS_MISMATCH',
+]);
 
-const CHANGE_ERROR_MESSAGE = {
-  CHANGE_ALLOWANCE_EXHAUSTED: 'Vé này đã dùng hết một lần đổi lịch. Vui lòng liên hệ nhân viên.',
-  CHANGE_REQUEST_PENDING: 'Vé này đang có một yêu cầu đổi lịch chờ quản lý duyệt.',
-  ADVANCE_CHANGE_WINDOW_EXPIRED: 'Đã quá hạn đổi lịch trước buổi học (24 giờ).',
-  RESCHEDULE_QUOTA_EXHAUSTED: 'Buổi bạn chọn đã hết hạn mức đổi lịch.',
-  INSUFFICIENT_CAPACITY: 'Buổi bạn chọn vừa hết chỗ. Hãy chọn buổi khác.',
-  INVALID_REPLACEMENT: 'Các buổi mới không phù hợp với quy định của gói. Hãy chọn lại.',
-  TICKET_FOLIO_NOT_OPEN: 'Hóa đơn của vé đã đóng nên không thể đổi lịch.',
-  OTA_TICKET_NOT_SUPPORTED: 'Vé đặt qua đại lý (OTA) đổi lịch theo chính sách của đại lý.',
-  FROM_SESSION_NOT_OF_TICKET: 'Buổi cần đổi không thuộc vé này.',
-  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Gói này hiện không còn bán tại chi nhánh bạn chọn. Vé của bạn chưa bị thay đổi và chưa mất lượt đổi. Hãy chọn buổi ở chi nhánh khác.',
-  LATE_ARRIVAL_WINDOW_EXPIRED: 'Đã quá thời hạn đổi lịch: bạn chỉ có thể đổi đến hết ngày thứ 7 sau ngày buổi học kết thúc (theo ngày ở Việt Nam). Vé của bạn chưa bị thay đổi.',
-  FROM_SESSIONS_MISMATCH: 'Lựa chọn đổi lịch không hợp lệ. Hãy chọn lại.',
-};
+const describeRecipientError = (error, t, fallbackKey = 'ticket.err.sendFallback') => (error instanceof WorkshopApiError
+  ? (RECIPIENT_ERROR_CODES.has(error.code) ? t(`ticket.err.${error.code}`) : error.detail || t(fallbackKey))
+  : (error?.message || t(fallbackKey)));
 
-const describeChangeError = (error, fallback = 'Không thể đổi lịch lúc này.') => (error instanceof WorkshopApiError
-  ? (CHANGE_ERROR_MESSAGE[error.code] || RECIPIENT_ERROR_MESSAGE[error.code] || error.detail || fallback)
-  : (error?.message || fallback));
+const describeChangeError = (error, t, fallbackKey = 'ticket.err.changeFallback') => (error instanceof WorkshopApiError
+  ? (CHANGE_ERROR_CODES.has(error.code) ? t(`ticket.err.${error.code}`)
+    : RECIPIENT_ERROR_CODES.has(error.code) ? t(`ticket.err.${error.code}`) : error.detail || t(fallbackKey))
+  : (error?.message || t(fallbackKey)));
 
-const PICKER_LABELS = {
-  loading: 'Đang tải các buổi có thể đổi…',
-  loadFailed: 'Không tải được danh sách buổi.',
-  retry: 'Thử lại',
-  sessionToChange: 'Buổi cần đổi',
-  bothSessions: 'Đổi cả hai buổi cùng lúc',
-  sessionLabel: ordinal => `Buổi ${ordinal}`,
-  notChangeable: 'không thể đổi',
-  noOptions: 'Hiện chưa có buổi nào thay thế được buổi này.',
-  noPairs: 'Hiện chưa có cặp buổi nào phù hợp với quy định của gói.',
-  seatsLeft: count => `còn ${count} chỗ`,
-  quotaLeft: count => `còn ${count} lượt đổi`,
-  full: 'Hết chỗ',
-  needsManager: 'Cần quản lý duyệt',
-  priceIncrease: amount => `tăng giá ${amount}`,
-  allowanceUsed: 'Vé này đã dùng hết lần đổi lịch; mọi lựa chọn cần quản lý duyệt.',
-  windowClosed: 'Đã quá hạn đổi lịch trước buổi học (24 giờ); lựa chọn cần quản lý duyệt.',
-  choose: 'Chọn buổi mới',
-  pickPlaceholder: 'Chọn buổi mới…',
+const pickerLabels = t => ({
+  loading: t('ticket.picker.loading'),
+  loadFailed: t('ticket.picker.loadFailed'),
+  retry: t('ticket.picker.retry'),
+  sessionToChange: t('ticket.picker.sessionToChange'),
+  bothSessions: t('ticket.picker.bothSessions'),
+  sessionLabel: ordinal => t('ticket.picker.sessionLabel', { ordinal }),
+  notChangeable: t('ticket.picker.notChangeable'),
+  noOptions: t('ticket.picker.noOptions'),
+  noPairs: t('ticket.picker.noPairs'),
+  seatsLeft: count => t('ticket.picker.seatsLeft', { count }),
+  quotaLeft: count => t('ticket.picker.quotaLeft', { count }),
+  full: t('ticket.picker.full'),
+  needsManager: t('ticket.picker.needsManager'),
+  priceIncrease: amount => t('ticket.picker.priceIncrease', { amount }),
+  allowanceUsed: t('ticket.picker.allowanceUsed'),
+  windowClosed: t('ticket.picker.windowClosed'),
+  choose: t('ticket.picker.choose'),
+  pickPlaceholder: t('ticket.picker.pickPlaceholder'),
   rule: {
-    CHANGE_ALLOWANCE_EXHAUSTED: 'đã dùng lần đổi của vé',
-    ADVANCE_CHANGE_WINDOW_EXPIRED: 'còn dưới 24 giờ',
-    RESCHEDULE_QUOTA_EXHAUSTED: 'buổi đã hết hạn mức đổi lịch',
+    CHANGE_ALLOWANCE_EXHAUSTED: t('ticket.picker.rule.CHANGE_ALLOWANCE_EXHAUSTED'),
+    ADVANCE_CHANGE_WINDOW_EXPIRED: t('ticket.picker.rule.ADVANCE_CHANGE_WINDOW_EXPIRED'),
+    RESCHEDULE_QUOTA_EXHAUSTED: t('ticket.picker.rule.RESCHEDULE_QUOTA_EXHAUSTED'),
   },
-};
+});
 
 /**
  * Buyer verification of a Guest buyer before a recipient change (003.1 FR-041): the OTP always goes to the group's
  * original contact email, never to a recipient, and the answer never says whether the contact matched. The returned
  * reference is single-use and is kept only in memory.
  */
-function BuyerVerification({ groupCode, proof, onVerified, purpose = 'gửi vé cho người khác' }) {
+function BuyerVerification({ groupCode, proof, onVerified, purpose = 'send' }) {
+  const t = useT(messages);
   const [stage, setStage] = useState('IDLE');
   const [verificationId, setVerificationId] = useState(null);
   const [otp, setOtp] = useState('');
@@ -106,7 +111,7 @@ function BuyerVerification({ groupCode, proof, onVerified, purpose = 'gửi vé 
       setVerificationId(challenge?.verificationId || null);
       setStage('OTP');
     } catch (err) {
-      setError(describeRecipientError(err));
+      setError(describeRecipientError(err, t));
     } finally {
       setPending(false);
     }
@@ -121,7 +126,7 @@ function BuyerVerification({ groupCode, proof, onVerified, purpose = 'gửi vé 
       setStage('IDLE');
       onVerified(result?.buyerVerificationReference || null);
     } catch (err) {
-      setError(describeRecipientError(err));
+      setError(describeRecipientError(err, t));
     } finally {
       setPending(false);
     }
@@ -132,16 +137,16 @@ function BuyerVerification({ groupCode, proof, onVerified, purpose = 'gửi vé 
       {stage === 'IDLE' ? (
         <>
           <p className="muted" style={{ margin: '0 0 8px', fontSize: '13px' }}>
-            Để {purpose}, hãy xác minh bạn là người đặt. Mã xác minh được gửi tới email đã dùng khi đặt.
+            {t('ticket.verify.intro', { purpose: t(`ticket.purpose.${purpose}`) })}
           </p>
           <button type="button" className="button outline small" onClick={start} disabled={pending}>
-            {pending ? 'Đang gửi mã...' : 'Gửi mã xác minh'}
+            {pending ? t('ticket.verify.sending') : t('ticket.verify.send')}
           </button>
         </>
       ) : (
         <>
           <label style={{ display: 'block' }}>
-            Mã xác minh (6 số)
+            {t('ticket.verify.otpLabel')}
             <input
               inputMode="numeric"
               maxLength={6}
@@ -152,10 +157,10 @@ function BuyerVerification({ groupCode, proof, onVerified, purpose = 'gửi vé 
           </label>
           <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
             <button type="button" className="button primary small" onClick={confirm} disabled={pending || otp.length !== 6}>
-              {pending ? 'Đang xác minh...' : 'Xác minh'}
+              {pending ? t('ticket.verify.verifying') : t('ticket.verify.verify')}
             </button>
             <button type="button" className="button outline small" onClick={start} disabled={pending}>
-              Gửi lại mã
+              {t('ticket.verify.resend')}
             </button>
           </div>
         </>
@@ -173,6 +178,9 @@ const HOURS_24 = 24 * 60 * 60 * 1000;
  * is never refunded and the group voucher returns only when every ticket of the group ended validly.
  */
 function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
+  const format = useFormat();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [reference, setReference] = useState(null);
@@ -187,16 +195,16 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
   if (result) {
     return (
       <div role="status" style={{ marginTop: '10px', padding: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: '13px' }}>
-        <strong>Đã hủy vé {result.ticketCode || ticket.ticketCode}.</strong>
+        <strong>{t('ticket.cancel.done', { code: result.ticketCode || ticket.ticketCode })}</strong>
         <p style={{ margin: '6px 0 0' }}>
           {result.benefitOutcome === 'VALID_CANCELLATION'
-            ? `Hủy hợp lệ: đã trả lại ${Number(result.pointsReturned || 0).toLocaleString('vi-VN')} điểm.`
-            : 'Hủy muộn: không được trả lại điểm.'}
-          {' '}{NON_REFUNDABLE_NOTICE}
+            ? t('ticket.cancel.validResult', { points: format.number(String(Math.round(Number(result.pointsReturned || 0)))) })
+            : t('ticket.cancel.lateResult')}
+          {' '}{nonRefundableNotice(language)}
         </p>
-        {(result.voucherRestoration?.restored ?? result.voucherRestored) && <p style={{ margin: '6px 0 0' }}>Voucher của nhóm đã được khôi phục.</p>}
+        {(result.voucherRestoration?.restored ?? result.voucherRestored) && <p style={{ margin: '6px 0 0' }}>{t('ticket.cancel.voucherRestored')}</p>}
         {result.voucherRestoration?.reason === 'EXPIRED' && (
-          <p style={{ margin: '6px 0 0' }}>Voucher của nhóm đã hết hạn nên không được khôi phục.</p>
+          <p style={{ margin: '6px 0 0' }}>{t('ticket.cancel.voucherExpired')}</p>
         )}
       </div>
     );
@@ -206,7 +214,7 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
   if (!open) {
     return (
       <button type="button" className="button outline small" style={{ marginTop: '10px' }} onClick={() => setOpen(true)}>
-        Hủy vé
+        {t('ticket.cancel.open')}
       </button>
     );
   }
@@ -225,7 +233,7 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
       onUpdated?.();
     } catch (err) {
       setReference(null);
-      setError(describeRecipientError(err, 'Không thể hủy vé lúc này.'));
+      setError(describeRecipientError(err, t, 'ticket.err.cancelFallback'));
     } finally {
       setPending(false);
     }
@@ -234,22 +242,20 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
   return (
     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #dcdfe6' }}>
       <p role="note" style={{ margin: '0 0 8px', fontSize: '13px', lineHeight: 1.5 }}>
-        {NON_REFUNDABLE_NOTICE}{' '}
-        {valid
-          ? 'Hiện còn từ 24 giờ trở lên trước buổi đầu nên đây là hủy hợp lệ: điểm đã dùng của vé được trả lại.'
-          : 'Còn dưới 24 giờ trước buổi đầu nên đây là hủy muộn: chỗ được nhả nhưng điểm không được trả lại.'}
-        {' '}Voucher của nhóm chỉ được khôi phục khi mọi vé của nhóm đều hủy hợp lệ.
+        {nonRefundableNotice(language)}{' '}
+        {valid ? t('ticket.cancel.hintValid') : t('ticket.cancel.hintLate')}
+        {' '}{t('ticket.cancel.hintVoucher')}
       </p>
       <label style={{ display: 'block' }}>
-        Lý do hủy
+        {t('ticket.cancel.reason')}
         <input value={reason} onChange={event => setReason(event.target.value)} maxLength={1000} disabled={pending} />
       </label>
-      {needsVerification && <BuyerVerification groupCode={groupCode} proof={proof} onVerified={setReference} purpose="hủy vé" />}
+      {needsVerification && <BuyerVerification groupCode={groupCode} proof={proof} onVerified={setReference} purpose="cancel" />}
       <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
         <button type="button" className="button primary small" onClick={submit} disabled={pending || needsVerification || !reason.trim()}>
-          {pending ? 'Đang hủy...' : 'Xác nhận hủy vé'}
+          {pending ? t('ticket.cancel.cancelling') : t('ticket.cancel.confirm')}
         </button>
-        <button type="button" className="button outline small" onClick={() => setOpen(false)} disabled={pending}>Đóng</button>
+        <button type="button" className="button outline small" onClick={() => setOpen(false)} disabled={pending}>{t('ticket.close')}</button>
       </div>
       {error && <p role="alert" style={{ color: '#b00', marginTop: '8px', fontSize: '13px' }}>{error}</p>}
     </div>
@@ -257,8 +263,8 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
 }
 
 const CHANGE_TYPES = [
-  { value: 'ADVANCE', label: 'Đổi lịch trước buổi học' },
-  { value: 'LATE_ARRIVAL', label: 'Tôi đến muộn hoặc đã lỡ buổi' },
+  { value: 'ADVANCE', labelKey: 'ticket.change.type.ADVANCE' },
+  { value: 'LATE_ARRIVAL', labelKey: 'ticket.change.type.LATE_ARRIVAL' },
 ];
 
 /**
@@ -271,6 +277,8 @@ const CHANGE_TYPES = [
 const REQUEST_POLL_MS = 20000;
 
 function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('ADVANCE');
   const [selection, setSelection] = useState(null);
@@ -358,7 +366,7 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
       setIncrease(null);
       // The pair stopped being sold at that location: re-read the list and clear the choice (FR-059 d).
       if (err?.code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') { setSelection(null); setPickerKey(value => value + 1); }
-      setError(describeChangeError(err));
+      setError(describeChangeError(err, t));
     } finally {
       setPending(false);
     }
@@ -366,13 +374,13 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
 
   if (decision) {
     const approved = decision.status === 'APPROVED';
-    const title = approved ? 'Quản lý đã duyệt yêu cầu đổi lịch.'
-      : decision.status === 'REJECTED' ? 'Quản lý đã từ chối yêu cầu đổi lịch.' : 'Yêu cầu đổi lịch đã hết hạn.';
+    const title = approved ? t('ticket.change.approved')
+      : decision.status === 'REJECTED' ? t('ticket.change.rejected') : t('ticket.change.expired');
     return (
       <div role="status" style={{ marginTop: '10px', padding: '12px', fontSize: '13px', background: approved ? '#f0fdf4' : '#fef2f2', border: approved ? '1px solid #bbf7d0' : '1px solid #fecaca' }}>
         <strong>{title}</strong>
-        <p style={{ margin: '6px 0 0' }}>Mã yêu cầu: <code>{decision.requestReference}</code>.</p>
-        {decision.decisionReason && <p style={{ margin: '6px 0 0' }}>Lý do: {decision.decisionReason}</p>}
+        <p style={{ margin: '6px 0 0' }}>{t('ticket.change.requestCode')} <code>{decision.requestReference}</code>.</p>
+        {decision.decisionReason && <p style={{ margin: '6px 0 0' }}>{t('ticket.change.reason')} {decision.decisionReason}</p>}
       </div>
     );
   }
@@ -382,13 +390,13 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
       <div role="status" style={{ marginTop: '10px', padding: '12px', background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: '13px' }}>
         {outcome.queued ? (
           <>
-            <strong>Đã gửi yêu cầu đổi lịch cho quản lý duyệt.</strong>
-            <p style={{ margin: '6px 0 0' }}>Mã yêu cầu: <code>{outcome.reference}</code>. Chúng tôi sẽ báo kết quả qua email.</p>
+            <strong>{t('ticket.change.sent')}</strong>
+            <p style={{ margin: '6px 0 0' }}>{t('ticket.change.requestCode')} <code>{outcome.reference}</code>. {t('ticket.change.willEmail')}</p>
           </>
         ) : (
           <>
-            <strong>Đã đổi lịch cho vé {code}.</strong>
-            {Number(outcome.increase) > 0 && <p style={{ margin: '6px 0 0' }}>Mức tăng giá {vnd(outcome.increase)} được cộng vào số còn phải trả khi check-in.</p>}
+            <strong>{t('ticket.change.done', { code })}</strong>
+            {Number(outcome.increase) > 0 && <p style={{ margin: '6px 0 0' }}>{t('ticket.change.increaseAdded', { amount: vnd(outcome.increase, language) })}</p>}
           </>
         )}
       </div>
@@ -398,7 +406,7 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   if (!open) {
     return (
       <button type="button" className="button outline small" style={{ marginTop: '10px' }} onClick={() => setOpen(true)}>
-        Đổi lịch
+        {t('ticket.change.open')}
       </button>
     );
   }
@@ -406,9 +414,9 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   return (
     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #dcdfe6' }}>
       <label style={{ display: 'block', fontSize: '13px' }}>
-        Loại đổi lịch
+        {t('ticket.change.typeLabel')}
         <select value={type} onChange={event => { setType(event.target.value); setSelection(null); setIncrease(null); setError(null); }} disabled={pending}>
-          {CHANGE_TYPES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+          {CHANGE_TYPES.map(item => <option key={item.value} value={item.value}>{t(item.labelKey)}</option>)}
         </select>
       </label>
       <TicketSessionPicker
@@ -417,24 +425,24 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
         type={type}
         loadOptions={loadOptions}
         onSelect={next => { setSelection(next); setIncrease(null); if (next) setError(null); }}
-        labels={PICKER_LABELS}
-        formatWindow={formatSessionWindow}
-        formatMoney={vnd}
+        labels={pickerLabels(t)}
+        formatWindow={(start, end) => formatSessionWindow(start, end, language)}
+        formatMoney={value => vnd(value, language)}
       />
       {selection?.requiresManager && (
         <p role="note" style={{ margin: '8px 0 0', fontSize: '13px', color: '#874d00' }}>
-          Lựa chọn này cần quản lý duyệt: yêu cầu sẽ được gửi đi và vé chỉ đổi khi quản lý đồng ý.
+          {t('ticket.change.needsManagerNote')}
         </p>
       )}
       {selection && needsVerification && (
-        <BuyerVerification groupCode={groupCode} proof={proof} onVerified={setReference} purpose="đổi lịch" />
+        <BuyerVerification groupCode={groupCode} proof={proof} onVerified={setReference} purpose="change" />
       )}
       {increase !== null && (
         <div role="status" style={{ marginTop: '8px', padding: '10px 12px', background: '#fff8e1', border: '1px solid #f0d58c', fontSize: '13px' }}>
-          Đổi lịch này làm giá vé tăng <strong>{vnd(increase)}</strong> và được cộng vào số còn phải trả. Bạn có đồng ý không?
+          {t('ticket.change.increasePrefix')}<strong>{vnd(increase, language)}</strong>{t('ticket.change.increaseSuffix')}
           <div style={{ marginTop: '8px' }}>
             <button type="button" className="button primary small" onClick={() => submit(true)} disabled={pending}>
-              Đồng ý mức tăng giá
+              {t('ticket.change.agreeIncrease')}
             </button>
           </div>
         </div>
@@ -446,9 +454,9 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
           onClick={() => submit(false)}
           disabled={pending || !selection || needsVerification || increase !== null}
         >
-          {pending ? 'Đang gửi...' : (selection?.requiresManager ? 'Gửi yêu cầu đổi lịch' : 'Xác nhận đổi lịch')}
+          {pending ? t('ticket.sending') : (selection?.requiresManager ? t('ticket.change.sendRequest') : t('ticket.change.confirm'))}
         </button>
-        <button type="button" className="button outline small" onClick={() => setOpen(false)} disabled={pending}>Đóng</button>
+        <button type="button" className="button outline small" onClick={() => setOpen(false)} disabled={pending}>{t('ticket.close')}</button>
       </div>
       {error && <p role="alert" style={{ color: '#b00', marginTop: '8px', fontSize: '13px' }}>{error}</p>}
     </div>
@@ -457,6 +465,7 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
 
 /** The recipient form of one ticket (FR-041). The first send keeps the QR; a different email issues a new one. */
 function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
+  const t = useT(messages);
   const [open, setOpen] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState('');
   const [reference, setReference] = useState(null);
@@ -480,12 +489,12 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
       });
       // The reference is single-use: a further change needs a new verification.
       setReference(null);
-      setSuccess('Đã gửi vé tới email người nhận.');
+      setSuccess(t('ticket.recipient.sent'));
       setRecipientEmail('');
       onUpdated?.(updated);
     } catch (err) {
       setReference(null);
-      setError(describeRecipientError(err));
+      setError(describeRecipientError(err, t));
     } finally {
       setPending(false);
     }
@@ -494,7 +503,7 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
   if (!open) {
     return (
       <button type="button" className="button outline small" style={{ marginTop: '10px' }} onClick={() => setOpen(true)}>
-        Gửi vé cho người đi cùng
+        {t('ticket.recipient.open')}
       </button>
     );
   }
@@ -502,7 +511,7 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
   return (
     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #dcdfe6' }}>
       <label style={{ display: 'block' }}>
-        Email người nhận vé
+        {t('ticket.recipient.email')}
         <input
           type="email"
           value={recipientEmail}
@@ -512,11 +521,11 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
       </label>
       {changesLeft !== null && changesLeft !== undefined && (
         <p className="muted" style={{ margin: '6px 0 0', fontSize: '12px' }}>
-          Còn {changesLeft} lần đổi người nhận online cho vé này. Gửi lại cùng email không tính là một lần đổi.
+          {t('ticket.recipient.changesLeft', { count: changesLeft })}
         </p>
       )}
       {limitReached && (
-        <p role="alert" style={{ color: '#b00', fontSize: '13px' }}>{RECIPIENT_ERROR_MESSAGE.RECIPIENT_CHANGE_LIMIT_REACHED}</p>
+        <p role="alert" style={{ color: '#b00', fontSize: '13px' }}>{t('ticket.err.RECIPIENT_CHANGE_LIMIT_REACHED')}</p>
       )}
 
       {needsVerification && !limitReached && (
@@ -530,10 +539,10 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
           onClick={submit}
           disabled={pending || limitReached || needsVerification || !isValidEmail(recipientEmail)}
         >
-          {pending ? 'Đang gửi...' : 'Gửi vé'}
+          {pending ? t('ticket.sending') : t('ticket.recipient.send')}
         </button>
         <button type="button" className="button outline small" onClick={() => setOpen(false)} disabled={pending}>
-          Đóng
+          {t('ticket.close')}
         </button>
       </div>
       {success && <p role="status" style={{ color: '#0b5c34', marginTop: '8px', fontSize: '13px' }}>{success}</p>}
@@ -548,37 +557,39 @@ function RecipientForm({ ticket, groupCode, authorization, proof, onUpdated }) {
  * reference. An action on one ticket never touches another ticket of the group (FR-030).
  */
 export function GroupTicketList({ group, authorization, proof, onTicketUpdated, allowRecipientChange = true, allowCancel = true, allowChange = allowCancel, renderTicketAction }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
   const tickets = group?.tickets || [];
   if (tickets.length === 0) {
-    return <p className="muted">Nhóm này chưa có vé nào được phát hành.</p>;
+    return <p className="muted">{t('ticket.list.empty')}</p>;
   }
 
   return (
-    <div className="group-tickets" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+    <div className="group-tickets" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))', gap: '12px' }}>
       {tickets.map(ticket => {
-        const attendance = ticketAttendanceLabel(ticket);
+        const attendance = ticketAttendanceLabel(ticket, language);
         const noShow = isTicketNoShow(ticket);
         return (
           <article key={ticket.ticketCode} style={{ background: '#fff', border: '1px solid #d9d9d9', padding: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div>
-                <span className="muted" style={{ fontSize: '12px' }}>Mã vé</span>
+                <span className="muted" style={{ fontSize: '12px' }}>{t('ticket.code')}</span>
                 <strong style={{ display: 'block', fontSize: '18px', color: '#002967' }}>{ticket.ticketCode}</strong>
               </div>
               <span className={`status ${ticket.ticketStatus === 'CONFIRMED' && !noShow ? 'ok' : ''}`}>
-                {attendance || TICKET_STATUS_LABEL[ticket.ticketStatus] || ticket.ticketStatus}
+                {attendance || ticketStatusLabel(ticket.ticketStatus, language) || ticket.ticketStatus}
               </span>
             </div>
 
             <p style={{ margin: '8px 0 0', fontSize: '13px' }}>
-              {ticket.packageName || `Gói #${ticket.packageId}`} · Người {ticket.participantOrdinal}
+              {ticket.packageName || t('ticket.package', { id: ticket.packageId })} · {t('ticket.person', { ordinal: ticket.participantOrdinal })}
             </p>
 
             {Array.isArray(ticket.sessions) && ticket.sessions.length > 0 && (
               <ul className="muted" style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px' }}>
                 {ticket.sessions.map(session => (
                   <li key={session.sessionReference}>
-                    Buổi {session.ordinal}: {formatSessionWindow(session.scheduledStart, session.scheduledEnd)}
+                    {t('ticket.sessionLine', { ordinal: session.ordinal })} {formatSessionWindow(session.scheduledStart, session.scheduledEnd, language)}
                     {session.locationName ? ` · ${session.locationName}` : ''}
                   </li>
                 ))}
@@ -586,37 +597,51 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
             )}
 
             <dl style={{ margin: '10px 0 0', fontSize: '13px', display: 'grid', gridTemplateColumns: 'auto auto', gap: '2px 10px' }}>
-              <dt>Giá vé</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd)}</dd>
-              <dt>Đã trả khi đặt</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd)}</dd>
-              <dt>Còn phải trả</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.remainingVnd)}</dd>
-              <dt>Hình thức</dt><dd style={{ margin: 0, textAlign: 'right' }}>{collectionKindLabel(ticket.collectionKind)}</dd>
+              {/* Once the ticket has a folio, its figures win: add-ons and later payments are only there. */}
+              {hasCurrentMoney(ticket) ? (
+                <>
+                  <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
+                  {Number(ticket.currentAddOnVnd) > 0 && (
+                    <><dt>{t('ticket.addOn')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentAddOnVnd, language)}</dd></>
+                  )}
+                  <dt>{t('ticket.paidSoFar')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentPaidVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentBalanceDueVnd, language)}</dd>
+                </>
+              ) : (
+                <>
+                  <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
+                  <dt>{t('ticket.paidAtBooking')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.remainingVnd, language)}</dd>
+                </>
+              )}
+              <dt>{t('ticket.collectionKind')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{collectionKindLabel(ticket.collectionKind, language)}</dd>
             </dl>
 
             <p className="muted" style={{ margin: '8px 0 0', fontSize: '12px' }}>
-              Người nhận vé: {ticket.recipientEmailMasked || 'Người đặt (bạn)'}
+              {t('ticket.recipientLabel')} {ticket.recipientEmailMasked || t('ticket.recipientBuyer')}
             </p>
 
             {ticket.qrReference && (
               <>
-                <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>Mã QR check-in</span>
+                <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>{t('ticket.qr')}</span>
                 <code style={{ fontSize: '12px', background: '#f5f5f5', padding: '2px 6px' }}>{ticket.qrReference}</code>
               </>
             )}
 
             {noShow && (
-              <p role="note" style={{ margin: '8px 0 0', fontSize: '12px', color: '#874d00' }}>{TICKET_NO_SHOW_NOTE}</p>
+              <p role="note" style={{ margin: '8px 0 0', fontSize: '12px', color: '#874d00' }}>{ticketNoShowNote(language)}</p>
             )}
 
             {ticket.mlandRemedyPending && (
               <p role="note" style={{ margin: '10px 0 0', padding: '10px 12px', background: '#fff8e1', border: '1px solid #f0d58c', fontSize: '13px' }}>
-                Mland đã hủy hoặc dời một buổi của vé này và đề nghị buổi thay thế.{' '}
-                <a className="text-link" href={`/workshop-tickets/${encodeURIComponent(ticket.ticketCode)}/remedy`}>Chọn buổi thay thế hoặc hoàn tiền</a>
+                {t('ticket.remedyNote')}{' '}
+                <a className="text-link" href={`/workshop-tickets/${encodeURIComponent(ticket.ticketCode)}/remedy`}>{t('ticket.remedyLink')}</a>
               </p>
             )}
 
             {(ticket.ticketStatus === 'CONFIRMED' || ticket.ticketStatus === 'COMPLETED') && (
               <p style={{ margin: '10px 0 0' }}>
-                <a className="text-link" href={`/workshop-tickets/${encodeURIComponent(ticket.ticketCode)}/folio`}>Xem hóa đơn thanh toán của vé</a>
+                <a className="text-link" href={`/workshop-tickets/${encodeURIComponent(ticket.ticketCode)}/folio`}>{t('ticket.folioLink')}</a>
               </p>
             )}
 

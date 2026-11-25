@@ -10,45 +10,36 @@ None
 
 #### Description
 
-Allows the Manager to set the maximum seat capacity and participant limits for a workshop location/session.
+Allows the Manager to set the seat capacity of an individual workshop session. A time slot itself carries no capacity.
 
 #### Preconditions
 
-1. The Manager is authenticated and authorized.
-2. The target branch and workshop session exist.
-3. Capacity values use the configured participant-count policy.
-
+1. The Manager is authenticated and active.
+2. The target session exists.
 
 #### Postconditions
 
-- The capacity configuration is saved for the selected location/session.
-- Public and integration availability uses the validated capacity.
-- Existing confirmed bookings are not deleted or silently reduced.
+- The new capacity applies to that session only.
+- Confirmed tickets and live holds are never reduced.
 
 #### Normal Flow
 
 **Configure Workshop Slot Capacity**
 
-1. The Manager selects a branch, date/session scope, or capacity template.
-2. The system displays current capacity, held seats, confirmed participants, and remaining availability.
-3. The Manager enters the maximum seat capacity and any participant limit.
-4. The system validates non-negative values and compares the proposed capacity with existing holds and bookings.
-5. The Manager confirms the change.
-6. The system saves the capacity and recalculates availability.
+1. The Manager opens a session.
+2. The system displays capacity, confirmed seats, and held seats.
+3. The Manager enters the new capacity.
+4. The system validates it and saves it with an audit entry.
 
 #### Alternative Flows
 
-**Step 4 — Capacity is below committed participants**
+**Step 4 — Capacity below one**
 
-The system rejects the change or requires an approved exception; existing bookings remain protected.
+The system rejects the value; the Manager pauses sales to stop bookings.
 
-**Step 4 — Invalid or inconsistent participant limit**
+**Step 4 — Capacity below confirmed seats plus live holds**
 
-The system displays validation errors and asks the Manager to correct the values.
-
-**Step 6 — Save fails**
-
-The system displays an error and leaves the previous capacity unchanged.
+The system always rejects the change.
 
 #### Business Rules
 
@@ -58,5 +49,5 @@ BR-24-01, BR-24-02
 
 | ID | Rule Definition |
 |---|---|
-| BR-24-01 | Group capacity is calculated from the total participant count of eligible bookings and holds, not from the number of booking rows. |
-| BR-24-02 | Capacity cannot be reduced below already committed participants without an authorized operational handling process. |
+| BR-24-01 | Capacity counts participants of eligible tickets and holds. |
+| BR-24-02 | Session capacity is at least one and cannot be reduced below committed seats. Participant limits belong to the package booking line. |

@@ -3,8 +3,9 @@ import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { Loading, ErrorNotice, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
+import { useT, useEnumLabel } from '../../shared/i18n/I18nProvider';
+import { otaMessages } from '../messages';
 import { MappingModal } from '../components/MappingModal';
 import { PriceTermsModal } from '../components/PriceTermsModal';
 import { BookingEnableModal } from '../components/BookingEnableModal';
@@ -13,6 +14,11 @@ import '../ota-connectivity.css';
 export default function OtaChannelConfigurationPage() {
   const { status: authStatus } = useAuth();
   const api = useOtaConnectivityApi();
+  const t = useT(otaMessages);
+  const stateLabel = useEnumLabel(otaMessages, 'state');
+  const commercialLabel = useEnumLabel(otaMessages, 'commercial');
+  const readinessLabel = useEnumLabel(otaMessages, 'readiness');
+  const salesControlLabel = useEnumLabel(otaMessages, 'salesControl');
 
   const [mappings, setMappings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,35 +53,35 @@ export default function OtaChannelConfigurationPage() {
   const handleCreateOrUpdateMapping = async (data) => {
     if (mappingModal.mapping) {
       await api.updateChannelMapping(mappingModal.mapping.mappingId, data);
-      setSuccessMessage(`Mapping ${mappingModal.mapping.mappingId} updated successfully.`);
+      setSuccessMessage(t('channels.updated', { id: mappingModal.mapping.mappingId }));
     } else {
       await api.createChannelMapping(mappingModal.channelId, data);
-      setSuccessMessage('New channel mapping created successfully.');
+      setSuccessMessage(t('channels.created'));
     }
     await loadData();
   };
 
   const handleRecordPriceTerms = async (priceData) => {
     await api.recordPriceTerms(priceModal.mapping.mappingId, priceData);
-    setSuccessMessage(`Price terms recorded successfully for mapping ${priceModal.mapping.mappingId}.`);
+    setSuccessMessage(t('channels.priceRecorded', { id: priceModal.mapping.mappingId }));
     await loadData();
   };
 
   const handleBookingEnable = async (enableData) => {
     await api.enableBooking(bookingEnableModal.mapping.mappingId, enableData);
-    setSuccessMessage(`Bookings enabled for mapping ${bookingEnableModal.mapping.mappingId}.`);
+    setSuccessMessage(t('channels.bookingEnabled', { id: bookingEnableModal.mapping.mappingId }));
     await loadData();
   };
 
   const handleSync = async (mapping, mode = 'PREPARATION') => {
-    const reason = prompt(`Enter reason for ${mode} sync on mapping ${mapping.mappingId}:`, 'Routine inventory synchronization');
+    const reason = prompt(t('channels.syncPrompt', { mode, id: mapping.mappingId }), 'Routine inventory synchronization');
     if (!reason || !reason.trim()) return;
 
     try {
       setActionInProgress(true);
       setError(null);
       await api.syncChannelMapping(mapping.mappingId, { mode, reason: reason.trim() });
-      setSuccessMessage(`Sync (${mode}) accepted for mapping ${mapping.mappingId}.`);
+      setSuccessMessage(t('channels.syncAccepted', { mode, id: mapping.mappingId }));
       await loadData();
     } catch (err) {
       setError(err);
@@ -85,14 +91,14 @@ export default function OtaChannelConfigurationPage() {
   };
 
   const handleSalesClose = async (mapping) => {
-    const reason = prompt(`Enter reason for sales close on mapping ${mapping.mappingId}:`, 'Operations emergency sales close');
+    const reason = prompt(t('channels.closePrompt', { id: mapping.mappingId }), 'Operations emergency sales close');
     if (!reason || !reason.trim()) return;
 
     try {
       setActionInProgress(true);
       setError(null);
       await api.closeChannelSales(mapping.mappingId, { reason: reason.trim() });
-      setSuccessMessage(`Sales-close request accepted for mapping ${mapping.mappingId}.`);
+      setSuccessMessage(t('channels.closeAccepted', { id: mapping.mappingId }));
       await loadData();
     } catch (err) {
       setError(err);
@@ -110,13 +116,13 @@ export default function OtaChannelConfigurationPage() {
       SYNC_SUSPENDED: 'badge-suspended',
       DISABLED: 'badge-disabled',
     };
-    return <span className={`badge ${map[state] || 'badge-draft'}`}>{state}</span>;
+    return <span className={`badge ${map[state] || 'badge-draft'}`}>{stateLabel(state)}</span>;
   };
 
   const getCommercialBadge = (status) => {
     return (
       <span className={`badge ${status === 'APPROVED' ? 'badge-approved' : 'badge-pending'}`}>
-        {status}
+        {commercialLabel(status)}
       </span>
     );
   };
@@ -129,21 +135,20 @@ export default function OtaChannelConfigurationPage() {
     return (
       <OperationsAuthWorkspace
         topline="MLAND / OTA CONNECTIVITY"
-        message="Authentication required to access OTA Channel Configuration."
+        message={t('auth.channels')}
       />
     );
   }
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
-        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Authoritative sync</span></div>
+        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● {t('channels.sub')}</span></div>
         <div className="ota-header" style={{ marginTop: '24px' }}>
         <div>
-          <h1>OTA Channel Configuration</h1>
           <p className="small muted">
-            Manage channel mappings, commercial price terms, and synchronization controls.
+            {t('channels.intro')}
           </p>
         </div>
         <div className="ota-header-actions">
@@ -153,19 +158,11 @@ export default function OtaChannelConfigurationPage() {
             onClick={() => setMappingModal({ open: true, channelId: 'default-channel', mapping: null })}
             disabled={loading || actionInProgress}
           >
-            + Create Mapping
+            {t('channels.create')}
           </button>
         </div>
       </div>
 
-      <nav className="ota-nav-tabs" aria-label="OTA Navigation">
-        <Link to="/ota-connectivity/channels" className="ota-nav-tab active">
-          Channel Mappings
-        </Link>
-        <Link to="/ota-connectivity/reconciliation" className="ota-nav-tab">
-          Reconciliation Queue
-        </Link>
-      </nav>
 
       {successMessage && <SuccessNotice>{successMessage}</SuccessNotice>}
       <ErrorNotice error={error} onRetry={loadData} onReload={loadData} />
@@ -174,13 +171,13 @@ export default function OtaChannelConfigurationPage() {
         <Loading />
       ) : mappings.length === 0 ? (
         <div className="empty-state" role="status">
-          <p>No OTA channel mappings configured.</p>
+          <p>{t('channels.empty')}</p>
           <button
             type="button"
             className="button outline"
             onClick={() => setMappingModal({ open: true, channelId: 'default-channel', mapping: null })}
           >
-            Create First Mapping
+            {t('channels.createFirst')}
           </button>
         </div>
       ) : (
@@ -192,9 +189,9 @@ export default function OtaChannelConfigurationPage() {
                   <span>{m.provider}</span>
                   {getStatusBadge(m.state)}
                   {getCommercialBadge(m.commercialStatus)}
-                  {m.bookingEnabled && <span className="badge badge-enabled">BOOKINGS OPEN</span>}
+                  {m.bookingEnabled && <span className="badge badge-enabled">{t('channels.bookingsOpen')}</span>}
                   {m.salesControlStatus && m.salesControlStatus !== 'NONE' && (
-                    <span className="badge badge-closed">CTRL: {m.salesControlStatus}</span>
+                    <span className="badge badge-closed">{t('channels.control', { status: salesControlLabel(m.salesControlStatus) })}</span>
                   )}
                 </div>
                 <div className="mapping-actions">
@@ -204,7 +201,7 @@ export default function OtaChannelConfigurationPage() {
                     onClick={() => setMappingModal({ open: true, channelId: m.channelId || 'channel-default', mapping: m })}
                     disabled={actionInProgress}
                   >
-                    Edit Mapping
+                    {t('channels.edit')}
                   </button>
                   <button
                     type="button"
@@ -212,7 +209,7 @@ export default function OtaChannelConfigurationPage() {
                     onClick={() => setPriceModal({ open: true, mapping: m })}
                     disabled={actionInProgress}
                   >
-                    Price Terms
+                    {t('channels.priceTerms')}
                   </button>
                   <button
                     type="button"
@@ -220,7 +217,7 @@ export default function OtaChannelConfigurationPage() {
                     onClick={() => handleSync(m, 'PREPARATION')}
                     disabled={actionInProgress}
                   >
-                    Prep Sync
+                    {t('channels.prepSync')}
                   </button>
                   <button
                     type="button"
@@ -228,7 +225,7 @@ export default function OtaChannelConfigurationPage() {
                     onClick={() => handleSync(m, 'FULL_RESYNC')}
                     disabled={actionInProgress}
                   >
-                    Full Resync
+                    {t('channels.fullResync')}
                   </button>
                   <button
                     type="button"
@@ -236,18 +233,18 @@ export default function OtaChannelConfigurationPage() {
                     onClick={() => handleSalesClose(m)}
                     disabled={actionInProgress || m.state === 'SALES_CLOSED'}
                   >
-                    Sales Close
+                    {t('channels.salesClose')}
                   </button>
-                  {/* Admin action: Booking Enablement */}
+                  {/* Manager action: Booking Enablement */}
                   {m.state === 'SALES_CLOSED' && (
                     <button
                       type="button"
                       className="button small primary"
                       onClick={() => setBookingEnableModal({ open: true, mapping: m })}
                       disabled={actionInProgress}
-                      title="Admin-only attestation to enable channel sales"
+                      title={t('channels.adminEnableTitle')}
                     >
-                      Admin Enable
+                      {t('channels.adminEnable')}
                     </button>
                   )}
                 </div>
@@ -255,28 +252,28 @@ export default function OtaChannelConfigurationPage() {
 
               <div className="mapping-grid">
                 <div className="mapping-field">
-                  <span className="mapping-label">Mapping ID / Version</span>
+                  <span className="mapping-label">{t('channels.field.mapping')}</span>
                   <span className="mapping-value mono">{m.mappingId} (v{m.version})</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Provider Product Ref</span>
+                  <span className="mapping-label">{t('channels.field.productRef')}</span>
                   <span className="mapping-value mono">{m.providerProductReference || '—'}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Provider Option Ref</span>
+                  <span className="mapping-label">{t('channels.field.optionRef')}</span>
                   <span className="mapping-value mono">{m.providerOptionReference || '—'}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Workshop Offer Ref</span>
+                  <span className="mapping-label">{t('channels.field.offerRef')}</span>
                   <span className="mapping-value mono">{m.workshopOfferReference || '—'}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Session Ref</span>
+                  <span className="mapping-label">{t('channels.field.sessionRef')}</span>
                   <span className="mapping-value mono">{m.sessionReference || '—'}</span>
                 </div>
                 <div className="mapping-field">
-                  <span className="mapping-label">Readiness Review</span>
-                  <span className="mapping-value">{m.safeReadinessStatus || 'INCOMPLETE'}</span>
+                  <span className="mapping-label">{t('channels.field.readiness')}</span>
+                  <span className="mapping-value">{readinessLabel(m.safeReadinessStatus || 'INCOMPLETE')}</span>
                 </div>
               </div>
             </div>

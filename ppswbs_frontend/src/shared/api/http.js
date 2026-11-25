@@ -1,6 +1,6 @@
 // Shared HTTP client (proposal §8, 002 T089). It never caches responses, never retries on its own and never
 // writes the token anywhere: the token is read from the session for each request and sent only as a header.
-export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080')).replace(/\/$/, '');
+export const apiBaseUrl = (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
 
 /** Typed failure built from common.ErrorResponse: code, safe message, correlationId, fieldErrors. */
 export class ApiError extends Error {
@@ -125,12 +125,18 @@ export function createHttpClient({ baseUrl = apiBaseUrl, getIdToken, onSessionEx
     const init = { method, headers, body: payload, signal };
 
     let token = null;
-    if (auth) {
+    if (auth === true) {
       token = getIdToken ? await getIdToken(false) : null;
       if (!token) throw new ApiError({ status: 401, code: 'AUTHENTICATION_REQUIRED', message: '', method });
+    } else if (auth === 'optional') {
+      try {
+        token = getIdToken ? await getIdToken(false) : null;
+      } catch {
+        token = null;
+      }
     }
     let response = await send(url, init, token);
-    if (auth && response.status === 401) {
+    if (auth === true && response.status === 401) {
       let initialError = null;
       try {
         const cloned = typeof response.clone === 'function' ? response.clone() : response;

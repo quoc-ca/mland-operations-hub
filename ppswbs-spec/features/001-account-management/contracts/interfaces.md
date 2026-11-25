@@ -1,16 +1,21 @@
 # Account Management Internal Interfaces
 
+> **R-INV interface extension:** [canonical boundary](../design/revision-2026-11-24.md). FE-001 exposes transient materialization for FE-007 worker attempts and authenticated ADMIN manual-content retrieval after two definite failures; both require a current, unexpired invitation version and never persist its URL in FE-007. For MEMBER review, FE-001 defines `RetailMemberReplacementReader.readForMemberReplacement(AccountId)` and `WorkshopMemberReplacementReader.readForMemberReplacement(AccountId)` as consumer interfaces in `accountmanagement.facade`. Local-only classes in the source modules' `facade` packages may implement these interfaces without FE-001 importing those modules or traversing their repositories. A demo response has `dataOrigin=DEMO`, `status=UNAVAILABLE`, no source version and safe example records for review/JSON only; it never authorizes retirement. A future live response must be Account-ID-scoped, exclude email-matched Guests and supply authoritative `CLEAR`/`BLOCKED`/`UNAVAILABLE` with source version. Both live outcomes must be `CLEAR` with stable versions and an approved acceptance/retirement fence before MEMBER retirement. Provider/DB/email partial outcomes use persisted reconciliation stage and correlation ID. No consumer may treat an email match as authority to attach a UID.
+
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 ## `accountmanagement::facade`
 
-The named facade is the only cross-feature Java boundary. It publishes
+The general named facade is the default cross-feature Java boundary. R-INV adds
+the narrowly scoped `accountmanagement :: invitationdelivery` named interface below.
+The general facade publishes
 `CurrentAccountActor` and verifier/resolver operations used by the shared
 identity gate. It does not publish JPA entities, repositories, Firebase SDK
-types, raw UID/token/email, or cross-feature capabilities.
+types, raw UID/token/email, or cross-feature capabilities. The R-INV delivery
+event carries only its approved recipient email as the explicit exception.
 
 `CurrentAccountActor` contains opaque `accountId`, `role`, `status`, and
 `emailVerified`. It does not contain Workshop Location scope. A
@@ -95,5 +100,14 @@ The consuming feature (FE-008) clones this snapshot into its order record at che
   invited identities; generates fresh setup links; and invalidates sessions.
 - Workshop-location facade validates active location IDs and provides permitted
   display summary. It owns location data.
-- FE-07 accepts idempotent post-commit notification intents. It owns delivery,
-  retries, and message outcome; Account owns business decision/audit.
+- For R-INV, Account persists and publishes the invitation outbox event; FE-007
+  consumes it after commit and owns delivery, retries and message outcome.
+  Account owns the identity decision, secret state and audit.
+
+# R-INV FE-007 delivery boundary (2026-11-24)
+
+FE-001 publishes `accountmanagement :: invitationdelivery` as its only invitation delivery named interface. `InternalAccountInvitationRequested` contains invitation ID/version, Account ID, approved recipient name/email, event reference and correlation reference; FE-001 persists an outbox row in the Account transaction and replays it after commit. The event contains no secret or URL. FE-007 consumes it idempotently, so FE-001 has no dependency on FE-007 Java types.
+
+`InvitationDeliveryFacade.materialize(MaterializationRequest)` returns typed `AVAILABLE(transientUrl, expiresAt)`, `STALE`, or `UNAVAILABLE`. `MaterializationRequest` contains `invitationId`, `version`, FE-001 outbox `eventReference`, FE-007 `requestId`, `purpose` (`SMTP_ATTEMPT` or `MANUAL_CONTENT`), `attemptId` (required only for SMTP) and `adminActorAccountId` (required only for manual content, derived from the authenticated server principal). FE-001 validates the exact current, unexpired, unused version and its own outbox `eventReference`; FE-007 validates its `requestId` belongs to that event/version. FE-001 cannot require a previously registered `requestId` on the first SMTP attempt because delivery-state callback may not have occurred yet. For manual content FE-001 also rechecks that the actor is an active ADMIN. FE-007 is the authoritative owner of attempt evidence: its ADMIN API MUST check two definite failures and terminal `FAILED` before calling with `MANUAL_CONTENT`. FE-001 does not import FE-007 state/types or infer `FAILED` from a possibly delayed status callback. `reportDeliveryState(invitationId, version, requestId, state, observedAt)` idempotently records safe `SENT`, `FAILED` or reconciled `UNKNOWN_OUTCOME` facts but never changes the creation-based `expiresAt`. FE-001's status projection may lag a failed callback; the FE-007 manual API remains the final authorization/eligibility guard. FE-007 does not persist or log the transient URL; manual retrieval is audited without message content.
+
+The existing generic Notification facade remains separate. Module direction for this invitation is `notificationmanagement -> accountmanagement :: invitationdelivery`, with no Account-to-Notification import. See FE-007 [notification facade](../../007-notification-management/contracts/notification-facade.md) §6 and [R-INV design](../design/revision-2026-11-24.md).

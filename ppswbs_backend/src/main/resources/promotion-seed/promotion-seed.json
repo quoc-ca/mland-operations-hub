@@ -1,5 +1,5 @@
 {
-  "_comment": "Chương trình ưu đãi mẫu của 006 (2026-11-13), tạo qua PromotionSeedRunner sau dữ liệu sản phẩm mẫu của 002. Cùng dạng body của POST /api/v1/promotion-programs, trừ: thời gian là số ngày tính từ lúc tạo (startOffsetDays, durationDays) và đối tượng ghi bằng tên danh mục / tên sản phẩm / mã chi nhánh (seedTargets) thay cho id; publishedPackages = mọi gói workshop đang PUBLISHED lúc tạo (giảm tự động workshop chỉ nhắm gói, FR-044; không có gói nào thì bỏ qua, khởi động lại sẽ thử lại). Voucher đã có (cùng mã) hoặc giảm tự động đã có (cùng tên) thì bỏ qua.",
+  "_comment": "Chương trình ưu đãi mẫu của 006 (2026-11-13), tạo qua PromotionSeedRunner sau dữ liệu sản phẩm mẫu của 002. Cùng dạng body của POST /api/v1/promotion-programs, trừ: thời gian là số ngày tính từ lúc tạo (startOffsetDays, durationDays) và đối tượng ghi bằng tên danh mục / tên sản phẩm / tên hiển thị chi nhánh (seedTargets) thay cho id, do 002 tra qua PromotionSeedCataloguePort (T116: 006 không đọc bảng của module khác). Không có giảm tự động workshop mẫu vì 003 chưa cho tra danh sách gói đã publish; người tạo là hệ thống (0). Voucher đã có (cùng mã) hoặc giảm tự động đã có (cùng tên) thì bỏ qua.",
   "programs": [
     {
       "kind": "VOUCHER", "scope": "PRODUCT", "name": "Chào thành viên mới – giảm 10%", "code": "MLCHAO10",
@@ -27,14 +27,14 @@
       "startOffsetDays": 0, "durationDays": 45,
       "discount": { "kind": "FIXED", "amount": "80000", "maxDiscountAmount": "80000" },
       "minimumEligibleAmount": "450000", "allowPoints": false, "totalLimit": "30", "perMemberLimit": "1",
-      "seedTargets": { "categories": ["Nhẫn đá thô"], "branchCodes": ["HN-TAYHO"] }
+      "seedTargets": { "categories": ["Nhẫn đá thô"], "branchNames": ["Mland Hà Nội – Tây Hồ"] }
     },
     {
       "kind": "VOUCHER", "scope": "PRODUCT", "name": "Hoàn Kiếm – nhẫn đá quý giảm 12%", "code": "MLHK12",
       "startOffsetDays": 0, "durationDays": 60,
       "discount": { "kind": "PERCENT", "percentage": "12", "maxDiscountAmount": "90000" },
       "minimumEligibleAmount": "0", "allowPoints": true, "totalLimit": "60", "perMemberLimit": "1",
-      "seedTargets": { "categories": ["Nhẫn đá quý"], "branchCodes": ["HN-HOANKIEM"] }
+      "seedTargets": { "categories": ["Nhẫn đá quý"], "branchNames": ["Mland Hà Nội – Hoàn Kiếm"] }
     },
     {
       "kind": "AUTO_DISCOUNT", "scope": "PRODUCT", "name": "Tuần lễ nhẫn bạc trơn – giảm 10%",
@@ -69,14 +69,7 @@
       "startOffsetDays": 0, "durationDays": 60,
       "discount": { "kind": "FIXED", "amount": "50000", "maxDiscountAmount": "50000" },
       "minimumEligibleAmount": "0", "allowPoints": false, "totalLimit": "80", "perMemberLimit": "2",
-      "seedTargets": { "branchCodes": ["HN-HOANKIEM"] }
-    },
-    {
-      "kind": "AUTO_DISCOUNT", "scope": "WORKSHOP", "name": "Workshop cuối năm – giảm ngay 10%",
-      "startOffsetDays": 0, "durationDays": 45,
-      "discount": { "kind": "PERCENT", "percentage": "10", "maxDiscountAmount": "150000" },
-      "minimumEligibleAmount": "0",
-      "seedTargets": { "publishedPackages": true }
+      "seedTargets": { "branchNames": ["Mland Hà Nội – Hoàn Kiếm"] }
     }
   ]
 }

@@ -1,3 +1,5 @@
+export { signInAs } from '../../../test/signInAs';
+
 // Response shapes copied from the backend DTOs (ManagementProductDtos, PublicCatalogueDtos, CategoryDtos).
 export const category = { id: '7', name: 'Nhẫn cưới', description: null, active: true, version: 0 };
 

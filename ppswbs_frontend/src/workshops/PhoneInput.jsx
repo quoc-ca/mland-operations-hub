@@ -1,5 +1,7 @@
 import React from 'react';
 import { DEFAULT_PHONE_COUNTRY, PHONE_COUNTRIES } from './contactValidation';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 
 /**
  * A phone number as a country code plus the national number (see contactValidation.js). The caller owns both values
@@ -9,18 +11,19 @@ import { DEFAULT_PHONE_COUNTRY, PHONE_COUNTRIES } from './contactValidation';
 /** One look for the country select and the number, so they line up with the other inputs of the form. */
 export const FIELD_STYLE = { height: '46px', padding: '0 12px', border: '1px solid #b8b8b8', background: '#fff', borderRadius: 0, boxSizing: 'border-box', fontSize: '14px', fontWeight: 400 };
 
-export function PhoneInput({ id, country, value, onCountryChange, onValueChange, disabled, required, placeholder, countryLabel = 'Mã quốc gia' }) {
+export function PhoneInput({ id, country, value, onCountryChange, onValueChange, disabled, required, placeholder, countryLabel }) {
+  const t = useT(messages);
   return (
     <span style={{ display: 'flex', gap: '8px' }}>
       <select
-        aria-label={countryLabel}
+        aria-label={countryLabel || t('phone.country')}
         value={country || DEFAULT_PHONE_COUNTRY}
         onChange={event => onCountryChange(event.target.value)}
         disabled={disabled}
         style={{ ...FIELD_STYLE, flex: '0 0 auto', width: 'auto', minWidth: 0, maxWidth: '45%' }}
       >
         {PHONE_COUNTRIES.map(item => (
-          <option key={item.iso} value={item.iso}>+{item.dial} {item.name}</option>
+          <option key={item.iso} value={item.iso}>+{item.dial} {t(`country.${item.iso}`)}</option>
         ))}
       </select>
       <input

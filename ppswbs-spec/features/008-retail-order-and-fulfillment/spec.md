@@ -89,7 +89,7 @@ configuration, accounting, or executive reporting in FE-10.
 
 ### Session 2026-10-22
 
-- Q: Should an unpaid retail checkout hold expire after 15 minutes from checkout acceptance, releasing held quantities and benefits when no valid full payment is confirmed? → A: Yes. The system automatically expires the hold after a maximum of 15 minutes, releases the held quantities and benefits, and sends late payment evidence to manual operational review instead of reopening the expired hold automatically.
+- Q: Should an unpaid retail checkout hold expire after 15 minutes from checkout acceptance, releasing held quantities and benefits when no valid full payment is confirmed? → A: Yes. The system automatically expires the hold after a maximum of 15 minutes, releases the held quantities and benefits, and sends late payment evidence to manual operational review instead of reopening the expired hold automatically. *(The VNPay hold is 10 minutes since Session 2026-11-22.)*
 - Q: How is chargeable weight calculated for a ready-ring GHTK quote? → A: FE-08 uses a fixed estimate of 50 grams for every ordered ring, including its packaging. For each branch parcel, chargeable weight equals the sum of ordered ring quantities in that branch multiplied by 50 grams. This V1 rule does not require per-product weight or dimensions from FE-02 and does not accept a Staff override.
 - Q: When GHTK returns multiple fee components, which components should be included in the Member's payable checkout total? → A: Include the delivery fee and only mandatory surcharges explicitly approved by Mland; do not automatically include GHTK insurance fees.
 - Q: If VNPay confirms payment but GHTK shipment creation fails, how should the system handle the paid order? → A: Preserve the paid Mland order in a shipment-pending state, notify or surface the exception to Staff, and retry safely with the same partner order identifier; do not create a duplicate shipment or automatically refund the Member.
@@ -157,7 +157,9 @@ configuration, accounting, or executive reporting in FE-10.
   cancel only before FE-08 initiates payment with VNPay. Cancellation immediately
   releases inventory and held benefits and restores the cart; once payment has
   been initiated, the checkout cannot be self-cancelled because provider payment
-  evidence may still arrive and must be reconciled safely.
+  evidence may still arrive and must be reconciled safely. *(Superseded by
+  Session 2026-11-18: an unpaid VNPay checkout can also be cancelled after the
+  Member opened VNPay; see FR-08-039.)*
 - Q: What if the cart is full or its variant quantity limit prevents restoring
   every cancelled item? → A: Complete the cancellation and release the holds,
   restore only what fits without removing existing cart items, and report the
@@ -316,7 +318,8 @@ configuration, accounting, or executive reporting in FE-10.
   payment evidence remains in reconciliation and does not release holds.
 - Q: When may a Member cancel? → A: Only in `ACCEPTED_UNPAID`, before FE-08
   persists VNPay initiation. Once `PAYMENT_INITIATED`, self-cancellation is
-  rejected and provider payment evidence is reconciled.
+  rejected and provider payment evidence is reconciled. *(Superseded by Session
+  2026-11-18; see FR-08-039.)*
 
 ## Actors and permissions
 
@@ -374,7 +377,8 @@ configuration, accounting, or executive reporting in FE-10.
   xong" → "Chờ khách nhận" (Member "Sẵn sàng nhận hàng") → handed over →
   "Hoàn thành".
 - Q: How long is an unpaid VNPay order kept in Chờ thanh toán? → A: The
-  existing 15-minute hold, not 24 hours. The VNPay link now lives for the whole
+  existing 15-minute hold, not 24 hours *(10 minutes since Session
+  2026-11-22)*. The VNPay link now lives for the whole
   hold and is stored; "Thanh toán" reopens it (one VNPay transaction per
   checkout) and a countdown shows the time left. "Hủy đơn" also works after the
   Member opened VNPay without paying; it returns the products to the cart and
@@ -398,12 +402,58 @@ configuration, accounting, or executive reporting in FE-10.
   to delivery, shipping fees of delivered shipments, a trend chart and a
   per-branch table. No failed delivery or return. Until FE-01 adds the role,
   Staff keeps recording the two courier steps as a simulation.
+- Q: FE-01 now provides `CARRIER` (V190, Sơn). What changes? → A: (Thinh,
+  2026-11-20) The FE-01 partner home stays at `/carrier` and links to the
+  orders page, now `/carrier/orders`; statistics stay at `/carrier/stats`.
+  The Staff simulation is removed: Staff only records "Đã chuẩn bị xong"
+  (`READY_FOR_CARRIER`) and the server refuses any courier step from Staff.
+- Q: How does Staff finish a cash-at-the-counter order? → A: (Thinh,
+  2026-11-20) In "Chờ thu tiền mặt" Staff presses "Xác nhận đã thu <amount>"
+  once the customer pays the exact amount: payment and handover are recorded
+  in one transaction (`/counter-cash-handovers`) and the order goes to
+  "Hoàn thành"; if it fails nothing is recorded and Staff presses again. There is no cash-received or
+  change entry and no "hand over now" option, so "Chờ khách nhận" holds only
+  paid VNPay pickup orders. Staff tabs, in order: Đơn hàng cần chuẩn bị, Chờ
+  ĐVVC lấy hàng, Đã bàn giao ĐVVC, Chờ thu tiền mặt, Chờ khách nhận, Hoàn
+  thành; the page (and the GHTK partner's orders page) opens at the first
+  tab, left to right, that has orders. Success and information messages
+  appear at the top for about 5 seconds and disappear; errors stay. Moving
+  an order or shipment to its next step needs no confirmation dialog on the
+  GHTK partner page.
 - Q: Does the Member see when the order was received? → A: Yes (Thinh,
   2026-11-20). Each branch order records when it was received, at the counter
   handover or the GHTK delivery; Đơn mua shows it with the paid time, and the
   Staff history shows "Giao cho khách lúc".
 - Q: Where does a cash order go after "Đặt hàng"? → A: Straight to Đơn mua
   (Thinh, 2026-11-20), with a notice to pay at the counter before the deadline.
+
+### Session 2026-11-22
+
+- Q: How long is an unpaid VNPay checkout held? → A: 10 minutes from
+  acceptance (Thinh, 2026-11-22), down from 15. The stored VNPay link lives
+  for the same 10 minutes, so the link and the hold end together and match
+  the 10-minute VNPay link of GBR-04. Counter cash keeps its 72-hour hold. The
+  checkout quote itself stays valid for 15 minutes before "Đặt hàng".
+- Q: Can the Member still cancel after opening VNPay? → A: Yes; FR-08-039 now
+  states the Session 2026-11-18 rule, which the earlier "only before payment
+  initiation" wording contradicted.
+- Q: Where does Staff start the day? → A: The Staff home (`/staff/home`, inside
+  the operations shell) shows two cards, Workshop and Đơn hàng, each with the
+  number of items waiting. The Đơn hàng card counts "Chờ thu tiền mặt",
+  "Đơn hàng cần chuẩn bị" and "Chờ khách nhận" and opens the same order list
+  as "Đơn bán lẻ chi nhánh".
+- Q: How are discounts shown at checkout? → A: Like Shopee (Thinh, 2026-11-22):
+  Tổng tiền hàng, Tổng tiền phí vận chuyển, Ưu đãi sản phẩm (automatic
+  discount), Voucher giảm giá (with the code), Giảm bằng điểm, Tổng thanh
+  toán, then "Tiết kiệm" with the sum of the discounts. Stacking the automatic
+  discount and a voucher comes from FE-06 (Khương, V195, Session 2026-11-22
+  of 006): the preview returns `autoDiscount`, `voucherDiscount` and per-line
+  `lineDiscounts`. FE-08 spreads the programme discount over branch orders
+  with `lineDiscounts` (each branch gets the shares of its own lines), returns
+  `autoDiscountAmount` and `voucherDiscountAmount` in the checkout quote, ranks
+  vouchers by their own `voucherDiscountAmount`, and counts a requested voucher
+  only when FE-06 applied that code. A quote without the two parts is shown on
+  the line that matches it. Order details show one "Tổng ưu đãi" line.
 
 ## User Scenarios & Testing
 
@@ -729,7 +779,7 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   the configured loyalty benefit combination; it MUST not silently invent,
   remove, or round a requested benefit.
 - **FR-08-008**: The system MUST use a 10-minute payment-link deadline and a
-  maximum 15-minute unpaid checkout-hold deadline; when no valid full payment
+  10-minute unpaid VNPay checkout-hold deadline (Session 2026-11-22); when no valid full payment
   is confirmed within that hold deadline, it MUST expire the hold and release
   the held quantities and benefits, while routing any later payment evidence to
   manual operational review.
@@ -851,14 +901,18 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   inventory holds, and restore the source cart. Ambiguous, late, or conflicting
   payment evidence MUST remain unresolved for reconciliation and MUST NOT
   automatically release, consume, grant, or extend benefits.
-- **FR-08-039**: Before FE-08 initiates payment with VNPay, the order-owning
-  Member MUST be able to cancel an accepted unpaid checkout. The system MUST
-  immediately release its inventory and held benefits, restore the cart, and
-  create no payment initiation. The grouped checkout MUST move from
-  `ACCEPTED_UNPAID` to `PAYMENT_INITIATED` only when the server has persisted
-  the VNPay initiation attempt and its `paymentInitiatedAt` time. Once in
-  `PAYMENT_INITIATED`, the system MUST reject self-cancellation and retain the
-  checkout for payment-result reconciliation.
+- **FR-08-039**: The order-owning Member MUST be able to cancel an accepted
+  unpaid checkout ("Hủy đơn") while it is `ACCEPTED_UNPAID`, and also while a
+  VNPay checkout is `PAYMENT_INITIATED` because the Member opened VNPay without
+  paying (Session 2026-11-18). The system MUST immediately release its
+  inventory and held benefits, restore the cart, and record the cancellation
+  once; a repeated cancel returns the same result. The grouped checkout MUST
+  move from `ACCEPTED_UNPAID` to `PAYMENT_INITIATED` only when the server has
+  persisted the VNPay initiation attempt and its `paymentInitiatedAt` time. A
+  VNPay payment that still arrives after the cancellation MUST NOT settle the
+  order; it goes to the Manager reconciliation queue (`LATE_OR_INVALID_STATE`).
+  A paid checkout, and a counter-cash branch order whose payment Staff already
+  confirmed, cannot be self-cancelled.
 - **FR-08-040**: For every GHTK branch quote, the system MUST calculate the
   estimated chargeable weight as 50 grams multiplied by the total ordered-ring
   quantity in that branch. The 50 grams include packaging, the calculation MUST
@@ -885,7 +939,7 @@ including frozen items, amounts, payment state, and fulfilment evidence.
   MUST NOT create a VNPay attempt. Each branch order MUST enter
   `AWAITING_COUNTER_PAYMENT` with a pickup deadline 72 hours after
   acceptance, and its holds and reserved benefits MUST last until that
-  deadline instead of the 15-minute payment hold. `AWAITING_COUNTER_PAYMENT`
+  deadline instead of the 10-minute payment hold. `AWAITING_COUNTER_PAYMENT`
   is the business name of a checkout in `ACCEPTED_UNPAID` with payment method
   `CASH_AT_COUNTER` and a `counterPaymentDeadline`; it never moves to
   `PAYMENT_INITIATED`, and expiry/cancellation reuse the unpaid release flow.
@@ -1112,7 +1166,7 @@ not be inferred from a browser redirect.
 
 ## Assumptions and unresolved implementation gates
 
-- An unpaid checkout hold expires automatically after a maximum of 15 minutes;
+- An unpaid VNPay checkout hold expires automatically after 10 minutes;
   held quantities and benefits are released, and late payment evidence is sent
   to manual operational review. The payment link remains valid for at most 10
   minutes, subject to the earlier hold expiry.
@@ -1159,9 +1213,13 @@ not be inferred from a browser redirect.
   branch orders, each paid, cancelled, or expired with its own part. Cash
   checkouts accepted before parts existed stay one unit and keep the earlier
   single-branch rule.
-- The 72-hour cash pickup hold replaces the 15-minute payment hold only for
-  `AWAITING_COUNTER_PAYMENT` branch orders; VNPay checkouts keep the 15-minute
-  hold and 10-minute payment link.
+- The 72-hour cash pickup hold replaces the 10-minute payment hold only for
+  `AWAITING_COUNTER_PAYMENT` branch orders; VNPay checkouts keep the 10-minute
+  hold and the 10-minute payment link.
 - Cart and recipient validation limits in this specification follow the current
   Report 3 rules. Retention behavior and typed error codes must remain aligned
   with the final contract before implementation.
+
+# Route masking synchronization (2026-11-20)
+
+The browser route allowlists are: `/member/cart`, `/member/checkout`, and `/member/orders` = `MEMBER`; `/staff/retail-orders`, `/staff/retail-shipments`, and `/staff/retail-pickups` = `STAFF`; `/manager/retail-payment-reconciliations` = `MANAGER`; `/carrier` and `/carrier/stats` = `CARRIER`. A signed-in role outside a route's allowlist is replaced to `/404` before that screen requests data. `CARRIER` has no Member commerce/history route; `ADMIN` has no implicit Staff/Manager/Carrier route. This does not alter FE-008's server-side order ownership, branch, payment, or fulfilment authorization.

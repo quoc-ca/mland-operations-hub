@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading } from '../../../../shared/ui/components';
@@ -10,7 +10,10 @@ import { messages } from '../messages';
 import { useCursorList } from '../../application/useCursorList';
 import '../public/voucher-wallet.css';
 
-/** T070 Kho Voucher: the Member's own saved vouchers with their current availability. Saving holds no quota. */
+/**
+ * T070 "Voucher của tôi": the Member's own saved vouchers with their current availability. Saving a PUBLIC voucher
+ * holds no quota; saving a CLAIM_REQUIRED one holds one use for the Member (Session 2026-11-22, FR-046).
+ */
 export default function SavedVouchersPage() {
   const t = useT(messages);
   return (
@@ -25,6 +28,8 @@ export default function SavedVouchersPage() {
 // Still valid: usable now, or will be once it starts. Everything else (expired, paused, no uses left...) is not.
 const VALID = new Set(['ACTIVE', 'SCHEDULED']);
 const TABS = ['usable', 'unusable'];
+// Same scope filter as Kho Voucher (Session 2026-11-23): every saved voucher, or only those for products or workshops.
+const SCOPES = ['', 'PRODUCT', 'WORKSHOP'];
 const tabOf = availability => (VALID.has(availability) ? 'usable' : 'unusable');
 // "Dùng ngay" opens where the voucher can be used; the code is checked at checkout (FR-012, FR-013).
 const useNowPath = scope => (scope === 'WORKSHOP' ? '/workshops' : '/products');
@@ -36,14 +41,27 @@ function SavedList() {
   const list = useCursorList(cursor => api.listSavedVouchers({ cursor }), []);
   const labels = usePublicTargetLabels(api, list.items.map(item => item.promotion));
   const [chosenTab, setChosenTab] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const scope = params.get('scope') || '';
+  const inScope = list.items.filter(item => !scope || item.promotion?.scope === scope);
   const counts = { usable: 0, unusable: 0 };
-  list.items.forEach(item => { counts[tabOf(item.availability)] += 1; });
+  inScope.forEach(item => { counts[tabOf(item.availability)] += 1; });
   // Open on the valid vouchers unless there are none yet; the Member's own choice wins after that.
   const tab = chosenTab || (counts.usable === 0 && counts.unusable > 0 ? 'unusable' : 'usable');
-  const shown = list.items.filter(item => tabOf(item.availability) === tab);
+  const shown = inScope.filter(item => tabOf(item.availability) === tab);
   return (
     <>
       <p className="muted small">{t('saved.hint')}</p>
+      {list.items.length > 0 && (
+        <div className="voucher-tabs" role="tablist" aria-label={t('public.tabs')}>
+          {SCOPES.map(value => (
+            <button key={value || 'ALL'} type="button" role="tab" aria-selected={scope === value} className={scope === value ? 'active' : ''}
+              onClick={() => setParams(value ? { scope: value } : {})}>
+              {value ? t(`scope.${value}`) : t('all')}
+            </button>
+          ))}
+        </div>
+      )}
       {list.items.length > 0 && (
         <div className="voucher-tabs" role="tablist" aria-label={t('saved.tabs')}>
           {TABS.map(key => (

@@ -5,6 +5,11 @@ import { clearRoleCache } from '../../../shared/auth/useRole';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import { categoryPage, managementProduct } from './fixtures';
+import { beforeEach as beforeEachSignIn } from 'vitest';
+import { signInAs } from './fixtures';
+
+// RouteAccessGuard (T219) reads the 001 Account bootstrap: an active Staff unless a test says otherwise.
+beforeEachSignIn(() => { signInAs('STAFF'); });
 
 const M = '/api/v1/catalogue-management';
 const PROFILE = 'GET /api/v1/accounts/me/profile';
@@ -29,6 +34,9 @@ describe('Manager: no review round for their own product', () => {
     await user.type(screen.getByLabelText('Tên sản phẩm'), 'Nhẫn bạc trơn');
     await user.click(screen.getByRole('button', { name: '12' }));
     expect(screen.getByRole('columnheader', { name: 'Giá bán (₫)' })).toBeInTheDocument();
+    // The box reads the same as its column for a screen reader.
+    expect(screen.getByRole('textbox', { name: 'Giá bán size 12' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Giá đề xuất size 12' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Tạo và công khai' }));
 
     expect((await screen.findAllByText(/Cần ít nhất một ảnh/)).length).toBeGreaterThan(0);

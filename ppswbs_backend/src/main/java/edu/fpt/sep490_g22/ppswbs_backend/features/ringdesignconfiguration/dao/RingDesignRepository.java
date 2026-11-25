@@ -18,7 +18,7 @@ public interface RingDesignRepository extends JpaRepository<RingDesign, Long> {
     @Query("SELECT r FROM RingDesign r WHERE r.designReference = :designReference ORDER BY r.designVersion DESC LIMIT 1")
     Optional<RingDesign> findLatestByDesignReference(@Param("designReference") String designReference);
 
-    @Query("SELECT r FROM RingDesign r WHERE r.ownerType = :ownerType AND r.ownerReference = :ownerReference ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM RingDesign r WHERE r.ownerType = :ownerType AND r.ownerReference = :ownerReference")
     List<RingDesign> findAllByOwner(
             @Param("ownerType") RingDesignOwnerType ownerType,
             @Param("ownerReference") String ownerReference

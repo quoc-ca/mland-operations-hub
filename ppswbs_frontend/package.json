@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "node --no-warnings ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "firebase": "12.19.0",
+    "qrcode.react": "^4.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "7.18.5"
@@ -21,6 +22,7 @@
     "@testing-library/user-event": "14.6.8",
     "@vitejs/plugin-react": "5.2.0",
     "jsdom": "27.4.0",
+    "puppeteer-core": "^25.18.1",
     "vite": "7.3.7",
     "vitest": "4.1.12"
   }

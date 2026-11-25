@@ -173,6 +173,61 @@ class TicketSettlementCancellationServiceTest {
         }
 
         @Test
+        @DisplayName("FR-041: a FINALIZED ticket folio can be cancelled before the session and is left unchanged")
+        void finalizedFolioCanStillBeCancelledAndStaysFinalized() {
+            // First session is exactly 24 hours from now (or later)
+            Instant now = Instant.now();
+            Instant firstSessionStart = now.plus(24, ChronoUnit.HOURS).plusSeconds(60);
+
+            TicketFolioContext context = createContext(TICKET_1, OPS_REF_1, firstSessionStart, 500L, "L0-T1");
+            when(booking.getTicketFolioContext(TICKET_1)).thenReturn(Optional.of(context));
+            when(cancellationRepository.existsByTicketCode(TICKET_1)).thenReturn(false);
+
+            SettlementFinalBill bill = createOpenBill(TICKET_1);
+            bill.setLifecycleStatus(SettlementFinalBillLifecycleStatus.FINALIZED.name());
+            when(bills.findByBookingReference(TICKET_1)).thenReturn(Optional.of(bill));
+            when(bills.findByBookingReferenceForUpdate(TICKET_1)).thenReturn(Optional.of(bill));
+
+            // Member owner authenticated
+            CurrentAccountActor actor = memberActor(BUYER_ACCOUNT_ID);
+            when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+
+            when(operations.cancelTicket(eq(OPS_REF_1), anyString(), anyString(), anyString()))
+                    .thenReturn(TicketCancellationOutcome.accepted(OPS_REF_1, List.of(UUID.randomUUID())));
+
+            BookingGroupLoyaltyOutcomeSource loyaltySource = new BookingGroupLoyaltyOutcomeSource(
+                    true, "SNAP-01", 1L, now.plus(7, ChronoUnit.DAYS),
+                    List.of(new BookingGroupLoyaltyOutcomeSource.GroupTicket(TICKET_1, OPS_REF_1.toString()))
+            );
+            when(booking.groupLoyaltyOutcomeSource(GROUP_CODE)).thenReturn(loyaltySource);
+
+            BenefitResult loyaltyResult = new BenefitResult(
+                    SourceKind.WORKSHOP, GROUP_CODE, ComponentState.RELEASED, ComponentState.RESTORED,
+                    EarnState.INELIGIBLE, now
+            );
+            when(loyalty.restoreCancelledWorkshopBenefits(any())).thenReturn(loyaltyResult);
+
+            CancellationRequestDto request = new CancellationRequestDto("Change of plans", null);
+            TicketCancellationDto result = service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-1", actor);
+
+            assertThat(result.ticketCode()).isEqualTo(TICKET_1);
+            assertThat(result.benefitOutcome()).isEqualTo("VALID_CANCELLATION");
+            assertThat(result.pointsReturned()).isEqualTo(500L);
+            assertThat(result.voucherRestored()).isTrue();
+
+            assertThat(bill.getLifecycleStatus()).isEqualTo("FINALIZED");
+            verify(bills, never()).save(bill);
+            verify(cancellationRepository).save(argThat(c ->
+                    c.getTicketCode().equals(TICKET_1)
+                            && "VALID_CANCELLATION".equals(c.getBenefitOutcome())
+                            && c.getPointsReturned() == 500L
+                            && c.isVoucherRestored()
+            ));
+            verify(booking).recordBookingServiceOutcome(eq(TICKET_1), eq(BookingServiceOutcome.CANCELLED),
+                    anyString(), anyString(), anyString());
+        }
+
+        @Test
         @DisplayName("23h59m before first session is LATE_CANCELLATION: 0 points returned, capacity still released")
         void lateCancellationLessThan24HoursBefore() {
             // First session is 23h59m from now (less than 24h)

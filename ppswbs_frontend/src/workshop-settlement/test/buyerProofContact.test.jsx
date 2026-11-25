@@ -2,12 +2,15 @@ import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { I18nProvider } from '../../shared/i18n/I18nProvider';
 import { BuyerProof } from '../ui';
+
+const renderProof = () => render(<I18nProvider initialLanguage="en"><BuyerProof groupCode="GRP-1" onReference={() => {}} /></I18nProvider>);
 
 describe('buyer verification contact', () => {
   it('keeps exactly one contact: typing the phone clears an email the browser autofilled, and the reverse', async () => {
     const user = userEvent.setup();
-    render(<BuyerProof groupCode="GRP-1" onReference={() => {}} />);
+    renderProof();
 
     // The browser fills the email by itself (autofill), without the user typing it.
     fireEvent.change(screen.getByLabelText('Contact email'), { target: { value: 'hoang@example.com' } });
@@ -23,7 +26,7 @@ describe('buyer verification contact', () => {
   });
 
   it('says the code goes to the booking email, not by SMS', () => {
-    render(<BuyerProof groupCode="GRP-1" onReference={() => {}} />);
+    renderProof();
     expect(screen.getByText(/always sent to the booking's email on file, not by SMS/)).toBeInTheDocument();
   });
 });

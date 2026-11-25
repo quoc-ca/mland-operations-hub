@@ -1,131 +1,112 @@
-# Feature-04 Data Model: Independent Design Request
+# Feature-004 Data Model — Design Request and Human Review
 
-**Date created**: 2026-10-21  
-**Date updated**: 2026-11-05
-**Author**: Ngô Tiến Đạt  
-**Last updated by**: Ngô Tiến Đạt  
+Date created: 2026-11-20
+Date updated: 2026-11-21
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
-## 1. Ownership boundary
+## Ownership boundary
 
-Feature-04 stores independent design-analysis data only. It has no foreign key or
-runtime dependency on Workshop Booking, workshop sessions, locations, payments,
-capacity holds, tickets or check-in. If a design needs catalogue context, it stores
-an opaque reference and reads approved data through `catalogue::facade` only.
+Feature-004 owns independent design requests, image-quality evidence, human decisions
+and audit. It does not own Guest proof, daily quota, booking, payment, configured
+design, catalogue or AI data.
 
-The current implementation baseline is Member-only ownership. Guest Design Request
-creation is out of scope; Guest uses Basic AI Support only. Description-only,
-image-only and combined requests are valid. Withdrawal/revision endpoints and
-approval expiry are not exposed by the current frontend contract.
+## Logical aggregates
 
-## 2. Logical aggregates
+### `design_requests`
 
-### 2.1 `design_requests`
+- Opaque public `request_reference`.
+- `ownership_type`: `MEMBER`.
+- Member owner reference. A protected Guest attempt never creates a request row.
+- Optional description, maximum configured length.
+- `status`: `NEED_REVIEW`, `ACCEPTED`, `REJECTED`.
+- Monotonic request version and timestamps.
+- No booking, location, package, payment, ticket or AI fields.
 
-| Field | Constraint / meaning |
-| --- | --- |
-| `id` | UUID primary key. |
-| `request_reference` | Public-safe unique reference; never exposes internal IDs. |
-| `owner_account_id` | Required Member identity from the Account facade; never a foreign entity. |
-| `ownership_type` | `MEMBER`. |
-| `description` | Optional normalized design description, maximum 4,000 characters. |
-| `catalogue_reference` | Nullable opaque package/product/model reference; no booking reference. |
-| `request_version` | Positive integer, starts at 1 and increments for material revisions. |
-| `request_status` | Current frontend displays backend state; withdrawal/completion commands are not exposed. |
-| `analysis_status` | `PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED`. |
-| `review_status` | `NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED` when supplied by backend. |
-| `next_action` | Server-derived action; never trusted from client input. |
-| `created_at`, `updated_at` | Audit timestamps. |
+### `design_request_images`
 
-Forbidden fields: `booking_id`, `booking_code`, `booking_status`, `package_id`
-as booking context, `session_id`, `location_id`, `hold_id`, `ticket_id`,
-`payment_id`, `deposit_id` and `designApprovalReference`.
+- Parent request and opaque image reference.
+- Maximum five rows per request.
+- Validated MIME/signature, size, dimensions and checksum.
+- `quality_status`: `PROCESSING`, `PASS`, `TOO_BLURRY`, `QUALITY_CHECK_FAILED`.
+- Safe quality reason/score projection and deletion outcome audit.
 
-### 2.2 `image_consents`
+### `design_review_decisions`
 
-Stores explicit consent only when a request contains an image.
+- Request/version reference.
+- Reviewer account reference and role `STAFF` or `MANAGER`.
+- `decision`: `ACCEPTED` or `REJECTED`.
+- Mandatory bounded explanation, timestamp and optimistic version.
 
-| Field | Constraint / meaning |
-| --- | --- |
-| `id` | Primary key. |
-| `design_request_id` | Required reference to `design_requests`. |
-| `consent_version` | Required published policy version. |
-| `purpose` | Fixed purpose such as `INDEPENDENT_DESIGN_IMAGE_ANALYSIS`. |
-| `actor_account_id` | Member account or approved guest proof subject. |
-| `affirmative_action` | Recorded checkbox/explicit action. |
-| `accepted_at` | Server timestamp. |
+### `design_request_idempotency_records`
 
-Consent must be committed before temporary image storage or provider processing.
+- Scoped command key, actor/proof scope, request fingerprint, response reference,
+  status and expiry.
+- Changed payload with the same key is a conflict.
 
-### 2.3 `temporary_image_references`
+### `design_request_audit_events`
 
-Stores only the lifecycle of a temporary image object.
+Append-only events for submission, image quality result, decision, token use, quota
+rejection, conflict and deletion. Raw images, raw tokens and unnecessary PII are excluded.
 
-| Field | Constraint / meaning |
-| --- | --- |
-| `id` | Primary key. |
-| `design_request_id` | Required reference to `design_requests`. |
-| `storage_object_key` | Sanitized temporary object key. |
-| `content_type`, `file_size_bytes` | Validated MIME and size metadata. |
-| `processing_status` | `STORED`, `PROCESSING`, `DELETED`, `DELETE_FAILED`. |
-| `deleted_at`, `deletion_outcome` | Cleanup audit evidence. |
-| `created_at` | Creation timestamp. |
+## Invariants
 
-Independent design images are temporary processing data and must be deleted after
-processing on success and failure. The frontend does not cache raw image content.
+1. A request contains at least a description or one image and no more than five images.
+2. `TOO_BLURRY` or unavailable quality status cannot be submitted.
+3. New requests start at `NEED_REVIEW`.
+4. One request version has at most one terminal decision.
+5. A decision always has an explanation.
+6. Staff and Manager have equal decision authority; Admin has none.
+7. Every persisted request has an active Member owner.
+8. Idempotent retries cannot create duplicates.
+9. Review history and audit are append-only and not hard-deleted.
+11. No entity or foreign key references Workshop Booking, Payment or Feature-012 internals.
 
-### 2.4 `design_analysis_results`
+## Custom-order intake additions (V190 Schema Baseline)
 
-| Field | Constraint / meaning |
-| --- | --- |
-| `id` | Primary key. |
-| `design_request_id` | Required reference; one result per request version. |
-| `schema_version` | Versioned safe result schema. |
-| `image_quality_json` | Structured quality evidence, nullable for text-only requests. |
-| `candidate_features_json` | Candidate features only; never a final design decision. |
-| `confidence_json` | Confidence/uncertainty metadata. |
-| `safe_explanation` | Policy-filtered explanation; no raw provider payload. |
-| `provider_correlation_id` | Safe technical correlation value. |
-| `processed_at` | Server timestamp. |
+The request aggregate is also the intake boundary for a Member custom order. The
+physical model defines `custom_design_reference_snapshots`, `custom_design_request_revisions`,
+`custom_orders`, `custom_order_quotes`, `custom_order_payment_context`, and
+`custom_order_idempotency_records`:
 
-### 2.5 `human_review_decisions`
+### `custom_design_reference_snapshots`
+- `snapshot_reference`, `design_reference`, `design_version`.
+- `design_snapshot_json`: Immutable JSON serialization captured from Feature-012 facade.
+- Created when a request references a persisted Feature-012 ring design.
 
-Append-only review evidence for the independent request.
+### `custom_design_request_revisions`
+- `revision_reference`, `request_id`, `revision_number`.
+- `description`, `design_reference`, `design_version`, `created_at`.
+- Created when Member submits a revision in response to `CLARIFICATION_REQUIRED`.
 
-| Field | Constraint / meaning |
-| --- | --- |
-| `id` | Primary key. |
-| `design_request_id`, `request_version` | Decision target and version. |
-| `reviewer_account_id` | Account identity from the Account facade. |
-| `reviewer_role` | `STAFF` or `MANAGER`. |
-| `decision` | `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`. |
-| `reason` | Required bounded rationale. |
-| `decided_at` | Server timestamp. |
+### `custom_orders`
+- `custom_order_reference`, `request_reference`, `member_account_id`.
+- `quote_reference`, `quote_generation`.
+- `status`: `QUOTE_PENDING`, `FULL_PAYMENT_PENDING`, `PAID`, `IN_PRODUCTION`, `FULFILLED`, `CLOSED`, `EXPIRED`, `CANCELLED`.
+- `production_status`, `fulfilment_status`, `payment_deadline_at`, `closed_at`.
 
-At most one terminal decision may exist for a request version. A material revision
-creates a new version and cannot reuse an earlier decision.
+### `custom_order_quotes`
+- `quote_reference`, `custom_order_reference`, `quote_generation`.
+- `quoted_amount`, `currency` (VND), `status`: `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `EXPIRED`.
+- `quote_expires_at`, `approved_by_account_id`, `approved_at`, `rejection_reason`.
 
-### 2.6 `price_suggestions`
+### `custom_order_payment_context`
+- `payment_reference`, `custom_order_reference`, `quote_reference`, `amount`.
+- `payment_owner_kind`: `CUSTOM_ORDER_FULL_PAYMENT`.
+- `status`: `INITIATED`, `VERIFIED`, `FAILED`, `EXPIRED`.
 
-This aggregate remains independent of Design Requests and applies only to new
-workshop-package or retail-product proposals.
-
-| Field | Constraint / meaning |
-| --- | --- |
-| `proposal_id`, `target_type` | Opaque catalogue proposal reference and `WORKSHOP_PACKAGE`/`RETAIL_PRODUCT`. |
-| `advisory` | Always `TRUE`. |
-| `suggestion_status` | `SUCCEEDED`, `INVALID`, `FAILED`. |
-| `suggested_price`, `explanation` | Internal Manager-visible advisory output. |
-| `manager_decision`, `final_price`, `decided_at` | Manager decision evidence; never auto-published. |
-| `requested_by_account_id` | Manager account identity. |
-| `provider_correlation_id`, `created_at` | Technical/audit evidence. |
-
-## 3. Invariants
-
-- No table in this model has a foreign key to a Workshop Booking table.
-- Owner identity is resolved through the Account facade; no account entity or repository is imported.
-- Raw image content, raw provider payload, tokens and credentials are not persisted.
-- Text interactions expire within 30 days.
-- Image deletion is attempted on success and failure paths; deletion outcome is observable.
-- AI output cannot mutate booking, payment, catalogue price, custom-order or review state directly.
-- Idempotency is scoped to the approved owner identity, request version and command key.
-- Any guest proof mechanism must be one-way, revocable/expirable and excluded from logs.
+- A reference snapshot is immutable and created from a Feature-012 `DRAFT` or
+  `VALIDATED` version through a public facade.
+- `CLARIFICATION_REQUIRED` creates a new revision and returns the request to
+  `NEED_REVIEW`; the previous decision remains audit history.
+- `ACCEPTED` creates a custom-order quote handoff but no cart line. The order is
+  payable only as one complete quoted amount (100% full payment).
+- `quote_expires_at` is Manager-policy controlled. The payment context and any
+  temporary queue hold expire together at the configured deadline.
+- A custom order retains the immutable quoted total, currency, quote generation,
+  payment deadline, payment status and expiry/cancellation reason.
+- There is no deposit amount, remaining balance, final-balance proposal or
+  partial-payment state in the custom-order model.
+- Feature-004 does not own production, fulfilment rows or payment settlement;
+  Custom Manufacturing owns the full-payment handoff through the payment
+  facade.

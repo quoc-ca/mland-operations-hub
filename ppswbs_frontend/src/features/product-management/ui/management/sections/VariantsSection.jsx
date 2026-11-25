@@ -9,6 +9,10 @@ import { BatchQuantities } from './BatchQuantities';
 import { NoticeAt } from '../notices';
 import { QuantityStepper } from '../QuantityStepper';
 import { useRole } from '../../../../../shared/auth/useRole';
+import { CollapsibleHead, useCollapsible } from '../Collapsible';
+import { ALL_SIZES } from '../../../application/newSizePrices';
+import { AddSizesPanel, NewSizePicker, checkNewSizes, finishNewSizes } from './AddSizes';
+import { ApplyNowToggle } from './BatchPrices';
 
 /**
  * T050 quantity and T064 sale status per size, and US10 quantity per branch (Session 2026-11-08). Size and SKU are
@@ -20,6 +24,8 @@ import { useRole } from '../../../../../shared/auth/useRole';
  * branch, and adding another branch. Buttons for a branch outside the account's scope are not shown (the branch list
  * is the account's own: every active branch for a Manager, the assigned ones for Staff); the backend checks again.
  * A product not yet at any branch (data from before US10) keeps the single quantity and offers to assign a branch.
+ * T180 (FR-050, FR-051, Session 2026-11-20): at a branch no longer active a Manager may still change the quantities
+ * (counting stock, bringing it to zero); its sale status stays read-only and Staff see no edit button there.
  */
 export function VariantsSection({ product, ...context }) {
   const t = useT(messages);
@@ -36,12 +42,17 @@ export function VariantsSection({ product, ...context }) {
   // (T173), as the backend does. The backend refuses otherwise.
   const isManager = useRole() === 'MANAGER';
   const activeBranches = branches.filter(branch => branch.active !== false);
+  const canEditQuantity = id => canEdit(id) || (isManager && branches.some(branch => branch.locationId === id));
   const sizeSaleEditable = !context.deleted && (isManager
     || (activeBranches.length ? activeBranches.every(branch => canEdit(branch.locationId)) : myBranches.length > 0));
+  // Session 2026-11-22: the section folds; with more than three sizes it starts folded so a long product stays short.
+  const sizeCount = (product.variants || []).length;
+  const [open, toggle] = useCollapsible(sizeCount <= 3);
 
   return (
     <section className="workspace-card" aria-labelledby="variants-title">
-      <h2 id="variants-title">{t('section.variants')}</h2>
+      <CollapsibleHead id="variants-title" title={t('section.variants')} summary={t('section.sizeCount', { count: sizeCount })} open={open} onToggle={toggle} />
+      {open && (<div id="variants-title-body">
       {branches.length === 0 && <p className="notice">{t('branch.legacyNotice')}</p>}
       {branches.length > 0 && (
         <div className="branch-tabs" role="tablist" aria-label={t('branch.title')}>
@@ -56,7 +67,7 @@ export function VariantsSection({ product, ...context }) {
       {current && (
         <BranchBar product={product} branch={current} name={nameOf(current)} editable={canEdit(current.locationId) && !context.deleted} {...context} />
       )}
-      {!context.deleted && (!current || canEdit(current.locationId)) && (
+      {!context.deleted && (!current || canEditQuantity(current.locationId)) && (
         <BatchQuantities product={product} branch={current?.locationId || null} {...context} />
       )}
       <div className="data-table" role="table" aria-label={t('section.variants')}>
@@ -70,13 +81,18 @@ export function VariantsSection({ product, ...context }) {
         </div>
         {(product.variants || []).map(variant => (
           <VariantRow key={variant.id} variant={variant} branch={current?.locationId || null}
-            editable={!context.deleted && (!current || canEdit(current.locationId))} saleEditable={sizeSaleEditable} {...context} />
+            editable={!context.deleted && (!current || canEditQuantity(current.locationId))} saleEditable={sizeSaleEditable} {...context} />
         ))}
       </div>
+      {/* FR-069 (Session 2026-11-23): add sizes at the branch shown, when the account may edit there and it is active. */}
+      {!context.deleted && current && current.active !== false && canEdit(current.locationId) && (
+        <AddSizesPanel product={product} branch={current.locationId} branchName={nameOf(current)} isManager={isManager} {...context} />
+      )}
       {!context.deleted && addable.length > 0 && (
-        <AddBranchPanel product={product} addable={addable} legacy={branches.length === 0} {...context} />
+        <AddBranchPanel product={product} addable={addable} legacy={branches.length === 0} isManager={isManager} {...context} />
       )}
       {branchList.error && <ErrorNotice error={branchList.error} messages={messages} onRetry={branchList.reload} />}
+      </div>)}
     </section>
   );
 }
@@ -114,6 +130,8 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
   const at = `variant-${variant.id}`;
   const stock = branch ? (variant.branchStocks || []).find(item => item.locationId === branch) : null;
   const shown = branch ? (stock?.remainingUnsold ?? '0') : variant.remainingUnsold;
+  // FR-069: a size added at another branch has no row here: it is not sold at this branch until added here.
+  const notHere = Boolean(branch) && !stock;
 
   const saveQuantity = async event => {
     event.preventDefault();
@@ -141,7 +159,7 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
         <span role="cell" className="mono">{variant.sku}</span>
         <span role="cell">
           {quantity === null ? (
-            <>{shown}{editable && (!branch || stock) && <button type="button" className="text-button" onClick={() => setQuantity(shown)}>{t('edit')}</button>}</>
+            notHere ? <span className="muted small">{t('size.notAtBranch')}</span> : <>{shown}{editable && (!branch || stock) && <button type="button" className="text-button" onClick={() => setQuantity(shown)}>{t('edit')}</button>}</>
           ) : (
             <form className="inline-form" onSubmit={saveQuantity} noValidate>
               <QuantityStepper label={t('variant.newQuantity', { size: variant.size })} value={quantity} onChange={setQuantity} invalid={Boolean(quantityError)} />
@@ -175,14 +193,19 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
  * US10 FR-049: start selling at another branch with a quantity per size. For a product not yet at any branch the
  * current quantities are filled in (they move to the first branch).
  */
-function AddBranchPanel({ product, addable, legacy, api, reload, setNotice }) {
+function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setNotice }) {
   const t = useT(messages);
   const [open, setOpen] = useState(false);
   const [locationId, setLocationId] = useState('');
   const [values, setValues] = useState({});
   const [hint, setHint] = useState(null);
+  // FR-069 (Session 2026-11-23): sizes the product does not have yet, added with this branch.
+  const [newSizes, setNewSizes] = useState({});
+  const [newErrors, setNewErrors] = useState({});
+  const [applyNow, setApplyNow] = useState(true);
   const command = useProductCommand({ reload, setNotice });
   const sizes = product.variants || [];
+  const candidates = ALL_SIZES.filter(size => !sizes.some(variant => variant.size === size)).map(size => ({ size, existing: false }));
   const valueOf = variant => values[variant.id] ?? (legacy ? String(variant.remainingUnsold) : '0');
 
   if (!open) {
@@ -200,11 +223,22 @@ function AddBranchPanel({ product, addable, legacy, api, reload, setNotice }) {
     setNotice(null);
     if (!locationId) { setHint('branch.required'); return; }
     if (sizes.some(variant => !isQuantity(valueOf(variant).trim()))) { setHint('validation.quantity'); return; }
+    const checked = checkNewSizes(candidates, newSizes);
+    setNewErrors(checked.errors);
+    if (checked.hint) { setHint(checked.hint); return; }
     setHint(null);
-    const quantities = sizes.map(variant => ({ size: variant.size, quantity: valueOf(variant).trim() }));
-    const outcome = await command.run(key => api.addBranch(key, product.id, product.version, locationId, quantities),
+    const added = candidates.filter(candidate => newSizes[candidate.size]).map(candidate => candidate.size);
+    const quantities = [
+      ...sizes.map(variant => ({ size: variant.size, quantity: valueOf(variant).trim() })),
+      ...added.map(size => ({ size, quantity: String(newSizes[size].quantity).trim() })),
+    ];
+    const prices = added.map(size => ({ size, proposedPrice: String(newSizes[size].price).trim() }));
+    const outcome = await command.run(key => api.addBranch(key, product.id, product.version, locationId, quantities, prices),
       { key: 'branch.added', params: { branch: branchName }, at: 'branch-add' }, ACTIONS.addBranch);
-    if (outcome.ok) { setOpen(false); setValues({}); }
+    if (outcome.ok) {
+      setOpen(false); setValues({}); setNewSizes({});
+      await finishNewSizes({ api, product, sizes: added, isManager, applyNow, reload, setNotice, branch: branchName, at: 'branch-add' });
+    }
   };
 
   return (
@@ -227,11 +261,20 @@ function AddBranchPanel({ product, addable, legacy, api, reload, setNotice }) {
           </div>
         ))}
       </div>
+      {!legacy && candidates.length > 0 && (
+        <>
+          <h4>{t('size.addWithBranch')}</h4>
+          <p className="muted small">{t(product.firstPublishedAt ? (isManager ? 'size.addHintManager' : 'size.addHintStaff') : 'size.addHintReview')}</p>
+          <NewSizePicker candidates={candidates} value={newSizes} onChange={setNewSizes} branchName={branchName} errors={newErrors} manager={isManager} />
+          {/* T221 (FR-069): like "Thêm size", a Manager may leave the approved price of a new size to be applied later. */}
+          {isManager && product.firstPublishedAt && Object.values(newSizes).some(Boolean) && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
+        </>
+      )}
       {hint && <p className="field-error">{t(hint)}</p>}
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
       <div className="actions form-actions">
         <button type="submit" className="button primary" disabled={command.pending}>{command.pending ? t('saving') : t('branch.addSubmit')}</button>
-        <button type="button" className="button outline" disabled={command.pending} onClick={() => { setOpen(false); setValues({}); command.reset(); }}>{t('cancel')}</button>
+        <button type="button" className="button outline" disabled={command.pending} onClick={() => { setOpen(false); setValues({}); setNewSizes({}); command.reset(); }}>{t('cancel')}</button>
       </div>
       <NoticeAt at="branch-add" />
     </form>

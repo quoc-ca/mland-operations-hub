@@ -5,7 +5,9 @@ import { useRole } from '../../shared/auth/useRole';
 import { Loading, useCommand } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { OpsPage } from '../OpsPage';
-import { ProblemNotice, asList, money, when } from '../ui';
+import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
+import { ProblemNotice, asList } from '../ui';
 
 const METHODS = ['BANK_TRANSFER', 'VNPAY', 'BOOKING_TIME'];
 const STATES = ['CONFIRMED', 'PENDING_VERIFICATION', 'VOIDED', 'EXCESS'];
@@ -18,6 +20,10 @@ const isLatePayment = row => row.method === 'BOOKING_TIME' && row.state === 'PEN
  * only CONFIRMED rows count into the shown total (unverified, late, voided and excess rows do not).
  */
 export default function ReconciliationPage() {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const methodLabel = useEnumLabel(messages, 'method');
+  const stateLabel = useEnumLabel(messages, 'collectionStatus');
   const api = createSettlementApi(useHttp());
   const role = useRole();
   const isManager = role === 'MANAGER' || role === 'ADMIN';
@@ -45,75 +51,75 @@ export default function ReconciliationPage() {
 
   if (!isManager) {
     return (
-      <OpsPage eyebrow="RECONCILIATION" title="Reconciliation list" intro="Transfer, VNPay and booking-time collections of one branch and day.">
-        <div className="notice error" role="alert"><p>Only a Manager can open the reconciliation list.</p></div>
+      <OpsPage title={t('recon.title')} intro={t('recon.introShort')}>
+        <div className="notice error" role="alert"><p>{t('recon.managerOnly')}</p></div>
       </OpsPage>
     );
   }
 
   return (
-    <OpsPage eyebrow="RECONCILIATION" title="Reconciliation list" intro="Read-only list of transfer, VNPay and booking-time collections of one branch and day. Compare it with the bank statement and VNPay Merchant Admin; nothing is marked reconciled here.">
+    <OpsPage title={t('recon.title')} intro={t('recon.intro')}>
       <ProblemNotice error={command.error?.status === 503 ? null : command.error} onRetry={retry} />
       {command.error?.status === 503 && (
         <div className="notice error" role="alert">
-          <p>The booking-time payments could not be read right now, so no partial list is shown. Try again, or filter without BOOKING_TIME.</p>
-          {command.error.code && <p className="muted small">Code: {command.error.code}</p>}
-          <div className="notice-actions"><button type="button" className="button outline" onClick={retry}>Try again</button></div>
+          <p>{t('recon.unavailable')}</p>
+          {command.error.code && <p className="muted small">{t('problem.code', { code: command.error.code })}</p>}
+          <div className="notice-actions"><button type="button" className="button outline" onClick={retry}>{t('problem.retry')}</button></div>
         </div>
       )}
       <section className="ota-panel">
-        <form className="ota-inline-form" aria-label="Reconciliation filters" onSubmit={load}>
-          <label>Branch ID<input inputMode="numeric" value={filters.locationId} onChange={set('locationId')} /></label>
-          <label>Working day<input type="date" value={filters.workingDate} onChange={set('workingDate')} /></label>
-          <label>Method
+        <form className="ota-inline-form" aria-label={t('recon.filtersAria')} onSubmit={load}>
+          <label>{t('recon.branchId')}<input inputMode="numeric" value={filters.locationId} onChange={set('locationId')} /></label>
+          <label>{t('recon.workingDay')}<input type="date" value={filters.workingDate} onChange={set('workingDate')} /></label>
+          <label>{t('recon.method')}
             <select value={filters.method} onChange={set('method')}>
-              <option value="">All</option>
-              {METHODS.map(value => <option key={value} value={value}>{value}</option>)}
+              <option value="">{t('recon.all')}</option>
+              {METHODS.map(value => <option key={value} value={value}>{methodLabel(value)}</option>)}
             </select>
           </label>
-          <label>State
+          <label>{t('recon.state')}
             <select value={filters.state} onChange={set('state')}>
-              <option value="">All</option>
-              {STATES.map(value => <option key={value} value={value}>{value}</option>)}
+              <option value="">{t('recon.all')}</option>
+              {STATES.map(value => <option key={value} value={value}>{stateLabel(value)}</option>)}
             </select>
           </label>
-          <button className="button primary" type="submit" disabled={command.pending || !ready}>Show collections</button>
+          <button className="button primary" type="submit" disabled={command.pending || !ready}>{t('recon.show')}</button>
         </form>
       </section>
 
       {command.pending ? <Loading /> : null}
-      {rows && rows.length === 0 && <div className="empty-state"><p>No transfer, VNPay or booking-time collection for these filters.</p></div>}
+      {rows && rows.length === 0 && <div className="empty-state"><p>{t('recon.empty')}</p></div>}
       {rows && rows.length > 0 && (
         <section className="ota-panel">
-          <div className="ota-panel-head"><h2>Collections</h2><span className="muted">Confirmed total: <strong>{money(String(confirmedTotal))}</strong></span></div>
-          <p className="muted small">The confirmed total counts only CONFIRMED rows. Unverified, late, voided and excess rows are listed but not counted.</p>
+          <div className="ota-panel-head"><h2>{t('recon.collections')}</h2><span className="muted">{t('recon.confirmedTotal')}: <strong>{fmt.money(String(confirmedTotal))}</strong></span></div>
+          <p className="muted small">{t('recon.totalNote')}</p>
           {hasMultiBranch && (
-            <p className="notice warning" role="alert">A booking-time payment with sessions at several branches appears once under each of its branches. Do not add the per-branch totals: the whole-system day total counts that payment once.</p>
+            <p className="notice warning" role="alert">{t('recon.multiBranch')}</p>
           )}
           <table className="ops-table">
-            <thead><tr><th>Ticket</th><th>Group</th><th>Method</th><th>Amount</th><th>State</th><th>Reference</th><th>Confirmed by</th><th>Time</th><th>Note</th></tr></thead>
+            <thead><tr><th>{t('recon.col.ticket')}</th><th>{t('recon.col.group')}</th><th>{t('recon.col.method')}</th><th>{t('recon.col.amount')}</th><th>{t('recon.col.state')}</th><th>{t('recon.col.reference')}</th><th>{t('recon.col.confirmedBy')}</th><th>{t('recon.col.time')}</th><th>{t('recon.col.note')}</th></tr></thead>
             <tbody>
               {rows.map((row, index) => (
                 <tr key={`${row.collectionId || 'excess'}-${index}`}>
                   <td>{(row.ticketCodes && row.ticketCodes.length > 0 ? row.ticketCodes.join(', ') : row.ticketCode) || '—'}</td>
                   <td>{row.groupCode}</td>
                   <td>
-                    {row.method}
-                    {row.method === 'BOOKING_TIME' && <small className="muted"> whole group payment</small>}
-                    {row.method === 'BOOKING_TIME' && (row.locationIds || []).length > 1 && <small className="muted"> branches: {row.locationIds.join(', ')}</small>}
+                    {methodLabel(row.method)}
+                    {row.method === 'BOOKING_TIME' && <small className="muted"> {t('recon.wholeGroup')}</small>}
+                    {row.method === 'BOOKING_TIME' && (row.locationIds || []).length > 1 && <small className="muted"> {t('recon.branches', { ids: row.locationIds.join(', ') })}</small>}
                   </td>
                   <td>
-                    {money(row.amount)}
-                    {row.excessAmount ? <small className="muted"> (excess {money(row.excessAmount)}{row.refundRequestReference ? `, refund ${row.refundRequestReference}` : ''})</small> : null}
+                    {fmt.money(row.amount)}
+                    {row.excessAmount ? <small className="muted"> ({t('recon.excess', { amount: fmt.money(row.excessAmount) })}{row.refundRequestReference ? t('recon.excessRefund', { ref: row.refundRequestReference }) : ''})</small> : null}
                   </td>
                   <td>
-                    <span className="ops-status">{row.state}</span>
-                    {row.method === 'BOOKING_TIME' && row.state === 'PENDING_VERIFICATION' && !isLatePayment(row) && <small className="muted"> chưa xác minh (unverified)</small>}
-                    {isLatePayment(row) && <small className="muted"> late payment under review</small>}
+                    <span className="ops-status">{stateLabel(row.state)}</span>
+                    {row.method === 'BOOKING_TIME' && row.state === 'PENDING_VERIFICATION' && !isLatePayment(row) && <small className="muted"> {t('recon.unverified')}</small>}
+                    {isLatePayment(row) && <small className="muted"> {t('recon.late')}</small>}
                   </td>
                   <td>{row.transactionReference || '—'}</td>
-                  <td>{row.confirmedBy || (row.method === 'BOOKING_TIME' ? 'System (IPN)' : '—')}</td>
-                  <td>{when(row.confirmedAt || row.createdAt)}</td>
+                  <td>{row.confirmedBy || (row.method === 'BOOKING_TIME' ? t('recon.systemIpn') : '—')}</td>
+                  <td>{fmt.dateTime(row.confirmedAt || row.createdAt)}</td>
                   <td>{row.note || '—'}</td>
                 </tr>
               ))}

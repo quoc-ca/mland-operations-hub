@@ -7,43 +7,174 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ## Danh sách lỗi đang theo dõi (Active Defects)
 
-## BUG-E2E-0016 — OPEN
+### Remediation update — 2026-11-21
 
-- Ngày: 2026-11-17
+- `BUG-E2E-0018`: **CLOSED**. Cột `payment_kind` trong bảng `payment_owner_registrations` đã được nới rộng từ `varchar(24)` lên `varchar(64)` thông qua migration `V191__widen_custom_order_payment_kind.sql` (Flyway applied `success=1`). JPA Entity `PaymentOwnerRegistration` được cập nhật `length = 64`. Bộ unit test `CustomOrderServiceTest` (6/6 pass) xác nhận việc đăng ký `PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT` (25 ký tự) thành công. Kiểm thử E2E trực tiếp trên trình duyệt xác nhận điều hướng mượt mà sang VNPay Sandbox với số tiền 4.500.000 đ, bản ghi DB `id=2` lưu chính xác `CUSTOM_ORDER_FULL_PAYMENT`.
+- `BUG-CONTRACT-0002`: **CLOSED**. Hợp đồng OpenAPI (`custom-design-order-intake.openapi.yaml`) và `ppswbs-spec/APIs.md` đã được đồng bộ hóa hoàn toàn. Endpoint tạo request (`/api/v1/custom-design-requests` và compatibility alias `/api/v1/design-requests`) đã được gỡ bỏ ràng buộc Member-only (`security: []`), bổ sung đầy đủ mô tả `X-Guest-Design-Session`, `X-Guest-Tracking-Token`, rate limit 5 req/ngày cho Guest và hỗ trợ upload tối đa 5 ảnh.
+- `BUG-E2E-0016`: **CLOSED** (Kỳ vọng kịch bản kiểm thử tính thiếu thành phần add-on; Logic hệ thống chuẩn xác 100%). Qua rà soát công thức kỹ thuật tại `ManagerDesignRuleAdapter.java`: Nhẫn size 16, dày 1.8mm, rộng 3.5mm cho khối lượng 4.02g (vượt định mức 1.02g x 120.000 đ = 122.400 đ phụ phí; tổng vật liệu 372.400 đ). Kịch bản cũ kỳ vọng 372.400 đ và độ khó 2.0 là do người viết kịch bản chỉ tính phần vật liệu cơ bản mà quên cộng 1 viên đá CZ Lam 2mm (+50.000 đ, độ khó +0.8) và khắc chữ (+80.000 đ, độ khó +0.5). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = **502.400 đ** và độ khó 1.0 + 1.0 + 0.8 + 0.5 = **3.3/10** (Trung bình) là kết quả hoàn toàn chính xác.
+- `BUG-E2E-0017`: **CLOSED**. Đã thay thế lời gọi native `window.confirm()` tại `DesignEvaluationPage.jsx` bằng hộp thoại modal xác nhận in-page (`archive-confirm-dialog`) với hai nút "Xác nhận lưu trữ" và "Hủy". Khi người dùng xác nhận, `executeArchive` được kích hoạt, trạng thái thiết kế lập tức chuyển sang `ARCHIVED` (badge "Đã lưu trữ" hiển thị tức thì, các nút chỉnh sửa/lưu trữ ẩn đi) và cơ sở dữ liệu MySQL cập nhật trạng thái `ARCHIVED` cho phiên bản thiết kế thành công.
+
+## BUG-INT-0001 — OPEN
+
+- Ngày phát hiện: 2026-11-23
+- Phát hiện bởi: Owner FE-06 (006) khi kiểm tra tích hợp voucher với FE-03/FE-08 trên `develop` 09d3644c
+- Feature: 003.2 workshop-operations (nguồn dữ liệu) → 006 loyalty-promotion (giá sau voucher trên bề mặt công khai) → FE-03 (màn hình)
+- Nguồn yêu cầu: 006 `contracts/interfaces.md` mục "Cộng dồn giảm tự động và voucher", đoạn "Giá gói workshop trên bề mặt công khai" (FR-045(4), FR-048, Session 2026-11-23); commit `14cbb6d0` "GET /workshop-packages trả branchIds cho giá gói theo chi nhánh"
+- Mức độ nghiêm trọng: MAJOR (giá hiển thị sai, không ảnh hưởng số tiền thật vì báo giá giỏ/đặt chỗ do backend tính lại)
+- Phân loại / Gán cho: Backend 003.2 (`workshopoperations`)
+- Mô tả lỗi: Commit `14cbb6d0` thêm trường `PackageResponse.branchIds` và hàm `WorkshopPackageDiscoveryService.sellableLocationIds(packageId)`, nhưng không nơi nào gọi hàm này hoặc gán `branchIds` (không có trong `WorkshopPackageService.listPublished()` / `getPublished()` lẫn controller). `GET /api/v1/workshop-packages` và `GET /api/v1/workshop-packages/{id}` vì vậy không bao giờ trả `branchIds`. Khi thiếu `branchIds`, `offersForPackage` của 006 không thu hẹp theo chi nhánh (`workshopOffers.js` dòng 54), nên voucher giới hạn chi nhánh vẫn được tính vào "Giá sau voucher" của gói kể cả khi gói không mở bán ở chi nhánh đó.
+- Bề mặt bị ảnh hưởng: trang chủ (`HomePage.jsx` truyền `pkg.branchIds` — luôn `undefined`), danh sách workshop (`WorkshopListPage.jsx`), trang đặt chỗ (`WorkshopBookingPage.jsx`, phần nhãn ưu đãi). Trang chi tiết gói (`WorkshopDetailPage.jsx`) không bị vì tự lấy `branchIds` từ `listWorkshopLocations`.
+- Các bước tái hiện:
+  1. Manager tạo voucher workshop `PUBLIC` giới hạn chi nhánh B, không giới hạn gói.
+  2. Có gói P chỉ mở bán ở chi nhánh A (cặp gói–chi nhánh ACTIVE chỉ ở A).
+  3. `GET /api/v1/workshop-packages` → phần tử của P không có `branchIds`.
+  4. Mở trang chủ hoặc `/workshops` với Guest/Member.
+- Kết quả mong đợi: `branchIds` của P = `[A]`; thẻ gói P không hiện "Giá sau voucher" của voucher chỉ dùng ở B.
+- Kết quả thực tế (theo đọc code, chưa chạy trên màn thật): `branchIds` vắng mặt; thẻ gói P hiện giá sau voucher của mã chỉ dùng ở B.
+- Tái hiện trên màn thật (2026-11-23 16:10, backend 8086 chạy code `develop` 09d3644c + Flyway V196 trên `ppswbs_dev`, frontend 5178, đăng nhập Manager):
+  - Dữ liệu test: voucher workshop `PUBLIC` chỉ chi nhánh 2 (Tây Hồ): id 15 `ML3W77X5NX` giảm 70.000 ₫, id 16 `MLMN3B3GX4` giảm 300.000 ₫. Gói 3 "Silver Clay Workshop - 5g" và gói 4 "Silver Clay Workshop - 7g" chỉ mở bán ở chi nhánh 1 (`GET /workshop-packages/{3,4}/locations` chỉ trả Hoàn Kiếm).
+  - `GET /api/v1/workshop-packages` và `GET /api/v1/workshop-packages/3`: có khóa `branchIds` nhưng giá trị `null` cho cả 5 gói.
+  - `/workshops`: gói 3 hiện "915.000 ₫ — Giá sau voucher MLMN3B3GX4 · tại Mland Hà Nội – Tây Hồ"; gói 4 hiện "1.500.000 ₫" theo cùng mã. **Sai**.
+  - Trang chủ `/`: gói 3 hiện "915.000 ₫ — Giá sau voucher MLMN3B3GX4 · tại Mland Hà Nội – Tây Hồ". **Sai**.
+  - `/workshops/3` (trang chi tiết, tự lấy chi nhánh): "1.032.750 ₫ — Giá sau voucher MLWS15". **Đúng**. Cùng một gói, hai bề mặt báo hai giá khác nhau.
+  - Dọn dữ liệu sau test: voucher id 15 và 16 đã **tạm dừng** (không xóa) trên `ppswbs_dev`. Muốn tái hiện lại: Manager mở `/promotion-management/programs/16` → "Bật lại", chờ đến giờ hiệu lực rồi mở `/workshops`.
+- Đề xuất sửa (owner 003.2/FE-03 tự sửa; FE-06 không sửa code của họ): gán `branchIds = discoveryService.sellableLocationIds(id)` khi dựng `PackageResponse` cho danh sách và chi tiết công khai; thêm test API khẳng định `branchIds` có trong response.
+- Bằng chứng: `git grep "sellableLocationIds(\|branchIds("` trên `develop` và `origin/quoc` chỉ thấy định nghĩa, không có lời gọi.
+- Trạng thái xử lý: **OPEN**
+
+## BUG-INT-0002 — OPEN
+
+- Ngày phát hiện: 2026-11-23
+- Phát hiện bởi: Owner FE-06 (006) khi chạy thật kiểm tra tích hợp voucher với FE-08 (backend 8086 code `develop` 09d3644c, frontend 5178, đăng nhập Member)
+- Feature: FE-08 retail-order (giỏ hàng) ← 006 loyalty-promotion
+- Nguồn yêu cầu: 006 `contracts/interfaces.md` mục "Cộng dồn giảm tự động và voucher", "Việc của FE-08" bước 3 (mức của voucher là `voucherDiscount`, không phải `discountAmount` vì số đó đã gồm giảm tự động)
+- Mức độ nghiêm trọng: MINOR (nhãn hiển thị sai; tổng tiền và báo giá đúng)
+- Phân loại / Gán cho: Frontend FE-08
+- Mô tả lỗi: Dòng "Voucher MLAND" ở giỏ hàng (`MemberCartPage.jsx` dòng 318) hiện `${voucherCode} · −${discount}` với `discount = quote.discountAmount`, là tổng giảm tự động + voucher. Trang checkout (`RetailBenefitPanel`) đã dùng đúng `voucherDiscountAmount`, nên cùng một mã hiện hai số khác nhau giữa giỏ và checkout.
+- Các bước tái hiện:
+  1. Member có trong giỏ các size thuộc giảm tự động "test" (id 14, giảm cố định 60.000 ₫) và đã lưu voucher `ML9KRGVFW3` (giảm 10%, trần 200.000 ₫).
+  2. Mở `/member/cart`, chọn tất cả 8 dòng (Hoàn Kiếm + Tây Hồ); giỏ tự chọn `ML9KRGVFW3`.
+  3. Bấm "Mua hàng" sang `/member/checkout`.
+- Kết quả mong đợi: dòng voucher ở giỏ hiện "ML9KRGVFW3 · −200.000 ₫" như checkout.
+- Kết quả thực tế:
+  - `POST /api/v1/ready-ring-benefit-previews` trả `discountAmount: "260000"`, `autoDiscountAmount: "60000"`, `voucherDiscountAmount: "200000"` — backend đúng.
+  - Giỏ: "ML9KRGVFW3 · −260.000 ₫" — **sai** (gộp 60.000 ₫ giảm tự động vào voucher).
+  - Checkout: panel "ML9KRGVFW3 · −200.000 ₫"; Chi tiết thanh toán "Ưu đãi sản phẩm −60.000 ₫", "Voucher giảm giá (ML9KRGVFW3) −200.000 ₫", tổng 4.470.000 ₫ — **đúng**.
+- Ghi chú thêm (không chặn): giỏ hàng tự chia `discountAmount` theo tỷ lệ tiền dòng trên `eligibleCartLineIds` để hiện giá từng dòng (`MemberCartPage.jsx` khoảng dòng 183–199), không theo `lineDiscounts` của 006; giá từng dòng ở giỏ có thể lệch với phần giảm thật của chi nhánh lúc chốt đơn. Số tiền thật không bị ảnh hưởng vì backend dùng `lineDiscounts`.
+- Đề xuất sửa (owner FE-08 tự sửa): dòng 318 dùng `quote.voucherDiscountAmount ?? quote.discountAmount` như `RetailBenefitPanel`.
+- Tái xác nhận 2026-11-23 16:25 (phiên kiểm thử chốt đơn): giỏ vẫn hiện "ML9KRGVFW3 · −260.000 ₫", checkout "−200.000 ₫".
+- Trạng thái xử lý: **OPEN**
+
+## BUG-INT-0003 — FIXED (phía 006, chờ commit)
+
+- Ngày phát hiện: 2026-11-23
+- Phát hiện bởi: Owner FE-06 (006) khi chạy thật luồng chốt đơn FE-08 sau tích hợp voucher (backend 8086 code `develop` 09d3644c + V196 trên `ppswbs_dev`, frontend 5178, Member `customer.test@mland.vn`)
+- Feature: FE-08 retail-order (accept) ↔ 006 loyalty-promotion (terms digest khi cộng dồn)
+- Nguồn yêu cầu: 006 `contracts/interfaces.md` mục "Trusted inputs" (owner dựng lại context từ dữ liệu authoritative, digest phải trùng) và mục "Cộng dồn giảm tự động và voucher" (D-015, `lineDiscounts`)
+- Mức độ nghiêm trọng: BLOCKER (Member không đặt được đơn nhiều dòng có cả giảm tự động và voucher; bấm lại vẫn lỗi)
+- Phân loại / Gán cho: Backend 006 (digest phụ thuộc vị trí dòng) và Backend FE-08 (accept gửi dòng khác thứ tự preview)
+- Mô tả lỗi: Từ T127, khi đơn có cả giảm tự động và voucher, `RetailQuote.digest` (dòng 279–284) gắn `lineAuto`/`lineVoucher` là danh sách theo **chỉ số dòng**. FE-08 preview (`RetailCheckoutQuotePreviewService` dòng 87–92) gửi dòng theo thứ tự giỏ (`RetailCart.lines` `@OrderBy createdAt`), còn accept (`RetailCheckoutAcceptanceService` dòng 172–174) dựng lại từ `quote.getBranches()` → `getItems()`, hai `@OneToMany` không có `@OrderBy` và khóa là UUID, nên MySQL trả theo UUID. Cùng các dòng nhưng hoán vị → danh sách giảm theo dòng khác → 006 trả `QUOTE_CHANGED` → FE-08 409 `RETAIL_CONFLICT`. Mầm lỗi thứ tự có từ trước (voucher giới hạn chi nhánh gắn `lines=` cũng theo chỉ số), nhưng T127 làm nó xảy ra với mọi đơn cộng dồn nhiều dòng.
+- Các bước tái hiện:
+  1. Member có giỏ 8 dòng (7 dòng Hoàn Kiếm, 1 dòng Tây Hồ), có giảm tự động "test" (id 14, 60.000 ₫) và voucher `ML9KRGVFW3` (id 13, 10%, trần 200.000 ₫).
+  2. `/member/cart` → Chọn tất cả → Mua hàng → `/member/checkout` → Tiền mặt tại quầy → Đặt hàng.
+- Kết quả mong đợi: tạo đơn theo chi nhánh như báo giá (4.470.000 ₫).
+- Kết quả thực tế:
+  - `POST /api/v1/ready-ring-orders` → 409 `{"code":"RETAIL_CONFLICT","message":"Ưu đãi của đơn vừa thay đổi. Kiểm tra lại tổng tiền rồi bấm Đặt hàng."}`; bấm lại → 409. Preview ngay trước đó 200, tổng không đổi (`discountAmount` 260000, `autoDiscountAmount` 60000, `voucherDiscountAmount` 200000).
+  - Log backend: `RetailCheckoutAcceptanceService - FE-06 refused the benefit of checkout quote 125648f0-… (voucher ML9KRGVFW3): QUOTE_CHANGED` (16:26:32, 16:26:56, 16:29:26).
+  - Đưa dòng Tây Hồ xuống cuối giỏ (xóa rồi thêm lại) vẫn 409: quote `139d8c11-…` đọc lại dòng Hoàn Kiếm theo UUID (variant 9, 63, 70, 71, 157, 161, 192) trong khi preview theo giỏ (157, 70, 71, 63, 9, 161, 192).
+  - Đối chứng: đơn 2 dòng, mỗi chi nhánh 1 dòng (không thể lệch thứ tự trong chi nhánh) → 201, phần chia đúng (xem "Đã kiểm đạt" bên dưới).
+- Đề xuất sửa (chọn một hoặc cả hai):
+  - 006: digest không phụ thuộc thứ tự — thay danh sách theo chỉ số bằng tập đã sắp xếp của `(productId, variantId, locationId, quantity, unitAmount, autoDiscount, voucherDiscount)`; áp cả cho `lines=` của voucher giới hạn chi nhánh. Thêm test: preview và accept cùng dòng nhưng khác thứ tự vẫn trùng digest.
+  - FE-08: accept gửi dòng cùng thứ tự với preview (lưu thứ tự dòng trong quote, hoặc `@OrderBy` + sắp xếp cùng một khóa ở cả hai phía).
+- Bằng chứng: `ppswbs-spec/features/006-loyalty-promotion/test-results/screenshots/INT-008-accept--quote-changed.jpg`; correlationId `f692163c-375b-4f19-aae4-373b86fc989d`.
+- Đã kiểm đạt trong cùng phiên (không phải lỗi):
+  - 008 accept + parts theo chi nhánh (đơn 2 dòng, gom `46ca1b59-a973-4665-a6c4-78ffd0282551`): `loyalty_accepted_benefit` id 2 gross 1.650.000, giảm tự động 60.000, voucher 159.000 (10% × 1.590.000). Part Hoàn Kiếm 1.100.000: tự động 40.000 + voucher 106.000 → đơn 954.000; part Tây Hồ 550.000: 20.000 + 53.000 → đơn 477.000. `part_ref` trùng id đơn chi nhánh; trang "Đơn mua của tôi" hiện đúng 954.000/477.000.
+  - 003 booking từ `ticket_shares_json` (V196, nhóm `GRP-A8C16842FA9C408EAFD3`, 2 vé gói 1): quote `[{autoVnd 75000, voucherVnd 100000} × 2]`; `loyalty_accepted_benefit` id 3 tự động 150.000 + voucher 200.000 (`MLWS15`) + 1.450 điểm; part `L0-T1`/`L0-T2` mỗi vé 75.000 + 100.000 + 725 điểm → 652.500, khớp màn hình báo giá và thẻ vé.
+  - 003.3 đổi phiên: **chưa chạy được trên màn thật** — VNPay sandbox trả mã 72 "Không tìm thấy website" (cấu hình merchant của backend 8086), backend không bật `payment-simulator.enabled`, nên vé không qua được trạng thái đã cọc. Thay bằng test hẹp: `TicketVoucherScopeServiceTest` 12/12, `TicketChangeServiceTest` 32/32, `GroupTicketChangeServiceTest` 9/9; đọc code: 006 trả `part.getVoucherDiscount()` (`TicketVoucherScopeService` dòng 65), 003.3 dùng nguyên giá trị (`TicketChangeService.lostVoucherShare`). Javadoc `TicketVoucherScope.java` dòng 12 còn ghi "programme discount" (nay là tổng hai khoản) — nhỏ, của 006.
+  - Hủy riêng đơn chi nhánh: không chạy được vì nút Hủy đơn dùng `window.confirm()`, khung trình duyệt tự trả `false`.
+- Dữ liệu test còn lại trên `ppswbs_dev`: 2 đơn chi nhánh `ACCEPTED_UNPAID` (giữ hàng tới 16:30 26/11/26, voucher `ML9KRGVFW3` đang HELD); nhóm workshop `GRP-A8C16842FA9C408EAFD3` chờ thanh toán (chỗ giữ tự trả khi hết hạn 10 phút, voucher `MLWS15` và 1.450 điểm trả theo outcome hết hạn). Giỏ Member 4 còn 6 dòng (dòng Tây Hồ size 7 đã được thêm lại rồi mua).
+- Đã sửa (2026-11-23, owner FE-06, 006 T143): `RetailQuote.digest(result, lines, …)` cho bán lẻ gắn `lines=` (voucher giới hạn chi nhánh) và phần chia giảm tự động/voucher theo khóa dòng (sản phẩm, size, chi nhánh, số lượng, đơn giá) đã sắp xếp thay cho chỉ số; `splitByLineKey` chia phần dư bằng nhau theo khóa dòng thay cho thứ tự gửi vào, nên phần chia từng dòng không đổi khi hoán vị. Workshop giữ digest cũ. FE-08 không phải sửa.
+  - Test: `LoyaltyRetailQuoteTest` 23/23 (thêm 2 test hoán vị; test cũ "hoán vị hai dòng làm đổi digest" đổi thành "hai size đổi chi nhánh làm đổi digest" — đúng ý contract, vì hoán vị cùng các dòng không phải đổi báo giá); toàn bộ test đơn vị 006 182/182.
+  - Chạy lại trên màn thật (backend 8087 có bản sửa, frontend 5179): giỏ 6 dòng Hoàn Kiếm, giảm tự động 60.000 + voucher giới hạn chi nhánh `MLHK12` 90.000; quote đọc lại theo UUID (variant 9, 63, 71, 157, 161, 192) khác thứ tự giỏ (157, 71, 63, 9, 161, 192) → `POST /api/v1/ready-ring-orders` 201; `loyalty_accepted_benefit` id 4 gross 3.080.000, giảm 150.000 (tự động 60.000); đơn `abab6825-…` 2.930.000 `ACCEPTED_UNPAID`.
+  - Thêm dữ liệu test: đơn `abab6825-81b8-4117-9f90-fe14f72bf4c0` (giữ hàng 3 ngày, voucher `MLHK12` HELD).
+  - Bộ test 006 đầy đủ (đơn vị + IT MySQL trên DB riêng `ppswbs_it_006_1123`, kèm `ModulithArchitectureTests`): 352/352. `LoyaltyBranchVoucherFacadeIT.acceptIsQuoteChangedWhenALineMovedToAnotherBranchAfterThePreview` cũng mô phỏng "đổi chi nhánh" bằng hoán vị hai dòng cùng size → đổi sang hai size khác nhau đổi chi nhánh cho nhau; thêm `acceptTakesTheSameLinesInAnotherOrderThanThePreview`.
+- Trạng thái xử lý: **FIXED** — chờ commit; backend 8086 của phiên khác vẫn chạy code cũ đến khi khởi động lại.
+- Cập nhật cùng ngày cho các mục "chưa kiểm" ở trên:
+  - Hết hạn chỗ giữ workshop: nhóm `GRP-A8C16842FA9C408EAFD3` hết hạn lúc 16:44:58 → `loyalty_accepted_benefit` id 3 voucher và điểm `RELEASED`, outcome `group-expired-GRP-A8C16842FA9C408EAFD3`. **Đạt**.
+  - 003.3 đổi phiên: vẫn chưa chạy thật được — bộ giả lập thanh toán lỗi, xem BUG-INT-0004.
+
+## BUG-INT-0004 — OPEN
+
+- Ngày phát hiện: 2026-11-23
+- Phát hiện bởi: Owner FE-06 (006) khi chạy thật 003.3 đổi phiên (backend 8087 bật `payment-simulator.enabled=true`, frontend 5179, Member `customer.test@mland.vn`)
+- Feature: payment-integration (`paymentintegration`, công cụ dev) — chặn kiểm thử thật mọi luồng cần thanh toán VNPay trên máy dev
+- Mức độ nghiêm trọng: MAJOR cho kiểm thử (không ảnh hưởng production vì bộ giả lập mặc định tắt)
+- Phân loại / Gán cho: Backend payment-integration
+- Mô tả lỗi: `VnpayPaymentSimulatorController.confirm` (dòng 59) đặt `vnp_TransactionNo = "SIM" + System.currentTimeMillis()` = 16 ký tự, còn `provider_transaction_number` là `VARCHAR(15)` (`payment_ingress_receipts`, `vnpay_merchant_operations`, `settlement_evidence_conclusions`; V34/V40). Lưu IPN giả lập lỗi `Data too long for column 'provider_transaction_number'` → giao dịch rollback → 500.
+- Các bước tái hiện:
+  1. Chạy backend với `--payment-simulator.enabled=true`; Member đặt 1 vé workshop (nhóm `GRP-4C59D0C79D5245308D3E`, cọc 200.000 ₫), bấm "Thanh toán … qua VNPay" để tạo giao dịch.
+  2. Mở `/api/v1/integrations/payments/simulator/{merchantReference}` (lấy ở `payment_owner_registrations`), bấm "Xác nhận chuyển khoản".
+- Kết quả mong đợi: IPN giả lập được nhận, booking sang đã cọc.
+- Kết quả thực tế: HTTP 500 `INTERNAL_ERROR` (correlationId `a8de6830-ecbd-4633-b445-07bdee4b6312`); log: `SqlExceptionHelper - Data truncation: Data too long for column 'provider_transaction_number'`, rồi `UnexpectedRollbackException`.
+- Đề xuất sửa (owner payment-integration): mã giả lập tối đa 15 ký tự (ví dụ `"S" + 14 chữ số cuối của millis`, hoặc dãy số 8 chữ số như VNPay thật). VNPay sandbox cũng không dùng được trên máy dev (mã 72 "Không tìm thấy website" với cấu hình mặc định), nên hiện không có đường nào để booking qua bước đã cọc khi kiểm thử thật.
+- Dữ liệu test: nhóm `GRP-4C59D0C79D5245308D3E` chờ thanh toán (voucher `MLWSHK50` đang giữ, tự trả khi hết hạn 10 phút).
+- Trạng thái xử lý: **OPEN**
+
+## BUG-E2E-0018 — CLOSED
+
+- Ngày phát hiện: 2026-11-21
+- Ngày đóng: 2026-11-21
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 004-design-request-and-human-review & Custom Manufacturing
+- Kịch bản liên quan: [E2E-004-029](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-029--member-custom-order-full-payment.md)
+- Mức độ nghiêm trọng: CRITICAL / BLOCKER
+- Phân loại / Gán cho: Backend / Database Schema
+- Mô tả lỗi: Cột `payment_kind` trong bảng `payment_owner_registrations` là `varchar(24)`, trong khi chuỗi giá trị enum `CUSTOM_ORDER_FULL_PAYMENT` dài 25 ký tự, gây ra lỗi `Data truncation` khi Member bấm thanh toán toàn bộ đơn hàng gia công.
+- Giải pháp:
+  1. Thêm migration Flyway `V191__widen_custom_order_payment_kind.sql` nới rộng cột `payment_kind` thành `varchar(64)`.
+  2. Cập nhật thuộc tính JPA `@Column(name = "payment_kind", nullable = false, length = 64)` trong `PaymentOwnerRegistration.java`.
+  3. Bổ sung bộ kiểm thử đơn vị `CustomOrderServiceTest` bao phủ toàn diện việc đăng ký enum 25 ký tự, kiểm tra hết hạn quote, chặn thanh toán khi order đã trả tiền hoặc chưa được duyệt, và xác nhận thanh toán thành công.
+- Bằng chứng xác minh:
+  - Flyway history: V191 áp dụng thành công (`success = 1`).
+  - Unit test: `CustomOrderServiceTest` (6/6 tests PASS).
+  - Live E2E test `E2E-004-029`: Trình duyệt điều hướng thành công sang VNPay Sandbox, bảng `payment_owner_registrations` lưu bản ghi `id=2`, `merchant_reference=CUST-D8FD507B-1795272257029`, `payment_kind=CUSTOM_ORDER_FULL_PAYMENT`, `amount_vnd=4500000`.
+
+## BUG-CONTRACT-0002 — CLOSED
+
+- Ngày phát hiện: 2026-11-21
+- Ngày đóng: 2026-11-21
+- Phát hiện bởi: Senior QA & System Verification Engineer
+- Feature: 004-design-request-and-human-review
+- Kịch bản liên quan: [E2E-004-018](ppswbs-spec/features/004-ai-chatbox-analysis-and-suggestion/test-results/e2e/E2E-004-018--guest-create-request-description.md)
+- Mức độ nghiêm trọng: MINOR / CONTRACT-DEFECT
+- Phân loại / Gán cho: Spec / OpenAPI Contract
+- Mô tả lỗi: OpenAPI contract định nghĩa `POST /api/v1/design-requests` là Member-only trong khi `spec.md` cho phép Guest tạo request kèm daily rate limit và tracking token.
+- Giải pháp: Cập nhật `custom-design-order-intake.openapi.yaml` và `APIs.md`: gỡ bỏ `security: [firebaseBearer]`, thêm `security: []`, mô tả `X-Guest-Design-Session`, `X-Guest-Tracking-Token`, rate limit 5 req/ngày và tải lên tối đa 5 ảnh.
+- Bằng chứng xác minh: `git diff --check` sạch, tài liệu hợp đồng và spec hoàn toàn khớp với implementation backend/frontend.
+
+## BUG-E2E-0016 — CLOSED
+
+- Ngày phát hiện: 2026-11-17
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
 - Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
 - Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
-- Mức độ nghiêm trọng: MAJOR
+- Mức độ nghiêm trọng: MAJOR (Đã thẩm định: Lỗi kỳ vọng kịch bản kiểm thử)
 - Phân loại / Gán cho: Spec
-- Mô tả lỗi: Các giá trị kỳ vọng về chi phí và độ khó trong kịch bản Phase 4 không khớp kết quả thẩm định của cùng cấu hình. Cần đối chiếu đặc tả/công thức và cập nhật đúng nguồn; chưa đủ bằng chứng để kết luận phía ứng dụng hay expected value bị sai.
-- Các bước tái hiện:
-  1. Đăng nhập bằng tài khoản MEMBER và mở gói `PKG-COUPLE-SILVER`.
-  2. Chọn mẫu `MOD-WS-SILVER-CLASSIC`, Bạc Ý 925, dáng Tròn cổ điển, size 16, 1 viên CZ Lam 2 mm, khắc chữ, độ dày 1.8 mm và độ rộng 3.5 mm.
-  3. Bấm "Lưu & Thẩm định" và xem các chỉ số kỹ thuật.
-- Kết quả mong đợi: Theo kịch bản, chi phí tham khảo khoảng 372.400 đ, khối lượng 4.02 g và độ khó 2.0/10 (Dễ).
-- Thực tế quan sát: Chi phí tham khảo 502.400 đ và độ khó 3.3/10 (Trung bình); khối lượng 4.02 g khớp. Chênh lệch chi phí là 130.000 đ.
-- Bằng chứng:
-  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
-  - Thiết kế: `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`
+- Kết luận điều tra: Kịch bản Phase 4 tính thiếu phụ phí và độ khó của đá quý (1 viên CZ Lam 2mm: +50.000 đ, +0.8 độ khó) và khắc chữ (+80.000 đ, +0.5 độ khó). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = 502.400 đ và độ khó 3.3/10 của hệ thống là hoàn toàn chính xác theo đúng rule engine tại `ManagerDesignRuleAdapter.java`.
 
----
+## BUG-E2E-0017 — CLOSED
 
-## BUG-E2E-0017 — OPEN
-
-- Ngày: 2026-11-17
+- Ngày phát hiện: 2026-11-17
+- Ngày đóng: 2026-11-21
 - Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 4 trên Mock Prod)
 - Feature: 004-ring-design-configuration (FE-04 - Cấu hình nhẫn Workshop)
 - Kịch bản liên quan: [JOURNEY-PHASE-4](master-e2e/JOURNEY-PHASE-4--custom-design-and-manufacturing.md)
 - Mức độ nghiêm trọng: MAJOR
 - Phân loại / Gán cho: Frontend
-- Mô tả lỗi: Trên trang kết quả thẩm định, bấm "Lưu trữ mẫu thiết kế" không mở hộp thoại xác nhận và không tạo thay đổi trạng thái quan sát được. Thiết kế vẫn ở trạng thái "ĐÃ THẨM ĐỊNH", khiến không thể hoàn tất bước lưu trữ/sổ tay cá nhân.
-- Các bước tái hiện:
-  1. Mở trang kết quả của thiết kế `DSG-8874b27b-5d24-4575-b410-b8c7af856b73`.
-  2. Bấm "Lưu trữ mẫu thiết kế".
-- Kết quả mong đợi: Hiện hộp thoại xác nhận; sau khi chấp nhận, badge chuyển thành "Đã lưu trữ".
-- Thực tế quan sát: Không có hộp thoại hoặc trạng thái mới; nút lưu trữ vẫn hiện và `/my/designs` chưa được kiểm tra.
-- Bằng chứng:
-  - Screenshot: Không lưu được tệp; ảnh Computer Use chỉ xuất hiện inline trong phiên.
+- Mô tả lỗi: Bấm "Lưu trữ mẫu thiết kế" dùng `window.confirm()` gốc không tạo phản hồi quan sát được trong kiểm thử tự động.
+- Giải pháp: Thêm modal popup xác nhận in-page `archive-confirm-dialog`. Khi bấm "Xác nhận lưu trữ", trạng thái thiết kế chuyển sang `ARCHIVED`, badge đổi thành "Đã lưu trữ" và các nút thao tác tương ứng ẩn đi.
+- Bằng chứng xác minh: Đã kiểm thử live trên trình duyệt với thiết kế `DSG-da7dbdaa-c9cd-44b7-8748-3ca18ca542fb`: Modal xuất hiện, xác nhận thành công, badge đổi thành "Đã lưu trữ", database ghi nhận `status = 'ARCHIVED'`.
 
 ---
 

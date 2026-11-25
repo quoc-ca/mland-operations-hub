@@ -57,6 +57,7 @@ class LoyaltyBranchVoucherFacadeIT {
 
     private static final long PRODUCT = 8_201L;
     private static final long SIZE = 82_011L;
+    private static final long SECOND_SIZE = 82_012L;
     private static final long OTHER_PRODUCT = 8_202L;
     private static final long OTHER_SIZE = 82_021L;
     private static final long BRANCH_A = 1L;
@@ -153,16 +154,34 @@ class LoyaltyBranchVoucherFacadeIT {
         String code = voucher(List.of(BRANCH_A));
         long member = newMember();
         TrustedSourceContext previewed = cart(member, line(PRODUCT, SIZE, 1_000_000, BRANCH_A),
-                line(PRODUCT, SIZE, 1_000_000, BRANCH_B));
+                line(PRODUCT, SECOND_SIZE, 1_000_000, BRANCH_B));
         String digest = loyalty.previewBenefits(previewed, voucherSelection(code)).termsDigest();
-        // Same amounts and the same discount, but now the B line is the discounted one.
+        // The two sizes swap branches: same amounts and the same discount, but now the other size is the discounted
+        // one. (The same lines merely listed in another order are not a change, BUG-INT-0003.)
         TrustedSourceContext moved = cart(member, line(PRODUCT, SIZE, 1_000_000, BRANCH_B),
-                line(PRODUCT, SIZE, 1_000_000, BRANCH_A));
+                line(PRODUCT, SECOND_SIZE, 1_000_000, BRANCH_A));
 
         assertThatThrownBy(() -> reserve(accept(moved, digest), voucherSelection(code)))
                 .isInstanceOfSatisfying(LoyaltyException.class,
                         e -> assertThat(e.code()).isEqualTo(LoyaltyErrorCode.QUOTE_CHANGED));
         assertThat(program(code).getHeldCount()).as("nothing is held").isZero();
+    }
+
+    @Test
+    void acceptTakesTheSameLinesInAnotherOrderThanThePreview() {
+        // BUG-INT-0003: FE-08 previews in cart order and rebuilds the lines grouped by branch at accept.
+        String code = voucher(List.of(BRANCH_A));
+        long member = newMember();
+        SourceLine first = line(PRODUCT, SIZE, 1_000_000, BRANCH_A);
+        SourceLine second = line(PRODUCT, SECOND_SIZE, 1_000_000, BRANCH_B);
+        SourceLine third = line(OTHER_PRODUCT, OTHER_SIZE, 300_000, BRANCH_A);
+        String digest = loyalty.previewBenefits(cart(member, first, second, third), voucherSelection(code))
+                .termsDigest();
+
+        AcceptedBenefitRef held = reserve(accept(cart(member, third, first, second), digest), voucherSelection(code));
+
+        assertThat(held.programDiscount()).isEqualTo(n(100_000));
+        assertThat(held.voucherState()).isEqualTo(ComponentState.HELD);
     }
 
     @Test

@@ -1,7 +1,9 @@
 # Research: Account Management (FE-001)
 
+> **R-INV scoped design approved (2026-11-25); implementation open:** [decision and risk analysis](design/revision-2026-11-24.md) supersedes older invitation-only assumptions. Firebase custom-token sign-in and provider linking must be verified for one UID across password or Google setup, redirect recovery, provider-email equality and pending-session denial. Local mock Retail/Booking data supports labelled MEMBER review/JSON only; retirement preserving business/audit IDs is deferred to T117 pending live source facts and an approved acceptance/retirement fence. FE-007's current template allowlist does not yet include invitation mail. The revised design starts the 48-hour link window at creation and allows ADMIN transient manual-content retrieval after two definite SMTP failures. Scoped Tech Lead approval is recorded in both feature approval files.
+
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -262,7 +264,7 @@ No REST endpoint, no generic Account directory, no cross-feature entity/DAO impo
 
 ### D-21: Shared browser session lifecycle and Router authority
 
-**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss; `403` retains the session and is a safe authorization recovery to Home.
+**Decision**: `AuthProvider` is the sole client session source. Firebase observation and authenticated HTTP transport only report outcomes; a Router-level `SessionNavigationBoundary` performs terminal cleanup, flash construction and `replace` navigation exactly once. `USER_SIGN_OUT` wins its consequent Firebase-null callback. The first session-loss signal wins duplicate `401`/Firebase-null events until a later signed-in observation. `401` is session loss. A signed-in actor outside an internal browser route's explicit allowlist is replaced to `/404` without rendering the route or retaining its attempted URL. An API `403` after a permitted route/action retains the session and is handled by that feature; it is not redirected to Home by the shared lifecycle.
 
 **Rationale**: Page-owned navigation allows competing redirects, duplicate cleanup, history leakage and inconsistent draft recovery. Separating source, signal and boundary preserves the existing backend authority while making browser recovery deterministic.
 

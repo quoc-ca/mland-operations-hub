@@ -2,17 +2,24 @@
 
 ![](assets/screens/48-new-product.png)
 
-This screen allows authorized catalogue maintainers to:
+This screen allows Staff and Managers to:
 
-- Enter a required trimmed name of 1–200 characters, description of 1–5,000 characters and an active category.
-- Configure at least one unique predefined size/engraving variant with a positive whole-VND proposed price and nonnegative integer quantity.
-- Optionally supply at most 10 JPEG/PNG/WebP images, 5 MB each, with alternative text of 1–200 characters and distinct positions.
-- Save a complete unpublished product draft without applying its price or publishing it.
+- Enter the product name, active category and description, with a warning when products with the same name already exist.
+- Select the branches that sell the product.
+- Choose 1–25 sizes from 5 to 29, individually or as a range, and enter a price for each size and a quantity for each size at each branch.
+- Add up to 10 images with alternative text and order them.
+- As Staff, create an unpublished draft whose prices remain proposals for Manager review.
+- As a Manager, create the product with its prices applied immediately, either unpublished or published at once.
 
 | Field Name | Description |
 | --- | --- |
-| Record code / product or proposal | Read-only stable target references; product identity and price-proposal identity must remain distinguishable. |
-| Applied price | Shows the currently effective Manager-approved price, separately from the proposed amount. |
-| State | Displays publication/proposal facts; an illustrative held label must not create a separate parent-product hold lifecycle. |
-| Create / Propose / Save Draft / Send for Review | Enable only actions appropriate to the current screen and authority; proposal submission does not apply or publish a price. |
-| Approval notice | Explains that Manager review, authorized price application and publication are separate actions. |
+| Product name | Required text input of at most 200 characters; "{count} product(s) already have this name" lists links to them without blocking the save. |
+| Category | Required selection of an active category; when none exists, **Open the categories page** opens Product Categories. |
+| Description | Required multi-line text of at most 5,000 characters. |
+| Selling branches | Checkboxes for the active branches within the user's scope; the price is shared by all branches while quantities are entered per branch. |
+| Sizes, proposed prices and quantities | Size buttons plus From size / To size, **Add range**, **Select all** and **Clear**, with a shared value applied to the chosen sizes. Saved sizes cannot be changed or removed later; new sizes can be added later at a selling branch from Product Management Details. |
+| Price per size | "Proposed price (₫)" for Staff; "Selling price (₫)" for a Manager, applied on creation without a review step. |
+| Quantity per branch | Nonnegative integer quantity of each size at each selected branch, with − / + buttons. |
+| Images | **Add images (n/10)** (JPEG, PNG or WebP, at most 5 MB each), a required image description of at most 200 characters, move up/down and **Remove**; a Manager must add at least one image. |
+| After creating | Manager only: "Not published yet" (saved with prices applied, hidden from customers) or "Publish now". |
+| Create product / Cancel | Creates the product and opens its management details, or abandons the form; when a Manager chooses "Publish now", the button reads **Create and publish**. |

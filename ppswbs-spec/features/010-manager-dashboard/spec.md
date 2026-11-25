@@ -6,9 +6,9 @@
 
 **Status**: Ready for implementation (reviewed 2026-11-14)
 
-**Date updated**: 2026-11-14
+**Date updated**: 2026-11-22
 
-**Last updated by**: Thinh
+**Last updated by**: Hồ Hoàng Quốc
 
 **Input**: User description: "Create FE-10 Manager Dashboard with a read-only Executive Revenue Dashboard for authorized Managers; Admin may view only purpose-limited parameter-impact information in FE-09, not FE-10 executive revenue."
 
@@ -22,7 +22,10 @@ notices.
 The feature is read-only. It does not create or modify orders, payments,
 workshop records, products, promotions, delivery records, or accounting records.
 V1 does not include operational-list navigation cards, pending-work cards, or
-metrics owned by another feature.
+metrics owned by another feature. The only exceptions are the two read-only
+operations blocks that were merged from Manager Home on 2026-11-25 (today's
+operations and recent events, FR-034 to FR-038). Pending-work counts are not on
+this page: they are badges of the navigation shell (`014-navigation-shell`).
 
 All monetary values in FE-10 V1 use Vietnamese dong (`VND`). A source fact in a
 different currency is not converted or aggregated; the affected source and KPI
@@ -139,6 +142,42 @@ An Admin may receive a separate, purpose-limited `Parameter Impact Summary` for 
   that opens `/review-moderation`; it is the only navigation shortcut allowed
   on the dashboard (FR-016). The sidebar link stays the main entry.
 
+### Session 2026-11-22 (navigation shell; owner directive)
+
+- Q: Is the dashboard still its own page with its own menu entry and review-moderation button? → A: It is still the page `/manager/dashboard`, but Manager Home (formerly 013, now `014-navigation-shell` and this spec) is merged
+  into it: the page also shows today's operations and recent events around the unchanged revenue report (filters, five KPI cards, trends, branch table, FR-016 to FR-030
+  rules unchanged). The sidebar entry becomes the "Dashboard" group of the new rail, and the "Quản lý đánh giá" header button is removed because review moderation is a tab
+  of the "Khách hàng" group. Decision of Hồ Hoàng Quốc; details in `014-navigation-shell/spec.md` Session 2026-11-22.
+- Q: How does the revenue report look inside the shell? → A: (Thinh, 2026-11-22) It uses the full page width. Each figure keeps one colour
+  everywhere: retail amber, workshop blue, paid retail orders green, workshop utilization violet, totals dark. Every label of the revenue
+  report follows the VI/EN switch, like the operations blocks of this page (FR-038). Trend charts are drawn at their real width (no stretched text), write
+  the value above each bar and point (only each series' peak when a period has more than 16 points), and count charts use whole-number
+  axes. The workshop trend panel shows revenue and participants side by side, then tickets booked and cancelled (FR-031).
+
+### Session 2026-11-23 (best sellers)
+
+- Q: Does the dashboard show what sells best? → A: Yes (Thinh, 2026-11-23). For the same period and branches the revenue report
+  lists the top 5 products and the top 5 workshop packages, read through `GET /api/v1/executive-reports/top-sellers` with the same
+  filters and Manager scope rule as the KPI report (FR-032, FR-033). There is no previous-period comparison for these lists.
+- Q: Which facts rank products? → A: Units in VND branch orders whose payment became `PAID` in the period, by payment time and
+  order branch (the same facts as the retail revenue KPI). The amount shown is the sold lines at their unit price, before order
+  discounts, so it is not the revenue KPI.
+- Q: Which facts rank workshop packages? → A: Tickets with status confirmed, completed or no-show in booking groups placed in
+  the period (the "confirmed" facts of the ticket trend), at the branch of the line's first session. The amount shown is the
+  package price per participant of those tickets, before promotions. Cancelled or abandoned tickets do not count.
+- Q: How are ties and names settled? → A: More units or tickets first, then the higher amount, then the lower ID. A product uses
+  its current catalogue name; a package uses its current name, or the name snapshot of the booking line if it no longer exists.
+
+### Session 2026-11-25 (Manager Home merged into this spec)
+
+Manager Home was `013-manager-home`. The folder is now `014-navigation-shell` (rail, tabs, page header and badges only). The two operations blocks it showed on the dashboard page
+are owned here. The decisions below were taken for Manager Home on 2026-11-18 and are kept; no behavior changed by the move.
+
+- Q: Are cancelled sessions counted in "sessions today"? → A: Yes. All of today's sessions are counted, cancelled ones included, with the number of cancelled ones shown separately ("of which N cancelled"). Check-in progress is measured over the sessions that are not cancelled.
+- Q: Does recent events include refused attempts from the Settlement audit as well as the Operations audit? → A: Yes, both sources, merged newest first. If one source cannot be read, the other is still shown with a note that part of the data is missing.
+- Q: Is there a "needs attention now" block of overdue items? → A: No. Dropped from V1 (owner decision Hồ Hoàng Quốc, 2026-11-22): "overdue" has no definition and no owner read.
+- Q: Where do the pending-work counts live? → A: In the navigation shell badges (`014-navigation-shell`), not on this page.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - View Executive Manager Dashboard (Priority: P1)
@@ -189,8 +228,37 @@ and complete source states and verifies that each state is represented distinctl
 4. **Given** the dashboard is open and newer verified records become available, **When** no filter is changed and the Manager does not request a refresh, **Then** the current view remains stable and continues to display its last-updated time.
 5. **Given** the Manager opens the dashboard, applies a supported filter, or explicitly requests a refresh, **When** metric retrieval succeeds, **Then** the system reloads the latest committed verified records and displays the new last-updated time.
 
+### User Story 3 - Check today's operations (Priority: P2)
+
+As an authorized Manager, I want to see how many workshop sessions run today and how far check-in has progressed, for all branches or one branch, so that I can tell whether the day is running normally. It shows operations only: no revenue and no utilization, because the revenue report owns those.
+
+**Independent Test**: With sessions scheduled today at two branches, view all branches, then pick one, and compare with the session board.
+
+**Acceptance Scenarios**:
+
+1. **Given** 6 sessions today across two branches, **When** the dashboard opens, **Then** the block shows 6 sessions and the combined check-in progress.
+2. **Given** the Manager picks one branch, **When** the selection is applied, **Then** the block shows only that branch's sessions and progress, and the revenue report is unaffected.
+3. **Given** no session is scheduled today, **When** the dashboard opens, **Then** the block says there are no sessions today.
+4. **Given** 6 sessions today of which 1 is cancelled, **When** the dashboard opens, **Then** the block shows 6 sessions with "of which 1 cancelled", and check-in progress covers only the 5 sessions that are not cancelled.
+
+### User Story 4 - Notice recent events (Priority: P3)
+
+As an authorized Manager, I want to see the few most recent events worth a look (refused access attempts and package availability changes) and open the audit log for more.
+
+**Independent Test**: Produce a refused access attempt and a package availability change; both appear, newest first; the audit link opens the audit log.
+
+**Acceptance Scenarios**:
+
+1. **Given** recent refused attempts and a package availability change, **When** the dashboard opens, **Then** the newest few appear with time, who and what, and a link opens the audit log.
+2. **Given** none in the period, **When** the dashboard opens, **Then** the block says nothing recent.
+3. **Given** the audit data is unavailable, **When** the dashboard opens, **Then** the block shows an unavailable state without affecting other blocks.
+4. **Given** the Settlement audit cannot be read but the Operations audit can, **When** the dashboard opens, **Then** the Operations events appear with a note that part of the data is missing.
+5. **Given** the Settlement audit cannot yet be narrowed to refused attempts, **When** the dashboard opens, **Then** the Operations events appear and the block says the Settlement source is not yet included.
+
 ### Edge Cases
 
+- The audit screen is not available in an environment: the recent-events block is hidden or unavailable and no link points to a missing page.
+- The Manager picks a branch for today's operations and then refreshes: the choice is kept for the visit only; it is not a saved preference.
 - The selected period is valid but contains no verified business records.
 - The selected branch is valid but has no records for the selected period.
 - The Manager attempts to select a branch outside the permitted scope.
@@ -201,6 +269,10 @@ and complete source states and verifies that each state is represented distinctl
 - An Admin authorized to view a parameter-impact summary attempts to use that permission to access FE-10 executive revenue or branch KPIs.
 
 ## Requirements
+
+### Route masking synchronization (2026-11-20)
+
+The Manager Dashboard browser route `/manager/dashboard` has the exact allowlist `MANAGER`. A signed-in `MEMBER`, `STAFF`, `ADMIN`, or `CARRIER` direct navigation is replaced to `/404` before a KPI or trend request begins. This is browser non-disclosure only; the Manager-only server authorization in FR-001, FR-003 and FR-017 remains authoritative and API denial remains typed rather than being rewritten by the browser.
 
 ### Functional Requirements
 
@@ -234,12 +306,16 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-014**: The system MUST allow an eligible Manager to retry an unavailable dashboard view.
 - **FR-015**: The system MUST keep dashboard viewing and filtering read-only; these actions MUST NOT change orders, payments, workshop records, products, promotions, or other operational master data.
 - **FR-016**: The V1 dashboard MUST contain only its period/branch filters,
-  five KPI cards, the trend section (FR-027, Session 2026-11-16), per-branch
+  five KPI cards, the trend section (FR-027, Session 2026-11-16), the
+  best-seller lists (FR-032, Session 2026-11-23), per-branch
   KPI rows, data-quality notices, a Retry action after a failed load (page
-  reload is the refresh control, Session 2026-11-14), and one header shortcut
-  to FE-11 review moderation (`/review-moderation`, kept for now, Session
-  2026-11-16); it MUST NOT include other operational-list navigation cards,
-  pending-work cards, or metrics owned by another feature.
+  reload is the refresh control, Session 2026-11-14); it MUST NOT include
+  operational-list navigation cards, pending-work cards, or metrics owned by
+  another feature. The FE-11 review-moderation header shortcut (Session
+  2026-11-16) is removed; review moderation is a tab of the "Khách hàng"
+  group. The two operations blocks shown around the revenue report on the same
+  page (today's operations and recent events) are governed by FR-034 to FR-038
+  (Session 2026-11-25).
 - **FR-017**: The system MUST deny access without revealing executive revenue values when the user is unauthenticated, locked, no longer authorized, or outside the Manager role boundary.
 - **FR-018**: The system MUST provide a clear safe state when the session expires or authorization changes during dashboard use.
 - **FR-019**: The system MUST recognize workshop revenue from the final invoice total only after that invoice is fully paid, including recorded actual surcharges and excluding a second count of the earlier 50% deposit; the fully-paid date MUST determine the reporting period.
@@ -275,6 +351,30 @@ and complete source states and verifies that each state is represented distinctl
 - **FR-030**: Each trend summary MUST compare with the previous period of the
   same length. A trend source that cannot be read MUST be named and shown as
   unknown, never as zero (FR-013).
+- **FR-031**: Every label, notice and number format of the revenue report MUST
+  follow the Vietnamese/English language switch. Trend charts MUST show each
+  non-zero value on its bar or point (only each series' peak when a period has
+  more than 16 points), count charts MUST use whole-number axes, and a missing
+  value MUST stay a gap, never a zero (Session 2026-11-22).
+- **FR-032**: For the selected period and branches the system MUST list the
+  top 5 products by units in VND branch orders paid in the period (FR-026
+  facts) and the top 5 workshop packages by tickets confirmed, completed or
+  marked no-show in booking groups placed in the period at the branch of the
+  first session, read through `GET /api/v1/executive-reports/top-sellers` with
+  the same filters and the same Manager scope rule as the KPI report. Ties go
+  to the higher amount before discounts, then the lower ID (Session
+  2026-11-23).
+- **FR-033**: Each best-seller row MUST show its rank, name, count (units or
+  tickets) and a bar, and on hover or keyboard focus its amount before
+  discounts and its share of the five. A list whose source cannot be read MUST
+  be shown as unavailable, never as empty (FR-013); an empty period MUST show
+  an empty-list notice; a failed load MUST offer Retry without hiding the rest
+  of the dashboard.
+- **FR-034** *(today's operations)*: The dashboard MUST show the number of workshop sessions scheduled today, cancelled ones included, with the number of cancelled sessions shown separately, and the check-in progress (participants checked in out of participants expected, over the sessions that are not cancelled), for all branches or one branch chosen by the Manager. "Expected" means the participants who hold a valid ticket for those sessions; it is not the sessions' capacity, which is what the utilization KPI uses (proposed definition; the workshop operations owner confirms it). "Today" is the Vietnam calendar day (UTC+7). This block MUST NOT show revenue or workshop utilization (Session 2026-11-25).
+- **FR-035** *(branch choice)*: The branch selection of FR-034 applies only to today's operations block, defaults to all branches, offers only branches the Manager may see, and is kept for the visit only.
+- **FR-036** *(recent events)*: The dashboard MUST show up to five of the most recent events from the last 24 hours, newest first, each with time, who and what, limited to what the audit review already exposes (no personal data), and a link to the audit log. The events are refused access attempts from both the Operations audit and the Settlement audit, and package availability changes from the Operations audit, merged into one list. If one source cannot be read, the events of the other are still shown with a note that part of the data is missing; the block is unavailable only when neither can be read. A source not delivered yet (the Settlement audit cannot be narrowed to refused attempts until its owner adds that) is stated as "not yet included", which is different from a failed read. Up to five events in 24 hours is a proposed default, not a decided limit.
+- **FR-037** *(independent blocks)*: Each operations block loads and fails on its own, with its own retry. A block that is loading shows a loading state; a block that fails MUST NOT display 0 and MUST NOT affect the revenue report or the other block (FR-013).
+- **FR-038** *(language, layout, accessibility)*: Labels of the operations blocks follow the VI/EN switch. The blocks are usable at 375 px width with no horizontal scrolling. Every figure has a text label, state is never conveyed by colour alone, and the blocks are operable by keyboard. Access follows FR-001 and FR-017; the server decides, and the route masking of `/manager/home` is owned by `014-navigation-shell`.
 
 ### Key Entities
 
@@ -283,8 +383,11 @@ and complete source states and verifies that each state is represented distinctl
 - **Verified Business Record**: A recorded retail, payment, workshop, or branch fact eligible to contribute to a dashboard metric after its owning workflow has verified it. For workshop revenue, this is the fully paid final invoice rather than the deposit as a separate revenue record.
 - **Branch Revenue Contribution**: The product value of a verified branch order after its allocated discounts, excluding delivery fees, attributed to the branch that owns that order.
 - **KPI Snapshot**: The required indicators for a reporting scope: verified retail revenue, verified workshop revenue, total verified revenue, paid retail order count, and workshop utilization. Workshop utilization uses actual check-ins against configured capacity for completed sessions.
+- **Best Seller**: One ranked product or workshop package for a reporting scope, with its count (units or tickets) and its amount before discounts; a read-only aggregate, never an order or ticket row.
 - **Data Quality Notice**: A visible status describing empty, unavailable, or
   partial source data and the time of the last successful dashboard update.
+- **Today's operations summary**: Sessions scheduled today and check-in progress for the chosen scope. Owned by workshop operations (003.2); the dashboard keeps no copy.
+- **Recent event**: A refused access attempt or package availability change with time, who and what. Owned by the audit review of 003.2 and 003.3; the dashboard keeps no copy.
 
 ## Success Criteria
 
@@ -303,6 +406,8 @@ and complete source states and verifies that each state is represented distinctl
 - **SC-011**: In 100% of default-scope tests, the initial dashboard consolidates exactly all branches within the Manager's authorized scope and no unauthorized branch.
 - **SC-012**: In 100% of period-filter tests, day, Monday-through-Sunday week, month, and year boundaries are applied correctly in Vietnam time (UTC+7), and no custom date-range control is offered.
 - **SC-013**: In 100% of refresh-behavior tests, dashboard data reloads on initial load, successful filter application, or explicit refresh, remains stable without those actions, and shows the last successful update time.
+- **SC-014**: In 100% of source-failure checks, when today's operations or recent events fails, the other block and the revenue report still show their data, and no failed block is shown as 0.
+- **SC-015**: Today's operations shows no revenue and no utilization figure in any check, and its session count equals the session board's count for the same day and scope.
 
 ## Assumptions
 
@@ -314,7 +419,7 @@ and complete source states and verifies that each state is represented distinctl
 - Dashboard values are based on verified recorded business data; pending, failed, or missing transactions are not treated as revenue. A workshop deposit is not counted separately once its fully paid final invoice is recognized, and the fully-paid date assigns that revenue to a reporting period.
 - For a grouped retail payment, each discount is allocated to the applicable branch order before revenue aggregation; delivery fees remain separate from branch and total store revenue.
 - Workshop sessions expose their configured capacity, completion state, and recorded check-ins to FE-10; cancelled and future sessions do not contribute to actual utilization.
-- The initial release does not include exports, scheduled reports, email delivery of reports, custom date ranges, or period-over-period comparison.
+- The initial release does not include exports, scheduled reports, email delivery of reports, or custom date ranges. Comparison with the previous period of the same length is included for the trends (FR-030, Session 2026-11-16); the best-seller lists have none (Session 2026-11-23).
 - The initial release does not include accounting reconciliation, profit calculation, tax reporting, or external carrier tracking.
 - KPI formulas not explicitly defined in this specification will be finalized during planning if they affect implementation or acceptance tests.
 - The permission-matrix conflict concerning Admin access is resolved for this feature by the approved Manager-only direction; the baseline matrix should be synchronized separately.

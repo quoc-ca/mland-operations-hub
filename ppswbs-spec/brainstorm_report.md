@@ -17,7 +17,7 @@ The referenced main ERD contains 23 tables, despite being described by the user 
 ## Result
 
 - DB.md defines 23 original entities and 48 SQL FK relationships, preserving its Column / Type / Constraints, Indexes and Rules form.
-- Retail and custom manufacturing share orders through order_type; payments and delivery_infors use order_id for both, with distinct deposit/balance and fulfilment rules.
+- Retail and custom manufacturing are separate order aggregates; they may share payment and fulfilment facades, but custom manufacturing uses one-time full-quote payment and no retail cart, deposit or balance lifecycle.
 - Added current-role FK, primary gemstone/attachment FKs, primary package material, primary Staff facilitator, order promotion/design/package references and booking-image linkage.
 - Voucher usage remains on orders and its authoritative code remains on promotions; the existing promotion_locations junction and order_items are retained.
 - Policy/cart, compatibility lists, adjustment/consent/custody, latest AI results and record-owned audit evidence use explicitly documented embedded fields where appropriate.

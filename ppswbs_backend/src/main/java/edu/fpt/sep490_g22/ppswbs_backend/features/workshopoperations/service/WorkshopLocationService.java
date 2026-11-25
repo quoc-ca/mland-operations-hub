@@ -45,8 +45,10 @@ public class WorkshopLocationService {
         AccountSummary actor = authorizationService.authenticate(authHeader);
 
         List<WorkshopLocation> locations;
-        if (authorizationService.isManager(actor)) {
+        if (authorizationService.isManager(actor) || authorizationService.isAdmin(actor)) {
             // FR-012c: a Manager sees every location, inactive ones included, so a deactivated one can be reactivated.
+            // Admin gets the same read-only list to assign Staff/Manager to a location (owner decision 2026-11-23);
+            // every write stays Manager-only.
             locations = locationRepository.findAll(org.springframework.data.domain.Sort.by("id"));
         } else if (authorizationService.isStaff(actor)) {
             List<Long> locationScope = authorizationService.getLocationScope(actor.accountId());

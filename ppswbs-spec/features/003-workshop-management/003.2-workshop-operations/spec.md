@@ -97,6 +97,10 @@ assigned to that session** may …".
   remain global and see and operate every session. An Admin is the system
   administrator only and has no Workshop Operations business authority
   (decided 2026-11-15, owner decision Hồ Hoàng Quốc, CHK024; FR-012c).
+  *(Amended 2026-11-23, owner decision Hồ Hoàng Quốc: Admin may call the
+  read-only `GET /api/v1/workshop-locations` and receives every location, so the
+  account-management screens can assign Staff/Manager to a real location; every
+  other route and every write stays refused with `403`.)*
   *(Superseded 2026-11-15: "Manager and Admin remain global and see and operate
   every session in scope".)*
 - **Both checks are made at command time**: active account status, the session
@@ -2356,3 +2360,7 @@ row above; T115 implements it and the contract test keeps the code in the closed
 
 Workshop checkout/bills, payment collection, refund, customer self-service
 changes, OTA callbacks and ticket delivery to individual participants.
+
+# Route masking synchronization (2026-11-20)
+
+FE-003.2 owns exact browser-route allowlists, not an inferred `/operations` prefix: `/operations/sessions*`, `/operations/packages`, `/workshop-packages`, and `/operations/package-add-ons` allow `STAFF` and `MANAGER`; `/operations/admin`, `/operations/locations`, `/operations/slots`, `/operations/package-availability`, `/operations/late-payments`, and `/operations/audit` allow `MANAGER` only. A signed-in actor outside the stated set is replaced to `/404` before page request/render. Staff location/session assignment checks and each Manager-authorized action remain server-side.

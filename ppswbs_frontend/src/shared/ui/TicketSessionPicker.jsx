@@ -101,6 +101,14 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
     }
   };
 
+  // A ticket with a single changeable session has nothing to choose between: select it so the picker
+  // goes straight to the new-session list.
+  const onlySession = state.status === 'ready' && state.data?.perFromSession?.length === 1
+    && state.data.perFromSession[0].sourceChangeable ? state.data.perFromSession[0] : null;
+  useEffect(() => {
+    if (onlySession && scope === null) pickScope(onlySession.fromSessionReference);
+  }, [onlySession, scope]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (state.status === 'loading') return <p className="muted" role="status">{text.loading}</p>;
   if (state.status === 'error') {
     return (
@@ -131,7 +139,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
     <div className="ticket-session-picker">
       {data.allowance?.exhausted && <p role="note" className="muted" style={{ fontSize: '13px' }}>{text.allowanceUsed}</p>}
       {data.windowOpen === false && type === 'ADVANCE' && <p role="note" className="muted" style={{ fontSize: '13px' }}>{text.windowClosed}</p>}
-      <fieldset style={{ border: 'none', padding: 0, margin: '8px 0' }}>
+      {!onlySession && <fieldset style={{ border: 'none', padding: 0, margin: '8px 0' }}>
         <legend style={{ fontSize: '13px', fontWeight: 600 }}>{text.sessionToChange}</legend>
         {sessions.map((item, index) => (
           <label key={item.fromSessionReference} style={{ display: 'block', fontSize: '13px', margin: '4px 0' }}>
@@ -152,7 +160,7 @@ export function TicketSessionPicker({ ticketCode, type, loadOptions, onSelect, l
             {' '}{text.bothSessions}
           </label>
         )}
-      </fieldset>
+      </fieldset>}
 
       {selected && (
         <fieldset style={{ border: 'none', padding: 0, margin: '8px 0' }}>

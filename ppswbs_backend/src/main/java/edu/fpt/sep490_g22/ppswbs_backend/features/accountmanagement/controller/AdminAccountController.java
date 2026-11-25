@@ -4,11 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountL
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountProfileRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountProvisioningRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.AccountSuspendRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.InternalAccountCreateRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.InternalProfileUpdateRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.RoleLocationAssignRequest;
-import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.StatusCommandRequest;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.request.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Account;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.AccountLocationAssignment;
@@ -31,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,6 +41,7 @@ public class AdminAccountController {
     private final AccountProfileRepository profileRepository;
     private final AccountLocationAssignmentRepository locationAssignmentRepository;
     private final InternalAccountProvisioningRepository provisioningRepository;
+    private final InvitationService invitationService;
 
     @GetMapping({"/api/v1/accounts", "/api/v1/admin/accounts"})
     public ResponseEntity<PagedResponse<AccountSummaryResponse>> listAccounts(
@@ -151,7 +149,7 @@ public class AdminAccountController {
         return ResponseEntity.ok(resp);
     }
 
-    @PostMapping({"/api/v1/accounts/{id}/setup-invitations", "/api/v1/admin/accounts/{id}/invitation/resend", "/api/v1/admin/accounts/{id}/invitations"})
+    @PostMapping({"/api/v1/accounts/{id}/setup-invitations", "/api/v1/admin/accounts/{id}/invitation/resend", "/api/v1/admin/accounts/{id}/invitations", "/api/v1/admin/accounts/{id}/setup-invitations/resend"})
     public ResponseEntity<InternalAccountSummaryResponse> resendInvitation(
         @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
         @PathVariable("id") Long id,
@@ -270,6 +268,92 @@ public class AdminAccountController {
 
         Account restored = suspensionService.restoreAccount(admin.accountId(), id, correlationId);
         return ResponseEntity.ok(toSummaryResponse(restored));
+    }
+
+    @GetMapping("/api/v1/admin/accounts/email-collisions")
+    public ResponseEntity<EmailCollisionResponse> resolveEmailCollision(
+        @RequestParam("email") String email
+    ) {
+        verifyAdmin();
+        EmailCollisionResponse response = adminAccountService.resolveEmailCollision(email);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/api/v1/admin/accounts/{accountId}/replacement-review")
+    public ResponseEntity<ReplacementReviewResponse> reviewMemberReplacement(
+        @PathVariable("accountId") Long accountId,
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        HttpServletRequest httpRequest
+    ) {
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
+        ReplacementReviewResponse response = adminAccountService.reviewMemberReplacement(accountId, admin.accountId(), correlationId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/api/v1/admin/accounts/{accountId}/replacement-export")
+    public ResponseEntity<ReplacementReviewResponse> exportMemberReplacement(
+        @PathVariable("accountId") Long accountId,
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        HttpServletRequest httpRequest
+    ) {
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
+        ReplacementReviewResponse response = adminAccountService.reviewMemberReplacement(accountId, admin.accountId(), correlationId);
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"member-replacement-inventory-" + accountId + ".json\"")
+            .header("Cache-Control", "no-store")
+            .body(response);
+    }
+
+    @PostMapping("/api/v1/admin/accounts/{accountId}/retire-for-replacement")
+    public ResponseEntity<?> retireMemberForReplacement(
+        @PathVariable("accountId") Long accountId,
+        @RequestHeader(value = "Idempotency-Key") String idempotencyKey,
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        @Valid @RequestBody RetirementCommandRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
+        // Fails closed per R-INV specification (T108 & deferred T117)
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT).body(
+            Map.of(
+                "code", "RETIREMENT_BLOCKED",
+                "message", "Source is DEMO/UNAVAILABLE, acceptance fence absent; retirement is blocked. Live MEMBER replacement is deferred to T117.",
+                "correlationId", correlationId
+            )
+        );
+    }
+
+    @PostMapping("/api/v1/admin/firebase-identities/email-collisions/delete")
+    public ResponseEntity<FirebaseOnlyDeleteResponse> deleteFirebaseOnlyCollision(
+        @RequestHeader(value = "Idempotency-Key") String idempotencyKey,
+        @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+        @Valid @RequestBody FirebaseOnlyDeleteRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        CurrentAccountActor admin = verifyAdmin();
+        String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
+        FirebaseOnlyDeleteResponse response = adminAccountService.deleteFirebaseOnlyCollision(
+            request.getNormalizedEmail(),
+            request.getOccupancyReference(),
+            request.getConfirm(),
+            admin.accountId(),
+            correlationId
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/api/v1/admin/accounts/{accountId}/setup-invitations/current")
+    public ResponseEntity<InvitationStatusResponse> getCurrentInternalInvitationStatus(
+        @PathVariable("accountId") Long accountId
+    ) {
+        verifyAdmin();
+        InvitationStatusResponse response = invitationService.getCurrentStatus(accountId);
+        return ResponseEntity.ok()
+            .header("Cache-Control", "no-store")
+            .body(response);
     }
 
     private CurrentAccountActor verifyAdmin() {

@@ -7,18 +7,23 @@
  * The country list is a short, hand-kept one (no phone library). `national` checks the number WITHOUT the trunk "0"
  * that people type at home (0338… for +84); `trunk` says whether that leading 0 is dropped.
  */
+import { translate } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
+
+const L = (lang, key, params) => translate(messages, lang || 'vi', key, params);
+
 export const PHONE_COUNTRIES = [
-  { iso: 'VN', dial: '84', name: 'Việt Nam', trunk: true, national: /^[35789]\d{8}$/ },
-  { iso: 'US', dial: '1', name: 'Mỹ / Canada', trunk: false, national: /^[2-9]\d{9}$/ },
-  { iso: 'JP', dial: '81', name: 'Nhật Bản', trunk: true, national: /^[1-9]\d{8,9}$/ },
-  { iso: 'KR', dial: '82', name: 'Hàn Quốc', trunk: true, national: /^[1-9]\d{7,9}$/ },
-  { iso: 'CN', dial: '86', name: 'Trung Quốc', trunk: true, national: /^1[3-9]\d{9}$/ },
+  { iso: 'VN', dial: '84', name: L('vi', 'country.VN'), trunk: true, national: /^[35789]\d{8}$/ },
+  { iso: 'US', dial: '1', name: L('vi', 'country.US'), trunk: false, national: /^[2-9]\d{9}$/ },
+  { iso: 'JP', dial: '81', name: L('vi', 'country.JP'), trunk: true, national: /^[1-9]\d{8,9}$/ },
+  { iso: 'KR', dial: '82', name: L('vi', 'country.KR'), trunk: true, national: /^[1-9]\d{7,9}$/ },
+  { iso: 'CN', dial: '86', name: L('vi', 'country.CN'), trunk: true, national: /^1[3-9]\d{9}$/ },
   { iso: 'SG', dial: '65', name: 'Singapore', trunk: false, national: /^[3689]\d{7}$/ },
-  { iso: 'TH', dial: '66', name: 'Thái Lan', trunk: true, national: /^[1-9]\d{7,8}$/ },
-  { iso: 'AU', dial: '61', name: 'Úc', trunk: true, national: /^[2-478]\d{8}$/ },
+  { iso: 'TH', dial: '66', name: L('vi', 'country.TH'), trunk: true, national: /^[1-9]\d{7,8}$/ },
+  { iso: 'AU', dial: '61', name: L('vi', 'country.AU'), trunk: true, national: /^[2-478]\d{8}$/ },
   { iso: 'GB', dial: '44', name: 'Anh', trunk: true, national: /^[1-9]\d{9}$/ },
-  { iso: 'FR', dial: '33', name: 'Pháp', trunk: true, national: /^[1-9]\d{8}$/ },
-  { iso: 'DE', dial: '49', name: 'Đức', trunk: true, national: /^[1-9]\d{9,10}$/ },
+  { iso: 'FR', dial: '33', name: L('vi', 'country.FR'), trunk: true, national: /^[1-9]\d{8}$/ },
+  { iso: 'DE', dial: '49', name: L('vi', 'country.DE'), trunk: true, national: /^[1-9]\d{9,10}$/ },
 ];
 
 export const DEFAULT_PHONE_COUNTRY = 'VN';
@@ -77,15 +82,19 @@ export function isValidPhone(iso, typed) {
   return digits !== null && country.national.test(digits);
 }
 
-export const EMAIL_ERROR = 'Email không hợp lệ (ví dụ: name@example.com).';
-export const phoneError = iso => `Số điện thoại không hợp lệ cho ${countryOf(iso).name} (+${countryOf(iso).dial}).`;
+export const EMAIL_ERROR = L('vi', 'helper.emailInvalid');
+export const phoneError = (iso, lang = 'vi') => L(lang, 'helper.phoneInvalid', { country: countryName(iso, lang), dial: countryOf(iso).dial });
+export const emailError = lang => L(lang, 'helper.emailInvalid');
+
+/** Country name for the select in the given language (`name` itself stays the Vietnamese one). */
+export const countryName = (iso, lang = 'vi') => L(lang, `country.${countryOf(iso).iso}`);
 
 /** { contactEmail?, contactPhone? } with a message per invalid field; empty when the contact can be sent. */
-export function validateBookingContact(contact) {
+export function validateBookingContact(contact, lang = 'vi') {
   const errors = {};
-  if (!isValidEmail(contact?.contactEmail)) errors.contactEmail = EMAIL_ERROR;
+  if (!isValidEmail(contact?.contactEmail)) errors.contactEmail = emailError(lang);
   if (!isValidPhone(contact?.contactPhoneCountry, contact?.contactPhone)) {
-    errors.contactPhone = phoneError(contact?.contactPhoneCountry);
+    errors.contactPhone = phoneError(contact?.contactPhoneCountry, lang);
   }
   return errors;
 }
@@ -104,16 +113,16 @@ export function contactForRequest(contact) {
  * message when it is empty, both are filled, or the one given is malformed. A proof is checked for format only; the
  * server decides whether it matches the booking.
  */
-export function buildContactProof({ email, phone, phoneCountry }) {
+export function buildContactProof({ email, phone, phoneCountry }, lang = 'vi') {
   const hasEmail = Boolean(String(email ?? '').trim());
   const hasPhone = Boolean(String(phone ?? '').trim());
-  if (hasEmail === hasPhone) return { proof: null, error: 'Vui lòng cung cấp đúng một trong hai: Email HOẶC Số điện thoại đã dùng khi đặt.' };
+  if (hasEmail === hasPhone) return { proof: null, error: L(lang, 'helper.proofExactlyOne') };
   if (hasEmail) {
-    return isValidEmail(email) ? { proof: { contactEmail: normalizeEmail(email) }, error: null } : { proof: null, error: EMAIL_ERROR };
+    return isValidEmail(email) ? { proof: { contactEmail: normalizeEmail(email) }, error: null } : { proof: null, error: emailError(lang) };
   }
   return isValidPhone(phoneCountry, phone)
     ? { proof: { contactPhone: toInternationalPhone(phoneCountry, phone) }, error: null }
-    : { proof: null, error: phoneError(phoneCountry) };
+    : { proof: null, error: phoneError(phoneCountry, lang) };
 }
 
 /**

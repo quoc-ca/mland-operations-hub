@@ -31,11 +31,11 @@ As an authorized catalogue maintainer, I want to apply an approved price to a si
 
 **Step 1 — Several sizes at once**
 
-The actor selects Apply approved prices of N sizes. The system applies each size as its own action; a size that fails does not affect the others.
+The actor selects Apply approved prices of N sizes. The system applies each size as its own action; a size that fails does not affect the others; partial results are reported (MSG54).
 
 **Step 1 — Applied right after approval**
 
-When the Manager kept "Apply price right after approval" selected in UC-15, or when the Manager's create screen or Publish now runs (UC-12, UC-17), steps 1–3 are skipped and the system applies the version that was just approved.
+When the Manager kept "Apply the price right after approving" ticked in UC-15, or when the Manager's create screen, Change price, Add sizes or Publish now runs (UC-12, UC-15, UC-17), steps 1–3 are skipped and the system applies the version that was just approved.
 
 **Step 1 — Review approved but some prices not applied yet**
 
@@ -61,16 +61,19 @@ The system keeps the previous price (MSG04); a retry does not apply the price tw
 
 - The new price is used only for new views, carts and checkouts.
 - Prices and deadlines of orders and holds that were already accepted do not change.
-- Applying a price does not publish the product.
+- Applying a price does not publish the product. On a published product, a size that gets its first applied price, such as a newly added size, appears publicly at the next read without another publication.
 
 #### Business Rules
 
-BR-16-01, BR-16-02, BR-16-03
+GBR-14, GBR-16, GBR-33, BR-16-01, BR-16-02, BR-16-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
+| GBR-14 | An approved price is applied as a separate action, even when it is sent right after the approval. |
+| GBR-16 | Changing a price never cancels valid holds or changes accepted orders. |
+| GBR-33 | After the first publication, a size without an applied price is not shown publicly; it appears once its approved price is applied. |
 | BR-16-01 | Applying a price is a separate action that accepts only a valid approved decision for the same size and terms, at exactly the approved amount; it may be requested right after the approval but always keeps its own record. |
 | BR-16-02 | An older request cannot overwrite a newer applied price, and applying records the previous and new price, decision, actor and time. |
 | BR-16-03 | A new applied price affects only new views and checkouts; it never changes accepted orders or valid holds, and a pending new price does not remove the current applied price. |

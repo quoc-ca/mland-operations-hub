@@ -1,7 +1,7 @@
 # Feature-013 UI Flow
 
 **Date created**: 2026-11-18  
-**Date updated**: 2026-11-18  
+**Date updated**: 2026-11-24
 **Author**: Ngô Tiến Đạt  
 **Last updated by**: Ngô Tiến Đạt
 
@@ -27,6 +27,24 @@ Operations navigation
 → Send reply / polling / close
 → Release or reopen
 ```
+
+## Draft Figma redesign — pending user approval
+
+Draft frames were created in the existing Mland file m5Cyk5rit6lKaX3TPprSow,
+page 498:2, using existing shell, typography and surface patterns:
+
+| Screen | Node |
+|---|---:|
+| Member contextual consultation desktop | 590:71 |
+| Member contextual consultation mobile | 590:108 |
+| Staff/Manager consultation desktop | 590:127 |
+
+The contextual and general chatbox must have identical outer width and
+responsive behavior. The draft shows the reader at the top of the thread and
+labels that polling does not move the reader automatically. Required states
+include loading, empty, loaded, send success/failure, closed, forbidden,
+polling failure, new message while reading older content, and bilingual text.
+The draft is not approval of API or business-rule changes.
 
 Each screen specifies loading, empty, validation, forbidden, not-found, stale,
 rate-limited, closed, polling failure and retry states. Messages are rendered as

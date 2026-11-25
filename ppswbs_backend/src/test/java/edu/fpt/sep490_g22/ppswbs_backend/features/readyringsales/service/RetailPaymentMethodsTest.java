@@ -46,12 +46,12 @@ class RetailPaymentMethodsTest {
     }
 
     @Test
-    void cashIsHeldForSeventyTwoHoursAndVnpayForFifteenMinutes() {
+    void cashIsHeldForSeventyTwoHoursAndVnpayForTenMinutes() {
         Instant accepted = Instant.parse("2026-11-12T05:00:00Z");
         assertThat(RetailPaymentMethods.holdDeadline(RetailPaymentMethod.CASH_AT_COUNTER, accepted))
             .isEqualTo(accepted.plus(Duration.ofHours(72)));
         assertThat(RetailPaymentMethods.holdDeadline(RetailPaymentMethod.VNPAY, accepted))
-            .isEqualTo(accepted.plus(Duration.ofMinutes(15)));
+            .isEqualTo(accepted.plus(Duration.ofMinutes(10)));
     }
 
     @Test

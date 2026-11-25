@@ -4,9 +4,13 @@ import { useMemberAddresses } from '../hooks/useMemberAddresses';
 import { useProfile } from '../hooks/useProfile';
 import { AddressResponse, AddressCreateRequest, AddressUpdateRequest } from '../api/AddressApiClient';
 import AddressModal from './AddressModal';
+import { useT, useEnumLabel } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
 import '../accountmanagement.css';
 
 export const AddressBookPage: React.FC = () => {
+  const t = useT(accountMessages);
+  const typeLabel = useEnumLabel(accountMessages, 'addr.type');
   const {
     addresses,
     isQuotaReached,
@@ -52,9 +56,7 @@ export const AddressBookPage: React.FC = () => {
 
   const handleDeleteRequest = (addr: AddressResponse) => {
     if (addr.isDefault && addresses.length > 1) {
-      setError(
-        'Không thể xóa địa chỉ mặc định khi còn các địa chỉ khác. Vui lòng thiết lập một địa chỉ khác làm mặc định trước khi xóa.'
-      );
+      setError(t('addr.deleteDefaultError'));
       return;
     }
     setDeleteConfirmTarget(addr);
@@ -75,25 +77,25 @@ export const AddressBookPage: React.FC = () => {
       {/* Breadcrumb / Back Link */}
       <div style={{ marginBottom: '1rem' }}>
         <Link to="/profile" className="account-back-link">
-          ← Quay lại Hồ sơ cá nhân
+          {t('addr.back')}
         </Link>
       </div>
 
       {/* Header */}
       <header className="account-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 className="account-page-title">Sổ địa chỉ nhận hàng</h1>
+          <h1 className="account-page-title">{t('addr.title')}</h1>
           <p className="account-page-description">
-            Quản lý danh sách địa chỉ giao nhận hàng của bạn (tối đa 10 địa chỉ).
+            {t('addr.description')}
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span
             className="account-quota-badge"
-            aria-label={`Đã lưu ${addresses.length} trên 10 địa chỉ`}
+            aria-label={t('addr.savedAria', { count: addresses.length })}
           >
-            Đã lưu: <strong>{addresses.length}/10</strong> địa chỉ
+            {t('addr.saved')} <strong>{addresses.length}/10</strong> {t('addr.addressesUnit')}
           </span>
 
           <button
@@ -101,9 +103,9 @@ export const AddressBookPage: React.FC = () => {
             className="account-btn account-btn-primary"
             onClick={handleOpenAdd}
             disabled={isQuotaReached || loading || saving}
-            title={isQuotaReached ? 'Bạn đã đạt giới hạn tối đa 10 địa chỉ' : undefined}
+            title={isQuotaReached ? t('addr.quotaTitle') : undefined}
           >
-            + Thêm địa chỉ mới
+            {t('addr.add')}
           </button>
         </div>
       </header>
@@ -116,7 +118,7 @@ export const AddressBookPage: React.FC = () => {
             type="button"
             className="account-alert-dismiss"
             onClick={() => setSuccessNotice(null)}
-            aria-label="Đóng thông báo"
+            aria-label={t('addr.closeNotice')}
           >
             ✕
           </button>
@@ -126,14 +128,14 @@ export const AddressBookPage: React.FC = () => {
       {error && (
         <div className="account-alert account-alert-error" role="alert">
           <div>
-            <strong>Thông báo: </strong>
+            <strong>{t('addr.noticePrefix')}</strong>
             <span>{error}</span>
           </div>
           <button
             type="button"
             className="account-alert-dismiss"
             onClick={() => setError(null)}
-            aria-label="Đóng lỗi"
+            aria-label={t('addr.closeError')}
           >
             ✕
           </button>
@@ -142,9 +144,9 @@ export const AddressBookPage: React.FC = () => {
 
       {/* Quota reached notice */}
       {isQuotaReached && (
-        <div className="account-alert account-alert-warning" role="region" aria-label="Giới hạn địa chỉ">
+        <div className="account-alert account-alert-warning" role="region" aria-label={t('addr.quotaRegion')}>
           <span>
-            Bạn đã sử dụng đủ số lượng tối đa 10 địa chỉ nhận hàng. Để thêm địa chỉ mới, vui lòng xóa hoặc chỉnh sửa địa chỉ hiện có.
+            {t('addr.quotaReached')}
           </span>
         </div>
       )}
@@ -152,7 +154,7 @@ export const AddressBookPage: React.FC = () => {
       {/* Loading state */}
       {loading && (
         <div className="account-card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-          <p style={{ color: '#4b5563' }}>Đang tải danh sách địa chỉ nhận hàng…</p>
+          <p style={{ color: '#4b5563' }}>{t('addr.loading')}</p>
         </div>
       )}
 
@@ -161,17 +163,17 @@ export const AddressBookPage: React.FC = () => {
         <div className="account-card" style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#9ca3af' }}>📍</div>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#111827' }}>
-            Bạn chưa có địa chỉ nhận hàng nào
+            {t('addr.emptyTitle')}
           </h2>
           <p style={{ color: '#6b7280', marginBottom: '1.5rem', maxWidth: '450px', margin: '0 auto 1.5rem auto' }}>
-            Lưu địa chỉ nhận hàng giúp bạn thanh toán nhanh hơn và theo dõi phí vận chuyển chính xác từ bưu cục.
+            {t('addr.emptyBody')}
           </p>
           <button
             type="button"
             className="account-btn account-btn-primary"
             onClick={handleOpenAdd}
           >
-            Thêm địa chỉ đầu tiên
+            {t('addr.addFirst')}
           </button>
         </div>
       )}
@@ -195,15 +197,15 @@ export const AddressBookPage: React.FC = () => {
 
                   <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
                     {addr.isDefault && (
-                      <span className="account-badge account-badge-success" aria-label="Địa chỉ mặc định">
-                        Mặc định
+                      <span className="account-badge account-badge-success" aria-label={t('addr.defaultAria')}>
+                        {t('addr.default')}
                       </span>
                     )}
                     <span
                       className="account-badge account-badge-secondary"
-                      aria-label={`Loại địa chỉ: ${addr.addressType === 'HOME' ? 'Nhà riêng' : 'Văn phòng'}`}
+                      aria-label={t('addr.typeAria', { type: typeLabel(addr.addressType === 'HOME' ? 'HOME' : 'OFFICE') })}
                     >
-                      {addr.addressType === 'HOME' ? 'Nhà riêng' : 'Văn phòng'}
+                      {typeLabel(addr.addressType === 'HOME' ? 'HOME' : 'OFFICE')}
                     </span>
                   </div>
                 </div>
@@ -230,7 +232,7 @@ export const AddressBookPage: React.FC = () => {
                       onClick={() => handleOpenEdit(addr)}
                       disabled={saving || deletingId === addr.id}
                     >
-                      Chỉnh sửa
+                      {t('addr.edit')}
                     </button>
 
                     <button
@@ -240,11 +242,11 @@ export const AddressBookPage: React.FC = () => {
                       disabled={saving || deletingId === addr.id || isDefaultAndMultiple}
                       title={
                         isDefaultAndMultiple
-                          ? 'Không thể xóa địa chỉ mặc định khi còn các địa chỉ khác. Đổi mặc định trước.'
-                          : 'Xóa địa chỉ'
+                          ? t('addr.deleteDefaultBlocked')
+                          : t('addr.deleteTitle')
                       }
                     >
-                      {deletingId === addr.id ? 'Đang xóa…' : 'Xóa'}
+                      {deletingId === addr.id ? t('addr.deleting') : t('addr.delete')}
                     </button>
                   </div>
 
@@ -255,7 +257,7 @@ export const AddressBookPage: React.FC = () => {
                       onClick={() => setDefaultAddress(addr.id)}
                       disabled={settingDefaultId === addr.id || saving}
                     >
-                      {settingDefaultId === addr.id ? 'Đang thiết lập…' : 'Thiết lập mặc định'}
+                      {settingDefaultId === addr.id ? t('addr.settingDefault') : t('addr.setDefault')}
                     </button>
                   )}
                 </div>
@@ -289,13 +291,13 @@ export const AddressBookPage: React.FC = () => {
           >
             <div className="account-modal-header">
               <h2 id="delete-confirm-title" className="account-modal-title">
-                Xác nhận xóa địa chỉ
+                {t('addr.confirmDeleteTitle')}
               </h2>
               <button
                 type="button"
                 className="account-modal-close-btn"
                 onClick={() => setDeleteConfirmTarget(null)}
-                aria-label="Đóng"
+                aria-label={t('addr.close')}
               >
                 ✕
               </button>
@@ -303,12 +305,12 @@ export const AddressBookPage: React.FC = () => {
 
             <div className="account-modal-body">
               <p style={{ margin: 0 }}>
-                Bạn có chắc chắn muốn xóa địa chỉ của người nhận{' '}
+                {t('addr.deleteQuestion')}{' '}
                 <strong>{deleteConfirmTarget.recipientName}</strong> (
-                {deleteConfirmTarget.detailAddress}, {deleteConfirmTarget.provinceName}) không?
+                {deleteConfirmTarget.detailAddress}, {deleteConfirmTarget.provinceName}) {t('addr.deleteQuestionEnd')}
               </p>
               <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                Hành động này sẽ xóa vĩnh viễn địa chỉ khỏi sổ địa chỉ của bạn.
+                {t('addr.deleteWarning')}
               </p>
             </div>
 
@@ -318,7 +320,7 @@ export const AddressBookPage: React.FC = () => {
                 className="account-btn account-btn-secondary"
                 onClick={() => setDeleteConfirmTarget(null)}
               >
-                Hủy
+                {t('addr.cancel')}
               </button>
               <button
                 type="button"
@@ -326,7 +328,7 @@ export const AddressBookPage: React.FC = () => {
                 onClick={handleConfirmDelete}
                 disabled={deletingId === deleteConfirmTarget.id}
               >
-                {deletingId === deleteConfirmTarget.id ? 'Đang xóa…' : 'Xác nhận xóa'}
+                {deletingId === deleteConfirmTarget.id ? t('addr.deleting') : t('addr.confirmDelete')}
               </button>
             </div>
           </div>

@@ -104,12 +104,11 @@ class CarrierAccountIT {
     }
 
     @Test
-    @DisplayName("T084: Role catalogue contains CARRIER with exact Vietnamese display name")
+    @DisplayName("T113: Role catalogue endpoint removed (GET /api/v1/roles returns 404 Not Found)")
     void roleCatalogue_includesCarrierRole() throws Exception {
         mockMvc.perform(get("/api/v1/roles")
                 .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.roles[?(@.code == 'CARRIER')].displayName").value("Đối tác vận chuyển (GHTK)"));
+            .andExpect(status().isNotFound());
     }
 
     @Test
@@ -495,7 +494,7 @@ class CarrierAccountIT {
     @Test
     @DisplayName("T088: Demo seed fixture ghtk.test@mland.vn exists with CARRIER role and no locations")
     void demoSeedFixture_verified() {
-        // Create demo account matching V188 migration if not already in memory
+        // Create demo account matching V190 migration if not already in memory
         Account carrier = accountRepository.findByFirebaseUid("t4532Dx1ApddAQMBB3YtxMEisNH3")
             .orElseGet(() -> {
                 Account a = accountRepository.save(Account.builder()

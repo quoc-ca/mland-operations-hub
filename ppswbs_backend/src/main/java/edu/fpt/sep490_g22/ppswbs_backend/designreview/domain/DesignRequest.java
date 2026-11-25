@@ -21,11 +21,23 @@ public class DesignRequest {
     @Column(name = "request_reference", nullable = false, unique = true, length = 64)
     private String requestReference;
 
-    @Column(name = "owner_account_id", nullable = false)
+    @Column(name = "owner_account_id")
     private Long ownerAccountId;
 
     @Column(name = "guest_proof_hash", length = 128)
     private String guestProofHash;
+
+    @Column(name = "guest_session_id", length = 128)
+    private String guestSessionId;
+
+    @Column(name = "tracking_token", length = 256)
+    private String trackingToken;
+
+    @Column(name = "tracking_token_hash", length = 128)
+    private String trackingTokenHash;
+
+    @Column(name = "tracking_token_expires_at")
+    private Instant trackingTokenExpiresAt;
 
     @Column(name = "ownership_type", nullable = false, length = 16)
     @Builder.Default
@@ -36,6 +48,15 @@ public class DesignRequest {
 
     @Column(name = "catalogue_reference", length = 128)
     private String catalogueReference;
+
+    @Column(name = "design_reference", length = 64)
+    private String designReference;
+
+    @Column(name = "design_version")
+    private Integer designVersion;
+
+    @Column(name = "quote_reference", length = 64)
+    private String quoteReference;
 
     @Column(name = "request_version", nullable = false)
     @Builder.Default
@@ -55,6 +76,9 @@ public class DesignRequest {
     @Enumerated(EnumType.STRING)
     @Column(name = "review_status", nullable = false, length = 32)
     private ReviewStatus reviewStatus;
+
+    @Column(name = "decision_explanation", length = 2000)
+    private String decisionExplanation;
 
     @Column(name = "estimated_value")
     private Long estimatedValue;
@@ -91,13 +115,13 @@ public class DesignRequest {
             this.requestStatus = "ACTIVE";
         }
         if (this.analysisStatus == null) {
-            this.analysisStatus = AnalysisStatus.PENDING;
+            this.analysisStatus = AnalysisStatus.SUCCEEDED;
         }
         if (this.reviewStatus == null) {
             this.reviewStatus = ReviewStatus.NEED_REVIEW;
         }
         if (this.nextAction == null) {
-            this.nextAction = "AWAITING_ANALYSIS";
+            this.nextAction = "AWAITING_HUMAN_REVIEW";
         }
     }
 

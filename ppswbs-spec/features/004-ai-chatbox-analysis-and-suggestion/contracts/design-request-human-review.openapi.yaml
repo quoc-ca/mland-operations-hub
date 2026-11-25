@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Feature-004 Design Request and Human Review API
+  version: 1.0.0-draft
+  description: >-
+    Human-reviewed independent design requests. This contract contains no AI,
+    booking, payment or catalogue-price behavior.
+servers:
+  - url: /api/v1
+paths:
+  /design-requests:
+    post:
+      operationId: createDesignRequest
+      summary: Create a Guest or Member design request
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/GuestDesignSession'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateDesignRequest'
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerRequestProjection' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /design-requests/{designRequestId}:
+    get:
+      operationId: getDesignRequest
+      summary: Get a safe Guest or Member request projection
+      parameters:
+        - $ref: '#/components/parameters/DesignRequestId'
+        - $ref: '#/components/parameters/GuestTrackingToken'
+      responses:
+        '200': { description: Safe projection, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerRequestProjection' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /design-requests/{designRequestId}/tracking:
+    get:
+      operationId: getGuestTrackingProjection
+      summary: Get Guest tracking projection with an opaque token
+      parameters:
+        - $ref: '#/components/parameters/DesignRequestId'
+        - $ref: '#/components/parameters/GuestTrackingToken'
+      responses:
+        '200': { description: Safe projection, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerRequestProjection' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /design-review-requests:
+    get:
+      operationId: listDesignReviewRequests
+      summary: List requests awaiting Staff or Manager review
+      security: [{ firebaseBearer: [] }]
+      responses:
+        '200': { description: Review queue, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewQueue' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+  /design-review-requests/{reviewRequestId}/decisions:
+    post:
+      operationId: decideDesignRequest
+      summary: Accept or reject with mandatory explanation
+      security: [{ firebaseBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ReviewRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewDecision' }
+      responses:
+        '200': { description: Decision recorded, content: { application/json: { schema: { $ref: '#/components/schemas/CustomerRequestProjection' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    firebaseBearer: { type: http, scheme: bearer, bearerFormat: Firebase }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
+    IfMatchVersion: { name: If-Match-Version, in: header, required: true, schema: { type: integer, minimum: 1 } }
+    GuestDesignSession: { name: X-Guest-Design-Session, in: header, required: false, schema: { type: string, minLength: 16, maxLength: 128 } }
+    GuestTrackingToken: { name: X-Guest-Tracking-Token, in: header, required: false, schema: { type: string, minLength: 16, maxLength: 256 } }
+    DesignRequestId: { name: designRequestId, in: path, required: true, schema: { type: string } }
+    ReviewRequestId: { name: reviewRequestId, in: path, required: true, schema: { type: string } }
+  schemas:
+    CreateDesignRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        description: { type: string, maxLength: 4000, nullable: true }
+        images:
+          type: array
+          maxItems: 5
+          items: { type: string, format: binary }
+      description: At least description or one image is required. Image quality is server-validated.
+    ReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [decision, explanation]
+      properties:
+        decision: { type: string, enum: [ACCEPTED, REJECTED] }
+        explanation: { type: string, minLength: 1, maxLength: 2000 }
+    CustomerRequestProjection:
+      type: object
+      required: [requestReference, status, images]
+      properties:
+        requestReference: { type: string }
+        status: { type: string, enum: [NEED_REVIEW, ACCEPTED, REJECTED] }
+        description: { type: string, nullable: true }
+        images: { type: array, maxItems: 5, items: { $ref: '#/components/schemas/ImageProjection' } }
+        decisionExplanation: { type: string, nullable: true }
+        trackingLink: { type: string, nullable: true }
+    ImageProjection:
+      type: object
+      required: [imageReference, qualityStatus]
+      properties:
+        imageReference: { type: string }
+        qualityStatus: { type: string, enum: [PROCESSING, PASS, TOO_BLURRY, QUALITY_CHECK_FAILED] }
+        qualityReason: { type: string, nullable: true }
+    ReviewQueue:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerRequestProjection' } }
+    Error:
+      description: Safe error; raw token, PII and internal IDs are excluded.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: { type: string }
+              message: { type: string }
+  responses:
+    Error:
+      description: Safe error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -247,15 +247,18 @@ public class AiSupportIT {
     }
 
     @Test
-    void whenGuestAttemptsToUploadDesignImage_thenReturns401Unauthorized() throws Exception {
+    void whenGuestSubmitsDesignRequestWithImage_thenReturns202AndTrackingProjection() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "image-content".getBytes());
 
         mockMvc.perform(multipart("/api/v1/design-requests")
                         .file(file)
-                        .param("bookingCode", "WB-TEST-01")
+                        .param("description", "Yêu cầu tư vấn mẫu nhẫn bạc")
                         .param("consentVersion", "v1.0.0")
                         .header("Idempotency-Key", "idemp-001"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.reviewStatus").value("NEED_REVIEW"))
+                .andExpect(jsonPath("$.nextAction").value("AWAITING_HUMAN_REVIEW"))
+                .andExpect(jsonPath("$.guestTrackingToken").isNotEmpty());
     }
 
     @Test

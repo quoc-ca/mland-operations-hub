@@ -1,162 +1,292 @@
 import React, { useEffect, useState } from 'react';
-import { useReviewManagementApi, ReviewCard, formatStars } from '../../../reviewmanagement';
+import { useReviewManagementApi, ReviewCard, ReviewForm, formatStars } from '../../../reviewmanagement';
+import { useAuth } from '../../../../shared/auth/AuthProvider';
+import { useT } from '../../../../shared/i18n/I18nProvider';
 import { Loading } from '../../../../shared/ui/components';
+import { messages } from '../messages';
 import './product-reviews.css';
 
+const SORTS = ['recent', 'best_to_worse', 'worse_to_best'];
+
+/**
+ * FR-063 (Session 2026-11-20, T172): customer reviews on the public product page. The reviews belong to 011 and are
+ * read from its public API; 002 only shows them. The score is the one of every public review of the product, whatever
+ * the star filter; without any review it says so instead of showing a score (no default 5.0).
+ */
+export function reviewScore(aggregate) {
+  const count = Number(aggregate?.count || 0);
+  const average = Number(aggregate?.averageRating || 0);
+  if (count <= 0 || !(average > 0)) return { count: 0, average: null, stars: '☆☆☆☆☆' };
+  return { count, average: average.toFixed(1), stars: formatStars(average) };
+}
+
 export default function ProductReviewSection({ productId, productName }) {
+  const t = useT(messages);
   const api = useReviewManagementApi();
-  const [sort, setSort] = useState('recent'); // 'recent' | 'best_to_worse' | 'worse_to_best'
-  const [ratingFilter, setRatingFilter] = useState(null); // null (All) | 5 | 4 | 3 | 2 | 1
+  const [sort, setSort] = useState('recent');
+  const [ratingFilter, setRatingFilter] = useState(null); // null = every rating, otherwise 1–5
   const [data, setData] = useState({ items: [], aggregate: { count: 0, averageRating: 0 } });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const [eligibleItem, setEligibleItem] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
-    if (!productId) return;
-    let active = true;
-
-    async function fetchReviews() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.listPublicReviews({
-          targetType: 'RETAIL_PRODUCT',
-          targetReference: String(productId),
-          rating: ratingFilter || undefined,
-          sort,
-          limit: 50,
-        });
-        if (active && res) {
-          setData(res);
-        }
-      } catch (err) {
-        if (active) {
-          setError(err.message || 'Không thể tải đánh giá sản phẩm.');
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
+    const fetchEligible = api?.listEligibleSources || api?.getMemberEligibleSources;
+    if (!productId || !isAuthenticated || typeof fetchEligible !== 'function') {
+      setEligibleItem(null);
+      return;
     }
-
-    fetchReviews();
+    let active = true;
+    fetchEligible.call(api)
+      .then((res) => {
+        if (!active || !res || !Array.isArray(res.sources)) return;
+        const matching = res.sources.find(
+          (s) => (s.targetType === 'RETAIL_PRODUCT' || !s.targetType) && String(s.targetReference) === String(productId) && s.eligible
+        );
+        setEligibleItem(matching || null);
+      })
+      .catch(() => {
+        // Not eligible or error, ignore
+      });
     return () => {
       active = false;
     };
-  }, [api, productId, sort, ratingFilter]);
+  }, [api, productId, isAuthenticated, attempt]);
 
-  const aggregate = data.aggregate || { count: 0, averageRating: 0 };
-  const totalCount = Number(aggregate.count || 0);
-  const avgRating = Number(aggregate.averageRating || 0);
+  useEffect(() => {
+    if (!productId) return undefined;
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+    api.listPublicReviews({
+      targetType: 'RETAIL_PRODUCT',
+      targetReference: String(productId),
+      rating: ratingFilter || undefined,
+      sort,
+      limit: 50,
+    }).then(result => {
+      if (active && result) setData(result);
+    }).catch(() => {
+      if (active) setFailed(true);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [api, productId, sort, ratingFilter, attempt]);
 
-  // Client-side safety filter to guarantee 100% strict product isolation
-  const filteredReviews = (data.items || []).filter(
-    (r) =>
-      (!r.targetType || r.targetType === 'RETAIL_PRODUCT') &&
-      (!r.targetReference || String(r.targetReference) === String(productId))
-  );
+  const score = reviewScore(data.aggregate);
+  // Only this product's public reviews, even if the source sent something else.
+  const reviews = (data.items || []).filter(review =>
+    (!review.targetType || review.targetType === 'RETAIL_PRODUCT')
+    && (!review.targetReference || String(review.targetReference) === String(productId)));
+  const emptyKey = score.count > 0 && ratingFilter ? 'customerReview.noneForFilter' : 'customerReview.none';
 
   return (
-    <section className="product-reviews-section" data-testid="product-reviews-section">
+    <section className="product-reviews-section" data-testid="product-reviews-section" aria-labelledby="customer-reviews-title">
       <div className="product-reviews-head">
         <div>
           <span className="eyebrow" style={{ color: '#d97706', fontWeight: 600, letterSpacing: '0.05em' }}>
-            ĐÁNH GIÁ TỪ KHÁCH HÀNG
+            {t('customerReview.eyebrow')}
           </span>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.25rem 0 0.5rem 0', color: '#0f172a' }}>
-            Trải nghiệm về {productName ? `“${productName}”` : 'sản phẩm này'}
+          <h2 id="customer-reviews-title" className="section-title product-reviews-title">
+            {productName ? t('customerReview.titleFor', { name: productName }) : t('customerReview.title')}
           </h2>
-          <p className="muted" style={{ color: '#64748b', fontSize: '0.95rem' }}>
-            Đánh giá thực tế từ các khách hàng đã mua và sở hữu sản phẩm này.
-          </p>
+          <p className="muted product-reviews-lead">{t('customerReview.lead')}</p>
         </div>
 
-        <div className="product-reviews-score-card">
-          <div className="product-score-number">
-            {avgRating > 0 ? avgRating.toFixed(1) : '5.0'}
-            <small style={{ fontSize: '1rem', color: '#94a3b8' }}> / 5</small>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.65rem' }}>
+          <div className="product-reviews-score-card" data-testid="product-reviews-score">
+            {score.average !== null ? (
+              <div className="product-score-number">
+                {score.average}
+                <small> / 5</small>
+              </div>
+            ) : (
+              <div className="product-score-number product-score-none">{t('customerReview.noScore')}</div>
+            )}
+            <div className="product-score-meta">
+              <span className={score.average !== null ? 'review-stars' : 'review-stars empty'}
+                role="img" aria-label={score.average !== null ? t('customerReview.starsLabel', { score: score.average }) : t('customerReview.noScore')}>
+                {score.stars}
+              </span>
+              <span className="product-score-count">{t('customerReview.count', { count: score.count })}</span>
+            </div>
           </div>
-          <div className="product-score-meta">
-            <span className="review-stars" style={{ color: '#f59e0b', fontSize: '1.25rem' }}>
-              {formatStars(avgRating > 0 ? Math.round(avgRating) : 5)}
-            </span>
-            <span style={{ fontSize: '0.875rem', color: '#64748b' }}>
-              {totalCount} đánh giá công khai
-            </span>
-          </div>
+
+          {eligibleItem && !eligibleItem.alreadyReviewed && (
+            <button
+              type="button"
+              className="button primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.45rem 0.9rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                backgroundColor: '#b45309',
+                borderColor: '#b45309',
+                color: '#ffffff',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+              onClick={() => setShowReviewModal(true)}
+              data-testid="write-product-review-btn"
+            >
+              ✍️ Viết đánh giá sản phẩm
+            </button>
+          )}
+
+          {eligibleItem && eligibleItem.alreadyReviewed && (
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: '#16a34a',
+                fontWeight: 600,
+                background: '#f0fdf4',
+                padding: '0.3rem 0.65rem',
+                borderRadius: '6px',
+                border: '1px solid #bbf7d0',
+              }}
+              data-testid="already-reviewed-badge"
+            >
+              ✓ Bạn đã gửi đánh giá cho sản phẩm này
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Control Bar: Sorting & Star Filter */}
       <div className="product-reviews-controls">
         <div className="sort-group">
-          <label htmlFor="review-sort-select" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
-            Sắp xếp theo:
+          <label htmlFor="review-sort-select">
+            {t('customerReview.sortBy')}
           </label>
-          <select
-            id="review-sort-select"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="review-sort-select"
-            data-testid="review-sort-select"
-          >
-            <option value="recent">Mới nhất (Recent reviews)</option>
-            <option value="best_to_worse">Đánh giá cao nhất (Best to worse)</option>
-            <option value="worse_to_best">Đánh giá thấp nhất (Worse to best)</option>
+          <select id="review-sort-select" value={sort} onChange={event => setSort(event.target.value)}
+            className="review-sort-select" data-testid="review-sort-select">
+            {SORTS.map(value => <option key={value} value={value}>{t(`customerReview.sort.${value}`)}</option>)}
           </select>
         </div>
 
-        <div className="filter-stars-pills" role="radiogroup" aria-label="Lọc theo số sao">
-          <button
-            type="button"
-            className={`filter-pill ${ratingFilter === null ? 'active' : ''}`}
-            onClick={() => setRatingFilter(null)}
-            data-testid="filter-star-all"
-          >
-            Tất cả
+        <div className="filter-stars-pills" role="group" aria-label={t('customerReview.filterLabel')}>
+          <button type="button" className={`filter-pill ${ratingFilter === null ? 'active' : ''}`} aria-pressed={ratingFilter === null}
+            onClick={() => setRatingFilter(null)} data-testid="filter-star-all">
+            {t('customerReview.all')}
           </button>
-          {[5, 4, 3, 2, 1].map((star) => (
-            <button
-              key={star}
-              type="button"
-              className={`filter-pill ${ratingFilter === star ? 'active' : ''}`}
-              onClick={() => setRatingFilter(ratingFilter === star ? null : star)}
-              data-testid={`filter-star-${star}`}
-            >
+          {[5, 4, 3, 2, 1].map(star => (
+            <button key={star} type="button" className={`filter-pill ${ratingFilter === star ? 'active' : ''}`} aria-pressed={ratingFilter === star}
+              aria-label={t('customerReview.starFilter', { star })}
+              onClick={() => setRatingFilter(ratingFilter === star ? null : star)} data-testid={`filter-star-${star}`}>
               {star} ★
             </button>
           ))}
         </div>
       </div>
 
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '2.5rem' }}>
-          <Loading />
+      {loading && <div style={{ textAlign: 'center', padding: '2.5rem' }}><Loading /></div>}
+
+      {!loading && failed && (
+        // A secondary part of the page: announced politely, so it does not compete with the buying panel's alerts.
+        <div className="review-error-box" role="status" data-testid="product-reviews-error" style={{ background: '#fef2f2', color: '#b91c1c', padding: '1rem', borderRadius: '8px' }}>
+          {t('customerReview.loadFailed')}{' '}
+          <button type="button" className="text-button" onClick={() => setAttempt(value => value + 1)}>{t('customerReview.retry')}</button>
         </div>
       )}
 
-      {error && (
-        <div className="review-error-box" style={{ background: '#fef2f2', color: '#b91c1c', padding: '1rem', borderRadius: '8px' }}>
-          {error}
-        </div>
-      )}
-
-      {!loading && !error && filteredReviews.length === 0 && (
+      {!loading && !failed && reviews.length === 0 && (
         <div className="product-reviews-empty" data-testid="product-reviews-empty">
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💬</div>
-          <h3 style={{ fontSize: '1.15rem', color: '#334155', marginBottom: '0.25rem' }}>
-            Chưa có đánh giá nào cho sản phẩm này
-          </h3>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '420px', margin: '0 auto' }}>
-            Hãy là người đầu tiên trải nghiệm và chia sẻ cảm nhận chân thực về thiết kế này đến cộng đồng.
-          </p>
+          <div className="product-reviews-empty-icon" aria-hidden="true">💬</div>
+          <h3>{t(emptyKey, { star: ratingFilter })}</h3>
+          {emptyKey === 'customerReview.none' && (
+            <p>{t('customerReview.noneHint')}</p>
+          )}
         </div>
       )}
 
-      {!loading && !error && filteredReviews.length > 0 && (
+      {!loading && !failed && reviews.length > 0 && (
         <div className="product-reviews-list" data-testid="product-reviews-list">
-          {filteredReviews.map((r) => (
-            <ReviewCard key={r.id} review={r} />
-          ))}
+          {reviews.map(review => <ReviewCard key={review.id} review={review} />)}
+        </div>
+      )}
+
+      {showReviewModal && eligibleItem && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-testid="product-review-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                paddingBottom: '0.75rem',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a' }}>
+                Đánh giá: {productName || 'Sản phẩm'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                }}
+                data-testid="close-review-modal-btn"
+              >
+                ✕
+              </button>
+            </div>
+
+            <ReviewForm
+              source={{
+                sourceType: eligibleItem.sourceType || 'RETAIL_ORDER_LINE',
+                sourceReference: eligibleItem.sourceReference,
+                targetType: 'RETAIL_PRODUCT',
+                targetReference: String(productId),
+                label: productName,
+              }}
+              handle={null}
+              onSaved={async ({ key, ...body }) => {
+                const res = await api.createReview(key, body, true);
+                setShowReviewModal(false);
+                setAttempt((v) => v + 1);
+                setEligibleItem((prev) => (prev ? { ...prev, alreadyReviewed: true } : prev));
+                return res;
+              }}
+            />
+          </div>
         </div>
       )}
     </section>

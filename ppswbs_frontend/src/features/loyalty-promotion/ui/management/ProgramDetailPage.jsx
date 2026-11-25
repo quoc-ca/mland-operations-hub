@@ -55,7 +55,7 @@ export default function ProgramDetailPage() {
 
   return (
     <>
-      <PageTop eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
+      <PageTop entity eyebrow={t('manage.eyebrow')} title={data.name}><Link className="button outline" to="/promotion-management/programs">{t('back')}</Link></PageTop>
       <SuccessNotice>{notice && t(notice)}</SuccessNotice>
       {program.error && <ErrorNotice error={program.error} messages={messages} onRetry={program.reload} />}
 
@@ -91,6 +91,8 @@ export default function ProgramDetailPage() {
                 <div><dt>{t('usage.consumed')}</dt><dd>{format.number(usage.data.consumedCount)} / {format.number(usage.data.totalLimit)}</dd></div>
                 <div><dt>{t('usage.held')}</dt><dd>{format.number(usage.data.heldCount)}</dd></div>
                 <div><dt>{t('field.perMemberLimit')}</dt><dd>{format.number(usage.data.perMemberLimit)}</dd></div>
+                {data?.distribution && <div><dt>{t('field.distribution')}</dt><dd>{t(`distribution.${data.distribution}`)}</dd></div>}
+                {data?.distribution === 'CLAIM_REQUIRED' && <div><dt>{t('usage.claimed')}</dt><dd>{format.number(usage.data.claimedCount || '0')}</dd></div>}
               </>
             ) : (
               <div><dt>{t('usage.accepted')}</dt><dd>{format.number(usage.data.acceptedCount)}</dd></div>
@@ -229,7 +231,7 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
         {form.discountKind === 'PERCENT' && <Field label={t('field.maxDiscountAmount')} error={errorOf('discount.maxDiscountAmount')}><input inputMode="numeric" value={form.maxDiscountAmount} onChange={set('maxDiscountAmount')} /></Field>}
         <Field label={t('field.minimumEligibleAmount')} error={errorOf('minimumEligibleAmount')}><input inputMode="numeric" value={form.minimumEligibleAmount} onChange={set('minimumEligibleAmount')} /></Field>
         {voucher && <Field label={t('field.totalLimit')} error={errorOf('totalLimit')} hint={t('edit.limitHint')}><input inputMode="numeric" value={form.totalLimit} onChange={set('totalLimit')} /></Field>}
-        {voucher && <Field label={t('field.perMemberLimit')} error={errorOf('perMemberLimit')}><input inputMode="numeric" value={form.perMemberLimit} onChange={set('perMemberLimit')} /></Field>}
+        {voucher && <Field label={t('field.perMemberLimit')} error={errorOf('perMemberLimit')}><input inputMode="numeric" value={form.perMemberLimit} onChange={set('perMemberLimit')} disabled={program.distribution === 'CLAIM_REQUIRED'} /></Field>}
       </div>
       {voucher && <label className="check-row"><input type="checkbox" checked={form.allowPoints} onChange={set('allowPoints')} /> {t('field.allowPointsLong')}</label>}
       <ErrorNotice error={command.error} messages={messages} onReload={onReload}

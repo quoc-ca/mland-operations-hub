@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { ErrorNotice, Field, useCommand } from '../../shared/ui/components';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { messages } from '../messages';
 
 /** Texts for the refusals of PATCH /workshop-locations/{id} (003.2 T135); other errors use the shared texts. */
 export const locationEditMessages = {
@@ -21,6 +24,8 @@ export const locationEditMessages = {
  * the deactivation rule; the screen only shows the refusal.
  */
 export function LocationEditForm({ api, location, onSaved, onReload, onClose }) {
+  const t = useT(messages);
+  const ts = useT(sharedMessages);
   const [name, setName] = useState(location.name ?? '');
   const [address, setAddress] = useState(location.address ?? '');
   const [active, setActive] = useState(location.active !== false);
@@ -30,12 +35,12 @@ export function LocationEditForm({ api, location, onSaved, onReload, onClose }) 
   const submit = async e => {
     e.preventDefault();
     const trimmedName = name.trim();
-    if (!trimmedName) { setFormError('Location name is required.'); return; }
+    if (!trimmedName) { setFormError(t('location.nameRequired')); return; }
     const body = {};
     if (trimmedName !== (location.name ?? '')) body.name = trimmedName;
     if (address.trim() !== (location.address ?? '')) body.address = address.trim();
     if (active !== (location.active !== false)) body.active = active;
-    if (Object.keys(body).length === 0) { setFormError('Change the name, address or status before saving.'); return; }
+    if (Object.keys(body).length === 0) { setFormError(t('location.noChange')); return; }
     setFormError('');
     const outcome = await command.run(key => api.updateLocation(location.id, body, key));
     if (outcome.ok) onSaved?.(outcome.result);
@@ -45,13 +50,13 @@ export function LocationEditForm({ api, location, onSaved, onReload, onClose }) 
   const reload = () => { command.reset(); onReload?.(); };
 
   return (
-    <form className="ota-evidence-grid" onSubmit={submit} aria-label={`Edit location ${location.code}`}>
-      <Field label="Name"><input value={name} onChange={e => setName(e.target.value)} /></Field>
-      <Field label="Address"><input value={address} onChange={e => setAddress(e.target.value)} /></Field>
-      <label className="package-checkbox"><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /> Active</label>
+    <form className="ota-evidence-grid" onSubmit={submit} aria-label={t('location.aria', { code: location.code })}>
+      <Field label={t('location.name')}><input value={name} onChange={e => setName(e.target.value)} /></Field>
+      <Field label={t('location.address')}><input value={address} onChange={e => setAddress(e.target.value)} /></Field>
+      <label className="package-checkbox"><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /> {t('location.active')}</label>
       <div className="actions">
-        <button className="button primary" disabled={command.pending}>{command.pending ? 'Saving…' : 'Save location'}</button>
-        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>Close</button>
+        <button className="button primary" disabled={command.pending}>{command.pending ? t('location.saving') : t('location.save')}</button>
+        <button type="button" className="button outline" onClick={onClose} disabled={command.pending}>{ts('close')}</button>
       </div>
       <ErrorNotice error={formError ? new Error(formError) : null} />
       <ErrorNotice error={command.error} messages={locationEditMessages} onRetry={retry} onReload={reload} />

@@ -25,7 +25,7 @@
 |05|Entity Layer|JPA entities that map domain objects to MySQL tables.|
 |06|Scheduled Jobs|Background jobs (`@Scheduled`) such as expiring unpaid holds and retail orders, recovering deposit status with VNPay QueryDR, starting workshop sessions and cleaning up retained data.|
 |07|Domain Events|Spring Modulith application events used for loose coupling between modules (for example booking confirmed, attendance finalized, notification ready); the event publication registry stores them so they are not lost.|
-|08|Business Modules|Spring Modulith modular monolith: Account Management, Product Management, Ready-ring Sales, Fulfilment, Workshop Booking, Workshop Operations, Workshop Settlement, Payment Integration, Loyalty & Promotion, Review Management, Notification Management, OTA Connectivity, Reporting and Design Review (AI).|
+|08|Business Modules|Spring Modulith modular monolith: Account Management, Product Management, Ready-ring Sales, Fulfilment, Workshop Booking, Workshop Operations, Workshop Settlement, Payment Integration, Loyalty & Promotion, Review Management, Notification Management, OTA Connectivity, Reporting, Human Design Review, Ring Design Configuration, Custom Manufacturing and Staff Consultation Chat.|
 |09|Integration Adapters|Ports and adapters that isolate external services: Firebase Admin SDK, VNPay client, Cloudinary media storage adapter, SMTP mail adapter, Gemini REST client adapter, OTA adapters (Klook, GetYourGuide).|
 |10|Common Layer|Cross-cutting code shared by all modules: configuration (security, Firebase, timezone), validation, exception handling, DTOs and shared ports (booking, payment, workshop).|
 |**Data Tier**|||
@@ -35,7 +35,7 @@
 |02|VNPay Payment Gateway|Online payment for deposits, final payments and retail orders: payment URL, IPN callback, QueryDR status check and refund, signed with HMAC-SHA512.|
 |03|Cloudinary|Stores and serves product and catalogue images.|
 |04|SMTP Mail Server|Sends booking and notification emails (Gmail SMTP by default).|
-|05|Google Gemini API|AI support for the design review module: analysing reference images, suggesting prices and answering AI chat requests.|
+|05|Google Gemini API|Basic AI Support text capability only. It answers approved public-information questions and cannot analyse reference images, suggest catalogue prices, review custom requests or mutate business state.|
 |06|OTA Platforms|Klook and GetYourGuide: workshop inventory is pushed to the platforms and booking or cancellation events are received from them.|
 
 :::

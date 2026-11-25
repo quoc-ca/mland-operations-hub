@@ -4,6 +4,9 @@ import { useNotificationOperations } from '../application/useNotificationOperati
 import ResendConfirmationModal from './ResendConfirmationModal';
 import CancelConfirmationModal from './CancelConfirmationModal';
 import RedeliverConfirmationModal from './RedeliverConfirmationModal';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
 
 function stateBadgeClass(state) {
   if (!state) return 'nm-badge-pending';
@@ -17,6 +20,9 @@ export function NotificationRequestDetailDrawer({
   userRole = 'MANAGER',
   onActionSuccess,
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
+  const fmt = useFormat();
   const api = useNotificationApi();
   const { resend, cancel, redeliver } = useNotificationOperations();
 
@@ -30,6 +36,11 @@ export function NotificationRequestDetailDrawer({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [redeliverOpen, setRedeliverOpen] = useState(false);
 
+  // R-INV Manual invitation state
+  const [manualInvitationData, setManualInvitationData] = useState(null);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [copiedManual, setCopiedManual] = useState(false);
+
   const fetchDetail = async () => {
     if (!requestId) return;
     setLoading(true);
@@ -38,7 +49,7 @@ export function NotificationRequestDetailDrawer({
       const data = await api.getNotificationRequest(requestId);
       setDetail(data);
     } catch (err) {
-      setError(err?.message || 'Không thể tải chi tiết yêu cầu thông báo');
+      setError(err?.message || t('drawer.loadError'));
     } finally {
       setLoading(false);
     }
@@ -66,29 +77,49 @@ export function NotificationRequestDetailDrawer({
   if (!isOpen) return null;
 
   const state = detail?.deliveryState;
+  const isInternalInvitation =
+    detail?.templateCode === 'INTERNAL_ACCOUNT_INVITATION' ||
+    detail?.templateDefinitionCode === 'INTERNAL_ACCOUNT_INVITATION';
+
   const isResendEligible =
-    state === 'SENT' ||
-    state === 'FAILED' ||
-    state === 'UNKNOWN_OUTCOME';
-  const isCancelEligible = state === 'PENDING' || state === 'RETRY_SCHEDULED';
+    !isInternalInvitation &&
+    (state === 'SENT' ||
+      state === 'FAILED' ||
+      state === 'UNKNOWN_OUTCOME');
+  const isCancelEligible = !isInternalInvitation && (state === 'PENDING' || state === 'RETRY_SCHEDULED');
+  const isRedeliverEligible = !isInternalInvitation;
+
+  const handleFetchManualInvitation = async () => {
+    if (!detail?.id) return;
+    setManualLoading(true);
+    setError(null);
+    try {
+      const res = await api.getManualInvitation(detail.id);
+      setManualInvitationData(res);
+    } catch (err) {
+      setError(err?.message || 'Không thể lấy nội dung thư mời thủ công.');
+    } finally {
+      setManualLoading(false);
+    }
+  };
 
   const handleResendSuccess = async (id, reason, duplicateRiskAccepted) => {
     const res = await resend(id, reason, duplicateRiskAccepted);
-    setFeedback(`Yêu cầu gửi lại đã được xếp hàng (Mã yêu cầu mới: #${res.newRequestId || 'đang tạo'}).`);
+    setFeedback(t('drawer.resendQueued', { id: res.newRequestId || t('drawer.creating') }));
     await fetchDetail();
     if (onActionSuccess) onActionSuccess();
   };
 
   const handleCancelSuccess = async (id, reason) => {
     await cancel(id, reason);
-    setFeedback('Đã hủy gửi yêu cầu thông báo thành công.');
+    setFeedback(t('drawer.cancelled'));
     await fetchDetail();
     if (onActionSuccess) onActionSuccess();
   };
 
   const handleRedeliverSuccess = async (id, reason) => {
     const res = await redeliver(id, reason);
-    setFeedback(`Yêu cầu gửi lại với liên kết mới đã được xếp hàng (Mã yêu cầu mới: #${res.newRequestId || 'đang tạo'}).`);
+    setFeedback(t('drawer.redeliverQueued', { id: res.newRequestId || t('drawer.creating') }));
     await fetchDetail();
     if (onActionSuccess) onActionSuccess();
   };
@@ -104,13 +135,13 @@ export function NotificationRequestDetailDrawer({
       >
         <div className="nm-drawer-header">
           <h3 id="drawer-title" style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>
-            Chi tiết yêu cầu gửi thư #{requestId}
+            {t('drawer.title', { id: requestId })}
           </h3>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
-            aria-label="Đóng ngăn chi tiết"
+            aria-label={t('drawer.closeAria')}
           >
             &times;
           </button>
@@ -122,7 +153,7 @@ export function NotificationRequestDetailDrawer({
 
           {loading ? (
             <div style={{ padding: '2rem 0', textAlign: 'center', color: '#64748b' }} role="status">
-              Đang tải dữ liệu…
+              {t('drawer.loading')}
             </div>
           ) : detail ? (
             <div>
@@ -130,56 +161,75 @@ export function NotificationRequestDetailDrawer({
               <div className="nm-card" style={{ marginBottom: '1.25rem' }}>
                 <div className="nm-card-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', fontSize: '0.875rem' }}>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Mã sự kiện:</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.event')}</span>
                     <strong>{detail.businessEventReference}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Trạng thái giao thư:</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.deliveryState')}</span>
                     <span className={`nm-badge ${stateBadgeClass(detail.deliveryState)}`}>
                       {detail.deliveryState}
                     </span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Mẫu thư:</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.template')}</span>
                     <span>{detail.templateCode} (v{detail.templateVersionId})</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Người nhận (đã che):</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.recipient')}</span>
                     <span>{detail.recipientAddressMasked}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Số lần thử:</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.attemptCount')}</span>
                     <span>{detail.attemptCount}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Thời điểm tạo:</span>
-                    <span>{detail.createdAt ? new Date(detail.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.createdAt')}</span>
+                    <span>{fmt.dateTime(detail.createdAt)}</span>
                   </div>
                   {detail.nextAttemptAt && (
                     <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Lần gửi tiếp theo:</span>
-                      <span>{new Date(detail.nextAttemptAt).toLocaleString('vi-VN')}</span>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.nextAttempt')}</span>
+                      <span>{fmt.dateTime(detail.nextAttemptAt)}</span>
                     </div>
                   )}
                   {detail.terminalAt && (
                     <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Kết thúc lúc:</span>
-                      <span>{new Date(detail.terminalAt).toLocaleString('vi-VN')}</span>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.terminalAt')}</span>
+                      <span>{fmt.dateTime(detail.terminalAt)}</span>
                     </div>
                   )}
                   {detail.originalRequestId && (
                     <div style={{ gridColumn: 'span 2' }}>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>Gửi lại từ yêu cầu:</span>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '0.75rem' }}>{t('drawer.originalRequest')}</span>
                       <span>#{detail.originalRequestId}</span>
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* R-INV Internal Invitation Isolation Notice */}
+              {isInternalInvitation && (
+                <div
+                  className="nm-alert nm-alert-info"
+                  style={{
+                    backgroundColor: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    color: '#0369a1',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '6px',
+                    marginBottom: '1rem',
+                    fontSize: '0.85rem',
+                  }}
+                  data-testid="internal-invitation-notice"
+                >
+                  <strong>Lời mời tài khoản nội bộ (R-INV):</strong> Mẫu thông báo này được quản lý và xoay vòng liên kết độc lập tại trang Quản lý tài khoản (FE-001). Không áp dụng các thao tác gửi lại, hủy hoặc cấp lại thông thường.
+                </div>
+              )}
+
               {/* Delivery Attempts Table */}
               <div style={{ marginBottom: '1.25rem' }}>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9375rem', fontWeight: 600 }}>
-                  Lịch sử các lần gửi thư (Attempts)
+                  {t('drawer.attemptsTitle')}
                 </h4>
                 {Array.isArray(detail.attempts) && detail.attempts.length > 0 ? (
                   <div className="nm-card">
@@ -188,16 +238,16 @@ export function NotificationRequestDetailDrawer({
                         <thead>
                           <tr>
                             <th>#</th>
-                            <th>Bắt đầu</th>
-                            <th>Kết quả</th>
-                            <th>Thông điệp / Lỗi</th>
+                            <th>{t('drawer.colStarted')}</th>
+                            <th>{t('drawer.colOutcome')}</th>
+                            <th>{t('drawer.colMessage')}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {detail.attempts.map((att) => (
                             <tr key={att.attemptNumber}>
                               <td>{att.attemptNumber}</td>
-                              <td>{att.startedAt ? new Date(att.startedAt).toLocaleTimeString('vi-VN') : '—'}</td>
+                              <td>{fmt.dateTime(att.startedAt)}</td>
                               <td>
                                 <span className="nm-tag">{att.outcomeCategory}</span>
                               </td>
@@ -212,7 +262,7 @@ export function NotificationRequestDetailDrawer({
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.875rem', color: '#64748b', fontStyle: 'italic' }}>
-                    Chưa có lượt gửi nào được ghi nhận.
+                    {t('drawer.noAttempts')}
                   </div>
                 )}
               </div>
@@ -220,7 +270,7 @@ export function NotificationRequestDetailDrawer({
               {/* Operational Audits Table */}
               <div>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9375rem', fontWeight: 600 }}>
-                  Lịch sử thao tác & kiểm toán (Audit Trail)
+                  {t('drawer.auditsTitle')}
                 </h4>
                 {Array.isArray(detail.audits) && detail.audits.length > 0 ? (
                   <div className="nm-card">
@@ -228,10 +278,10 @@ export function NotificationRequestDetailDrawer({
                       <table className="nm-table">
                         <thead>
                           <tr>
-                            <th>Hành động</th>
-                            <th>Người thực hiện</th>
-                            <th>Thời gian</th>
-                            <th>Lý do</th>
+                            <th>{t('drawer.colAction')}</th>
+                            <th>{t('drawer.colPerformedBy')}</th>
+                            <th>{t('drawer.colTime')}</th>
+                            <th>{t('drawer.colReason')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -239,7 +289,7 @@ export function NotificationRequestDetailDrawer({
                             <tr key={idx}>
                               <td><strong>{aud.actionType}</strong></td>
                               <td>{aud.performedBy}</td>
-                              <td>{aud.performedAt ? new Date(aud.performedAt).toLocaleString('vi-VN') : '—'}</td>
+                              <td>{fmt.dateTime(aud.performedAt)}</td>
                               <td style={{ fontSize: '0.8125rem' }}>{aud.reason}</td>
                             </tr>
                           ))}
@@ -249,7 +299,7 @@ export function NotificationRequestDetailDrawer({
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.875rem', color: '#64748b', fontStyle: 'italic' }}>
-                    Chưa có tác vụ can thiệp thủ công nào.
+                    {t('drawer.noAudits')}
                   </div>
                 )}
               </div>
@@ -265,11 +315,11 @@ export function NotificationRequestDetailDrawer({
             disabled={!isResendEligible || loading}
             title={
               !isResendEligible
-                ? 'Chỉ có thể gửi lại yêu cầu đã gửi (SENT), gửi thất bại (FAILED) hoặc UNKNOWN_OUTCOME bởi Admin'
-                : 'Gửi lại email thông báo'
+                ? t('drawer.resendBlocked')
+                : t('drawer.resendHint')
             }
           >
-            Gửi lại thư
+            {t('drawer.resend')}
           </button>
 
           <button
@@ -279,22 +329,38 @@ export function NotificationRequestDetailDrawer({
             disabled={!isCancelEligible || loading}
             title={
               !isCancelEligible
-                ? 'Chỉ có thể hủy yêu cầu đang ở trạng thái PENDING hoặc RETRY_SCHEDULED'
-                : 'Hủy gửi yêu cầu'
+                ? t('drawer.cancelBlocked')
+                : t('drawer.cancelHint')
             }
           >
-            Hủy gửi
+            {t('drawer.cancel')}
           </button>
 
           <button
             type="button"
             className="nm-btn"
             onClick={() => setRedeliverOpen(true)}
-            disabled={loading}
-            title="Cấp mới liên kết vé/truy cập và gửi lại"
+            disabled={!isRedeliverEligible || loading}
+            title={
+              !isRedeliverEligible
+                ? 'Không áp dụng cấp lại đối với thư mời tài khoản nội bộ'
+                : t('drawer.redeliverHint')
+            }
           >
-            Gửi lại với link/vé mới
+            {t('drawer.redeliver')}
           </button>
+
+          {isInternalInvitation && state === 'FAILED' && userRole === 'ADMIN' && (
+            <button
+              type="button"
+              className="nm-btn nm-btn-primary"
+              onClick={handleFetchManualInvitation}
+              disabled={manualLoading || loading}
+              data-testid="manual-invitation-btn"
+            >
+              {manualLoading ? 'Đang tải…' : 'Sao chép thư mời thủ công'}
+            </button>
+          )}
 
           <button
             type="button"
@@ -302,7 +368,7 @@ export function NotificationRequestDetailDrawer({
             style={{ marginLeft: 'auto' }}
             onClick={onClose}
           >
-            Đóng
+            {ts('close')}
           </button>
         </div>
       </div>
@@ -329,6 +395,55 @@ export function NotificationRequestDetailDrawer({
         requestItem={detail}
         onRedeliver={handleRedeliverSuccess}
       />
+
+      {/* Manual Invitation Copy Modal */}
+      {manualInvitationData && (
+        <div className="nm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="manual-inv-title">
+          <div className="nm-modal-container" style={{ maxWidth: '600px', backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px' }}>
+            <h3 id="manual-inv-title" style={{ margin: '0 0 1rem 0' }}>Sao chép nội dung thư mời thủ công (ADMIN)</h3>
+            <div style={{ marginBottom: '1rem', fontSize: '0.85rem' }}>
+              <div><strong>Tiêu đề:</strong> {manualInvitationData.subject}</div>
+              <div><strong>Hạn hiệu lực:</strong> {fmt.dateTime(manualInvitationData.expiresAt)}</div>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                Nội dung thư:
+              </label>
+              <textarea
+                readOnly
+                rows={6}
+                value={manualInvitationData.plainText}
+                className="nm-input"
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.85rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="nm-btn nm-btn-primary"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      `Tiêu đề: ${manualInvitationData.subject}\n\n${manualInvitationData.plainText}`
+                    );
+                    setCopiedManual(true);
+                    setTimeout(() => setCopiedManual(false), 3000);
+                  } catch {}
+                }}
+              >
+                {copiedManual ? '✓ Đã sao chép' : 'Sao chép nội dung'}
+              </button>
+              <button
+                type="button"
+                className="nm-btn"
+                onClick={() => setManualInvitationData(null)}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

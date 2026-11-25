@@ -1,32 +1,60 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAdminAccounts } from '../hooks/useAdminAccounts';
+import { useWorkshopLocations } from '../hooks/useWorkshopLocations';
 import { newCommandId } from '../../../shared/api/http';
+import { useT, useFormat } from '../../../shared/i18n/I18nProvider';
+import { accountMessages } from '../messages';
+import {
+  accountManagementApiClient,
+  EmailCollisionResponse,
+  ReplacementReviewResponse,
+} from '../api/AccountManagementApiClient';
+import { MemberCollisionReviewModal } from './MemberCollisionReviewModal';
+import { FirebaseOnlyCollisionModal } from './FirebaseOnlyCollisionModal';
 import '../accountmanagement.css';
 
-// Active Workshop Locations available in system
-const AVAILABLE_LOCATIONS = [
-  { id: 1, name: 'Cơ sở Quận 1 (Mland Center)' },
-  { id: 2, name: 'Cơ sở Quận 3 (Mland Workshop)' },
-  { id: 3, name: 'Cơ sở Thủ Đức (Mland Studio)' },
-];
-
 export const InternalAccountCreatePage: React.FC = () => {
+  const t = useT(accountMessages);
+  const fmt = useFormat();
   const navigate = useNavigate();
   const { createInternalAccount, loading, error } = useAdminAccounts();
+  const { locations, error: locationsError } = useWorkshopLocations();
+  // Only active workshop locations can receive a new assignment
+  const availableLocations = locations.filter(loc => loc.active);
 
   const [role, setRole] = useState<'STAFF' | 'MANAGER' | 'CARRIER'>('STAFF');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedLocations, setSelectedLocations] = useState<number[]>([1]);
-  const [sendNotification, setSendNotification] = useState<boolean>(true);
+  const [selectedLocations, setSelectedLocations] = useState<number[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [createdSummary, setCreatedSummary] = useState<any | null>(null);
 
+  // Collision state per R-INV
+  const [checkingCollision, setCheckingCollision] = useState(false);
+  const [collisionNotice, setCollisionNotice] = useState<{
+    type: 'MAINTENANCE' | 'BLOCKED_ROLE' | 'ERROR';
+    message: string;
+    accountId?: number;
+  } | null>(null);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [memberReview, setMemberReview] = useState<ReplacementReviewResponse | null>(null);
+
+  const [fbOnlyModalOpen, setFbOnlyModalOpen] = useState(false);
+  const [fbCollisionEmail, setFbCollisionEmail] = useState('');
+
   // Preserve idempotency key across retries for the same submit action
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => newCommandId());
+
+  // Preselect the first active location once the real list has loaded
+  useEffect(() => {
+    if (selectedLocations.length === 0 && availableLocations.length > 0) {
+      setSelectedLocations([availableLocations[0].id]);
+    }
+  }, [availableLocations, selectedLocations.length]);
 
   const handleLocationToggle = (locationId: number) => {
     if (role === 'STAFF') {
@@ -49,43 +77,44 @@ export const InternalAccountCreatePage: React.FC = () => {
     const trimmedName = fullName.trim();
 
     if (!trimmedName) {
-      errors.fullName = 'Họ và tên là bắt buộc.';
+      errors.fullName = t('create.val.nameRequired');
     } else if (trimmedName.length > 100) {
-      errors.fullName = 'Họ và tên không được vượt quá 100 ký tự.';
+      errors.fullName = t('create.val.nameLength');
+    }
+
+    // Email is required and normalized for all roles (R-INV FR-048)
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      errors.email = t('create.val.carrierEmailRequired') || 'Email là bắt buộc.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      errors.email = t('create.val.emailFormat');
     }
 
     if (role === 'CARRIER') {
-      const trimmedEmail = email.trim();
-      if (!trimmedEmail) {
-        errors.email = 'Email đăng nhập là bắt buộc đối với Đối tác vận chuyển.';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-        errors.email = 'Địa chỉ email không đúng định dạng.';
-      }
-
       if (!password) {
-        errors.password = 'Mật khẩu khởi tạo là bắt buộc đối với Đối tác vận chuyển.';
+        errors.password = t('create.val.carrierPasswordRequired');
       } else if (password.length < 6) {
-        errors.password = 'Mật khẩu phải chứa ít nhất 6 ký tự.';
+        errors.password = t('create.val.passwordLength');
       }
 
       const trimmedPhone = phone.trim();
       if (!trimmedPhone) {
-        errors.phone = 'Số điện thoại là bắt buộc đối với Đối tác vận chuyển.';
+        errors.phone = t('create.val.carrierPhoneRequired');
       } else if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
-        errors.phone = 'Số điện thoại phải từ 7 đến 30 ký tự.';
+        errors.phone = t('create.val.phoneLength');
       }
     } else {
       if (phone && phone.trim()) {
         const trimmedPhone = phone.trim();
         if (trimmedPhone.length < 7 || trimmedPhone.length > 30) {
-          errors.phone = 'Số điện thoại phải từ 7 đến 30 ký tự.';
+          errors.phone = t('create.val.phoneLength');
         }
       }
 
       if (selectedLocations.length === 0) {
-        errors.locations = 'Phải chọn ít nhất một cơ sở làm việc.';
+        errors.locations = t('create.val.locationRequired');
       } else if (role === 'STAFF' && selectedLocations.length !== 1) {
-        errors.locations = 'Nhân viên (Staff) chỉ được phân công chính xác 1 cơ sở.';
+        errors.locations = t('create.val.staffOneLocation');
       }
     }
 
@@ -95,16 +124,74 @@ export const InternalAccountCreatePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCollisionNotice(null);
+
     if (!validate()) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // For STAFF/MANAGER, perform email collision check per FR-049
+    if (role !== 'CARRIER') {
+      setCheckingCollision(true);
+      try {
+        const collision = await accountManagementApiClient.resolveEmailCollision(normalizedEmail);
+        setCheckingCollision(false);
+
+        if (collision.outcome === 'STAFF_MANAGER_MAINTENANCE') {
+          setCollisionNotice({
+            type: 'MAINTENANCE',
+            message: `Email này đã thuộc về một tài khoản STAFF hoặc MANAGER hiện có (ACC-${collision.accountId}). Bạn có thể chuyển đến trang quản trị để xem và cập nhật.`,
+            accountId: collision.accountId,
+          });
+          return;
+        }
+
+        if (collision.outcome === 'BLOCKED_ROLE') {
+          setCollisionNotice({
+            type: 'BLOCKED_ROLE',
+            message: 'Email này đã được liên kết với vai trò ADMIN hoặc CARRIER và không thể thay thế tại đây.',
+          });
+          return;
+        }
+
+        if (collision.outcome === 'FIREBASE_ONLY') {
+          setFbCollisionEmail(normalizedEmail);
+          setFbOnlyModalOpen(true);
+          return;
+        }
+
+        if (collision.outcome === 'MEMBER_REVIEW' && collision.accountId) {
+          const rev = await accountManagementApiClient.reviewMemberReplacement(collision.accountId);
+          setMemberReview(rev);
+          setReviewModalOpen(true);
+          return;
+        }
+      } catch (colErr: any) {
+        setCheckingCollision(false);
+        // If endpoint is not found in mock/test, fall through to creation
+        if (colErr?.status !== 404) {
+          setCollisionNotice({
+            type: 'ERROR',
+            message: colErr?.message || 'Không thể kiểm tra xung đột email.',
+          });
+          return;
+        }
+      }
+    }
+
+    // Proceed with account creation
+    await executeCreation(normalizedEmail);
+  };
+
+  const executeCreation = async (normalizedEmail: string) => {
     const payload: any = {
       role,
+      email: normalizedEmail,
       fullName: fullName.trim(),
       phone: phone.trim() || undefined,
     };
 
     if (role === 'CARRIER') {
-      payload.email = email.trim();
       payload.password = password;
       // locationIds must be omitted for CARRIER (FR-011, FR-012)
     } else {
@@ -126,62 +213,87 @@ export const InternalAccountCreatePage: React.FC = () => {
     setPhone('');
     setEmail('');
     setPassword('');
-    setSelectedLocations([1]);
+    setSelectedLocations(availableLocations.length > 0 ? [availableLocations[0].id] : []);
     setRole('STAFF');
     setFieldErrors({});
     setCreatedSummary(null);
+    setCollisionNotice(null);
     setIdempotencyKey(newCommandId());
   };
 
   return (
     <div className="account-page-container">
-      {/* Back button matching Figma */}
+      {/* Back button */}
       <div>
         <Link to="/admin/accounts" className="account-back-btn">
-          ← Quay lại
+          {t('create.back')}
         </Link>
       </div>
 
-      {/* Admin Navigation Tabs (Figma F08-F11) */}
-      <nav className="admin-nav-tabs" aria-label="Admin Navigation">
+      {/* Admin Navigation Tabs — Role catalogue removed per T113 */}
+      <nav className="admin-nav-tabs" aria-label={t('create.navAria')}>
         <Link to="/admin/accounts" className="admin-nav-tab active">
-          Tài khoản
-        </Link>
-        <Link to="/admin/roles" className="admin-nav-tab">
-          Vai trò
+          {t('create.navAccounts')}
         </Link>
       </nav>
 
       <header className="account-page-header">
-        <h1 className="account-page-title">Cấp tài khoản nhân sự & đối tác</h1>
+        <h1 className="account-page-title">{t('create.title')}</h1>
         <p className="account-page-description">
-          Chỉ tạo STAFF, MANAGER hoặc CARRIER (GHTK). Nhân sự tự thiết lập mật khẩu qua thư mời; CARRIER kích hoạt trực tiếp.
+          {t('create.description')}
         </p>
       </header>
+
+      {/* Collision Notice Banners */}
+      {collisionNotice && (
+        <div
+          className={`account-alert ${
+            collisionNotice.type === 'MAINTENANCE' ? 'account-alert-info' : 'account-alert-error'
+          }`}
+          role="alert"
+          style={{ marginBottom: '1.5rem' }}
+          data-testid="collision-notice-banner"
+        >
+          <div>
+            <strong>{collisionNotice.message}</strong>
+            {collisionNotice.accountId && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <Link
+                  to={`/admin/accounts/${collisionNotice.accountId}`}
+                  className="account-btn account-btn-primary"
+                  style={{ display: 'inline-block', fontSize: '0.85rem' }}
+                >
+                  Đi đến trang quản trị tài khoản ACC-{collisionNotice.accountId}
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {createdSummary ? (
         <section className="account-card" aria-labelledby="created-title">
           <h2 id="created-title" className="account-card-title" style={{ color: '#15803d' }}>
-            Khởi tạo thành công!
+            {t('create.successTitle')}
           </h2>
 
           <div className="account-alert account-alert-info">
             <div>
               <strong>
-                Trạng thái:{' '}
+                {t('create.statusLabel')}{' '}
                 {createdSummary.status === 'ACTIVE'
-                  ? 'ACTIVE (Đang hoạt động)'
-                  : 'PENDING_SETUP (Chờ kích hoạt)'}
+                  ? t('create.statusActive')
+                  : t('create.statusPending')}
               </strong>
               <p style={{ margin: '0.25rem 0' }}>
                 {createdSummary.role === 'CARRIER'
-                  ? 'Tài khoản Đối tác vận chuyển (GHTK) đã được kích hoạt trực tiếp. Mật khẩu khởi tạo mang tính chất chỉ-ghi (write-only) và không thể xem lại.'
-                  : 'Tài khoản nội bộ đã được ghi nhận. Thư mời kích hoạt đã được gửi tới người nhận qua hệ thống thông báo.'}
+                  ? t('create.carrierDone')
+                  : 'Tài khoản nhân sự đã được khởi tạo và liên kết định danh. Thư mời kích hoạt đã được đưa vào hàng đợi gửi qua hệ thống thông báo.'}
               </p>
               <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#4b5563' }}>
                 {createdSummary.role === 'CARRIER'
-                  ? '* Vui lòng bàn giao thông tin đăng nhập trực tiếp (out-of-band) cho đối tác vận chuyển.'
-                  : '* Quyền truy cập nội bộ chỉ có hiệu lực sau khi người được mời hoàn tất đăng ký với email được xác thực.'}
+                  ? t('create.carrierNote')
+                  : 'Liên kết thư mời có hiệu lực trong vòng 48 giờ từ thời điểm tạo. Người nhận hoàn tất thiết lập mật khẩu hoặc liên kết Google để kích hoạt tài khoản.'}
               </p>
             </div>
           </div>
@@ -189,21 +301,21 @@ export const InternalAccountCreatePage: React.FC = () => {
           <table className="account-table" style={{ marginBottom: '1.5rem' }}>
             <tbody>
               <tr>
-                <th style={{ width: '200px' }}>Mã tài khoản:</th>
-                <td>{createdSummary.accountId}</td>
+                <th style={{ width: '200px' }}>{t('create.accountId')}</th>
+                <td>ACC-{createdSummary.accountId}</td>
               </tr>
               <tr>
-                <th>Vai trò:</th>
+                <th>{t('create.role')}</th>
                 <td>
                   <span className="account-badge account-badge-readonly">{createdSummary.role}</span>
                 </td>
               </tr>
               <tr>
-                <th>Email định danh:</th>
+                <th>{t('create.identityEmail')}</th>
                 <td>{createdSummary.loginEmail}</td>
               </tr>
               <tr>
-                <th>Trạng thái tài khoản:</th>
+                <th>{t('create.accountStatus')}</th>
                 <td>
                   <span
                     className={
@@ -224,17 +336,17 @@ export const InternalAccountCreatePage: React.FC = () => {
               to={`/admin/accounts/${createdSummary.accountId}`}
               className="account-btn account-btn-primary"
             >
-              Xem chi tiết tài khoản
+              {t('create.viewDetail')}
             </Link>
             <button
               type="button"
               className="account-btn account-btn-secondary"
               onClick={handleResetForNew}
             >
-              Tạo tài khoản khác
+              {t('create.another')}
             </button>
             <Link to="/admin/accounts" className="account-btn account-btn-secondary">
-              Danh sách tài khoản
+              {t('create.list')}
             </Link>
           </div>
         </section>
@@ -242,74 +354,80 @@ export const InternalAccountCreatePage: React.FC = () => {
         <div className="account-card">
           {error && (
             <div className="account-alert account-alert-error" role="alert">
-              <span>{error.message || 'Không thể khởi tạo tài khoản nội bộ.'}</span>
+              <span>{error.message || t('create.error')}</span>
             </div>
           )}
 
           <form className="account-form" onSubmit={handleSubmit} noValidate>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.5rem 0', color: '#1a1a1a', borderBottom: '1px solid #eceef1', paddingBottom: '0.5rem' }}>
-              Thông tin cá nhân & định danh
+              {t('create.sectionPersonal')}
             </h3>
 
-            {role === 'CARRIER' && (
-              <>
-                <div className="account-field">
-                  <label className="account-label account-label-required" htmlFor="carrier-email">
-                    Email đăng nhập (bất biến)
-                  </label>
-                  <input
-                    id="carrier-email"
-                    type="email"
-                    className="account-input"
-                    placeholder="Ví dụ: ghtk.test@mland.vn"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.email)}
-                    disabled={loading}
-                  />
-                  {fieldErrors.email && (
-                    <span className="account-field-error" role="alert">{fieldErrors.email}</span>
-                  )}
-                </div>
+            {/* Email Field is mandatory for ALL roles per R-INV FR-048 */}
+            <div className="account-field">
+              <label className="account-label account-label-required" htmlFor="create-account-email">
+                {role === 'CARRIER' ? t('create.carrierEmail') : 'Email định danh & nhận thư mời (bắt buộc)'}
+              </label>
+              <input
+                id="create-account-email"
+                type="email"
+                className="account-input"
+                placeholder={role === 'CARRIER' ? t('create.carrierEmailPlaceholder') : 'Ví dụ: nhansu@mland.vn'}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.email)}
+                disabled={loading || checkingCollision}
+                required
+              />
+              <span className="account-field-hint">
+                {role === 'CARRIER'
+                  ? 'Email đối tác đăng nhập trực tiếp (bất biến).'
+                  : 'Email dùng để tạo liên kết thư mời kích hoạt có thời hạn 48 giờ.'}
+              </span>
+              {fieldErrors.email && (
+                <span className="account-field-error" role="alert">{fieldErrors.email}</span>
+              )}
+            </div>
 
-                <div className="account-field">
-                  <label className="account-label account-label-required" htmlFor="carrier-password">
-                    Mật khẩu khởi tạo
-                  </label>
-                  <input
-                    id="carrier-password"
-                    type="password"
-                    className="account-input"
-                    placeholder="Tối thiểu 6 ký tự…"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    disabled={loading}
-                  />
-                  <span className="account-field-hint">
-                    Mật khẩu mang tính chất chỉ-ghi (write-only), không được lưu trữ, ghi log hay hoàn trả sau khi tạo. Vui lòng ghi lại để bàn giao trực tiếp cho đối tác.
-                  </span>
-                  {fieldErrors.password && (
-                    <span className="account-field-error" role="alert">{fieldErrors.password}</span>
-                  )}
-                </div>
-              </>
+            {/* Password ONLY for CARRIER per R-CAR / R-INV (FR-048 rejects Staff/Manager password input) */}
+            {role === 'CARRIER' && (
+              <div className="account-field">
+                <label className="account-label account-label-required" htmlFor="carrier-password">
+                  {t('create.initialPassword')}
+                </label>
+                <input
+                  id="carrier-password"
+                  type="password"
+                  className="account-input"
+                  placeholder={t('create.passwordPlaceholder')}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  disabled={loading}
+                />
+                <span className="account-field-hint">
+                  {t('create.passwordHint')}
+                </span>
+                {fieldErrors.password && (
+                  <span className="account-field-error" role="alert">{fieldErrors.password}</span>
+                )}
+              </div>
             )}
 
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="internal-name">
-                {role === 'CARRIER' ? 'Tên hiển thị đối tác / Người đại diện' : 'Họ và tên'}
+                {role === 'CARRIER' ? t('create.nameCarrier') : t('create.nameStaff')}
               </label>
               <input
                 id="internal-name"
                 type="text"
                 className="account-input"
-                placeholder={role === 'CARRIER' ? 'Ví dụ: Đối tác vận chuyển (GHTK)' : 'Nhập họ và tên nhân sự…'}
+                placeholder={role === 'CARRIER' ? t('create.namePlaceholderCarrier') : t('create.namePlaceholderStaff')}
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 maxLength={100}
                 aria-invalid={Boolean(fieldErrors.fullName)}
-                disabled={loading}
+                disabled={loading || checkingCollision}
               />
               {fieldErrors.fullName && (
                 <span className="account-field-error" role="alert">{fieldErrors.fullName}</span>
@@ -321,18 +439,18 @@ export const InternalAccountCreatePage: React.FC = () => {
                 className={`account-label ${role === 'CARRIER' ? 'account-label-required' : ''}`}
                 htmlFor="internal-phone"
               >
-                {role === 'CARRIER' ? 'Số điện thoại liên hệ (bắt buộc)' : 'Số điện thoại liên hệ'}
+                {role === 'CARRIER' ? t('create.phoneCarrier') : t('create.phoneStaff')}
               </label>
               <input
                 id="internal-phone"
                 type="tel"
                 className="account-input"
-                placeholder="Ví dụ: 0901234567"
+                placeholder={t('create.phonePlaceholder')}
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 maxLength={30}
                 aria-invalid={Boolean(fieldErrors.phone)}
-                disabled={loading}
+                disabled={loading || checkingCollision}
               />
               {fieldErrors.phone && (
                 <span className="account-field-error" role="alert">{fieldErrors.phone}</span>
@@ -340,12 +458,13 @@ export const InternalAccountCreatePage: React.FC = () => {
             </div>
 
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '1rem 0 0.5rem 0', color: '#1a1a1a', borderBottom: '1px solid #eceef1', paddingBottom: '0.5rem' }}>
-              Vai trò & phạm vi
+              {t('create.sectionRole')}
             </h3>
 
+            {/* Role guidance per T113 */}
             <div className="account-field">
               <label className="account-label account-label-required" htmlFor="internal-role">
-                Vai trò nội bộ
+                {t('create.internalRole')}
               </label>
               <select
                 id="internal-role"
@@ -358,86 +477,105 @@ export const InternalAccountCreatePage: React.FC = () => {
                     setSelectedLocations([selectedLocations[0]]);
                   }
                 }}
-                disabled={loading}
+                disabled={loading || checkingCollision}
               >
-                <option value="STAFF">Nhân viên cơ sở (STAFF)</option>
-                <option value="MANAGER">Quản lý cơ sở (MANAGER)</option>
-                <option value="CARRIER">Đối tác vận chuyển (GHTK)</option>
+                <option value="STAFF">{t('create.optStaff')}</option>
+                <option value="MANAGER">{t('create.optManager')}</option>
+                <option value="CARRIER">{t('create.optCarrier')}</option>
               </select>
               <span className="account-field-hint" data-testid="role-scope-hint">
                 {role === 'CARRIER'
-                  ? 'Đối tác vận chuyển (GHTK) được kích hoạt trực tiếp ở trạng thái ACTIVE; không phân công cơ sở làm việc và không có thư mời kích hoạt.'
+                  ? t('create.hintCarrier')
                   : role === 'MANAGER'
-                  ? 'Phân công cơ sở hỗ trợ ghi nhận tổ chức; phạm vi vận hành cho các tác vụ của Quản lý (Manager) là toàn hệ thống. Quản lý phân công 1 hoặc nhiều cơ sở.'
-                  : 'Phân công cơ sở giới hạn phạm vi truy cập vận hành của Nhân viên (Staff). Nhân viên phân công đúng 1 cơ sở.'}
+                  ? t('create.hintManager')
+                  : t('create.hintStaff')}
               </span>
             </div>
 
+            {/* Location selector (Staff: exactly 1, Manager: 1+) */}
             {role !== 'CARRIER' && (
-              <>
-                <div className="account-field">
-                  <span className="account-label account-label-required">
-                    {role === 'MANAGER' ? 'Cơ sở phân công tổ chức' : 'Cơ sở làm việc (giới hạn quyền)'}
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-                    {AVAILABLE_LOCATIONS.map(loc => {
-                      const isChecked = selectedLocations.includes(loc.id);
-                      return (
-                        <label
-                          key={loc.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <input
-                            type={role === 'STAFF' ? 'radio' : 'checkbox'}
-                            name="locations"
-                            checked={isChecked}
-                            onChange={() => handleLocationToggle(loc.id)}
-                            disabled={loading}
-                          />
-                          <span>{loc.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {fieldErrors.locations && (
-                    <span className="account-field-error" role="alert">{fieldErrors.locations}</span>
+              <div className="account-field">
+                <span className="account-label account-label-required">
+                  {role === 'MANAGER' ? t('create.locationsManager') : t('create.locationsStaff')}
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {locationsError && (
+                    <span className="account-field-error" role="alert">{locationsError}</span>
                   )}
+                  {availableLocations.map(loc => {
+                    const isChecked = selectedLocations.includes(loc.id);
+                    return (
+                      <label
+                        key={loc.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <input
+                          type={role === 'STAFF' ? 'radio' : 'checkbox'}
+                          name="locations"
+                          checked={isChecked}
+                          onChange={() => handleLocationToggle(loc.id)}
+                          disabled={loading || checkingCollision}
+                        />
+                        <span>{loc.name}</span>
+                      </label>
+                    );
+                  })}
                 </div>
-
-                <div className="account-field" style={{ marginTop: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', color: '#1a1a1a' }}>
-                    <input
-                      type="checkbox"
-                      checked={sendNotification}
-                      onChange={e => setSendNotification(e.target.checked)}
-                    />
-                    <span>Gửi thông báo hướng dẫn thiết lập tài khoản đến email công việc</span>
-                  </label>
-                </div>
-              </>
+                {fieldErrors.locations && (
+                  <span className="account-field-error" role="alert">{fieldErrors.locations}</span>
+                )}
+              </div>
             )}
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem' }}>
               <button
                 type="submit"
                 className="account-btn account-btn-primary"
-                disabled={loading}
+                disabled={loading || checkingCollision}
               >
-                {loading ? 'Đang khởi tạo…' : 'Khởi tạo tài khoản'}
+                {checkingCollision
+                  ? 'Đang kiểm tra email…'
+                  : loading
+                  ? t('create.submitting')
+                  : t('create.submit')}
               </button>
               <Link to="/admin/accounts" className="account-btn account-btn-secondary">
-                Hủy bỏ
+                {t('create.cancel')}
               </Link>
             </div>
           </form>
         </div>
       )}
+
+      {/* Member Collision Review Modal */}
+      <MemberCollisionReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        review={memberReview}
+        onRetireSuccess={() => {
+          setReviewModalOpen(false);
+          // Retry creation after retirement
+          executeCreation(email.trim().toLowerCase());
+        }}
+      />
+
+      {/* Firebase-only Collision Modal */}
+      <FirebaseOnlyCollisionModal
+        isOpen={fbOnlyModalOpen}
+        onClose={() => setFbOnlyModalOpen(false)}
+        email={fbCollisionEmail}
+        onDeleteSuccess={() => {
+          setFbOnlyModalOpen(false);
+          // Proceed with creation after FB deletion
+          executeCreation(fbCollisionEmail);
+        }}
+      />
     </div>
   );
 };

@@ -130,17 +130,21 @@ public class RetailCheckoutQuotePreviewService {
             || !subtotal.subtract(result.programDiscount()).subtract(result.pointDiscount()).equals(result.postPromotionAmount())) {
             throw new RetailIntegrationUnavailableException("Loyalty returned unverifiable preview facts");
         }
-        boolean eligible = (selection.choice() != SelectionChoice.VOUCHER || result.programId() != null)
-            && selection.requestedPoints().equals(result.pointsUsed());
+        // Since FE-06 stacks the automatic discount with the voucher (Session 2026-11-22), programId may be the automatic
+        // discount: a requested voucher counts only when FE-06 really applied that code.
+        boolean voucherApplied = selection.choice() != SelectionChoice.VOUCHER || appliedCode(result, selection.voucherCode());
+        boolean eligible = voucherApplied && selection.requestedPoints().equals(result.pointsUsed());
         // The cart lines the programme discount covers (FE-06 line indexes follow the selected cart lines).
         List<String> discountedLineIds = result.eligibleLineIndexes().stream()
             .filter(index -> index >= 0 && index < selected.size()).map(index -> selected.get(index).getId()).toList();
-        String voucherCode = selection.choice() == SelectionChoice.VOUCHER ? result.normalizedCode() : null;
+        String voucherCode = selection.choice() == SelectionChoice.VOUCHER && voucherApplied ? result.normalizedCode() : null;
+        String[] parts = discountParts(result);
+        List<CheckoutDtos.CartLineDiscountView> lineViews = cartLineDiscounts(selected, result);
         if (!eligible) {
             return new CheckoutDtos.BenefitPreviewView(null, "VND", subtotal.toString(), true,
                 result.programDiscount().toString(), result.pointDiscount().toString(), result.postPromotionAmount().toString(),
                 null, "0", false, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-                discountedLineIds, voucherCode);
+                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
         }
         if (request.estimate()) {
             // Cart totals and voucher checks: the same FE-06 numbers, but no quote row (no order can be placed from it).
@@ -148,7 +152,7 @@ public class RetailCheckoutQuotePreviewService {
                 result.programDiscount().toString(), result.pointDiscount().toString(),
                 result.postPromotionAmount().add(shippingTotal).toString(), expiresAt.toString(), shippingTotal.toString(),
                 true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-                discountedLineIds, voucherCode);
+                discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
         }
         var quote = new RetailCheckoutQuote(memberId, cart.getId(), cart.getVersion(), selection.choice().name(),
             selection.voucherCode(), selection.requestedPoints(), result.termsDigest(), "VND", subtotal,
@@ -179,16 +183,60 @@ public class RetailCheckoutQuotePreviewService {
         return new CheckoutDtos.BenefitPreviewView(quote.getId(), "VND", subtotal.toString(), true,
             result.programDiscount().toString(), result.pointDiscount().toString(), quote.getPayableTotal().toString(),
             expiresAt.toString(), shippingTotal.toString(), true, result.reasons(), result.maxPoints().toString(), result.minRedeemPoints().toString(),
-            discountedLineIds, voucherCode);
+            discountedLineIds, voucherCode, parts[0], parts[1], result.pointsAllowed(), lineViews);
+    }
+
+    /** True when FE-06 applied exactly the voucher the Member asked for. */
+    static boolean appliedCode(BenefitPreview result, String requested) {
+        if (requested == null || result.normalizedCode() == null) return false;
+        return result.normalizedCode().trim().equalsIgnoreCase(requested.trim());
     }
 
     /**
-     * Spreads the benefits over branch orders: the programme (voucher) share only over branches holding the lines it
-     * discounts, in proportion to their amount; the points share in proportion to each branch's amount after that.
+     * FE-06's share of the programme discount on each selected cart line ({@code lineDiscounts}, line index = position
+     * in the selected lines), for the cart's per-line price. Same checks as {@link #lineShares}: empty when a share is
+     * missing, negative, repeated, out of range, or the shares do not add up to the programme discount.
      */
-    private static void allocateDiscounts(RetailCheckoutQuote quote, List<CartLine> selected, List<SourceLine> sourceLines,
-                                          BenefitPreview result) {
+    static List<CheckoutDtos.CartLineDiscountView> cartLineDiscounts(List<CartLine> selected, BenefitPreview result) {
+        List<LineDiscount> lines = result.lineDiscounts();
+        if (lines == null || lines.isEmpty()) return List.of();
+        List<CheckoutDtos.CartLineDiscountView> views = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        BigInteger sum = BigInteger.ZERO;
+        for (LineDiscount line : lines) {
+            if (line == null || line.lineIndex() < 0 || line.lineIndex() >= selected.size() || !seen.add(line.lineIndex())
+                || line.autoDiscount() == null || line.voucherDiscount() == null
+                || line.autoDiscount().signum() < 0 || line.voucherDiscount().signum() < 0) return List.of();
+            sum = sum.add(line.total());
+            views.add(new CheckoutDtos.CartLineDiscountView(selected.get(line.lineIndex()).getId(),
+                line.autoDiscount().toString(), line.voucherDiscount().toString()));
+        }
+        return sum.equals(result.programDiscount()) ? views : List.of();
+    }
+
+    /**
+     * The automatic-discount and voucher parts of the programme discount (Session 2026-11-22), or two nulls when FE-06
+     * did not split it (its parts do not add up to the programme discount).
+     */
+    static String[] discountParts(BenefitPreview result) {
+        BigInteger auto = result.autoDiscount();
+        BigInteger voucher = result.voucherDiscount();
+        if (auto == null || voucher == null || auto.signum() < 0 || voucher.signum() < 0
+            || !auto.add(voucher).equals(result.programDiscount())) return new String[] { null, null };
+        return new String[] { auto.toString(), voucher.toString() };
+    }
+
+    /**
+     * Spreads the benefits over branch orders. The programme share of a branch is the sum of FE-06's per-line shares
+     * ({@code lineDiscounts}: automatic discount plus voucher, Session 2026-11-22) of the lines it holds, so FE-08 and
+     * FE-06 always agree. Without per-line shares (older FE-06 shape) the programme discount is split over the
+     * branches holding the lines it discounts, in proportion to their amount. The points share then goes in proportion
+     * to each branch's amount after the programme.
+     */
+    static void allocateDiscounts(RetailCheckoutQuote quote, List<CartLine> selected, List<SourceLine> sourceLines,
+                                  BenefitPreview result) {
         List<RetailCheckoutQuoteBranch> branches = quote.getBranches();
+        List<BigInteger> fromLines = lineShares(branches, selected, result);
         Set<Integer> eligible = new HashSet<>(result.eligibleLineIndexes());
         List<BigInteger> eligibleAmounts = new ArrayList<>();
         List<BigInteger> subtotals = new ArrayList<>();
@@ -202,13 +250,42 @@ public class RetailCheckoutQuotePreviewService {
             eligibleAmounts.add(amount);
             subtotals.add(branch.getSubtotal());
         }
-        List<BigInteger> programShares = RetailDiscountAllocation.split(result.programDiscount(), eligibleAmounts, subtotals);
+        List<BigInteger> programShares = fromLines != null ? fromLines
+            : RetailDiscountAllocation.split(result.programDiscount(), eligibleAmounts, subtotals);
         List<BigInteger> remaining = new ArrayList<>();
         for (int index = 0; index < branches.size(); index++) remaining.add(subtotals.get(index).subtract(programShares.get(index)));
         List<BigInteger> pointShares = RetailDiscountAllocation.split(result.pointDiscount(), remaining, remaining);
         for (int index = 0; index < branches.size(); index++) {
             branches.get(index).allocateDiscount(programShares.get(index).add(pointShares.get(index)));
         }
+    }
+
+    /**
+     * Each branch's programme share from FE-06's per-line shares, or null when they are missing or do not add up to
+     * the programme discount (then the proportional split is used).
+     */
+    static List<BigInteger> lineShares(List<RetailCheckoutQuoteBranch> branches, List<CartLine> selected, BenefitPreview result) {
+        List<LineDiscount> lines = result.lineDiscounts();
+        if (lines == null || lines.isEmpty()) return null;
+        Map<Long, BigInteger> byLocation = new HashMap<>();
+        BigInteger sum = BigInteger.ZERO;
+        Set<Integer> seen = new HashSet<>();
+        for (LineDiscount line : lines) {
+            if (line == null || line.lineIndex() < 0 || line.lineIndex() >= selected.size() || !seen.add(line.lineIndex())
+                || line.autoDiscount() == null || line.voucherDiscount() == null
+                || line.autoDiscount().signum() < 0 || line.voucherDiscount().signum() < 0) return null;
+            BigInteger total = line.total();
+            sum = sum.add(total);
+            byLocation.merge(selected.get(line.lineIndex()).getLocationId(), total, BigInteger::add);
+        }
+        if (!sum.equals(result.programDiscount())) return null;
+        List<BigInteger> shares = new ArrayList<>();
+        for (RetailCheckoutQuoteBranch branch : branches) {
+            BigInteger share = byLocation.getOrDefault(branch.getLocationId(), BigInteger.ZERO);
+            if (share.compareTo(branch.getSubtotal()) > 0) return null;
+            shares.add(share);
+        }
+        return shares;
     }
 
     private Map<BranchVariant, BranchCartSaleFact> readBranchFacts(Collection<BranchVariant> keys) {

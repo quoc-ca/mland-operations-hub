@@ -1,9 +1,9 @@
 # Hướng dẫn tích hợp: Workshop Booking (003.1) gọi LoyaltyFacade
 
 **Date created**: 2026-10-29
-**Date updated**: 2026-11-12
+**Date updated**: 2026-11-23 (Session 2026-11-22: tranh suất cuối và mã CLAIM_REQUIRED chưa lưu là PROMOTION_INELIGIBLE; trước đó: 2026-11-21 (T118, Session 2026-11-21 của spec: lượt voucher đã chốt chỉ trả khi mã còn hiệu lực lúc quyết định hủy; đồng bộ FR-044: chọn AUTO cho workshop không còn là `PROMOTION_INELIGIBLE`); trước đó: 2026-11-12
 **Author**: Đặng Thị Khương
-**Last updated by**: Đặng Thị Khương (booking 0đ, quyết định 2026-11-12)
+**Last updated by**: Đặng Thị Khương
 
 **Status**: Draft cho owner 003.1 (Hồ Hoàng Quốc) review. Theo quyết định **Cách 2** (2026-10-29): `workshopbooking` gọi thẳng `LoyaltyFacade`, phụ thuộc một chiều `workshopbooking → loyaltypromotion::facade`. 006 không viết code trong `workshopbooking`.
 **Sources**: [interfaces](interfaces.md) mục 4, [spec](../spec.md) FR-019–FR-022, FR-028–FR-038, Clarifications 2026-10-29, [integration gates](../integration-gates.md) G-04/G-05. Luồng mẫu chạy được: `ppswbs_backend/src/test/java/edu/fpt/sep490_g22/ppswbs_backend/features/loyaltypromotion/LoyaltyWorkshopFacadeIT.java` (test `referenceBookingFlowForATwoSessionPackage`).
@@ -27,7 +27,7 @@ Chỉ dùng type trong `edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromot
 | Booking 0đ (`postPromotionAmount` = 0, quyết định 2026-11-12) | `settleAcceptedBenefits(outcome WORKSHOP_DEPOSIT_ACCEPTED)` ngay khi 003.1 xác nhận booking | MANDATORY, chung transaction xác nhận booking | Không gọi cổng thanh toán. `proofRef` là tham chiếu ngắn của quyết định xác nhận 0đ (ví dụ `zero-accepted:<bookingRef>`), không phải bằng chứng thanh toán. Về sau vẫn grant bằng `WORKSHOP_COMPLETED_AND_FULLY_PAID` (0 điểm), hủy/no-show như booking thường. |
 | Hoàn thành mọi phiên **và** trả đủ (attendance `ATTENDED` hoặc `PARTIAL`) | `grantEarnedPoints(outcome WORKSHOP_COMPLETED_AND_FULLY_PAID)` | MANDATORY | Cộng điểm một lần theo policy lúc accept, trên `postPromotionAmount`. Thu phần còn lại không giảm lại. Booking `PARTIAL` (có vé no-show nhưng không phải toàn bộ) vẫn được cộng điểm khi folio `FINALIZED` với số dư 0 (quyết định owner 003, 2026-11-05). |
 | Hết hạn cọc chưa trả (đã xác nhận) | `releaseHeldBenefits(UNPAID_EXPIRY_CONFIRMED)` rồi `finishIneligibleEarn(...)` | MANDATORY | Không suy hết hạn từ `originalDeadline`; chỉ gọi khi 003.1 đã phân xử. |
-| Hủy hợp lệ (khách hủy hợp lệ, hoặc Mland hủy và remedy hoàn tiền đã xác minh — quyết định owner 003 D15, 2026-11-05) | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm và lượt. Không cộng điểm. |
+| Hủy hợp lệ (khách hủy hợp lệ, hoặc Mland hủy và remedy hoàn tiền đã xác minh — quyết định owner 003 D15, 2026-11-05) | `restoreCancelledWorkshopBenefits(VALID_WORKSHOP_CANCELLATION)` rồi `finishIneligibleEarn(...)` | MANDATORY | HELD → release, CONSUMED → hoàn điểm; lượt voucher chỉ hoàn khi mã còn hiệu lực tại `decisionAt` (FR-035, Session 2026-11-21). Không cộng điểm. |
 | No-show cuối (toàn bộ vé ở mọi phiên bắt buộc đều `NO_SHOW`) | `finishIneligibleEarn(WORKSHOP_NO_SHOW_FINAL)` | MANDATORY | Không hoàn voucher/điểm đã dùng. Folio direct-booking chuyển `CLOSED`. |
 | Đối soát | `findBenefitResult(SourceKind.WORKSHOP, bookingRef)` | read-only | Trạng thái từng phần và earn. |
 
@@ -131,11 +131,11 @@ new AuthoritativeOutcome(SourceKind.WORKSHOP, bookingRef, "workshopbooking",
 | Code | Khi nào | 003.1 làm gì |
 | --- | --- | --- |
 | `INVALID_INPUT` | Fact/context sai (sessionRef không phải UUID, danh sách rỗng...) | Lỗi lập trình hoặc dữ liệu nguồn; trả 400. |
-| `PROMOTION_INELIGIBLE` | Mã không có, sai phạm vi (kể cả một phiên ngoài phạm vi), hết hạn/dừng/hết lượt, chưa đủ phí tối thiểu, chọn AUTO cho workshop | Rollback; preview lại và hiện lý do. |
+| `PROMOTION_INELIGIBLE` | Mã không có, sai phạm vi (kể cả một phiên ngoài phạm vi), hết hạn/dừng/hết lượt, chưa đủ phí tối thiểu. Chọn AUTO cho workshop không còn là lỗi (FR-044, Session 2026-11-14): không có giảm tự động nào áp được thì preview chỉ trả lý do `WORKSHOP_NO_AUTO_DISCOUNT_APPLIES`, D = 0 | Rollback; preview lại và hiện lý do. |
 | `POINTS_USE_NOT_ALLOWED`, `POINTS_LIMIT_CHANGED` | Điểm không hợp lệ/không đủ lúc accept | Rollback; preview lại. |
 | `QUOTE_CHANGED` | Digest khác quote khách đã xác nhận | Rollback; preview lại, khách xác nhận lại. |
 | `WORKSHOP_NET_AMOUNT_INVALID` | Phí sau giảm **âm** (chỉ khi dữ liệu sai). Từ 2026-11-12, phí sau giảm bằng 0 **không** còn là lỗi. | Rollback; đối soát dữ liệu. |
-| `QUOTA_LIMIT_CONFLICT` | Hết lượt voucher do tranh chấp | Rollback; preview lại. |
+| `PROMOTION_INELIGIBLE` | Hết lượt voucher do tranh chấp (từ T123, trước đó ghi `QUOTA_LIMIT_CONFLICT`), hoặc voucher `CLAIM_REQUIRED` Member chưa lưu (Session 2026-11-22, lý do `VOUCHER_NOT_SAVED`) | Rollback; preview lại. |
 | `IDEMPOTENCY_CONFLICT`, `BENEFIT_STATE_CONFLICT` | Cùng key khác nội dung / outcome mâu thuẫn | Đối soát; không tự đổi key. |
 | `RETRYABLE_CONTENTION` | Lock timeout/deadlock (đã rollback sạch) | Thử lại cả transaction với **cùng** key và nội dung. |
 | `DEPENDENCY_UNAVAILABLE` | Thiếu dependency hoặc nguồn tạm lỗi | 503. |

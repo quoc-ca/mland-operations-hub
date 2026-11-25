@@ -1,15 +1,19 @@
 import { Fragment, useState } from 'react';
+import { useEnumLabel, useT } from '../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { actorLabel, formatTime, shortRef } from './auditReviewModel';
 
 const Ref = ({ value }) => <span className="mono" title={value || undefined}>{shortRef(value)}</span>;
 
 function OutcomePill({ outcome }) {
+  const outcomeLabel = useEnumLabel(messages, 'auditOutcome');
   // Colour and text together, never colour alone.
-  return <span className={`audit-pill ${outcome}`}>{outcome}</span>;
+  return <span className={`audit-pill ${outcome}`}>{outcomeLabel(outcome)}</span>;
 }
 
 /** Operations tab (FR-051): time, actor, action, outcome, session, correlation id; whitelisted metadata on demand. */
 export function OperationsRows({ rows }) {
+  const t = useT(messages);
   const [openIds, setOpenIds] = useState(() => new Set());
   const toggle = id => setOpenIds(current => {
     const next = new Set(current);
@@ -20,8 +24,8 @@ export function OperationsRows({ rows }) {
     <table className="audit-table">
       <thead>
         <tr>
-          <th scope="col">Thời gian</th><th scope="col">Người thực hiện</th><th scope="col">Hành động</th>
-          <th scope="col">Kết quả</th><th scope="col">Ca</th><th scope="col">Mã tương quan</th><th scope="col"><span className="sr-only">Chi tiết</span></th>
+          <th scope="col">{t('audit.col.time')}</th><th scope="col">{t('audit.col.actor')}</th><th scope="col">{t('audit.col.action')}</th>
+          <th scope="col">{t('audit.col.outcome')}</th><th scope="col">{t('audit.col.session')}</th><th scope="col">{t('audit.col.correlation')}</th><th scope="col"><span className="sr-only">{t('audit.col.details')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -31,12 +35,12 @@ export function OperationsRows({ rows }) {
           return (
             <Fragment key={row.id}>
               <tr className={open ? 'is-open' : undefined}>
-                <td data-label="Thời gian">{formatTime(row.occurredAt)}</td>
-                <td data-label="Người thực hiện">{actorLabel(row.actor) || 'Hệ thống'}</td>
-                <td data-label="Hành động" className="mono">{row.action}</td>
-                <td data-label="Kết quả"><OutcomePill outcome={row.outcome} /></td>
-                <td data-label="Ca" className="mono">{row.sessionId ? `#${row.sessionId}` : '—'}</td>
-                <td data-label="Mã tương quan"><Ref value={row.correlationId} /></td>
+                <td data-label={t('audit.col.time')}>{formatTime(row.occurredAt)}</td>
+                <td data-label={t('audit.col.actor')}>{actorLabel(row.actor) || t('audit.system')}</td>
+                <td data-label={t('audit.col.action')} className="mono">{row.action}</td>
+                <td data-label={t('audit.col.outcome')}><OutcomePill outcome={row.outcome} /></td>
+                <td data-label={t('audit.col.session')} className="mono">{row.sessionId ? `#${row.sessionId}` : '—'}</td>
+                <td data-label={t('audit.col.correlation')}><Ref value={row.correlationId} /></td>
                 <td className="audit-row-action">
                   <button
                     type="button"
@@ -44,7 +48,7 @@ export function OperationsRows({ rows }) {
                     aria-expanded={open}
                     onClick={() => toggle(row.id)}
                   >
-                    {open ? 'Thu gọn' : 'Chi tiết'}
+                    {open ? t('audit.collapse') : t('audit.col.details')}
                   </button>
                 </td>
               </tr>
@@ -58,7 +62,7 @@ export function OperationsRows({ rows }) {
                         ))}
                       </dl>
                     ) : <p className="audit-note">—</p>}
-                    <p className="audit-note">Chỉ hiện các khóa được phép. Không có email, số điện thoại hay họ tên khách.</p>
+                    <p className="audit-note">{t('audit.metaNote')}</p>
                   </td>
                 </tr>
               )}
@@ -72,30 +76,31 @@ export function OperationsRows({ rows }) {
 
 /** Settlement tab (FR-052): the full reason text is shown; it is Manager-only and never written anywhere. */
 export function SettlementRows({ rows }) {
+  const t = useT(messages);
   return (
     <>
       <table className="audit-table">
         <thead>
           <tr>
-            <th scope="col">Thời gian</th><th scope="col">Người thực hiện</th><th scope="col">Mã hành động</th>
-            <th scope="col">Đối tượng</th><th scope="col">Tham chiếu chứng từ</th><th scope="col">Lý do</th><th scope="col">Mã tương quan</th>
+            <th scope="col">{t('audit.col.time')}</th><th scope="col">{t('audit.col.actor')}</th><th scope="col">{t('audit.col.actionCode')}</th>
+            <th scope="col">{t('audit.col.aggregate')}</th><th scope="col">{t('audit.col.evidence')}</th><th scope="col">{t('audit.col.reason')}</th><th scope="col">{t('audit.col.correlation')}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map(row => (
             <tr key={row.id}>
-              <td data-label="Thời gian">{formatTime(row.occurredAt)}</td>
-              <td data-label="Người thực hiện">{actorLabel(row.actor) || row.actorReference || '—'}</td>
-              <td data-label="Mã hành động" className="mono">{row.actionCode}</td>
-              <td data-label="Đối tượng" className="mono">{row.aggregateType}<br />{row.aggregateReference}</td>
-              <td data-label="Tham chiếu chứng từ" className="mono">{row.evidenceReference || '—'}</td>
-              <td data-label="Lý do" className="audit-reason">{row.reasonText || '—'}</td>
-              <td data-label="Mã tương quan"><Ref value={row.correlationReference} /></td>
+              <td data-label={t('audit.col.time')}>{formatTime(row.occurredAt)}</td>
+              <td data-label={t('audit.col.actor')}>{actorLabel(row.actor) || row.actorReference || '—'}</td>
+              <td data-label={t('audit.col.actionCode')} className="mono">{row.actionCode}</td>
+              <td data-label={t('audit.col.aggregate')} className="mono">{row.aggregateType}<br />{row.aggregateReference}</td>
+              <td data-label={t('audit.col.evidence')} className="mono">{row.evidenceReference || '—'}</td>
+              <td data-label={t('audit.col.reason')} className="audit-reason">{row.reasonText || '—'}</td>
+              <td data-label={t('audit.col.correlation')}><Ref value={row.correlationReference} /></td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="audit-note">Lý do hiện đầy đủ (tối đa 500 ký tự); có thể chứa thông tin cá nhân, chỉ Manager xem.</p>
+      <p className="audit-note">{t('audit.reasonNote')}</p>
     </>
   );
 }

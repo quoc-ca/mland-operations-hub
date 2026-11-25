@@ -28,14 +28,14 @@ public class OtaChannelManagementService {
 
     @Transactional(readOnly = true)
     public OtaChannelViews.Channels list(AccountSummary actor) {
-        require(actor, ActorRole.MANAGER, ActorRole.ADMIN);
+        require(actor, ActorRole.MANAGER);
         return new OtaChannelViews.Channels(catalog.listMappings().stream().map(this::view).toList());
     }
 
     @Transactional
     public OtaChannelViews.Mapping create(String channel, String product, String option, String offer,
             String session, AccountSummary actor) {
-        require(actor, ActorRole.MANAGER, ActorRole.ADMIN);
+        require(actor, ActorRole.MANAGER);
         return view(catalog.upsertDraft(publicReference(channel), product, option, offer, session));
     }
 
@@ -61,15 +61,14 @@ public class OtaChannelManagementService {
 
     @Transactional
     public OtaOperationAccepted sync(String reference, String mode, String reason, String key, AccountSummary actor) {
-        require(actor, "PREPARATION".equals(mode) ? new ActorRole[]{ActorRole.MANAGER}
-                : new ActorRole[]{ActorRole.MANAGER, ActorRole.ADMIN});
+        require(actor, ActorRole.MANAGER);
         return reconciliation.requestSync(mapping(reference).getId(), mode, reason, key, actor);
     }
 
     @Transactional
     public OtaBookingEnableDecision enable(String reference, String evidence, String reason,
             List<OtaReadinessCheckSubmission> checks, AccountSummary actor) {
-        require(actor, ActorRole.ADMIN);
+        require(actor, ActorRole.MANAGER);
         return lifecycle.recordBookingEnableDecision(new OtaBookingEnableCommand(mapping(reference).getId(), evidence,
                 reason, actor.accountId().toString(), checks));
     }

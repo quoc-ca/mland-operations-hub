@@ -1,8 +1,9 @@
-/** Landing page of each internal role after sign-in; Members and Admins keep the general home page, CARRIER goes to /carrier. */
+/** Landing page of each role after sign-in; Members keep the general home page, Admin goes to account management, CARRIER to /carrier. */
 export function roleHomePath(role) {
   if (role === 'STAFF') return '/staff/home';
   if (role === 'MANAGER') return '/manager/home';
   if (role === 'CARRIER') return '/carrier';
+  if (role === 'ADMIN') return '/admin/accounts';
   return '/';
 }
 

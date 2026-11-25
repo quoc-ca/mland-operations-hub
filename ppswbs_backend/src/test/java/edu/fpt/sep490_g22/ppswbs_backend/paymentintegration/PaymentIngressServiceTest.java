@@ -7,6 +7,9 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.WorkshopBookingFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.WorkshopSettlementFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.SettlementPaymentEvidenceOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerHandler;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.VerifiedPaymentSuccess;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -163,6 +166,36 @@ class PaymentIngressServiceTest {
         assertThat(outcome.message()).isEqualTo("OK");
         verify(settlement).applyVerifiedSettlementPaymentEvidence(any());
         verifyNoInteractions(booking);
+    }
+
+    @Test void dispatchesVerifiedCustomOrderFullPaymentToCustomOrderFacade() {
+        when(checksum.valid(anyMap(), any())).thenReturn(true);
+        var owner = PaymentOwnerRegistration.builder()
+                .merchantReference("CUSTOM-ORDER-1")
+                .bookingReference("CO-1")
+                .paymentKind(PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT)
+                .amountVnd(4_500_000L)
+                .currencyCode("VND")
+                .build();
+        when(registry.lockOwner("CUSTOM-ORDER-1")).thenReturn(Optional.of(owner));
+        when(receipts.existsByDeliveryReference("CUSTOM-ORDER-1|TX-1|00|00")).thenReturn(false);
+        when(receipts.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        PaymentOwnerHandler handler = mock(PaymentOwnerHandler.class);
+        when(registry.findHandler(PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT)).thenReturn(Optional.of(handler));
+
+        var outcome = service().receive(
+                params("CUSTOM-ORDER-1", "450000000", "00", "TX-1"));
+
+        assertThat(outcome.message()).isEqualTo("OK");
+        verify(handler).onPaymentSuccess(argThat(p ->
+                p.ownerKind() == PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT
+                        && "CO-1".equals(p.ownerReference())
+                        && "CUSTOM-ORDER-1".equals(p.paymentReference())
+                        && "TX-1".equals(p.gatewayTransactionReference())
+                        && p.amountVnd() == 4_500_000L
+                        && "VND".equals(p.currencyCode())
+        ));
+        verifyNoInteractions(booking, settlement, retail);
     }
 
     @Test void acknowledgesFailedProviderResponseWithoutDispatch() {

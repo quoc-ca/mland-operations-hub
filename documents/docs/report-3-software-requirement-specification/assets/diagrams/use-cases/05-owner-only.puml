@@ -1,35 +1,114 @@
 @startuml
 !pragma charset UTF-8
-title Owner / Manager Use Cases
+title 4.3.4 Use Cases for Manager
 left to right direction
 skinparam shadowing false
+skinparam packageStyle rectangle
 skinparam usecase {
   BackgroundColor #FCF9F8
   BorderColor #807663
   ArrowColor #5B5E67
 }
 
-actor "Owner / Manager" as Owner
+actor Manager
+actor "Payment Gateway" as PaymentGateway
+actor "OTA Partner" as OTAPartner
 
-rectangle "Personalized Product Sales and Workshop Booking System" {
-  usecase "Manage confirmed component\ncatalogue and current prices" as Catalogue
-  usecase "Manage feasibility hard constraints,\nscores and thresholds" as Rules
-  usecase "Approve / reject fee\nwaiver or change" as FeeWaiver
-  usecase "Review business audit\nand override records" as Audit
-  usecase "Manually start one-way\nGoogle review import" as ImportReviews
-  usecase "Control imported-review\nvisibility" as ReviewVisibility
+rectangle "Mland Operations System" {
+  package "Product" {
+    usecase "Manage Products" as UC12
+    usecase "Import Products from Excel" as UC13
+    usecase "Submit Product or Price Proposal" as UC14
+    usecase "Approve Product and Price" as UC15
+    usecase "Apply Approved Price" as UC16
+    usecase "Publish or Unpublish Product" as UC17
+    usecase "Manage Product Categories" as UC18
+  }
+  package "Workshop operations" {
+    usecase "Manage Workshop Schedule" as UC25
+    usecase "Assign Staff to Workshop Slot" as UC26
+    usecase "Configure Workshop Time Slot" as UC27
+    usecase "Configure Workshop Slot Capacity" as UC28
+  }
+  package "Ticket settlement and changes" {
+    usecase "Respond to Mland Cancellation Offer" as UC88
+    usecase "Cancel Workshop Tickets" as UC84
+    usecase "View Ticket Folio" as UC77
+    usecase "Add Folio Charge" as UC78
+    usecase "Collect Ticket Balance" as UC79
+    usecase "Verify Transfer Payment" as UC80
+    usecase "Manage Handover Exception and Debt" as UC81
+    usecase "Correct Ticket Folio" as UC82
+    usecase "Close Branch Cash Day" as UC83
+    usecase "Change Ticket Sessions" as UC85
+    usecase "Decide Ticket Change Request" as UC86
+    usecase "Grant Extra Change Allowance" as UC87
+    usecase "Submit Refund Account" as UC89
+    usecase "Process Refund Request" as UC90
+  }
+  package "OTA channels" {
+    usecase "Manage OTA Channel Mappings" as UC91
+    usecase "Enable OTA Channel Booking" as UC92
+    usecase "Resolve OTA Reconciliation Items" as UC93
+    usecase "Reconcile OTA Payout" as UC94
+    usecase "Record OTA Shop Add-on" as UC95
+  }
+  package "Design and consultation" {
+    usecase "Chat with Staff Consultant" as UC38
+    usecase "Review Custom Design Request" as UC40
+  }
+  package "Loyalty and promotion" {
+    usecase "Manage Automatic Discounts" as UC45
+    usecase "Manage Voucher Code" as UC46
+    usecase "Manage Loyalty Point Policy" as UC51
+  }
+  package "Dashboard, queue and reviews" {
+    usecase "View Dashboard" as UC64
+    usecase "Configure Custom Queue" as UC68
+    usecase "Moderate Review" as UC76
+  }
 }
 
-Owner --> Catalogue
-Owner --> Rules
-Owner --> FeeWaiver
-Owner --> Audit
-Owner --> ImportReviews
-Owner --> ReviewVisibility
-ImportReviews .> ReviewVisibility : <<extend>>\n[governance prerequisites met]
+Manager --> UC12
+Manager --> UC13
+Manager --> UC14
+Manager --> UC15
+Manager --> UC16
+Manager --> UC17
+Manager --> UC18
+Manager --> UC25
+Manager --> UC26
+Manager --> UC27
+Manager --> UC28
+Manager --> UC77
+Manager --> UC88
+Manager --> UC84
+Manager --> UC78
+Manager --> UC79
+Manager --> UC80
+Manager --> UC81
+Manager --> UC82
+Manager --> UC83
+Manager --> UC85
+Manager --> UC86
+Manager --> UC87
+Manager --> UC89
+Manager --> UC90
+Manager --> UC91
+Manager --> UC92
+Manager --> UC93
+Manager --> UC94
+Manager --> UC95
+Manager --> UC38
+Manager --> UC40
+Manager --> UC45
+Manager --> UC46
+Manager --> UC51
+Manager --> UC64
+Manager --> UC68
+Manager --> UC76
 
-note bottom of ImportReviews
-Manual import is conditional on verified access and approved governance.
-end note
+UC79 -- PaymentGateway
+UC91 -- OTAPartner
+UC94 -- OTAPartner
 @enduml
-

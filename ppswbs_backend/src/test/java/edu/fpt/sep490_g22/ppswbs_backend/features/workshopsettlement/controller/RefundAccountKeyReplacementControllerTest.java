@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/** 003.3 T137 (FR-040): the Admin-only key replacement route; Manager and Staff are 403; a replay does nothing. */
+/** 003.3 T137 (FR-040): the Manager key replacement route (decided 2026-11-23); Admin and Staff are 403; a replay does nothing. */
 class RefundAccountKeyReplacementControllerTest {
 
     private static final String KEY = "idem-key-00000001";
@@ -45,9 +45,9 @@ class RefundAccountKeyReplacementControllerTest {
     }
 
     @Test
-    void anAdminReplacesTheKeyAndGetsOnlyCounts() {
-        var admin = actor(1L, ActorRole.ADMIN);
-        when(authorization.requireAdmin(admin)).thenReturn(admin);
+    void aManagerReplacesTheKeyAndGetsOnlyCounts() {
+        var admin = actor(1L, ActorRole.MANAGER);
+        when(authorization.requireManager(admin)).thenReturn(admin);
         when(replacement.replace(eq(1L), eq("Khoa bi lo"), anyString()))
                 .thenReturn(new RefundAccountKeyReplacementService.Result(3, 1));
 
@@ -59,10 +59,10 @@ class RefundAccountKeyReplacementControllerTest {
     }
 
     @Test
-    void aManagerAndAStaffMemberAreForbiddenAndNothingRuns() {
-        for (ActorRole role : List.of(ActorRole.MANAGER, ActorRole.STAFF)) {
+    void anAdminAndAStaffMemberAreForbiddenAndNothingRuns() {
+        for (ActorRole role : List.of(ActorRole.ADMIN, ActorRole.STAFF)) {
             var other = actor(2L, role);
-            when(authorization.requireAdmin(other)).thenThrow(new WorkshopSettlementAuthorizationException("ADMIN_REQUIRED"));
+            when(authorization.requireManager(other)).thenThrow(new WorkshopSettlementAuthorizationException("MANAGER_REQUIRED"));
             assertThatThrownBy(() -> controller.replace(KEY, "corr", new RefundAccountKeyReplacementController.KeyReplacementRequest("x"), auth(other)))
                     .isInstanceOf(WorkshopSettlementAuthorizationException.class);
         }
@@ -71,8 +71,8 @@ class RefundAccountKeyReplacementControllerTest {
 
     @Test
     void aMissingKeyIsRefusedAndAReplayReturnsTheStoredResultWithoutRunningAgain() {
-        var admin = actor(1L, ActorRole.ADMIN);
-        when(authorization.requireAdmin(admin)).thenReturn(admin);
+        var admin = actor(1L, ActorRole.MANAGER);
+        when(authorization.requireManager(admin)).thenReturn(admin);
         var body = new RefundAccountKeyReplacementController.KeyReplacementRequest("Khoa bi lo");
         assertThatThrownBy(() -> controller.replace(null, "corr", body, auth(admin)))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessage("IDEMPOTENCY_KEY_REQUIRED");

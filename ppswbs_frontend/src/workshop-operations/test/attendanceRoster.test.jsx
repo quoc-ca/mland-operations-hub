@@ -18,13 +18,13 @@ describe('Attendance roster on the session page', () => {
         row('TK-3', 'NO_SHOW', null, 'BK-B'),
       ]),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
-    expect(await panel.findByText('1/3 đã check-in')).toBeInTheDocument();
-    expect(panel.getByText('TK-1').closest('.roster-row')).toHaveTextContent('Đã check-in');
-    expect(panel.getByText('TK-2').closest('.roster-row')).toHaveTextContent('Chưa check-in');
-    expect(panel.getByText('TK-3').closest('.roster-row')).toHaveTextContent('Vắng mặt');
+    expect(await panel.findByText('1/3 checked in')).toBeInTheDocument();
+    expect(panel.getByText('TK-1').closest('.roster-row')).toHaveTextContent('Checked in');
+    expect(panel.getByText('TK-2').closest('.roster-row')).toHaveTextContent('Not checked in');
+    expect(panel.getByText('TK-3').closest('.roster-row')).toHaveTextContent('No-show');
     expect(panel.getByText('BK-B')).toBeInTheDocument();
   });
 
@@ -35,7 +35,7 @@ describe('Attendance roster on the session page', () => {
         { ticketCode: 'TK-D0198954', bookingReference: 'GRP-5E849940018F442D8C9C-L1', ticketSequence: 1, attendanceState: 'CHECKED_IN', checkedInAt: new Date().toISOString() },
       ]),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
     const link = await panel.findByRole('link', { name: 'Folio / Add-on' });
@@ -48,9 +48,9 @@ describe('Attendance roster on the session page', () => {
       'GET /api/v1/workshop-sessions/session-1': session,
       'GET /api/v1/workshop-sessions/session-1/attendance-roster': json(200, []),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
-    expect(await screen.findByText('Buổi này chưa có vé hợp lệ.')).toBeInTheDocument();
+    expect(await screen.findByText('This session has no valid tickets yet.')).toBeInTheDocument();
   });
 
   it('reloads the roster after a check-in so the ticket moves to checked in', async () => {
@@ -61,15 +61,15 @@ describe('Attendance roster on the session page', () => {
       'POST /api/v1/workshop-sessions/session-1/check-ins': () => { checkedIn = true; return json(200, { result: 'CHECKED_IN' }); },
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
-    expect(await panel.findByText('Chưa check-in')).toBeInTheDocument();
+    expect(await panel.findByText('Not checked in')).toBeInTheDocument();
 
     await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Check in' }));
 
-    expect(await panel.findByText('Đã check-in')).toBeInTheDocument();
+    expect(await panel.findByText('Checked in')).toBeInTheDocument();
     expect(calls.filter(call => call.path.endsWith('/attendance-roster')).length).toBeGreaterThanOrEqual(2);
   });
 
@@ -80,7 +80,7 @@ describe('Attendance roster on the session page', () => {
       'POST /api/v1/workshop-sessions/session-1/check-ins': json(200, { checkInResult: 'CHECKED_IN' }),
     });
     const user = userEvent.setup();
-    renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await screen.findByText('Check-in desk');
 
     await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');

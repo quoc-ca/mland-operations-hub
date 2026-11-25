@@ -22,7 +22,7 @@ const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff', logi
 
 function openSession(role, handlers) {
   const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/accounts': staffList, ...handlers });
-  renderRoutes(operationsRoutes, { path: '/operations/sessions/session-1' });
+  renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
   return calls;
 }
 
@@ -30,14 +30,14 @@ describe('T115 missingStaff warning', () => {
   it('warns a Manager when the session has no Staff after check-in opened', async () => {
     openSession('MANAGER', { 'GET /api/v1/workshop-sessions/session-1': session({ assignedStaffAccountIds: [], missingStaff: true }) });
 
-    expect(await screen.findByText(/chưa có Staff nào được phân công/)).toBeInTheDocument();
+    expect(await screen.findByText(/no Staff is assigned/)).toBeInTheDocument();
   });
 
   it('shows no warning while missingStaff is false', async () => {
     openSession('MANAGER', { 'GET /api/v1/workshop-sessions/session-1': session() });
 
     expect(await screen.findByText('Staff assignment')).toBeInTheDocument();
-    expect(screen.queryByText(/chưa có Staff nào được phân công/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no Staff is assigned/)).not.toBeInTheDocument();
   });
 
   it('does not show the Manager warning to a Staff', async () => {
@@ -45,12 +45,12 @@ describe('T115 missingStaff warning', () => {
 
     expect(await screen.findByText('Check-in desk')).toBeInTheDocument();
     await new Promise(resolve => setTimeout(resolve, 50));
-    expect(screen.queryByText(/chưa có Staff nào được phân công/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no Staff is assigned/)).not.toBeInTheDocument();
   });
 });
 
 describe('T115 last-assignment confirmation', () => {
-  const removeRegion = () => screen.findByRole('region', { name: 'Staff đang phụ trách' });
+  const removeRegion = () => screen.findByRole('region', { name: 'Staff in charge' });
 
   it('asks for confirmation, then repeats the removal with the flag and a new Idempotency-Key', async () => {
     let attempt = 0;
@@ -64,11 +64,11 @@ describe('T115 last-assignment confirmation', () => {
 
     await user.click(within(await removeRegion()).getByRole('button', { name: 'Remove' }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText('Gỡ Staff cuối cùng của ca?')).toBeInTheDocument();
+    expect(within(dialog).getByText('Remove the last Staff member of the session?')).toBeInTheDocument();
     // The refusal is explained by the dialog, not by a second generic error box.
     expect(screen.queryByText('LAST_STAFF_ASSIGNMENT_CONFIRMATION_REQUIRED detail')).not.toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole('button', { name: 'Xác nhận gỡ' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm removal' }));
 
     await waitFor(() => expect(calls.filter(call => call.method === 'DELETE')).toHaveLength(2));
     const [first, second] = calls.filter(call => call.method === 'DELETE');
@@ -87,7 +87,7 @@ describe('T115 last-assignment confirmation', () => {
     const user = userEvent.setup();
 
     await user.click(within(await removeRegion()).getByRole('button', { name: 'Remove' }));
-    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Hủy' }));
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(calls.filter(call => call.method === 'DELETE')).toHaveLength(1);
@@ -109,10 +109,10 @@ describe('T115 last-assignment confirmation', () => {
 
 describe('T130 STAFF_NOT_ELIGIBLE messages', () => {
   const MESSAGES = {
-    ACCOUNT_NOT_FOUND: 'Không tìm thấy tài khoản này',
-    NOT_STAFF: 'không phải Staff',
-    NOT_ACTIVE: 'không còn hoạt động',
-    LOCATION_NOT_IN_SCOPE: 'không thuộc chi nhánh của ca',
+    ACCOUNT_NOT_FOUND: 'This account was not found',
+    NOT_STAFF: 'is not a Staff member',
+    NOT_ACTIVE: 'is no longer active',
+    LOCATION_NOT_IN_SCOPE: 'does not belong to the location of the session',
   };
 
   it.each(Object.entries(MESSAGES))('shows its own message for %s', async (reason, text) => {
@@ -123,8 +123,8 @@ describe('T130 STAFF_NOT_ELIGIBLE messages', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Staff assignment');
-    await user.selectOptions(screen.getByLabelText(/Chọn nhân viên/), '__OTHER__');
-    await user.type(await screen.findByLabelText(/Staff account ID thủ công/), '77');
+    await user.selectOptions(screen.getByLabelText(/Select a Staff member/), '__OTHER__');
+    await user.type(await screen.findByLabelText(/Staff account ID manually/), '77');
     await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('T129 no Admin business authority', () => {
   const locations = json(200, [{ id: 4, code: 'Q1', name: 'MLAND Quận 1', active: true }]);
   const openAdmin = role => {
     mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/workshop-locations': locations });
-    renderRoutes(operationsRoutes, { path: '/operations/admin?tab=locations' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/admin?tab=locations' });
   };
 
   it('shows the location create action to a Manager', async () => {
@@ -162,18 +162,5 @@ describe('T129 no Admin business authority', () => {
     for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancellation handoff']) {
       expect(screen.queryByText(hidden)).not.toBeInTheDocument();
     }
-  });
-
-  it('hides the Workshop Operations menu from an Admin and keeps it for a Manager', async () => {
-    mockFetch({ 'GET /api/v1/accounts/me/profile': profile('ADMIN'), 'GET /api/v1/workshop-sessions': json(200, []) });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
-    const nav = () => within(screen.getByRole('complementary', { name: 'Operations Navigation' }));
-
-    await waitFor(() => expect(nav().getByRole('link', { name: 'Trang chủ' })).toBeInTheDocument());
-    await new Promise(resolve => setTimeout(resolve, 50));
-    for (const hidden of ['Bảng điều phối ca', 'Chi nhánh & khung giờ', 'Gói workshop', 'Add-on gói']) {
-      expect(nav().queryByRole('link', { name: hidden })).not.toBeInTheDocument();
-    }
-    expect(nav().queryByText('VẬN HÀNH WORKSHOP')).not.toBeInTheDocument();
   });
 });

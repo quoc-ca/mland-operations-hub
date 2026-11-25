@@ -64,6 +64,22 @@ public class ModulithArchitectureTests {
     }
 
     @Test
+    @DisplayName("006 T125: loyaltypromotion is its own module, exposes 'facade', and has no violation at all")
+    void loyaltyPromotionModuleHasNoViolation() {
+        ApplicationModules modules = ApplicationModules.of("edu.fpt.sep490_g22.ppswbs_backend.features");
+        assertThat(modules.getModuleByName("loyaltypromotion"))
+                .as("loyaltypromotion should be detected as a distinct named module under features")
+                .isPresent();
+        assertThat(modules.getModuleByName("loyaltypromotion").get().getNamedInterfaces().getByName("facade"))
+                .as("loyaltypromotion must expose a public named interface 'facade'")
+                .isPresent();
+        // Not filtered: any violation naming loyaltypromotion fails, including one that also names accountmanagement.
+        assertThat(modules.detectViolations().getMessages())
+                .as("Modulith violations involving loyaltypromotion")
+                .noneMatch(message -> message.contains("loyaltypromotion"));
+    }
+
+    @Test
     @DisplayName("T050-2: Verify Booking only interacts with Operations via the named facade boundary")
     void bookingOnlyCallsOperationsFacade() {
         ArchRule rule = ArchRuleDefinition.noClasses()

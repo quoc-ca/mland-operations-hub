@@ -143,7 +143,7 @@ paths:
     post:
       summary: Initiate one VNPay payment for a grouped checkout
       description: >-
-        The VNPay link lives until the 15-minute hold deadline and is stored;
+        The VNPay link lives until the 10-minute hold deadline and is stored;
         a repeated call before that returns the same link, so one checkout has
         one VNPay transaction (Session 2026-11-18).
       security:
@@ -387,6 +387,30 @@ paths:
           description: Read-only page of reconciliation records for permitted branches
         '403':
           $ref: '#/components/responses/Forbidden'
+  /ready-ring-orders/{orderId}/counter-cash-handovers:
+    post:
+      summary: Collect the exact counter cash and hand the pickup order over in one step
+      description: >-
+        Session 2026-11-20. Staff presses "Xác nhận đã thu" when the customer
+        has paid the amount due. Payment, preparation and handover are
+        recorded in one transaction, so the order is completed or nothing is
+        recorded; pressing again after a failure is safe.
+      security:
+        - firebaseBearer: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Order paid and handed over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickupOperationResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /carrier/shipments:
     get:
       summary: List GHTK shipments of every branch for the GHTK partner portal
@@ -394,8 +418,7 @@ paths:
         Session 2026-11-20. Only an active account with role CARRIER (added by
         FE-01). Newest first. The partner sees where to collect, whom to
         deliver to and the shipping fee; never product prices, vouchers,
-        points or Member account data. Not yet on develop: the code waits
-        for the FE-01 CARRIER role (tasks T079, T080).
+        points or Member account data.
       security:
         - firebaseBearer: []
       parameters:
@@ -964,7 +987,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: Until when an unpaid VNPay order is held (15 minutes); null otherwise.
+          description: Until when an unpaid VNPay order is held (10 minutes); null otherwise.
         paidAt:
           type: string
           format: date-time

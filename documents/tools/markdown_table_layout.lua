@@ -157,7 +157,7 @@ end
 
 local function apply_layout(tbl)
   if tbl.attr.attributes[INTERNAL_PREFIX .. "skip"] == "true"
-      or tbl.attr.attributes["custom-style"] == "Metadata Table" then
+      or tbl.attr.attributes["custom-style"] == "MetadataTable" then
     for name in pairs(tbl.attr.attributes) do
       if name:sub(1, #INTERNAL_PREFIX) == INTERNAL_PREFIX then
         tbl.attr.attributes[name] = nil

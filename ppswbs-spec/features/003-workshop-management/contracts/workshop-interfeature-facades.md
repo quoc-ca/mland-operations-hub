@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-19
+**Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -579,6 +579,13 @@ VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED } 
   outcome.
 - Trigger (R06, 2026-11-16): 003.3 calls it once for a group when the first Mland-cancelled ticket has its refund request opened, or when the buyer's answer, or the default, of a Mland-cancelled `FREE`/deferred ticket is recorded (no refund request needed).
 
+## Member replacement inventory — 003.1 provider for FE-001 (decision 2026-11-25)
+
+- **Consumer contract (owned by FE-001):** `WorkshopMemberReplacementReader.readForMemberReplacement(AccountId) → WorkshopReplacementInventory` (`status` CLEAR/BLOCKED/UNAVAILABLE, `dataOrigin`, `sourceVersion`, `bookings[]`, `blockingReferences[]`). 003.1 implements it; FE-001 does not change it.
+- **Rules:** spec FR-059–FR-061 in `../003.1-workshop-booking/spec.md`. By Account ID only; no QR, Magic Link, contact proof or gateway data; UNAVAILABLE when Operations or Settlement cannot be read.
+- **New-booking block (proposed, task T174):** FE-001 exposes a read on `AccountFacade` that says a MEMBER is retiring; 003.1 checks it under the group-creation lock (FR-062).
+- **Status:** proposed until FE-001's owner confirms the signal (the `NO_SHOW` rule is decided 2026-11-25: never blocks); the local mock `MockMemberReplacementBookingReader` returns DEMO/UNAVAILABLE only and never authorizes retirement.
+
 ## Explicitly not decided here
 
 - Java package names beyond the existing feature `facade` package, concrete
@@ -609,3 +616,14 @@ The command carries opaque references only and uses `operationReference` for
 idempotency. A duplicate semantic command returns the prior outcome; changed
 payload with the same operation reference is a conflict. The facade does not
 create payment, capacity holds or tickets.
+
+### Ticket-level design assignment
+
+Booking may apply a configured design as a group default, but it must persist and
+validate the final design independently for every ticket. A ticket may override
+the group default before booking submission. Feature-003 calls the Feature-012
+facade for each resulting ticket assignment; it never reads Feature-012
+repositories or treats a group-level design as the ticket snapshot.
+
+Only a `VALIDATED` design version is eligible for workshop attachment. This is
+technical validation plus immutable snapshot creation, not Staff/Manager approval.

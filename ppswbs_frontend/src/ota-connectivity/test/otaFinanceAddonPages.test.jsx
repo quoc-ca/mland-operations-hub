@@ -1,9 +1,15 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { otaConnectivityRoutes } from '../routes';
+
+// The route guard reads the account bootstrap; these tests choose the signed-in role.
+const account = vi.hoisted(() => ({ role: 'MANAGER' }));
+vi.mock('../../features/accountmanagement/hooks/useCurrentAccount', () => ({
+  useCurrentAccount: () => ({ account: { role: account.role, status: 'ACTIVE' }, status: 'ready', retry: () => {} }),
+}));
 
 describe('OTA finance and shop add-on screens', () => {
   it('renders finance evidence states and an empty ledger explicitly', async () => {
@@ -13,7 +19,7 @@ describe('OTA finance and shop add-on screens', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance', language: 'en' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-empty');
     await user.click(screen.getByRole('button', { name: 'Load evidence' }));
     expect(await screen.findByText('Evidence ledger')).toBeInTheDocument();
@@ -29,9 +35,9 @@ describe('OTA finance and shop add-on screens', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance', language: 'vi' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-error');
-    await user.click(screen.getByRole('button', { name: 'Load evidence' }));
+    await user.click(screen.getByRole('button', { name: 'Tải chứng từ' }));
     expect(await screen.findByText('Hệ thống tạm thời chưa xử lý được. Bấm Thử lại để gửi lại đúng thao tác này.')).toBeInTheDocument();
     expect(screen.getByText(/corr-ota-finance-1/)).toBeInTheDocument();
     expect(screen.queryByText('Evidence ledger')).not.toBeInTheDocument();
@@ -43,7 +49,7 @@ describe('OTA finance and shop add-on screens', () => {
       'POST /api/v1/ota-channel-bookings/booking-1/payout-reconciliation': json(201, { channelBookingId: 'booking-1', payoutState: 'INVOICED', entries: [] }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/finance', language: 'en' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-1');
     await user.click(screen.getByRole('button', { name: 'Load evidence' }));
     expect(await screen.findByText('PAID_ON_CHANNEL')).toBeInTheDocument();
@@ -64,7 +70,7 @@ describe('OTA finance and shop add-on screens', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'en' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-1');
     await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
     await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-ref-1');
@@ -84,21 +90,21 @@ describe('OTA finance and shop add-on screens', () => {
 
   it('prefills the channel booking from the check-in Add-on link', async () => {
     mockFetch({});
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons?channelBookingId=booking-from-checkin' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons?channelBookingId=booking-from-checkin', language: 'en' });
     expect(screen.getByPlaceholderText('UUID')).toHaveValue('booking-from-checkin');
   });
 
   describe('collecting the paid add-on through VNPay', () => {
     async function billAPaidAddOn(user) {
       await user.type(screen.getByPlaceholderText('UUID'), 'booking-pay');
-      await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
-      await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-ref-1');
-      await user.click(screen.getByRole('button', { name: 'Create quote' }));
-      await screen.findByText('QUOTED');
-      await user.type(screen.getByPlaceholderText('Signed at counter'), 'COUNTER-1');
-      await user.click(screen.getByRole('button', { name: 'Record acceptance' }));
-      await screen.findByText('ACCEPTED');
-      await user.click(screen.getByRole('button', { name: 'Create direct Mland bill' }));
+      await user.selectOptions(screen.getByLabelText('Loại add-on'), 'PAID_OPTION');
+      await user.type(screen.getByLabelText('Mã add-on trong danh mục'), 'addon-ref-1');
+      await user.click(screen.getByRole('button', { name: 'Tạo báo giá' }));
+      await screen.findByText('Đã báo giá (QUOTED)');
+      await user.type(screen.getByPlaceholderText('Đã ký tại quầy'), 'COUNTER-1');
+      await user.click(screen.getByRole('button', { name: 'Ghi nhận chấp thuận' }));
+      await screen.findByText('Đã chấp thuận (ACCEPTED)');
+      await user.click(screen.getByRole('button', { name: 'Tạo hóa đơn trực tiếp của Mland' }));
       await screen.findByText(/BILL-PAY/);
     }
 
@@ -121,7 +127,7 @@ describe('OTA finance and shop add-on screens', () => {
         paymentUrl: 'https://pay.example.invalid/OTA-1', expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       }));
       const user = userEvent.setup();
-      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'vi' });
       await billAPaidAddOn(user);
       expect(screen.queryByRole('link', { name: 'Mở cổng thanh toán VNPay' })).not.toBeInTheDocument();
 
@@ -142,7 +148,7 @@ describe('OTA finance and shop add-on screens', () => {
         paymentUrl: 'https://pay.example.invalid/OTA-2', expiresAt: new Date(Date.now() - 60 * 1000).toISOString(),
       }));
       const user = userEvent.setup();
-      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'vi' });
       await billAPaidAddOn(user);
 
       await user.click(screen.getByRole('button', { name: 'Thu tiền (VNPay)' }));
@@ -158,7 +164,7 @@ describe('OTA finance and shop add-on screens', () => {
         paymentUrl: 'https://pay.example.invalid/OTA-3', expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       }));
       const user = userEvent.setup();
-      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'vi' });
       await billAPaidAddOn(user);
       await user.click(screen.getByRole('button', { name: 'Thu tiền (VNPay)' }));
       await screen.findByRole('link', { name: 'Mở cổng thanh toán VNPay' });
@@ -181,7 +187,7 @@ describe('OTA finance and shop add-on screens', () => {
         'POST /api/v1/ota-addon-bills/BILL-PAY/refunds': json(201, { refundReference: 'OAR-1', billReference: 'BILL-PAY', amountVnd: 20000, status: 'PENDING_PROVIDER' }),
       });
       const user = userEvent.setup();
-      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+      renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'vi' });
       await billAPaidAddOn(user);
 
       const submit = await screen.findByRole('button', { name: 'Tạo yêu cầu hoàn tiền' });
@@ -205,7 +211,7 @@ describe('OTA finance and shop add-on screens', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'en' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-free');
     await user.type(screen.getByLabelText('Description'), 'Engrave initials');
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
@@ -226,12 +232,30 @@ describe('OTA finance and shop add-on screens', () => {
       }),
     });
     const user = userEvent.setup();
-    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons' });
+    renderRoutes(otaConnectivityRoutes, { path: '/ota-connectivity/add-ons', language: 'en' });
     await user.type(screen.getByPlaceholderText('UUID'), 'booking-invalid');
     await user.selectOptions(screen.getByLabelText('Add-on type'), 'PAID_OPTION');
     await user.type(screen.getByLabelText('Catalogue add-on reference'), 'addon-invalid');
     await user.click(screen.getByRole('button', { name: 'Create quote' }));
     expect(await screen.findByText('Catalogue add-on is missing, inactive, or not valid for this booking\'s package and location')).toBeInTheDocument();
     expect(screen.getByText('Create a quote to review the immutable amount and consent steps.')).toBeInTheDocument();
+  });
+});
+
+describe('003.4 route access (FR-004b)', () => {
+  it.each([
+    ['ADMIN', '/ota-connectivity/channels'],
+    ['ADMIN', '/ota-connectivity/reconciliation'],
+    ['ADMIN', '/ota-connectivity/finance'],
+    ['ADMIN', '/ota-connectivity/add-ons'],
+    ['STAFF', '/ota-connectivity/channels'],
+    ['STAFF', '/ota-connectivity/finance'],
+  ])('does not mount the page or call the API for %s at %s', async (role, path) => {
+    account.role = role;
+    const calls = mockFetch({});
+    renderRoutes([...otaConnectivityRoutes, { path: '/404', element: <p>not-found-page</p> }], { path, language: 'en' });
+    expect(await screen.findByText('not-found-page')).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+    account.role = 'MANAGER';
   });
 });

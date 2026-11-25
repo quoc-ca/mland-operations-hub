@@ -103,7 +103,7 @@ public class DesignRequestIT {
     }
 
     @Test
-    void whenUnauthenticated_thenReturns401() throws Exception {
+    void whenUnauthenticatedGuest_thenReturns401Unauthorized() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "image-content".getBytes());
 
         mockMvc.perform(multipart("/api/v1/design-requests")
@@ -111,6 +111,12 @@ public class DesignRequestIT {
                         .param("description", "Nhẫn bạc đính đá")
                         .param("consentVersion", "v1.0.0")
                         .header("Idempotency-Key", "idemp-001"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void whenUnauthenticated_accessProtectedMyRequests_thenReturns401() throws Exception {
+        mockMvc.perform(get("/api/v1/design-requests"))
                 .andExpect(status().isUnauthorized());
     }
 

@@ -1,28 +1,37 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
 import '../ring-design.css';
 
 export default function RingDesignEntryPage() {
   const { packageReference } = useParams();
   const navigate = useNavigate();
-  const lang = 'vi';
-  const t = messages[lang];
+  const { status, userId } = useAuth();
+  const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const t = useT(messages);
 
   return (
     <div className="ring-design-container" data-testid="ring-design-entry-page">
       <div className="ring-design-header">
-        <h1 className="ring-design-title">{t.featureTitle}</h1>
-        <p className="ring-design-subtitle">{t.featureSubtitle}</p>
+        <h1 className="ring-design-title">{t('featureTitle')}</h1>
+        <p className="ring-design-subtitle">{t('featureSubtitle')}</p>
         <div className="ring-notice-banner" role="note">
           <span>ℹ️</span>
-          <span>{t.workshopOnlyNotice}</span>
+          <span>{t('workshopOnlyNotice')}</span>
         </div>
+        {!isAuthenticated && (
+          <div className="ring-notice-banner" role="note" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af', marginTop: '0.75rem' }}>
+            <span>💡</span>
+            <span>Bạn đang trải nghiệm với tư cách Khách. Bạn có thể xem trước mẫu nhẫn, vui lòng <a href={`/login?returnTo=${encodeURIComponent(window.location.pathname)}`} style={{ color: '#2563eb', fontWeight: 600 }}>đăng nhập</a> để lưu trữ mẫu thiết kế.</span>
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: '860px', margin: '2rem auto 0' }}>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: '1.5rem', textAlign: 'center' }}>
-          {t.chooseStartingPoint}
+          {t('chooseStartingPoint')}
         </h2>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
@@ -42,10 +51,10 @@ export default function RingDesignEntryPage() {
             <div>
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>💍</div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.5rem' }}>
-                {t.modelChoiceTitle}
+                {t('modelChoiceTitle')}
               </h3>
               <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                {t.modelChoiceDesc}
+                {t('modelChoiceDesc')}
               </p>
             </div>
             <button
@@ -57,7 +66,7 @@ export default function RingDesignEntryPage() {
                 navigate(`/workshops/${encodeURIComponent(packageReference)}/design/models`);
               }}
             >
-              {t.selectModel}
+              {t('selectModel')}
             </button>
           </div>
 
@@ -77,10 +86,10 @@ export default function RingDesignEntryPage() {
             <div>
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✨</div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#0f172a', margin: '0 0 0.5rem' }}>
-                {t.blankChoiceTitle}
+                {t('blankChoiceTitle')}
               </h3>
               <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                {t.blankChoiceDesc}
+                {t('blankChoiceDesc')}
               </p>
             </div>
             <button
@@ -92,7 +101,7 @@ export default function RingDesignEntryPage() {
                 navigate(`/workshops/${encodeURIComponent(packageReference)}/design/configure?mode=BLANK`);
               }}
             >
-              {t.startConfiguring}
+              {t('startConfiguring')}
             </button>
           </div>
         </div>

@@ -15,8 +15,10 @@ import java.util.Set;
  * read from MySQL on every request) into the security context. This adapter only decides catalogue authority:
  * <ul>
  *   <li>No actor → {@code AUTHENTICATION_REQUIRED} (401). Not ACTIVE → {@code CATALOGUE_ACCESS_DENIED} (403).</li>
- *   <li>STAFF and MANAGER hold every management capability except the two decisions; only MANAGER may
- *       approve a product review or a price ({@code product.approve}, {@code price.approve}).</li>
+ *   <li>STAFF and MANAGER hold every management capability except the two decisions and the publication; only
+ *       MANAGER may approve a product review or a price ({@code product.approve}, {@code price.approve}) and publish,
+ *       hide or show again a whole product ({@code product.publish}; Session 2026-11-23: the flag covers every
+ *       branch, so a Staff member stops selling at their own branch instead, FR-049).</li>
  *   <li>ADMIN and MEMBER hold no catalogue capability (decision 2026-10-24). Nothing is granted from Firebase
  *       claims, cookies or a Member bootstrap.</li>
  * </ul>
@@ -32,7 +34,8 @@ public class CatalogueAuthorization {
         CATEGORY_MANAGE
     }
 
-    private static final Set<Capability> MANAGER_ONLY = Set.of(Capability.PRODUCT_APPROVE, Capability.PRICE_APPROVE);
+    private static final Set<Capability> MANAGER_ONLY = Set.of(Capability.PRODUCT_APPROVE, Capability.PRICE_APPROVE,
+            Capability.PRODUCT_PUBLISH);
 
     /** The current actor's ID if they hold the capability; otherwise a typed 401/403. */
     public String require(Capability capability) {

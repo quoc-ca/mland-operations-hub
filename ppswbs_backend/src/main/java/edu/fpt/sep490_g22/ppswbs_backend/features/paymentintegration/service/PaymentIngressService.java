@@ -2,18 +2,22 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.dao.PaymentIngressReceiptRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerHandler;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
+import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.VerifiedPaymentSuccess;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailPaymentEvidenceFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.RetailVerifiedPayment;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
-@Service @RequiredArgsConstructor
+@Service
 public class PaymentIngressService {
     private final VnpayChecksumService checksum;
     private final PaymentOwnerRegistry registry;
@@ -21,6 +25,22 @@ public class PaymentIngressService {
     private final WorkshopBookingFacade booking;
     private final WorkshopSettlementFacade settlement;
     private final RetailPaymentEvidenceFacade retail;
+
+    @Autowired
+    public PaymentIngressService(
+            VnpayChecksumService checksum,
+            PaymentOwnerRegistry registry,
+            PaymentIngressReceiptRepository receipts,
+            WorkshopBookingFacade booking,
+            WorkshopSettlementFacade settlement,
+            RetailPaymentEvidenceFacade retail) {
+        this.checksum = checksum;
+        this.registry = registry;
+        this.receipts = receipts;
+        this.booking = booking;
+        this.settlement = settlement;
+        this.retail = retail;
+    }
     /** 003.1 FR-032 "Definite failure" (explicit list, decided 2026-11-19); no other code and no rule of "not 00". */
     private static final java.util.Set<String> DEFINITE_FAILURE_CODES =
             java.util.Set.of("09", "10", "11", "12", "13", "24", "51", "65", "79");
@@ -124,7 +144,17 @@ public class PaymentIngressService {
         String evidence = "VNPAY-" + providerTransaction;
         String operation = evidence;
         String correlation = evidence;
-        if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL) {
+        var customHandler = registry.findHandler(owner.getPaymentKind());
+        if (customHandler.isPresent()) {
+            customHandler.get().onPaymentSuccess(new VerifiedPaymentSuccess(
+                    owner.getPaymentKind(),
+                    owner.getBookingReference(),
+                    merchant,
+                    providerTransaction,
+                    amount,
+                    "VND"
+            ));
+        } else if (owner.getPaymentKind() == PaymentOwnerKind.RETAIL) {
             retail.applyVerifiedPayment(new RetailVerifiedPayment(owner.getBookingReference(), merchant,
                     providerTransaction, amount, "VND"));
         } else if (owner.getPaymentKind() == PaymentOwnerKind.DEPOSIT) {

@@ -1,0 +1,182 @@
+@startuml
+title 8.1c Class Diagram — Store Pickup and GHTK Shipping (FE-08)
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam roundcorner 0
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam nodesep 30
+skinparam ranksep 50
+skinparam ArrowColor #000000
+skinparam defaultFontSize 12
+skinparam class {
+  BorderColor #000000
+  BackgroundColor #F5F5F5
+  BackgroundColor<<controller>> #DAE8FC
+  BackgroundColor<<service>> #D5E8D4
+  BackgroundColor<<repository>> #E1D5E7
+  BackgroundColor<<interface>> #FFF2CC
+  BackgroundColor<<adapter>> #FFE6CC
+  BackgroundColor<<entity>> #F5F5F5
+  BackgroundColor<<DTO>> #FFFFFF
+  BackgroundColor<<exception>> #F5F5F5
+  FontStyle bold
+  AttributeFontStyle plain
+  StereotypeFontStyle plain
+}
+left to right direction
+hide circle
+
+class PickupOperationsController <<controller>> {
+  - pickup : PickupOperationsService
+  + prepare(orderId) : Result
+  + handOver(orderId) : Result
+  + collectCashAndHandOver(orderId, idempotencyKey) : Result
+}
+
+class RetailCounterCashController <<controller>> {
+  - cash : RetailCashCollectionService
+  - queries : RetailCounterCashQueryService
+  + confirm(orderId, idempotencyKey, body) : CashCollectionView
+  + pickupDesk(locationId) : List<StaffRetailPickupView>
+  + daily(locationId, businessDate) : DailyCashView
+}
+
+class StaffRetailShipmentController <<controller>> {
+  - service : StaffRetailShipmentService
+  + list(page, size, status, ...) : StaffRetailShipmentSummary.Page
+  + detail(id) : StaffRetailShipmentView
+  + transition(id, body) : StaffRetailShipmentTransitionResult
+}
+
+class CarrierShipmentController <<controller>> {
+  - service : CarrierShipmentService
+  + list(status, page, size) : CarrierShipmentDtos.Page
+  + transition(id, body) : TransitionResult
+}
+
+class "StaffRetailShipmentSummary.TransitionRequest" as StaffTransitionRequest {
+  - nextStatus : RetailShipmentStatus
+  - expectedVersion : Integer
+  - note : String
+}
+
+class "CarrierShipmentDtos.TransitionRequest" as CarrierTransitionRequest {
+  - action : String
+  - expectedVersion : Integer
+}
+
+class PickupOperationsService <<service>> {
+  - orders : RetailPickupOrderFacade
+  - evidence : PickupEvidenceRepository
+  - counterCash : RetailCounterCashFacade
+  + prepare(actor, orderId) : Result
+  + handOver(actor, orderId) : Result
+  + collectCashAndHandOver(actor, orderId, idempotencyKey) : Result
+}
+
+class RetailCounterCashFacade <<interface>> {
+  + collectExactAmount(actor, orderId, idempotencyKey) : CashCollected
+}
+
+class RetailPickupOrderFacade <<interface>> {
+  + lock(orderId) : PickupOrder
+  + markPrepared(orderId) : PickupOrder
+  + markHandedOver(orderId) : PickupOrder
+}
+
+class RetailCashCollectionService <<service>> {
+  - checkouts : GroupedCheckoutRepository
+  - orders : RetailOrderRepository
+  - collections : RetailCashCollectionRepository
+  + collectExactAmount(actor, orderId, idempotencyKey) : CashCollected
+  + confirm(actor, orderId, amountReceived, idempotencyKey) : CashCollectionView
+}
+
+class RetailPickupOrderFacadeImpl <<adapter>> {
+  - orders : RetailOrderRepository
+  + lock(orderId) : PickupOrder
+  + markPrepared(orderId) : PickupOrder
+  + markHandedOver(orderId) : PickupOrder
+}
+
+class RetailCounterCashQueryService <<service>> {
+  - orders : RetailOrderRepository
+  - collections : RetailCashCollectionRepository
+  - orderViews : RetailOrderQueryService
+  + pickupDesk(actor, locationId) : List<StaffRetailPickupView>
+  + daily(actor, locationId, businessDate) : DailyCashView
+}
+
+class StaffRetailShipmentService <<service>> {
+  - shipments : RetailShipmentRepository
+  + list(actor, query) : StaffRetailShipmentSummary.Page
+  + detail(actor, shipmentId) : StaffRetailShipmentView
+  + transition(actor, shipmentId, nextStatus, expectedVersion, note) : StaffRetailShipmentTransitionResult
+}
+
+class CarrierShipmentService <<service>> {
+  - shipments : RetailShipmentRepository
+  + list(actor, status, page, size) : CarrierShipmentDtos.Page
+  + transition(actor, shipmentId, action, expectedVersion) : TransitionResult
+  + isActiveCarrier(actor) : boolean
+}
+
+class RetailOrderRepository <<repository>> {
+  + lockOrder(orderId) : Optional<RetailOrder>
+  + findBranchPickupOrders(locations, since) : List<RetailOrder>
+}
+
+class PickupEvidence <<entity>> {
+  - id : String
+  - orderId : String
+  - locationId : Long
+}
+
+class RetailOrder <<entity>> {
+  - id : String
+  - groupedCheckout : GroupedCheckout
+  - locationId : Long
+}
+
+class RetailCashCollection <<entity>> {
+  - id : String
+  - groupedCheckoutId : String
+  - retailOrderId : String
+}
+
+class RetailShipment <<entity>> {
+  - id : String
+  - groupedCheckout : GroupedCheckout
+  - branchOrder : RetailOrder
+}
+
+class RetailShipmentStatusHistory <<entity>> {
+  - id : String
+  - shipment : RetailShipment
+  - status : RetailShipmentStatus
+}
+
+PickupOperationsController --> PickupOperationsService : uses
+RetailCounterCashController --> RetailCashCollectionService : uses
+RetailCounterCashController --> RetailCounterCashQueryService : uses
+StaffRetailShipmentController ..> StaffTransitionRequest
+StaffRetailShipmentController --> StaffRetailShipmentService : uses
+CarrierShipmentController ..> CarrierTransitionRequest
+CarrierShipmentController --> CarrierShipmentService : uses
+
+PickupOperationsService --> RetailPickupOrderFacade : uses
+PickupOperationsService --> RetailCounterCashFacade : uses
+RetailCashCollectionService ..|> RetailCounterCashFacade : implements
+RetailPickupOrderFacadeImpl ..|> RetailPickupOrderFacade : implements
+RetailCashCollectionService --> RetailOrderRepository : uses
+RetailPickupOrderFacadeImpl --> RetailOrderRepository : uses
+RetailCounterCashQueryService --> RetailOrderRepository : uses
+
+RetailOrderRepository ..> RetailOrder : manages
+
+RetailOrder "1" -- "0..1" RetailCashCollection
+RetailOrder "1" -- "0..1" RetailShipment
+RetailOrder "1" -- "0..2" PickupEvidence
+RetailShipment "1" *-- "*" RetailShipmentStatusHistory
+@enduml

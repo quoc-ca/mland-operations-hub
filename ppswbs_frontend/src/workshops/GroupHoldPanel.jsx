@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { initiateGroupPayment } from '../api/workshops';
 import { classifyPaymentCommandError } from '../shared/payment/paymentRecoveryState';
 import {
-  AWAITING_RESULT_MESSAGE,
+  awaitingResultMessage,
   countdownText,
   groupHoldPhase,
   vnd,
@@ -20,6 +22,8 @@ export const HOLD_ENDED_POLL_MAX = 6;
  * same command key, so it never opens a second attempt.
  */
 export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
   const [phase, setPhase] = useState(() => groupHoldPhase(group));
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState(null);
@@ -81,7 +85,7 @@ export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
       {phase.phase === 'PAYABLE' && (
         <>
           <p className={`hold-pay-timer${phase.secondsLeft < 120 ? ' urgent' : ''}`} role="timer">
-            ⏳ Thời hạn thanh toán còn <strong>{countdownText(phase.secondsLeft)}</strong>
+            {t('hold.deadlineLeft')} <strong>{countdownText(phase.secondsLeft, language)}</strong>
           </p>
           <button
             type="button"
@@ -90,31 +94,31 @@ export function GroupHoldPanel({ group, authorization, proof, onHoldEnded }) {
             disabled={isPaying || payError?.kind === 'EXPIRED'}
           >
             {isPaying
-              ? (payError?.kind === 'UNKNOWN' ? 'Đang kiểm tra lại...' : 'Đang chuyển tới VNPay...')
+              ? (payError?.kind === 'UNKNOWN' ? t('hold.paying.unknown') : t('hold.paying'))
               : (payError?.kind === 'UNKNOWN'
-                ? 'Kiểm tra lại với cùng yêu cầu'
-                : `Thanh toán ${vnd(group.groupCollectionVnd)} qua VNPay`)}
+                ? t('hold.retrySame')
+                : t('hold.pay', { amount: vnd(group.groupCollectionVnd, language) }))}
           </button>
           <p className="muted hold-pay-note">
-            Thanh toán cho cả nhóm trong một lần. Hết thời hạn, chỗ giữ sẽ được trả lại.
+            {t('hold.note')}
           </p>
         </>
       )}
 
       {phase.phase === 'AWAITING_RESULT' && (
-        <p role="status">{AWAITING_RESULT_MESSAGE}</p>
+        <p role="status">{awaitingResultMessage(language)}</p>
       )}
 
       {phase.phase === 'ENDED' && (
         <p role="status">
-          Thời hạn giữ chỗ đã kết thúc. Hệ thống đang cập nhật kết quả cuối cùng của đơn; trang này tự cập nhật.
+          {t('hold.ended')}
         </p>
       )}
 
       {payError && (
         <div role="alert" style={{ color: '#b00', marginTop: '8px' }}>
           <strong>
-            {payError.kind === 'UNKNOWN' ? 'Chưa xác định kết quả' : payError.kind === 'EXPIRED' ? 'Đã hết hạn' : 'Không thể thanh toán'}
+            {payError.kind === 'UNKNOWN' ? t('hold.err.unknown') : payError.kind === 'EXPIRED' ? t('hold.err.expired') : t('hold.err.default')}
           </strong>
           <p style={{ margin: '4px 0 0' }}>{payError.message}</p>
         </div>

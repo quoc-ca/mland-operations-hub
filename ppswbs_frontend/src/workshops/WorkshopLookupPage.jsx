@@ -6,6 +6,8 @@ import {
   lookupGuestBookingGroup,
   WorkshopApiError,
 } from '../api/workshops';
+import { useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { GroupDetailCard } from './GroupDetailCard';
 import { MyBookingGroupsList } from './MyBookingGroupsList';
 import { ReviewCta } from './ReviewCta';
@@ -24,6 +26,10 @@ const GROUP_POLL_MS = 20000;
  * `POST /workshop-booking-group-lookups`, so contact proof never travels in a URL.
  */
 export function WorkshopLookupPage() {
+  const t = useT(messages);
+  const { language } = useLanguage();
+  // Error state is { key, params } (translated when shown, so it follows the language) or { text } (server text).
+  const say = value => (value.key ? t(value.key, value.params) : value.text);
   const { authStatus, mode: lookupMode, profileLoading, profileError, memberAuthorization } = useBookingIdentity();
   const [groupCode, setGroupCode] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -39,11 +45,11 @@ export function WorkshopLookupPage() {
     setMyGroupsError(null);
     try {
       const authorization = await memberAuthorization();
-      if (!authorization) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      if (!authorization) throw new Error('MEMBER_SESSION_EXPIRED');
       setMyGroups(await listMemberBookingGroups({ authorization }));
     } catch {
       setMyGroups(null);
-      setMyGroupsError('Không tải được danh sách đặt chỗ của bạn.');
+      setMyGroupsError({ key: 'lookup.myGroupsError' });
     } finally {
       setMyGroupsLoading(false);
     }
@@ -131,11 +137,11 @@ export function WorkshopLookupPage() {
     event.preventDefault();
     setError(null);
     if (!groupCode.trim()) {
-      setError('Vui lòng nhập mã nhóm đặt chỗ.');
+      setError({ key: 'lookup.codeRequired' });
       return;
     }
     if (lookupMode === null) {
-      setError('Không thể xác minh vai trò tài khoản để tra cứu đặt chỗ.');
+      setError({ key: 'lookup.roleUnknown' });
       return;
     }
     setLoading(true);
@@ -143,12 +149,12 @@ export function WorkshopLookupPage() {
       let result;
       if (lookupMode === 'MEMBER') {
         const authorization = await memberAuthorization();
-        if (!authorization) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        if (!authorization) throw new Error('MEMBER_SESSION_EXPIRED');
         result = await getOwnedBookingGroup(groupCode.trim(), { authorization });
       } else {
-        const { proof, error: proofError } = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry });
+        const { proof, error: proofError } = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry }, language);
         if (!proof) {
-          setError(proofError);
+          setError(proofError ? { text: proofError } : null);
           setLoading(false);
           return;
         }
@@ -159,14 +165,14 @@ export function WorkshopLookupPage() {
       setGroup(null);
       if (err instanceof WorkshopApiError) {
         if (err.status === 404 || err.code === 'BOOKING_NOT_FOUND') {
-          setError('Không tìm thấy nhóm đặt chỗ phù hợp với mã và thông tin liên hệ đã cung cấp.');
+          setError({ key: 'lookup.notFound' });
         } else if (err.status === 401 || err.status === 403) {
-          setError('Bạn không có quyền xem nhóm đặt chỗ này.');
+          setError({ key: 'lookup.forbidden' });
         } else {
-          setError(err.detail || 'Lỗi tra cứu nhóm đặt chỗ.');
+          setError(err.detail ? { text: err.detail } : { key: 'lookup.error' });
         }
       } else {
-        setError(err?.message || 'Có lỗi xảy ra khi tra cứu.');
+        setError(err?.message === 'MEMBER_SESSION_EXPIRED' ? { key: 'lookup.sessionExpired' } : err?.message ? { text: err.message } : { key: 'lookup.errorGeneric' });
       }
     } finally {
       setLoading(false);
@@ -174,7 +180,7 @@ export function WorkshopLookupPage() {
   };
 
   // The proof the Guest typed, in the normalized form every call sends (empty until it is well formed).
-  const guestProof = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry }).proof || {};
+  const guestProof = buildContactProof({ email: contactEmail, phone: contactPhone, phoneCountry }, language).proof || {};
   const [cardAuthorization, setCardAuthorization] = useState(null);
   useEffect(() => {
     let active = true;
@@ -185,21 +191,21 @@ export function WorkshopLookupPage() {
 
   return (
     <main className="public-page figma-public-page">
-      <p className="eyebrow">TRA CỨU &amp; QUẢN LÝ ĐẶT CHỖ</p>
-      <h1>Tra cứu nhóm đặt chỗ Workshop</h1>
+      <p className="eyebrow">{t('lookup.eyebrow')}</p>
+      <h1>{t('lookup.title')}</h1>
 
       <div role="status" style={{ marginTop: '20px', marginBottom: '24px', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
         {authStatus === 'loading' || profileLoading
-          ? 'Đang xác định thông tin tài khoản...'
+          ? t('lookup.identity.loading')
           : lookupMode === 'MEMBER'
-            ? 'Tra cứu nhóm đặt chỗ thuộc tài khoản Member đang đăng nhập.'
+            ? t('lookup.identity.member')
             : lookupMode === 'GUEST'
-              ? 'Tra cứu Guest bằng mã nhóm đặt chỗ và một thông tin liên hệ.'
-              : 'Không thể xác minh vai trò tài khoản.'}
+              ? t('lookup.identity.guest')
+              : t('lookup.identity.unknown')}
       </div>
       {lookupMode === null && authStatus === 'signed-in' && (
         <p style={{ color: '#b00', marginBottom: '16px' }}>
-          {profileError || 'Tài khoản hiện tại không có vai trò Member để tra cứu đặt chỗ.'}
+          {profileError || t('lookup.noMemberRole')}
         </p>
       )}
 
@@ -207,7 +213,7 @@ export function WorkshopLookupPage() {
         <MyBookingGroupsList
           groups={myGroups}
           loading={myGroupsLoading}
-          error={myGroupsError}
+          error={myGroupsError ? say(myGroupsError) : null}
           onRetry={() => loadMyGroups.current()}
           onOpen={openGroup}
           selectedCode={group?.groupCode}
@@ -220,7 +226,7 @@ export function WorkshopLookupPage() {
           <form onSubmit={handleLookup}>
             <fieldset disabled={authStatus === 'loading' || profileLoading || lookupMode === null} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
               <label style={{ display: 'block', marginBottom: '14px' }}>
-                Mã đặt chỗ *
+                {t('lookup.groupCode')}
                 <input
                   type="text"
                   placeholder="e.g. WG-20261113-ABCD"
@@ -235,11 +241,11 @@ export function WorkshopLookupPage() {
               {lookupMode === 'GUEST' && (
                 <div style={{ padding: '14px', background: '#fafafa', border: '1px solid #e3e3e3', marginBottom: '16px' }}>
                   <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: 'bold' }}>
-                    Xác minh thông tin (chỉ cần điền 1 trong 2 mục):
+                    {t('lookup.verifyHint')}
                   </p>
                   <div className="form-grid" style={{ margin: 0 }}>
                     <label>
-                      Email khi đặt
+                      {t('lookup.email')}
                       <input
                         type="email"
                         value={contactEmail}
@@ -249,7 +255,7 @@ export function WorkshopLookupPage() {
                     </label>
                     {/* A div, not a label: a label around the country select would name it like the phone field. */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label htmlFor="lookup-contact-phone">Số điện thoại khi đặt</label>
+                      <label htmlFor="lookup-contact-phone">{t('lookup.phone')}</label>
                       <PhoneInput
                         id="lookup-contact-phone"
                         country={phoneCountry}
@@ -264,13 +270,13 @@ export function WorkshopLookupPage() {
               )}
 
               <button type="submit" className="button primary" disabled={loading} style={{ width: '100%' }}>
-                {loading ? 'Đang tra cứu...' : 'Tra cứu nhóm đặt chỗ'}
+                {loading ? t('lookup.searching') : t('lookup.search')}
               </button>
             </fieldset>
           </form>
         )}
 
-        {error && <p role="alert" style={{ color: '#b00', marginTop: '14px', fontSize: '14px' }}>{error}</p>}
+        {error && <p role="alert" style={{ color: '#b00', marginTop: '14px', fontSize: '14px' }}>{say(error)}</p>}
       </section>
 
       {group && (

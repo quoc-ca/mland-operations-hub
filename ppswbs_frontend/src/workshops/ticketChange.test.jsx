@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch } from '../test/render';
 import { GroupDetailCard } from './GroupDetailCard';
@@ -48,7 +48,7 @@ const guestHandlers = {
 
 async function pickFirstOption(user) {
   await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
-  await user.click((await screen.findAllByRole('radio'))[0]);
+  await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
   const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
   await user.selectOptions(select, Array.from(select.options).find(option => option.value && !option.disabled).value);
 }
@@ -72,7 +72,7 @@ describe('003.3 FR-044a customer ticket change', () => {
     render(<GroupDetailCard group={confirmedGroup()} proof={{ contactEmail: 'guest@mland.vn' }} onTicketUpdated={() => {}} />);
 
     await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
-    await user.click((await screen.findAllByRole('radio'))[0]);
+    await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
     expect(await screen.findByText(/còn 4 chỗ/)).toBeInTheDocument();
     const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
     expect(Array.from(select.options).find(option => option.value && option.disabled)).toBeTruthy();
@@ -224,7 +224,7 @@ describe('003.3 Phase 14 (T189) customer change across locations', () => {
     const user = userEvent.setup();
     render(<GroupDetailCard group={confirmedGroup()} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
     await user.click(await screen.findByRole('button', { name: 'Đổi lịch' }));
-    await user.click((await screen.findAllByRole('radio'))[0]);
+    await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
     const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === `to-${TICKET}`);
     const text = Array.from(select.options).find(option => option.value && !option.disabled).textContent;
     expect(text).toMatch(/^Mland Hà Nội – .* · còn 4 chỗ · còn 2 lượt đổi$/);
@@ -245,7 +245,7 @@ describe('003.3 Phase 14 (T189) customer change across locations', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(text);
     if (code === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION') {
       // The list is re-read and the choice cleared.
-      await screen.findAllByRole('radio');
+      await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
       expect(calls.filter(call => call.method === 'GET' && call.path.endsWith('/change-options')).length).toBeGreaterThan(1);
     }
   });

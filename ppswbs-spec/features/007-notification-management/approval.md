@@ -1,5 +1,13 @@
 # Tech Lead Approval Record: Notification Management (FE-007)
 
+## R-INV invitation extension (2026-11-24)
+
+**Decision state:** APPROVED FOR IMPLEMENTATION of R-INV T038–T043 and T045; T044 is documentation-only completion. **Approved by (Tech Lead):** Phan Sơn. **Approval date:** 2026-11-25. **Authority/evidence:** the decision owner reviewed the amended FE-001/FE-007 plan and explicitly instructed “oke có vẻ ổn r, hãy chuyển thành approve cho tôi” in this specification session. This replaces the earlier “chờ chốt” state; it does not claim implementation or delivery verification is complete.
+
+**Approved revision and paths:** FE-001 `design/revision-2026-11-24.md` (R-INV, amended 2026-11-25); FE-007 `spec.md` (FR-029–034), `plan.md` (R-INV section), `data-model.md` (R-INV extension), `design/architecture.md`, `design/workflows.md`, `design/ui-flow.md` (R-INV sections), `contracts/notification-facade.md` (§6), `contracts/notification-api.md` and `contracts/r-inv.openapi.yaml` (manual-content operation), `tasks.md` (T038–T045), `quickstart.md` and `verification.md` (R-INV verification plan). The revision covers `INTERNAL_ACCOUNT_INVITATION`, durable FE-001 outbox event consumption, a one-way FE-007-to-FE-001 named facade for transient URL materialization, 48-hour expiry from creation, two definite SMTP attempts, ADMIN-only manual content retrieval after FAILED, UNKNOWN_OUTCOME reconciliation, and secret-free persistence/diagnostics. Generic FE-007 manual resend/redeliver does not apply to this template. FE-007's durable attempt state is the manual-content authority; FE-001 rechecks current invitation/ADMIN identity. FE-001 T117 live MEMBER replacement is excluded; no delivery verification is claimed.
+
+---
+
 ## Revision R-007-DELIVERY-FAILED — Booking Notification Delivery-Failed Signal & Retry Policy Alignment (FR-029)
 
 **Revision date**: 2026-11-16  

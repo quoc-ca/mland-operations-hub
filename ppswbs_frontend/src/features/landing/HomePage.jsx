@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
-import { useFormat } from '../../shared/i18n/I18nProvider';
+import { useFormat, useLanguage, useT } from '../../shared/i18n/I18nProvider';
 import { useCurrentAccount } from '../accountmanagement/hooks/useCurrentAccount';
 import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient';
 import { listWorkshopPackages, listMemberBookingGroups } from '../../api/workshops';
@@ -10,47 +10,42 @@ import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
 import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../loyalty-promotion/publicOffers';
+import { landingMessages } from './messages';
 import './landing.css';
+
+const LOCALES = { vi: 'vi-VN', en: 'en-US' };
 
 /**
  * 3 Gói Workshop cốt lõi từ thiết kế Figma (Node 402:2862)
- * Dùng làm baseline chuẩn và fallback khi chưa có kết nối backend
+ * Dùng làm baseline chuẩn và fallback khi chưa có kết nối backend.
+ * Chữ hiển thị nằm trong messages.js (khóa `workshops.default.<key>.*`); `price` là giá trị số.
  */
 const DEFAULT_WORKSHOP_PACKAGES = [
   {
     id: 'signature',
-    tag: 'Gói 01 · Truyền thống',
+    key: 'signature',
     isFeatured: false,
     title: 'Signature Workshop',
-    description:
-      'Uốn bạc thanh, hàn lửa, tạo vân búa và khắc chữ cá nhân hóa. Lựa chọn hoàn hảo cho các cặp đôi.',
-    durationAndMaterial: '⏱️ 2.5 - 3h | 💎 Bạc 925',
-    price: '490,000 đ / người',
-    actionLabel: 'Chi tiết & Đặt chỗ',
+    price: 490000,
+    actionKey: 'workshops.actionDetail',
     actionUrl: '/workshops',
   },
   {
     id: 'silver-clay',
-    tag: 'Được yêu thích nhất',
+    key: 'silverClay',
     isFeatured: true,
     title: 'Silver Clay Workshop',
-    description:
-      'Đất sét bạc 999 nặn hình tự do, đính đá CZ chịu nhiệt và nung lò tạo thành bạc khối sáng bóng.',
-    durationAndMaterial: '⏱️ 3 - 3.5h | ✨ Bạc 999 nung lò',
-    price: '690,000 đ / người',
-    actionLabel: 'Đặt lịch giữ chỗ ngay',
+    price: 690000,
+    actionKey: 'workshops.actionBook',
     actionUrl: '/workshops',
   },
   {
     id: 'wax-carving',
-    tag: 'Gói 03 · Chuyên sâu',
+    key: 'waxCarving',
     isFeatured: false,
     title: 'Wax Carving Workshop',
-    description:
-      'Kỹ thuật điêu khắc sáp cứng 3D phức tạp, đúc sáp chảy và hoàn thiện bề mặt theo chuẩn kim hoàn.',
-    durationAndMaterial: '⏱️ 3.5 - 4h | 🪐 Đúc sáp chảy',
-    price: '890,000 đ / người',
-    actionLabel: 'Chi tiết & Đặt chỗ',
+    price: 890000,
+    actionKey: 'workshops.actionDetail',
     actionUrl: '/workshops',
   },
 ];
@@ -60,100 +55,31 @@ const DEFAULT_WORKSHOP_PACKAGES = [
  * Dùng làm baseline chuẩn và fallback khi chưa có dữ liệu sản phẩm
  */
 const DEFAULT_READY_RINGS = [
-  {
-    code: 'ML-R01',
-    name: 'Nhẫn Bạc Twilight Twist',
-    material: 'Bạc 925 xoắn',
-    price: '450,000 đ',
-    url: '/products',
-  },
-  {
-    code: 'ML-R02',
-    name: 'Nhẫn Đính Đá Topaz Xanh',
-    material: 'Bạc 925 & Đá tự nhiên',
-    price: '620,000 đ',
-    url: '/products',
-  },
-  {
-    code: 'ML-R03',
-    name: 'Cặp Nhẫn Tối Giản Aurora',
-    material: 'Bộ đôi bạc xước',
-    price: '850,000 đ',
-    url: '/products',
-  },
-  {
-    code: 'ML-R04',
-    name: 'Nhẫn Vân Búa Hammered',
-    material: 'Bạc bản rộng cá tính',
-    price: '380,000 đ',
-    url: '/products',
-  },
+  { code: 'ML-R01', key: 'r01', price: 450000, url: '/products' },
+  { code: 'ML-R02', key: 'r02', price: 620000, url: '/products' },
+  { code: 'ML-R03', key: 'r03', price: 850000, url: '/products' },
+  { code: 'ML-R04', key: 'r04', price: 380000, url: '/products' },
 ];
 
 /**
  * 6 Thẻ dịch vụ Ecosystem Hub (Node 402:2927)
  */
 const ECOSYSTEM_SERVICES = [
-  {
-    id: 'workshops',
-    title: '🔨 Đặt lịch Workshop',
-    desc: 'Chọn gói, chi nhánh, ngày giờ và nhận vé QR check-in',
-    url: '/workshops',
-  },
-  {
-    id: 'products',
-    title: '💍 Mua nhẫn Ready Rings',
-    desc: 'Catalogue nhẫn bạc có sẵn giao hàng toàn quốc qua GHTK',
-    url: '/products',
-  },
-  {
-    id: 'custom',
-    title: '🎨 Chế tác theo yêu cầu',
-    desc: 'Gửi ý tưởng phác thảo để xưởng báo giá và gia công độc bản',
-    url: '/design-requests/new',
-  },
-  {
-    id: 'ai-support',
-    title: '🤖 Trợ lý AI tư vấn',
-    desc: 'Tải ảnh mẫu nhẫn để phân tích độ khó kỹ thuật & chi phí ước tính',
-    url: '/ai-support',
-  },
-  {
-    id: 'booking-lookup',
-    title: '🎫 Tra cứu vé & Booking',
-    desc: 'Xem lại lịch hẹn workshop và quét mã QR check-in tại quầy',
-    url: '/workshop-booking/lookup',
-  },
-  {
-    id: 'orders',
-    title: '🚚 Tra cứu đơn hàng',
-    desc: 'Theo dõi tiến độ đóng gói và hành trình vận đơn GHTK',
-    url: '/member/orders',
-  },
+  { id: 'workshops', key: 'workshops', url: '/workshops' },
+  { id: 'products', key: 'products', url: '/products' },
+  { id: 'custom', key: 'custom', url: '/design-requests/new' },
+  { id: 'ai-support', key: 'aiSupport', url: '/ai-support' },
+  { id: 'booking-lookup', key: 'bookingLookup', url: '/workshop-booking/lookup' },
+  { id: 'orders', key: 'orders', url: '/member/orders' },
 ];
 
 /**
  * Đánh giá khách hàng thực tế (Node 402:2952)
  */
 const CUSTOMER_REVIEWS = [
-  {
-    testimonial:
-      '“Buổi workshop Silver Clay cực kỳ thư giãn! Nghệ nhân chỉ dẫn kiên nhẫn từng bước, nhẫn nung xong đeo vừa khít.”',
-    reviewer: 'Hà My & Quốc Trung',
-    workshop: 'Silver Clay Workshop · Chi nhánh HN',
-  },
-  {
-    testimonial:
-      '“Tự tay gõ từng vân búa làm nhẫn kỷ niệm 2 năm cho người yêu là trải nghiệm vô giá. 10/10 điểm!”',
-    reviewer: 'Trần Hoàng Long',
-    workshop: 'Signature Workshop · Chi nhánh TP.HCM',
-  },
-  {
-    testimonial:
-      '“Tính năng AI phân tích ảnh nhẫn Pinterest rất tiện, giúp mình ước tính được độ khó trước khi đăng ký.”',
-    reviewer: 'Lê Thuỳ Dung',
-    workshop: 'Wax Carving Workshop',
-  },
+  { n: 1, reviewer: 'Hà My & Quốc Trung' },
+  { n: 2, reviewer: 'Trần Hoàng Long' },
+  { n: 3, reviewer: 'Lê Thuỳ Dung' },
 ];
 
 export default function HomePage() {
@@ -163,12 +89,14 @@ export default function HomePage() {
   const { status, getIdToken } = useAuth();
   const http = useHttp();
   const format = useFormat();
+  const t = useT(landingMessages);
+  const { language } = useLanguage();
   const { account } = useCurrentAccount();
 
-  // Live state kết nối từ các features khác
-  const [workshopPackages, setWorkshopPackages] = useState(DEFAULT_WORKSHOP_PACKAGES);
+  // Live state kết nối từ các features khác. Lưu dữ liệu thô; chữ hiển thị dựng lúc render theo ngôn ngữ.
+  const [livePackages, setLivePackages] = useState(null);
   const workshopPrograms = usePublicWorkshopPrograms();
-  const [readyRings, setReadyRings] = useState(DEFAULT_READY_RINGS);
+  const [liveRings, setLiveRings] = useState(null);
   const [readyProducts, setReadyProducts] = useState([]);
   const [orderCount, setOrderCount] = useState(1);
   const [liveFullName, setLiveFullName] = useState('');
@@ -187,7 +115,7 @@ export default function HomePage() {
     currentUser?.displayName?.trim() ||
     (account?.email ? account.email.split('@')[0] : '') ||
     (currentUser?.email ? currentUser.email.split('@')[0] : '') ||
-    'Thành viên';
+    t('common.memberFallbackName');
 
   const userRole = account?.role || 'MEMBER';
   const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
@@ -197,6 +125,62 @@ export default function HomePage() {
     }
     return true;
   });
+
+  const workshopPackages = useMemo(() => {
+    if (!livePackages) {
+      return DEFAULT_WORKSHOP_PACKAGES.map((pkg) => ({
+        id: pkg.id,
+        isFeatured: pkg.isFeatured,
+        tag: pkg.isFeatured
+          ? t('workshops.tagFeatured')
+          : t(`workshops.default.${pkg.key}.tag`),
+        title: pkg.title,
+        description: t(`workshops.default.${pkg.key}.desc`),
+        durationAndMaterial: t(`workshops.default.${pkg.key}.meta`),
+        price: `${format.money(pkg.price)} ${t('common.perPerson')}`,
+        actionLabel: t(pkg.actionKey),
+        actionUrl: pkg.actionUrl,
+      }));
+    }
+    return livePackages.map((pkg, idx) => ({
+      id: pkg.packageId || String(idx),
+      packageId: pkg.packageId,
+      publicPrice: pkg.publicPrice,
+      branchIds: pkg.branchIds,
+      tag: idx === 1 ? t('workshops.tagFeatured') : t('workshops.tagLive', { number: idx + 1 }),
+      isFeatured: idx === 1,
+      title: pkg.name || t('workshops.fallbackName'),
+      description: pkg.description || t('workshops.fallbackDesc'),
+      durationAndMaterial: t('workshops.liveMeta', {
+        sessions: pkg.requiredSessionCount || 1,
+        min: pkg.minParticipants || 1,
+        max: pkg.maxParticipants || 4,
+      }),
+      price: `${format.money(pkg.publicPrice || 490000)} ${t('common.perPerson')}`,
+      actionLabel: idx === 1 ? t('workshops.actionBook') : t('workshops.actionDetail'),
+      actionUrl: `/workshops/${encodeURIComponent(pkg.packageId || '')}`,
+    }));
+  }, [livePackages, t, format]);
+
+  const readyRings = useMemo(() => {
+    if (!liveRings) {
+      return DEFAULT_READY_RINGS.map((ring) => ({
+        code: ring.code,
+        name: t(`rings.default.${ring.key}.name`),
+        material: t(`rings.default.${ring.key}.material`),
+        price: format.money(ring.price),
+        url: ring.url,
+      }));
+    }
+    return liveRings.map((ring) => ({
+      code: ring.code,
+      name: ring.name,
+      material: ring.material || t('rings.fallbackMaterial'),
+      price: format.money(ring.minPrice || 450000),
+      imageUrl: ring.imageUrl,
+      url: ring.url,
+    }));
+  }, [liveRings, t, format]);
 
   useEffect(() => {
     if (!isAuthenticated || (account?.role && account.role !== 'MEMBER')) { setNextTicket(null); setTicketLookupDone(false); return undefined; }
@@ -239,24 +223,9 @@ export default function HomePage() {
     listWorkshopPackages()
       .then((data) => {
         if (!active || !Array.isArray(data) || data.length === 0) return;
-        const mapped = data.slice(0, 3).map((pkg, idx) => ({
-          id: pkg.packageId || String(idx),
-          packageId: pkg.packageId,
-          publicPrice: pkg.publicPrice,
-          tag: idx === 1 ? 'Được yêu thích nhất' : `Gói 0${idx + 1} · Workshop`,
-          isFeatured: idx === 1,
-          title: pkg.name || 'Workshop',
-          description: pkg.description || 'Trải nghiệm tự tay làm nhẫn bạc thủ công tại xưởng.',
-          durationAndMaterial: `⏱️ ${pkg.requiredSessionCount || 1} buổi | 💎 ${pkg.minParticipants || 1}-${pkg.maxParticipants || 4} người`,
-          price: pkg.publicPrice
-            ? `${format.money(pkg.publicPrice)} / người`
-            : '490,000 đ / người',
-          actionLabel: idx === 1 ? 'Đặt lịch giữ chỗ ngay' : 'Chi tiết & Đặt chỗ',
-          actionUrl: `/workshops/${encodeURIComponent(pkg.packageId || '')}`,
-        }));
-        setWorkshopPackages(mapped);
+        setLivePackages(data.slice(0, 3));
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Lấy danh mục sản phẩm nhẫn chế tác sẵn thực tế từ Feature 002
     listPublicProducts({ page: 0, sort: 'newest' })
@@ -267,26 +236,24 @@ export default function HomePage() {
         // 002 product cards (discount price, offer badges, cart button) in a sideways strip: the whole first page.
         setReadyProducts(items);
         const mapped = items.slice(0, 4).map((p, idx) => {
-          const code = p.variants?.[0]?.sku || `ML-R0${idx + 1}`;
-          const minPrice = p.priceRange?.minimum || p.variants?.[0]?.appliedPrice;
           const img = p.images?.[0];
           return {
-            code,
+            code: p.variants?.[0]?.sku || `ML-R0${idx + 1}`,
             name: p.name,
-            material: p.category?.name || p.description || 'Bạc 925 cao cấp',
-            price: minPrice ? format.money(minPrice) : '450,000 đ',
+            material: p.category?.name || p.description || '',
+            minPrice: p.priceRange?.minimum || p.variants?.[0]?.appliedPrice,
             imageUrl: img?.url ? publicMediaUrl(img.url) : null,
             url: `/products/${encodeURIComponent(p.id)}`,
           };
         });
-        setReadyRings(mapped);
+        setLiveRings(mapped);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
     };
-  }, [format]);
+  }, []);
 
   // ==========================================================================
   // 2. Tích hợp dữ liệu thành viên khi đăng nhập: Orders (008), Profile (001)
@@ -310,15 +277,19 @@ export default function HomePage() {
               const orders = Array.isArray(data) ? data : data?.items || [];
               setOrderCount(orders.length);
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
     };
   }, [isAuthenticated, http]);
+
+  const nextTicketTime = nextTicket
+    ? new Date(nextTicket.start).toLocaleString(LOCALES[language] || LOCALES.vi, { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <div className="landing-page-root">
@@ -349,7 +320,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setDismissedNotice(true)}
-              aria-label="Đóng thông báo"
+              aria-label={t('notice.dismiss')}
               style={{
                 background: 'none',
                 border: 'none',
@@ -369,18 +340,18 @@ export default function HomePage() {
         {isAuthenticated && (
           <section
             className="landing-member-quick-bar"
-            aria-label="Thanh tác vụ nhanh thành viên"
+            aria-label={t('member.barLabel')}
           >
             <div className="landing-member-info">
-              <span className="landing-member-badge">ACTIVE · MEMBER</span>
+              <span className="landing-member-badge">{t('member.badge')}</span>
               <p className="landing-member-greeting">
-                Xin chào, {memberDisplayName}!
+                {t('member.greeting', { name: memberDisplayName })}
                 {nextTicket ? (
                   <>
-                    {' '}Buổi workshop sắp tới:{' '}
-                    <strong>{new Date(nextTicket.start).toLocaleString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</strong>
+                    {' '}{t('member.nextWorkshop')}{' '}
+                    <strong>{nextTicketTime}</strong>
                   </>
-                ) : (ticketLookupDone ? ' Bạn chưa có buổi workshop nào sắp tới.' : '')}
+                ) : (ticketLookupDone ? ` ${t('member.noUpcoming')}` : '')}
               </p>
             </div>
             <div className="landing-member-actions">
@@ -389,11 +360,11 @@ export default function HomePage() {
                   to={`/workshop-booking/lookup?code=${encodeURIComponent(nextTicket.bookingCode)}`}
                   className="landing-quick-btn"
                 >
-                  🎟️ Xem vé &amp; mã QR
+                  {t('member.viewTicket')}
                 </Link>
               )}
               <Link to="/member/orders" className="landing-quick-btn">
-                📦 Đơn hàng ({orderCount})
+                {t('member.orders', { count: orderCount })}
               </Link>
             </div>
           </section>
@@ -404,25 +375,22 @@ export default function HomePage() {
             ================================================================ */}
         <section className="landing-hero" aria-labelledby="hero-title">
           <div className="landing-eyebrow">
-            TRẢI NGHIỆM CHẾ TÁC CỦA RIÊNG BẠN
+            {t('hero.eyebrow')}
           </div>
           <h2 id="hero-title" className="landing-hero-title">
-            MỘT CHIẾC NHẪN,
+            {t('hero.titleLine1')}
             <br />
-            MỘT CÂU CHUYỆN RIÊNG.
+            {t('hero.titleLine2')}
           </h2>
           <p className="landing-hero-desc">
-            Chào mừng bạn đến với Mland Operations Hub. Nơi bạn có thể tự tay
-            tạo tác những chiếc nhẫn bạc ý nghĩa trong các buổi workshop ấm cúng,
-            chọn mua nhẫn chế tác sẵn tinh xảo, hoặc hiện thực hóa mẫu thiết kế
-            độc bản cùng nghệ nhân kim hoàn.
+            {t('hero.desc')}
           </p>
           <div className="landing-hero-actions">
             <Link to="/workshops" className="landing-btn-primary">
-              🔨 ĐẶT WORKSHOP NGAY
+              {t('hero.ctaWorkshop')}
             </Link>
             <Link to="/products" className="landing-btn-secondary">
-              💍 KHÁM PHÁ READY RINGS
+              {t('hero.ctaRings')}
             </Link>
           </div>
         </section>
@@ -431,29 +399,20 @@ export default function HomePage() {
             KHỐI 2: VỀ XƯỞNG KIM HOÀN MLAND (BRAND STORY & COMMITTMENTS)
             ================================================================ */}
         <section className="landing-brand-story" aria-labelledby="story-title">
-          <span className="landing-story-eyebrow">VỀ XƯỞNG KIM HOÀN MLAND</span>
+          <span className="landing-story-eyebrow">{t('story.eyebrow')}</span>
           <h3 id="story-title" className="landing-story-title">
-            Không gian sáng tạo kim hoàn thủ công giữa lòng đô thị
+            {t('story.title')}
           </h3>
           <p className="landing-story-desc">
-            Tại Mland, chúng tôi tin rằng mỗi món trang sức đều mang linh hồn và
-            ký ức của người sở hữu. Dù bạn chưa từng cầm giũa hay cưa bạc, các
-            nghệ nhân Mland sẽ đồng hành 1-kèm-1 để bạn tự tay hoàn thiện chiếc
-            nhẫn bạc 925 nguyên chất mang dấu ấn cá nhân trọn vẹn nhất.
+            {t('story.desc')}
           </p>
           <div className="landing-commitments">
-            <div className="landing-commitment-item">
-              <span className="landing-check-icon" aria-hidden="true">✓</span>
-              <span>Bạc 925 tiêu chuẩn cao cấp kèm bảo hành đánh bóng trọn đời.</span>
-            </div>
-            <div className="landing-commitment-item">
-              <span className="landing-check-icon" aria-hidden="true">✓</span>
-              <span>Nghệ nhân hướng dẫn 1-kèm-1, cam kết 100% tự tay làm ra sản phẩm ưng ý.</span>
-            </div>
-            <div className="landing-commitment-item">
-              <span className="landing-check-icon" aria-hidden="true">✓</span>
-              <span>Đầy đủ thiết bị đúc nung hiện đại, đồ uống miễn phí và không gian thư giãn ấm cúng.</span>
-            </div>
+            {['story.commitment1', 'story.commitment2', 'story.commitment3'].map((key) => (
+              <div key={key} className="landing-commitment-item">
+                <span className="landing-check-icon" aria-hidden="true">✓</span>
+                <span>{t(key)}</span>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -462,7 +421,7 @@ export default function HomePage() {
             ================================================================ */}
         <section className="landing-section" aria-labelledby="workshop-title">
           <h3 id="workshop-title" className="landing-section-title">
-            CÁC GÓI WORKSHOP CHẾ TÁC NỔI BẬT
+            {t('workshops.title')}
           </h3>
           <div className="landing-workshop-grid">
             {workshopPackages.map(item => (item.packageId ? { ...item, offers: offersForPackage(item, workshopPrograms) } : item)).map((pkg) => (
@@ -481,7 +440,7 @@ export default function HomePage() {
                 {/* FR-052: price after the best automatic discount from 006's public gate; plain price when none. */}
                 <p className="landing-workshop-price">
                   <WorkshopOfferPrice offers={pkg.offers} fallback={pkg.price} />
-                  {pkg.offers?.discounted ? ' / người' : null}
+                  {(pkg.offers?.discounted || pkg.offers?.bestVoucher) ? ` ${t('common.perPerson')}` : null}
                 </p>
                 <WorkshopOfferBadges offers={pkg.offers} />
                 <Link
@@ -500,33 +459,33 @@ export default function HomePage() {
             ================================================================ */}
         <section className="landing-section" aria-labelledby="ready-rings-title">
           <h3 id="ready-rings-title" className="landing-section-title">
-            READY RINGS — NHẪN CHẾ TÁC THỦ CÔNG SẴN SÀNG GIAO
+            {t('rings.title')}
           </h3>
           {readyProducts.length > 0 ? <PublicProductGrid products={readyProducts} standalone /> : (
-          <div className="landing-rings-grid">
-            {readyRings.map((ring) => (
-              <article key={ring.code} className="landing-ring-card">
-                {ring.imageUrl ? (
-                  <img
-                    src={ring.imageUrl}
-                    alt={ring.name}
-                    className="landing-ring-thumb"
-                  />
-                ) : (
-                  <span className="landing-ring-code-tag">{ring.code}</span>
-                )}
-                {ring.imageUrl && (
-                  <span className="landing-ring-code-tag">{ring.code}</span>
-                )}
-                <h4 className="landing-ring-name">{ring.name}</h4>
-                <p className="landing-ring-material">{ring.material}</p>
-                <p className="landing-ring-price">{ring.price}</p>
-                <Link to={ring.url} className="landing-ring-btn">
-                  Chi tiết →
-                </Link>
-              </article>
-            ))}
-          </div>
+            <div className="landing-rings-grid">
+              {readyRings.map((ring) => (
+                <article key={ring.code} className="landing-ring-card">
+                  {ring.imageUrl ? (
+                    <img
+                      src={ring.imageUrl}
+                      alt={ring.name}
+                      className="landing-ring-thumb"
+                    />
+                  ) : (
+                    <span className="landing-ring-code-tag">{ring.code}</span>
+                  )}
+                  {ring.imageUrl && (
+                    <span className="landing-ring-code-tag">{ring.code}</span>
+                  )}
+                  <h4 className="landing-ring-name">{ring.name}</h4>
+                  <p className="landing-ring-material">{ring.material}</p>
+                  <p className="landing-ring-price">{ring.price}</p>
+                  <Link to={ring.url} className="landing-ring-btn">
+                    {t('rings.detail')}
+                  </Link>
+                </article>
+              ))}
+            </div>
           )}
         </section>
 
@@ -535,7 +494,7 @@ export default function HomePage() {
             ================================================================ */}
         <section className="landing-ecosystem-card" aria-labelledby="ecosystem-title">
           <h3 id="ecosystem-title" className="landing-section-title">
-            HỆ SINH THÁI DỊCH VỤ & TIỆN ÍCH HỆ THỐNG
+            {t('ecosystem.title')}
           </h3>
           <div className="landing-services-grid">
             {visibleEcosystemServices.map((srv) => (
@@ -545,48 +504,56 @@ export default function HomePage() {
                 className="landing-service-tile"
               >
                 <h4 className="landing-service-title">
-                  {srv.title}
+                  {t(`ecosystem.${srv.key}.title`)}
                   {srv.id === 'orders' && isAuthenticated && orderCount > 0 && (
                     <span className="landing-badge-count">{orderCount}</span>
                   )}
                 </h4>
-                <p className="landing-service-desc">{srv.desc}</p>
+                <p className="landing-service-desc">{t(`ecosystem.${srv.key}.desc`)}</p>
               </Link>
             ))}
           </div>
 
-          <div className="landing-portals-bar" role="region" aria-label="Cổng nội bộ">
-            <span>🏢 <strong>Cổng nội bộ:</strong></span>
+          <div className="landing-portals-bar" role="region" aria-label={t('portals.label')}>
+            <span>🏢 <strong>{t('portals.heading')}</strong></span>
             <Link
               to="/operations/sessions"
               className={`landing-portal-link ${userRole === 'STAFF' ? 'active-role' : ''}`}
-              title="Dành cho nhân viên check-in và điều phối ca"
+              title={t('portals.staffTitle')}
             >
-              Staff Vận hành {userRole === 'STAFF' && '★'}
+              {t('portals.staff')} {userRole === 'STAFF' && '★'}
+            </Link>
+            <span className="landing-portal-separator">|</span>
+            <Link
+              to="/design-review-requests"
+              className={`landing-portal-link ${userRole === 'STAFF' || userRole === 'MANAGER' ? 'active-role' : ''}`}
+              title={t('portals.designTitle')}
+            >
+              {t('portals.design')} {(userRole === 'STAFF' || userRole === 'MANAGER') && '★'}
             </Link>
             <span className="landing-portal-separator">|</span>
             <Link
               to="/catalogue-management/products"
               className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-              title="Quản lý danh mục và giá sản phẩm"
+              title={t('portals.catalogueTitle')}
             >
-              Quản trị Sản phẩm
+              {t('portals.catalogue')}
             </Link>
             <span className="landing-portal-separator">|</span>
             <Link
               to="/promotion-management/programs"
               className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-              title="Quản lý voucher và chính sách ưu đãi"
+              title={t('portals.promotionTitle')}
             >
-              Quản lý Ưu đãi
+              {t('portals.promotion')}
             </Link>
             <span className="landing-portal-separator">|</span>
             <Link
               to="/admin/accounts"
               className={`landing-portal-link ${userRole === 'ADMIN' ? 'active-role' : ''}`}
-              title="Quản trị người dùng và phân quyền"
+              title={t('portals.adminTitle')}
             >
-              Admin Tài khoản {userRole === 'ADMIN' && '★'}
+              {t('portals.admin')} {userRole === 'ADMIN' && '★'}
             </Link>
           </div>
         </section>
@@ -597,18 +564,18 @@ export default function HomePage() {
         <section className="landing-section" aria-labelledby="reviews-title">
           <div className="landing-section-heading-row">
             <h3 id="reviews-title" className="landing-section-title">
-              KHÁCH HÀNG NÓI GÌ VỀ TRẢI NGHIỆM TẠI MLAND
+              {t('reviews.title')}
             </h3>
             <span className="landing-section-rating">4.9 / 5.0 ★</span>
           </div>
           <div className="landing-reviews-grid">
-            {CUSTOMER_REVIEWS.map((rev, idx) => (
-              <article key={idx} className="landing-review-card">
+            {CUSTOMER_REVIEWS.map((rev) => (
+              <article key={rev.n} className="landing-review-card">
                 <blockquote className="landing-review-text">
-                  {rev.testimonial}
+                  {t(`reviews.${rev.n}.text`)}
                 </blockquote>
                 <cite className="landing-reviewer-name">{rev.reviewer}</cite>
-                <span className="landing-review-workshop">{rev.workshop}</span>
+                <span className="landing-review-workshop">{t(`reviews.${rev.n}.workshop`)}</span>
               </article>
             ))}
           </div>
@@ -621,20 +588,20 @@ export default function HomePage() {
           <h4 className="landing-footer-brand">MLAND OPERATIONS HUB</h4>
           <div className="landing-showrooms">
             <p className="landing-showroom-line">
-              📍 Hà Nội: 45 Tràng Tiền, Quận Hoàn Kiếm.
+              {t('footer.hanoi')}
             </p>
             <p className="landing-showroom-line">
-              📍 TP. Hồ Chí Minh: 128 Nguyễn Đình Chiểu, Quận 3.
+              {t('footer.hcm')}
             </p>
             <p className="landing-showroom-line">
-              📞 Hotline: 1900 6868 · ⏰ Mở cửa: 09:00 - 21:00 hàng ngày.
+              {t('footer.hotline')}
             </p>
           </div>
           <p className="landing-policy-links">
-            Điều khoản dịch vụ · Chính sách bảo mật · Cam kết bảo hành bạc trọn đời.
+            {t('footer.policies')}
           </p>
           <p className="landing-copyright">
-            © 2026 Mland Operations Hub. Thiết kế chuẩn Atelier Light.
+            {t('footer.copyright')}
           </p>
         </footer>
       </div>
@@ -642,26 +609,26 @@ export default function HomePage() {
       {/* ================================================================
           MOBILE STICKY BOTTOM NAVIGATION (320px - 768px Viewports)
           ================================================================ */}
-      <nav className="landing-mobile-bottom-nav" aria-label="Điều hướng di động">
+      <nav className="landing-mobile-bottom-nav" aria-label={t('mobileNav.label')}>
         <Link to="/" className="landing-mobile-nav-item active">
           <span className="landing-mobile-nav-icon" aria-hidden="true">⌂</span>
-          <span className="landing-mobile-nav-label">Trang chủ</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.home')}</span>
         </Link>
         <Link to="/workshops" className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">◈</span>
-          <span className="landing-mobile-nav-label">Workshop</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.workshop')}</span>
         </Link>
         <Link to="/products" className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">◇</span>
-          <span className="landing-mobile-nav-label">Nhẫn</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.rings')}</span>
         </Link>
         <Link to="/workshop-booking/lookup" className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">🎫</span>
-          <span className="landing-mobile-nav-label">Vé QR</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.ticket')}</span>
         </Link>
         <Link to="/profile" className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">👤</span>
-          <span className="landing-mobile-nav-label">Tài khoản</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.account')}</span>
         </Link>
       </nav>
     </div>

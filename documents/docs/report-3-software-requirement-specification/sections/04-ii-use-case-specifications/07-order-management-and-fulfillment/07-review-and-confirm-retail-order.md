@@ -30,11 +30,11 @@ As an authorized shop actor, I want to review a verified paid retail order and b
 
 1. The actor opens a retail order within authorized processing scope.
 2. The system rechecks current action/branch authority and retrieves payment/hold/frozen purchase facts.
-3. The actor reviews the verified paid order, selected method and necessary recipient data.
-4. The actor submits confirmation to begin preparation.
-5. The system rechecks current account/delegation, verified paid state, selected valid method/data and current order state.
-6. The system records the paid-to-preparing transition and freezes Member method/recipient editing.
-7. The system records safe attributable evidence and displays preparing status; the actor may continue to UC50 for method-specific readiness.
+3. The actor reviews the paid order, which is already Đang chuẩn bị hàng, with its method and necessary recipient data in the Đơn hàng cần chuẩn bị tab.
+4. The actor packs the order and selects Đã chuẩn bị xong.
+5. The system rechecks current account and branch authority, verified paid state, method and data, and current order state.
+6. The system records the method-specific readiness (UC59 for pickup, UC61 for GHTK).
+7. The system records safe attributable evidence and shows the new status to the actor and the Member.
 
 #### Alternative Flows
 
@@ -44,7 +44,7 @@ Deny without mutation/private exposure. Manager requires applicable current dele
 
 **Step 5 — Pending/expired/exception-only payment or missing method/data**
 
-Reject preparation and preserve state. Staff cannot assert paid; eligible payment belongs to UC46 and owner method/data selection to UC51. Resume at Step 1 after prerequisites are met.
+Reject preparation and preserve state. Staff cannot assert paid; eligible payment belongs to UC55 or the counter cash collection in UC60, and owner method/data selection to UC54 checkout. Resume at Step 1 after prerequisites are met.
 
 **Steps 5 and 6 — Member method edit races with preparing**
 
@@ -64,16 +64,16 @@ An inactive branch cannot receive new checkout, but accepted orders retain their
 
 #### Business Rules
 
-BR-49-01, BR-49-02, BR-49-03, BR-49-04, BR-49-05, BR-49-06, BR-49-07
+BR-58-01, BR-58-02, BR-58-03, BR-58-04, BR-58-05, BR-58-06, BR-58-07
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-49-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager may confirm preparation; role names or price approval alone grant no authority. |
-| BR-49-02 | Preparation requires verified paid status and a valid selected method/recipient data; human confirmation cannot assert payment or reprice the order. |
-| BR-49-03 | Confirming paid → preparing freezes Member method/recipient edits; no backward correction or override is permitted. |
-| BR-49-04 | Recheck concurrent edits and preparation against current state/data; accepted preparation prevents later edits and preserves the fixed branch. |
-| BR-49-05 | Identical recorded effects return successful no-change; stale/conflicting requests reject for review without duplicate transitions. |
-| BR-49-06 | Inactive branches may finish accepted paid orders under current branch-scoped authority; no silent transfer, cancellation or refund is created. |
-| BR-49-07 | Record each attempt and its actual outcome under the shared audit policy. |
+| BR-58-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager may confirm preparation; role names or price approval alone grant no authority. |
+| BR-58-02 | Preparation requires verified paid status and a valid selected method/recipient data; human confirmation cannot assert payment or reprice the order. |
+| BR-58-03 | A paid order is already being prepared; method and recipient are frozen at checkout and no backward correction or override is permitted. |
+| BR-58-04 | Recheck readiness against current state and data; the fixed branch is preserved. |
+| BR-58-05 | Identical recorded effects return successful no-change; stale/conflicting requests reject for review without duplicate transitions. |
+| BR-58-06 | Inactive branches may finish accepted paid orders under current branch-scoped authority; no silent transfer, cancellation or refund is created. |
+| BR-58-07 | Record each attempt and its actual outcome under the shared audit policy. |

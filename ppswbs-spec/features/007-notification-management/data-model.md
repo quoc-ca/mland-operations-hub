@@ -1,7 +1,9 @@
 # Data Model: FE-007 Notification Management
 
+> **R-INV model under review:** Register `INTERNAL_ACCOUNT_INVITATION` with invitation ID/version, source event reference, approved recipient snapshot and safe delivery metadata. Its `credential_reference` contains only the opaque invitation ID/version and `credential_expires_at` copies FE-001's creation-based `expiresAt`; it is never blank waiting for SMTP. Persist a static rendition with a URL sentinel, never an expanded message. Do not persist setup secret, raw URL, Firebase custom token or manual-content response. FE-001 owns secret digest, created/expiry timestamps and safe delivery status; FE-007 owns two technical attempts, `FAILED` and `UNKNOWN_OUTCOME` evidence. Use an append-only migration in T038 after approval; no production migration has been applied by this document. See [FE-001 R-INV](../001-account-management/design/revision-2026-11-24.md).
+
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 

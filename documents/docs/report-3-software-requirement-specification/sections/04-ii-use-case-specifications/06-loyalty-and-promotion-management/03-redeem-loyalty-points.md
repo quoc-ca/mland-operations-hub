@@ -10,7 +10,7 @@ Order Management and Fulfillment (retail checkout and payment); Workshop Managem
 
 #### Description
 
-This use case allows a Member to choose how many available points to use as a non-cash discount on a retail order or a direct website workshop booking. Points are applied after the voucher or automatic discount, are held when the order or booking is accepted, and are deducted only after the payment is verified, or when a valid 0 VND order or booking is accepted.
+This use case allows a Member to choose how many available points to use as a non-cash discount on a retail order or a direct website workshop booking. Points are applied last, after the automatic discount and the voucher, are held when the order or booking is accepted, and are deducted only after the payment is verified, or when a valid 0 VND order or booking is accepted.
 
 #### Preconditions
 
@@ -27,13 +27,13 @@ This use case allows a Member to choose how many available points to use as a no
 3. The system calculates the point discount and shows the item amount, program discount, point discount, shipping (retail only) and total. For a workshop, it shows the fee after discounts, which Workshop Management uses to calculate the deposit and the remaining amount.
 4. The Member confirms the order or booking.
 5. The system rechecks the price, conditions, available points and limits, records the point policy in effect, and holds the points together with the accepted order or booking.
-6. After the retail payment or the workshop deposit is verified, or when Order Management or Workshop Management accepts a valid 0 VND order or booking without the payment gateway, the system deducts the held points once and records a used entry. When a retail checkout is split into branch orders that are paid separately, the points are divided between the branch orders on acceptance, and each branch order deducts its own share when it is paid.
+6. After the retail payment or the workshop deposit is verified, or when Order Management or Workshop Management accepts a valid 0 VND order or booking without the payment gateway, the system deducts the held points once and records a used entry. When a retail checkout is split into branch orders that are paid separately, the points are divided between the branch orders on acceptance, and each branch order deducts its own share when it is paid. For a multi-ticket workshop booking, the points are divided between the tickets on acceptance and deducted once for the whole group when the group deposit is verified.
 
 #### Alternative Flows
 
 **Step 1 — The selected voucher does not allow points**
 
-The system disables point use and explains why (MSG49). Automatic discounts always allow points.
+The system disables point use and explains why (MSG49), even when the order or booking also has an automatic discount. Automatic discounts always allow points.
 
 **Step 2 — Points below the minimum or above the maximum**
 
@@ -71,6 +71,6 @@ BR-44-01, BR-44-02, BR-44-03, BR-44-04, BR-44-05
 |---|---|
 | BR-44-01 | Points are a non-cash discount chosen by the Member; the system never deducts points automatically. |
 | BR-44-02 | Points used are whole numbers from the minimum per use up to `min(available points, floor(cap × amount after program discount / point value))`. |
-| BR-44-03 | Points can be combined with an automatic discount, or with a voucher only when that voucher allows points. |
+| BR-44-03 | Points are calculated on the amount after both the automatic discount and the voucher. They can be combined with an automatic discount, and with a voucher only when that voucher allows points; an order or booking with a voucher that does not allow points cannot use points. |
 | BR-44-04 | Points are held when the order or booking is accepted and deducted once after verified payment of the retail order (or of each branch order, for its share) or the workshop deposit, or on acceptance of a valid 0 VND order or booking; the remaining workshop payment does not deduct points again. |
 | BR-44-05 | Points earned by a transaction cannot discount that same transaction. |

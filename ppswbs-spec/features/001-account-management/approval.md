@@ -1,5 +1,36 @@
 # Tech Lead Approval Record: Account Management (FE-001)
 
+## R-INV — 2026-11-24 Admin internal-account repair
+
+**Decision state:** APPROVED FOR SCOPED IMPLEMENTATION of T106–T116 only. **Approved by (Tech Lead):** Phan Sơn. **Approval date:** 2026-11-25. **Authority/evidence:** the decision owner reviewed the amended FE-001/FE-007 plan and explicitly instructed “oke có vẻ ổn r, hãy chuyển thành approve cho tôi” in this specification session. This replaces the earlier “chờ chốt” state for the scope below; it does not approve T117 or claim implementation/verification is complete.
+
+**Approved revision and paths:** `design/revision-2026-11-24.md` (R-INV, amended 2026-11-25 for demo preview); `spec.md` (FR-048–052 and related US3/US5 reconciliation); `plan.md` (R-INV section); `research.md` (R-INV decision); `data-model.md` (R-INV model); `design/architecture.md`, `design/workflows.md`, `design/ui-flow.md` (R-INV sections); `contracts/interfaces.md`, `contracts/account-management.openapi.yaml`, `contracts/r-inv.openapi.yaml` (R-INV paths and types); `tasks.md` (T105–T116; T117 deferred and excluded); `quickstart.md` and `verification.md` (R-INV acceptance plan). The companion FE-007 scope is recorded in its own `approval.md`.
+
+**Approved scope:** required STAFF/MANAGER email and invitation for non-colliding email; MEMBER-only collision review and optional JSON with clearly labelled DEMO inventory; deny MEMBER retirement and occupied-email release while sources are DEMO/UNAVAILABLE or the acceptance fence is absent; Firebase-only deletion with separate confirmation; one bound UID with password or Google setup; 48 hours from invitation creation and five-minute rotating resend; two definite SMTP attempts followed by ADMIN-only manual email-content retrieval; safe partial-failure recovery; ADMIN navigation and route isolation; removal of role catalogue. Retail's server-stored cart is included in preview; browser-only unconfirmed workshop cart is excluded. This approval does not assert production code, tests or SMTP delivery are complete.
+
+**Excluded and deferred:** FE-001 owns two consumer read interfaces for ADMIN MEMBER review/JSON. Local-only source-package mocks return visibly labelled DEMO/UNAVAILABLE records and never authorize retirement. The previously proposed FE-08 FR-08-053/T088–T090 and FE-003.1 FR-059/T174–T176 artifact edits were withdrawn from their feature packs; the two `local-notes` handoffs ask their owners for future live data. T117 MEMBER retirement, email release, live source classification and the cross-feature acceptance/retirement fence require separate owner decisions and a new scoped approval. FE-007's invitation contract is approved in its own record. Neither this mock nor this approval authorizes the full MEMBER replacement flow.
+
+---
+
+## Revision R-404 — Browser route masking and five-role baseline
+
+**Revision date**: 2026-11-20
+**Approved by (Tech Lead)**: **Phan Sơn**
+**Authority/evidence**: explicit approval in this specification session on 2026-11-20.
+**Decision**: **APPROVED FOR IMPLEMENTATION OF RE-OPENED T074 AND T076 ONLY**.
+
+This approval covers:
+
+- The five fixed roles `MEMBER`, `STAFF`, `MANAGER`, `ADMIN`, and `CARRIER`; CARRIER inherits neither Member commerce/history nor internal operational authority.
+- The FE-001 self-service allowlist: MEMBER/STAFF/MANAGER/ADMIN may use Profile, Address, Email and Password; CARRIER may use Password only.
+- Existing account bootstrap is the sole role/status source for browser route masking. Technical resolution failure remains at the current URL with unavailable/retry; no role cache or new REST endpoint is introduced.
+- A signed-in actor outside an internal route allowlist, or with `SUSPENDED`/`PENDING_SETUP` status, is replaced to `/404` before protected page render/request. `/404` is generic and has only Home navigation. Post-entry API `403` remains feature-owned.
+- The approved revision artifacts are `spec-general.md`, `route-access-matrix.md`, and FE-001 `spec.md`, `plan.md`, `research.md`, `quickstart.md`, `tasks.md`, `verification.md`, and `design/{architecture,workflows,ui-flow}.md`.
+
+**Implementation condition**: T074/T076 must produce fresh V-15 evidence. The removed pre-R-404 `403 → Home` evidence must not be reused. This approval does not authorize REST/OpenAPI, schema, backend authorization, Firebase project or Hosting changes.
+
+---
+
 ## Revision R-CAR — CARRIER (GHTK) account and demo fixture
 
 **Revision date**: 2026-11-20

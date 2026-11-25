@@ -2,10 +2,13 @@ import { useState, useCallback, useRef } from 'react';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
 import { setStoredGuestSession, getStoredGuestSession, clearStoredGuestSession } from '../api/workshopRingDesignApi';
 import { newCommandId } from '../../../shared/api/http';
+import { useT } from '../../../shared/i18n/I18nProvider';
 import { getErrorMessage } from '../domain/designErrors';
+import { messages } from '../messages';
 
 export function useWorkshopDesignCommand(isAuthenticated = false) {
   const api = useWorkshopRingDesignApi();
+  const t = useT(messages);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const currentKeyRef = useRef(null);
@@ -34,15 +37,30 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      resetCommandKey();
       if (err?.status === 401) {
         clearStoredGuestSession();
+        // If guest session expired, retry once with fresh guest session
+        if (!isAuthenticated) {
+          try {
+            const retryKey = newCommandId();
+            const retryRes = await api.createDesign(retryKey, createPayload, null, false);
+            if (retryRes && retryRes.guestSession) {
+              setStoredGuestSession(retryRes.guestSession);
+            }
+            return retryRes;
+          } catch (retryErr) {
+            setError(getErrorMessage(retryErr, t));
+            throw retryErr;
+          }
+        }
       }
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey]);
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
 
   const executeSave = useCallback(async (designId, savePayload, expectedVersion) => {
     setLoading(true);
@@ -54,15 +72,16 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       resetCommandKey();
       return res;
     } catch (err) {
+      resetCommandKey();
       if (err?.status === 401) {
         clearStoredGuestSession();
       }
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey]);
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
 
   const executeEvaluate = useCallback(async (designId, savePayload, expectedVersion) => {
     setLoading(true);
@@ -77,12 +96,12 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       if (err?.status === 401) {
         clearStoredGuestSession();
       }
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey]);
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
 
   const executeArchive = useCallback(async (designId, expectedVersion) => {
     setLoading(true);
@@ -97,12 +116,12 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       if (err?.status === 401) {
         clearStoredGuestSession();
       }
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
       throw err;
     } finally {
       setLoading(false);
     }
-  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey]);
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
 
   const executeAttach = useCallback(async (designId, attachPayload, expectedVersion) => {
     setLoading(true);
@@ -111,6 +130,26 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
     try {
       const guestSession = getStoredGuestSession();
       const res = await api.attachToBooking(key, designId, attachPayload, expectedVersion, guestSession, isAuthenticated);
+      resetCommandKey();
+      return res;
+    } catch (err) {
+      if (err?.status === 401) {
+        clearStoredGuestSession();
+      }
+      setError(getErrorMessage(err, t));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [api, isAuthenticated, getOrCreateCommandKey, resetCommandKey, t]);
+
+  const executeRestore = useCallback(async (designId, expectedVersion) => {
+    setLoading(true);
+    setError(null);
+    const key = getOrCreateCommandKey();
+    try {
+      const guestSession = getStoredGuestSession();
+      const res = await api.restoreDesign(key, designId, expectedVersion, guestSession, isAuthenticated);
       resetCommandKey();
       return res;
     } catch (err) {
@@ -132,6 +171,7 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
     executeSave,
     executeEvaluate,
     executeArchive,
+    executeRestore,
     executeAttach,
   };
 }

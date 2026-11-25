@@ -154,7 +154,8 @@ public class LoyaltyProductTargetAdapter implements PromotionTargetPort {
                     continue;
                 }
                 boolean belongs = productTargets.isEmpty() || productTargets.contains(product.getId());
-                boolean publicVisible = visible.contains(product.getId());
+                // FR-070 (Session 2026-11-23): a size added later is not public until its price is applied.
+                boolean publicVisible = visible.contains(product.getId()) && variant.hasAppliedPrice();
                 facts.add(new TargetFact(target.dimension(), target.targetKey(), true, belongs, product.isDeleted(),
                         publicVisible, publicVisible && variant.isSaleEnabled()));
             }

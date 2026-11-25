@@ -130,15 +130,22 @@ public class ProductPublicationService {
                         .map(ProductVariant::getAppliedProposalId).filter(Objects::nonNull).toList()).stream()
                 .collect(Collectors.toMap(PriceProposal::getId, Function.identity()));
         Long initialReviewId = initialReview == null ? null : initialReview.getId();
+        List<ErrorResponse.FieldError> unpriced = new ArrayList<>();
         for (ProductVariant variant : locked.variants()) {
             PriceProposal applied = variant.getAppliedProposalId() == null ? null
                     : appliedProposals.get(variant.getAppliedProposalId());
             boolean valid = variant.hasAppliedPrice() && applied != null && applied.getState() == ReviewState.APPROVED
                     && (product.hasEverBeenPublished() || Objects.equals(applied.getReviewId(), initialReviewId));
             if (!valid) {
-                missing.add(new ErrorResponse.FieldError("variants[" + variant.getSku() + "].appliedPrice",
+                unpriced.add(new ErrorResponse.FieldError("variants[" + variant.getSku() + "].appliedPrice",
                         "Every size needs an applied approved price."));
             }
+        }
+        // FR-017/FR-070 (Session 2026-11-23): once published, a size added later whose price is still pending is
+        // hidden instead of blocking publication; at least one size must still have a valid applied price.
+        boolean anyPriced = unpriced.size() < locked.variants().size();
+        if (!product.hasEverBeenPublished() || !anyPriced) {
+            missing.addAll(unpriced);
         }
         return missing;
     }

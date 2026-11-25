@@ -17,6 +17,8 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 COPY firebase-service-account.json* ./
 
-ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
+# The JVM must start in Vietnam time: DATE columns (workshop_date) are read and written in that zone.
+ENV TZ=Asia/Ho_Chi_Minh
+ENV JAVA_OPTS="-XX:+UseG1GC -Xms512m -Xmx1536m -Duser.timezone=Asia/Ho_Chi_Minh"
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

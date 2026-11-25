@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router';
-import { useT } from '../../../shared/i18n/I18nProvider';
+import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import {
   ErrorNotice,
   Field,
@@ -11,11 +11,14 @@ import {
 } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { designReviewMessages } from '../messages';
-import { formatDateTime, formatVnd } from '../rules';
+import { wholeAmount } from '../format';
 
 export default function PriceProposalAiPage() {
   const { proposalId } = useParams();
   const t = useT(designReviewMessages);
+  const fmt = useFormat();
+  const formatDateTime = fmt.dateTime;
+  const formatVnd = amount => (amount === undefined || amount === null || Number.isNaN(Number(amount)) ? '—' : fmt.money(wholeAmount(amount)));
   const api = useDesignReviewApi();
   const command = useCommand();
 
@@ -36,7 +39,7 @@ export default function PriceProposalAiPage() {
     );
     if (res.ok && res.result) {
       setData(res.result);
-      setSuccessMsg('Đã nhận gợi ý giá AI mới.');
+      setSuccessMsg(t('pp.suggestionReceived'));
     }
   }
 
@@ -58,7 +61,7 @@ export default function PriceProposalAiPage() {
 
     if (res.ok && res.result) {
       setData(res.result);
-      setSuccessMsg('Đã ghi nhận quyết định giá thành công.');
+      setSuccessMsg(t('pp.decisionRecorded'));
     }
   }
 
@@ -89,13 +92,13 @@ export default function PriceProposalAiPage() {
       {/* Admin technical audit view */}
       {isAdminAudit && data && (
         <section className="card" style={{ padding: '1.25rem', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
-          <h3>Thông tin kiểm toán kỹ thuật</h3>
+          <h3>{t('pp.auditTitle')}</h3>
           <ul>
-            <li><strong>Mã định danh gợi ý:</strong> {data.id || '—'}</li>
-            <li><strong>Trạng thái gợi ý:</strong> {data.suggestionStatus || '—'}</li>
-            <li><strong>Mã tương quan Provider:</strong> <code>{data.providerCorrelationId || '—'}</code></li>
-            <li><strong>Thời gian tạo:</strong> {formatDateTime(data.createdAt)}</li>
-            <li><strong>Thời gian chốt:</strong> {formatDateTime(data.decidedAt)}</li>
+            <li><strong>{t('pp.auditId')}:</strong> {data.id || '—'}</li>
+            <li><strong>{t('pp.auditStatus')}:</strong> {data.suggestionStatus || '—'}</li>
+            <li><strong>{t('pp.auditCorrelation')}:</strong> <code>{data.providerCorrelationId || '—'}</code></li>
+            <li><strong>{t('pp.createdAt')}:</strong> {formatDateTime(data.createdAt)}</li>
+            <li><strong>{t('pp.decidedAt')}:</strong> {formatDateTime(data.decidedAt)}</li>
           </ul>
         </section>
       )}
@@ -105,7 +108,7 @@ export default function PriceProposalAiPage() {
         <div className="stack" style={{ gap: '1.5rem' }}>
           {!data && (
             <div className="empty-state">
-              <p>Chưa có gợi ý giá AI cho đề xuất này.</p>
+              <p>{t('pp.noSuggestion')}</p>
               <button
                 type="button"
                 className="button primary"
@@ -121,8 +124,8 @@ export default function PriceProposalAiPage() {
             <>
               <section className="card" style={{ padding: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h3 style={{ margin: 0 }}>Gợi ý giá từ AI</h3>
-                  <span className="badge-tag badge-warning">Cố vấn nội bộ</span>
+                  <h3 style={{ margin: 0 }}>{t('pp.cardTitle')}</h3>
+                  <span className="badge-tag badge-warning">{t('pp.advisoryBadge')}</span>
                 </div>
 
                 <p style={{ fontSize: '1.35rem', fontWeight: 'bold', color: '#0f766e', margin: '0.75rem 0' }}>
@@ -142,7 +145,7 @@ export default function PriceProposalAiPage() {
                     onClick={handleRequestSuggestion}
                     disabled={command.pending}
                   >
-                    {t('priceProposal.requestButton')} (Làm mới)
+                    {t('priceProposal.requestButton')} ({t('pp.refresh')})
                   </button>
                 </div>
               </section>
@@ -154,14 +157,14 @@ export default function PriceProposalAiPage() {
                 {data.managerDecision ? (
                   <div>
                     <p>
-                      <strong>Quyết định đã ghi nhận:</strong>{' '}
+                      <strong>{t('pp.recorded')}:</strong>{' '}
                       <span className="badge-tag badge-status">{data.managerDecision}</span>
                     </p>
                     {data.finalPrice && (
-                      <p><strong>Giá chốt cuối cùng:</strong> {formatVnd(data.finalPrice)}</p>
+                      <p><strong>{t('pp.finalPrice')}:</strong> {formatVnd(data.finalPrice)}</p>
                     )}
                     {data.decidedAt && (
-                      <p className="muted small">Thời gian ghi nhận: {formatDateTime(data.decidedAt)}</p>
+                      <p className="muted small">{t('pp.recordedAt')}: {formatDateTime(data.decidedAt)}</p>
                     )}
                   </div>
                 ) : (
@@ -183,7 +186,7 @@ export default function PriceProposalAiPage() {
                       <Field
                         label={t('priceProposal.finalPriceLabel')}
                         error={formError}
-                        hint={decision === 'ACCEPTED' ? 'Mặc định lấy giá do AI gợi ý nếu để trống.' : 'Bắt buộc nhập số tiền khi điều chỉnh giá.'}
+                        hint={decision === 'ACCEPTED' ? t('pp.hintAccepted') : t('pp.hintAdjusted')}
                       >
                         <input
                           type="number"

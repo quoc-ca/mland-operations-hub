@@ -18,13 +18,13 @@ describe('Session board date filter', () => {
       'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER', fullName: 'M' }),
       'GET /api/v1/workshop-sessions': json(200, []),
     });
-    renderRoutes(operationsRoutes, { path: '/operations/sessions' });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions' });
 
     const from = await screen.findByLabelText('From');
     expect(from).toHaveValue(todayLocal());
     expect(screen.getByLabelText('To')).toHaveValue('');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Xóa lọc' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(screen.getByLabelText('From')).toHaveValue('');
   });
 });

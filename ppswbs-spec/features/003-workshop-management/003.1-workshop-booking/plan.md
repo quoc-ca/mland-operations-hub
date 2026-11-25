@@ -1,7 +1,7 @@
 # Implementation Plan: Customer Workshop Booking Core
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-19
+**Date updated**: 2026-11-25
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -323,6 +323,12 @@ migration, no new module dependency: `workshopbooking` already reads
 `replaceTicketSessions` reads the new location; the old copy is untouched; a
 cart over an `INACTIVE` pair holds nothing); component tests for FR-056 and
 FR-057; `ApplicationModules.verify()` and `WorkshopBookingContractIT`.
+
+## FE-001 MEMBER replacement provider (decision 2026-11-25, spec FR-059–FR-062)
+
+- `workshopbooking.facade` implements FE-001's `WorkshopMemberReplacementReader`; it reads only 003.1 tables by `buyer_member_account_id` and reaches Operations and Settlement through their facades (UNAVAILABLE on failure). `MockMemberReplacementBookingReader` stays `local`-only.
+- The new-booking block is one extra check at the start of group creation, under the existing group-creation lock, against a read on `AccountFacade` (proposed, task T174). Module direction stays one way (booking to account); no event and no new table.
+- Verification: `MemberReplacementReaderIT`, `BookingGroupRetirementBlockIT`, `ApplicationModules.verify()` (tasks T175–T177, SC-010).
 
 ## Verification plan
 

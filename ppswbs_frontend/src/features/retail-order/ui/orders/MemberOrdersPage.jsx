@@ -1,25 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
-import { useFormat } from '../../../../shared/i18n/I18nProvider';
-import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../../../shared/ui/components';
+import { useFormat, useT } from '../../../../shared/i18n/I18nProvider';
+import { ErrorNotice, Loading, useCommand, useResource } from '../../../../shared/ui/components';
+import { FlashToast } from '../FlashToast';
 import { useRetailApi } from '../../application/useRetailApi';
-import { cardToggleProps, displayTime, orderCode, OrderMoneyRows } from '../orderCode';
+import { useReviewManagementApi } from '../../../reviewmanagement/api/useReviewManagementApi';
+import { orderCode, OrderMoneyRows, useDisplayTime } from '../orderCode';
 import { ProductThumb } from '../ProductThumb';
+import { messages as retailMessages } from '../../messages';
 
 /**
  * FE-08 FR-08-050: "Đơn mua" in marketplace-style tabs, one card per branch order, newest first (Session 2026-11-18).
  * GHTK orders go Chờ lấy hàng → Chờ giao hàng → Đã giao; pickup orders wait in Chờ nhận tại cửa hàng.
  */
-const TABS = [
-  { key: 'ALL', label: 'Tất cả' },
-  { key: 'AWAITING_PAYMENT', label: 'Chờ thanh toán' },
-  { key: 'AWAITING_COLLECTION', label: 'Chờ lấy hàng' },
-  { key: 'AWAITING_DELIVERY', label: 'Chờ giao hàng' },
-  { key: 'AWAITING_PICKUP', label: 'Chờ nhận tại cửa hàng' },
-  { key: 'COMPLETED', label: 'Đã giao' },
-  { key: 'CANCELLED', label: 'Đã hủy' },
-];
+const TABS = ['ALL', 'AWAITING_PAYMENT', 'AWAITING_COLLECTION', 'AWAITING_DELIVERY', 'AWAITING_PICKUP', 'COMPLETED', 'CANCELLED'];
 const DELIVERING = ['HANDED_TO_CARRIER', 'IN_TRANSIT'];
 
 export function orderTab(order) {
@@ -31,15 +26,16 @@ export function orderTab(order) {
   return 'AWAITING_PICKUP';
 }
 
-export function statusLabel(order, tab = orderTab(order)) {
-  if (tab === 'CANCELLED') return order.paymentState === 'EXPIRED' ? 'Đã hủy · quá hạn' : 'Đã hủy';
-  if (tab === 'COMPLETED') return order.fulfilmentState === 'DELIVERED' ? 'Giao thành công' : 'Đã nhận tại cửa hàng';
-  if (tab === 'AWAITING_PAYMENT') return 'Chờ thanh toán';
-  if (tab === 'AWAITING_COLLECTION') return order.fulfilmentState === 'READY_FOR_CARRIER' ? 'Chờ GHTK lấy hàng' : 'Đang chuẩn bị hàng';
-  if (tab === 'AWAITING_DELIVERY') return 'Đang giao hàng';
+/** The status wording of a branch order in the language of `t`. */
+export function statusLabel(order, t, tab = orderTab(order)) {
+  if (tab === 'CANCELLED') return order.paymentState === 'EXPIRED' ? t('orders.status.cancelledExpired') : t('orders.tab.CANCELLED');
+  if (tab === 'COMPLETED') return order.fulfilmentState === 'DELIVERED' ? t('common.delivered') : t('orders.pickedUpInStore');
+  if (tab === 'AWAITING_PAYMENT') return t('orders.status.toPay');
+  if (tab === 'AWAITING_COLLECTION') return order.fulfilmentState === 'READY_FOR_CARRIER' ? t('orders.status.waitingGhtkPickup') : t('orders.status.preparing');
+  if (tab === 'AWAITING_DELIVERY') return t('orders.status.beingDelivered');
   const ready = order.fulfilmentState === 'READY_FOR_PICKUP';
-  if (order.paymentState !== 'PAID') return ready ? 'Sẵn sàng · trả tiền khi nhận' : 'Trả tiền khi nhận';
-  return ready ? 'Sẵn sàng nhận hàng' : 'Đang chuẩn bị hàng';
+  if (order.paymentState !== 'PAID') return ready ? t('orders.status.readyPayOnPickup') : t('orders.status.payOnPickup');
+  return ready ? t('orders.status.readyForPickup') : t('orders.status.preparing');
 }
 
 /** The tab to open after an order was placed or paid: its delivery kind when all its branch orders agree, else "Tất cả". */
@@ -58,16 +54,30 @@ const countdown = (deadline, now) => {
 };
 
 export default function MemberOrdersPage() {
-  return <main className="container public-page retail-page retail-shopping"><div className="retail-page-heading"><div><p className="retail-kicker">FE-08 · MEMBER</p><h1>Đơn mua của tôi</h1></div><Link to="/products" className="retail-back-link">← Tiếp tục mua sắm</Link></div><RequireSession requiredText="Đăng nhập để xem đơn mua."><OrdersContent /></RequireSession></main>;
+  const t = useT(retailMessages);
+  return <main className="container public-page retail-page retail-shopping"><div className="retail-page-heading"><div><p className="retail-kicker">{t('common.memberKicker')}</p><h1>{t('orders.myOrders')}</h1></div><Link to="/products" className="retail-back-link">{t('common.continueShopping')}</Link></div><RequireSession requiredText={t('orders.signInToSeeYour')}><OrdersContent /></RequireSession></main>;
 }
 
 function OrdersContent() {
   const api = useRetailApi();
   const format = useFormat();
+  const t = useT(retailMessages);
+  const time = useDisplayTime();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const orders = useResource(() => api.listOrders(), []);
   const branches = useResource(() => api.listBranches(), []);
+  // FE-11 review sources: which delivered order lines are reviewed already (Session 2026-11-23, "Đánh giá" button).
+  const reviewApi = useReviewManagementApi();
+  const reviewSources = useResource(() => reviewApi.listEligibleSources(), []);
+  const reviewLines = useMemo(() => (reviewSources.data?.items || reviewSources.data?.sources || [])
+    .filter(source => source.targetType === 'RETAIL_PRODUCT' && source.orderId)
+    .reduce((acc, source) => {
+      const entry = acc.get(String(source.orderId)) || { total: 0, pending: 0 };
+      entry.total += 1;
+      if (!source.alreadyReviewed && !source.reviewId) entry.pending += 1;
+      return acc.set(String(source.orderId), entry);
+    }, new Map()), [reviewSources.data]);
   const action = useCommand();
   const [tab, setTab] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -78,7 +88,7 @@ function OrdersContent() {
   const [now, setNow] = useState(() => Date.now());
   const arrival = useRef(null);
   const branchNames = useMemo(() => new Map((branches.data?.items || branches.data || []).map(item => [String(item.id), item.name])), [branches.data]);
-  const branchName = locationId => branchNames.get(String(locationId)) || `Chi nhánh #${locationId}`;
+  const branchName = locationId => branchNames.get(String(locationId)) || t('common.branchNumber', { locationId });
   // Newest first (Session 2026-11-18).
   const values = useMemo(() => (Array.isArray(orders.data) ? orders.data : orders.data?.items || [])
     .slice().sort((a, b) => String(b.orderedAt || '').localeCompare(String(a.orderedAt || ''))), [orders.data]);
@@ -104,8 +114,8 @@ function OrdersContent() {
       setTab('AWAITING_PAYMENT');
       const deadline = placed[0].paymentDeadline;
       setNotice({ kind: 'warn', text: deadline && placed[0].paymentState !== 'PAID'
-        ? `Bạn chưa hoàn tất thanh toán. Đơn và ưu đãi được giữ đến ${displayTime(deadline)}, bấm Thanh toán để tiếp tục.`
-        : 'Bạn chưa hoàn tất thanh toán.' });
+        ? t('orders.paymentIsNotCompleteThe', { deadline: time(deadline) })
+        : t('orders.paymentIsNotComplete') });
       return undefined;
     }
     // Back from VNPay without paying (browser Back) or an order not paid yet: show it in "Chờ thanh toán".
@@ -120,20 +130,21 @@ function OrdersContent() {
     if (!info.txnRef && cashPlaced.length) {
       arrival.current = false;
       const total = cashPlaced.reduce((sum, order) => sum + BigInt(order.payableAmount || '0'), 0n).toString();
-      setNotice({ kind: 'success', text: `Đã đặt hàng. Đến ${cashPlaced.length > 1 ? `${cashPlaced.length} chi nhánh` : branchName(cashPlaced[0].locationId)} trước ${displayTime(cashPlaced[0].counterPaymentDeadline)} để trả ${format.money(total)} tiền mặt và nhận hàng.` });
+      const where = cashPlaced.length > 1 ? t('common.branches', { count: cashPlaced.length }) : branchName(cashPlaced[0].locationId);
+      setNotice({ kind: 'success', text: t('orders.orderPlacedGoToBefore', { where, counterPaymentDeadline: time(cashPlaced[0].counterPaymentDeadline), total: format.money(total) }) });
       return undefined;
     }
     // VNPay may confirm a moment after the browser returns: look again a few times before showing the result.
     if (info.txnRef && placed.some(order => order.paymentState !== 'PAID') && info.tries < 3) {
       info.tries += 1;
-      setNotice({ kind: 'info', text: 'Đang xác nhận thanh toán với VNPay…' });
+      setNotice({ kind: 'info', text: t('orders.confirmingThePaymentWithVnpay') });
       const timer = setTimeout(() => orders.reload(), 2000);
       return () => clearTimeout(timer);
     }
     arrival.current = false;
     if (info.txnRef) setNotice(placed.every(order => order.paymentState === 'PAID')
-      ? { kind: 'success', text: 'Thanh toán thành công. Mland đang chuẩn bị hàng cho bạn.' }
-      : { kind: 'warn', text: 'Chưa nhận được kết quả thanh toán từ VNPay. Trạng thái đơn sẽ tự cập nhật, bạn có thể tải lại trang sau ít phút.' });
+      ? { kind: 'success', text: t('orders.paymentSuccessfulMlandIsPreparing') }
+      : { kind: 'warn', text: t('orders.noPaymentResultFromVnpay') });
     return undefined;
   }, [orders.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -164,14 +175,14 @@ function OrdersContent() {
   });
   // A cash branch order is cancelled on its own; the other branch orders of the same checkout stay (FR-08-046).
   const cancelCashOrder = order => {
-    if (!window.confirm(`Hủy đơn ${orderCode(order)}? Sản phẩm sẽ được trả lại giỏ hàng.`)) return;
+    if (!window.confirm(t('orders.cancelOrderTheItemsGo', { order: orderCode(order) }))) return;
     perform(order, key => api.cancelOrder(order.id, key), () => orders.reload());
   };
   const cancel = order => {
     const together = ordersPerCheckout.get(order.checkoutId) || 1;
     const text = together > 1
-      ? `Đơn này được đặt cùng ${together - 1} đơn khác. Hủy sẽ hủy cả ${together} đơn của lần đặt đó, trả hàng về giỏ và hoàn lại voucher, điểm. Tiếp tục?`
-      : `Hủy đơn ${orderCode(order)}? Sản phẩm sẽ được trả lại giỏ hàng, voucher và điểm được hoàn lại.`;
+      ? t('orders.thisOrderWasPlacedWith', { others: together - 1, together })
+      : t('orders.cancelOrderTheItemsGo2', { order: orderCode(order) });
     if (!window.confirm(text)) return;
     perform(order, key => api.cancelCheckout(order.checkoutId, key), () => { setNotice(null); orders.reload(); });
   };
@@ -188,7 +199,7 @@ function OrdersContent() {
       try {
         cart = await api.addLine({ variantId: item.variantId, locationId: order.locationId, quantity: item.quantity }); // eslint-disable-line no-await-in-loop
       } catch {
-        skipped.push(`${item.productName || `Sản phẩm #${item.variantId}`} (size ${item.size ?? '—'})`);
+        skipped.push(t('orders.skippedItem', { name: item.productName || t('common.productNumber', { variantId: item.variantId }), size: item.size ?? '—' }));
       }
     }
     const lineIds = (order.items || []).map(item => lineOf(cart, item)).filter(Boolean).map(line => String(line.id));
@@ -198,11 +209,11 @@ function OrdersContent() {
   if (orders.loading && !orders.data) return <Loading />;
   if (orders.error) return <ErrorNotice error={orders.error} onRetry={orders.reload} />;
   return <section className="order-tabs-page">
-    <div className="order-tabs" role="tablist" aria-label="Trạng thái đơn mua">{TABS.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{item.label}{item.key !== 'ALL' && counts[item.key] ? <span className="order-tab-count">{counts[item.key]}</span> : null}</button>)}</div>
-    <input className="order-search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Tìm theo mã đơn (ML…) hoặc tên sản phẩm" aria-label="Tìm đơn mua" />
-    {notice && (notice.kind === 'success' ? <SuccessNotice>{notice.text}</SuccessNotice> : <p className={`order-hint order-arrival${notice.kind === 'warn' ? ' warn' : ''}`} role="status">{notice.text}</p>)}
+    <div className="order-tabs" role="tablist" aria-label={t('orders.orderStatus')}>{TABS.map(key => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{t(`orders.tab.${key}`)}{key !== 'ALL' && counts[key] ? <span className="order-tab-count">{counts[key]}</span> : null}</button>)}</div>
+    <input className="order-search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('orders.searchByOrderCodeMl')} aria-label={t('orders.searchOrders')} />
+    <FlashToast message={notice} onDone={() => setNotice(null)} />
     {action.error && <ErrorNotice error={action.error} onRetry={action.retry} onReload={orders.reload} />}
-    {visible.length === 0 && <div className="order-empty"><p>{values.length ? 'Chưa có đơn hàng nào ở mục này.' : 'Bạn chưa có đơn mua nào.'}</p>{!values.length && <Link className="button primary" to="/products">Mua sắm ngay</Link>}</div>}
+    {visible.length === 0 && <div className="order-empty"><p>{values.length ? t('orders.noOrdersInThisTab') : t('orders.youHaveNoOrdersYet')}</p>{!values.length && <Link className="button primary" to="/products">{t('orders.shopNow')}</Link>}</div>}
     {visible.map(order => {
       const current = orderTab(order);
       const cash = order.paymentMethod === 'CASH_AT_COUNTER';
@@ -213,47 +224,64 @@ function OrdersContent() {
       const unpaidVnpay = current === 'AWAITING_PAYMENT' && order.checkoutId && ['ACCEPTED_UNPAID', 'PAYMENT_INITIATED'].includes(order.paymentState);
       const held = unpaidVnpay && (left !== null || !order.paymentDeadline);
       const ready = order.fulfilmentState === 'READY_FOR_PICKUP';
-      return <article className={`order-card${open ? ' open' : ''}${order.checkoutId && order.checkoutId === placedCheckout ? ' just-placed' : ''}`} key={order.id} {...cardToggleProps(open, () => setOpenId(open ? null : order.id))}>
+      // Thinh, 2026-11-23: only "Bấm để xem chi tiết" opens the order details; in every tab the product opens
+      // its product page.
+      const toggle = () => setOpenId(open ? null : order.id);
+      const productPath = item => (item.productId ? `/products/${item.productId}` : null);
+      return <article className={`order-card${open ? ' open' : ''}${order.checkoutId && order.checkoutId === placedCheckout ? ' just-placed' : ''}`} key={order.id}>
         <div className="order-card-top">
           <span className="order-code">{orderCode(order)}</span>
-          <span className="order-branch">{branchName(order.locationId)}{order.fulfilmentMethod === 'GHTK' ? ' · Giao qua GHTK' : ' · Nhận tại cửa hàng'}</span>
-          <span className={`order-pill pill-${current.toLowerCase()}`}>{statusLabel(order, current)}</span>
+          <span className="order-branch">{branchName(order.locationId)}{order.fulfilmentMethod === 'GHTK' ? t('orders.ghtkDelivery') : t('orders.storePickup')}</span>
+          <span className={`order-pill pill-${current.toLowerCase()}`}>{statusLabel(order, t, current)}</span>
         </div>
-        <ul className="order-items">{(order.items || []).map(item => <li key={`${order.id}-${item.variantId}`}>
-          <ProductThumb className="order-thumb" productId={item.productId} />
-          <span className="order-item-name"><strong>{item.productName || `Sản phẩm #${item.variantId}`}</strong><small>Size {item.size ?? '—'} · x{item.quantity}</small></span>
-          <b>{item.lineTotal ? format.money(item.lineTotal) : ''}</b>
-        </li>)}</ul>
+        <ul className="order-items">{(order.items || []).map(item => {
+          const path = productPath(item);
+          const name = <><strong>{item.productName || t('common.productNumber', { variantId: item.variantId })}</strong><small>{t('common.size', { size: item.size ?? '—' })} · x{item.quantity}</small></>;
+          return <li key={`${order.id}-${item.variantId}`}>
+            {path
+              ? <Link to={path} className="order-item-link" tabIndex={-1} aria-hidden="true"><ProductThumb className="order-thumb" productId={item.productId} /></Link>
+              : <ProductThumb className="order-thumb" productId={item.productId} />}
+            {path
+              ? <Link to={path} className="order-item-name order-item-link" title={t('orders.viewProduct')}>{name}</Link>
+              : <span className="order-item-name">{name}</span>}
+            <b>{item.lineTotal ? format.money(item.lineTotal) : ''}</b>
+          </li>;
+        })}</ul>
         {unpaidVnpay && (held
-          ? <p className="order-hint pay-countdown">Thanh toán trong <strong className="countdown">{left || '15:00'}</strong> bằng VNPay để giữ hàng và ưu đãi.{together > 1 ? ` Thanh toán chung cho ${together} đơn của cùng lần đặt.` : ''}</p>
-          : <p className="order-hint warn">Đã hết thời gian giữ hàng. Đơn sẽ tự hủy và hoàn lại voucher, điểm.</p>)}
-        {current === 'AWAITING_PICKUP' && !cash && <p className="order-hint">{ready ? <>Hàng đã sẵn sàng. Đọc mã <strong>{orderCode(order)}</strong> tại quầy {branchName(order.locationId)} để nhận hàng.</> : 'Đã thanh toán. Mland đang chuẩn bị hàng, khi trạng thái là “Sẵn sàng nhận hàng” bạn có thể đến lấy.'}</p>}
-        {current === 'AWAITING_PICKUP' && cash && <p className="order-hint warn">Đến {branchName(order.locationId)} trả <strong>{format.money(order.payableAmount)}</strong> tiền mặt trước <strong>{displayTime(order.counterPaymentDeadline)}</strong>. Quá hạn đơn tự hủy.</p>}
-        {current === 'COMPLETED' && order.completedAt && <p className="order-hint">{order.fulfilmentMethod === 'GHTK' ? 'Giao thành công' : 'Đã nhận tại cửa hàng'} lúc <strong>{displayTime(order.completedAt)}</strong>.</p>}
-        {current === 'AWAITING_COLLECTION' && <p className="order-hint">{order.fulfilmentState === 'READY_FOR_CARRIER' ? 'Hàng đã đóng gói, đang chờ GHTK đến lấy.' : 'Mland đang chuẩn bị hàng để giao cho GHTK.'}</p>}
+          ? <p className="order-hint pay-countdown">{t('orders.payWithin')} <strong className="countdown">{left || '10:00'}</strong> {t('orders.byVnpayToKeepThe')}{together > 1 ? t('orders.onePaymentForTheOrders', { together }) : ''}</p>
+          : <p className="order-hint warn">{t('orders.theHoldHasEndedThe')}</p>)}
+        {current === 'AWAITING_PICKUP' && !cash && <p className="order-hint">{ready ? <>{t('orders.yourOrderIsReadyGive')} <strong>{orderCode(order)}</strong> {t('orders.atTheCounterToCollect', { branch: branchName(order.locationId) })}</> : t('orders.paidMlandIsPreparingYour')}</p>}
+        {current === 'AWAITING_PICKUP' && cash && <p className="order-hint warn">{t('orders.goToAndPay', { branch: branchName(order.locationId) })} <strong>{format.money(order.payableAmount)}</strong> {t('orders.inCashBefore')} <strong>{time(order.counterPaymentDeadline)}</strong>. {t('orders.afterThatTheOrderCancels')}</p>}
+        {current === 'COMPLETED' && order.completedAt && <p className="order-hint">{order.fulfilmentMethod === 'GHTK' ? t('common.delivered') : t('orders.pickedUpInStore')} {t('orders.at')} <strong>{time(order.completedAt)}</strong>.</p>}
+        {current === 'AWAITING_COLLECTION' && <p className="order-hint">{order.fulfilmentState === 'READY_FOR_CARRIER' ? t('orders.packedAndWaitingForGhtk') : t('orders.mlandIsPreparingYourOrder')}</p>}
         {open && <dl className="order-detail">
-          <div><dt>Mã đơn</dt><dd>{orderCode(order)}</dd></div>
-          <div><dt>Thời gian đặt</dt><dd>{displayTime(order.orderedAt)}</dd></div>
-          <div><dt>Chi nhánh</dt><dd>{branchName(order.locationId)}</dd></div>
-          <div><dt>Nhận hàng</dt><dd>{order.fulfilmentMethod === 'GHTK' ? 'Giao tận nơi qua GHTK' : 'Nhận tại cửa hàng'}</dd></div>
-          <div><dt>Thanh toán</dt><dd>{cash ? 'Tiền mặt tại quầy' : 'VNPay'}</dd></div>
-          {order.paidAt && <div><dt>Thời gian thanh toán</dt><dd>{displayTime(order.paidAt)}</dd></div>}
-          {order.completedAt && <div><dt>{order.fulfilmentMethod === 'GHTK' ? 'Giao thành công lúc' : 'Nhận hàng lúc'}</dt><dd>{displayTime(order.completedAt)}</dd></div>}
-          {cash && order.counterPaymentDeadline && current !== 'COMPLETED' && current !== 'CANCELLED' && <div><dt>Hạn giữ hàng</dt><dd>{displayTime(order.counterPaymentDeadline)}</dd></div>}
-          {unpaidVnpay && order.paymentDeadline && <div><dt>Hạn thanh toán</dt><dd>{displayTime(order.paymentDeadline)}</dd></div>}
+          <div><dt>{t('common.orderCode')}</dt><dd>{orderCode(order)}</dd></div>
+          <div><dt>{t('common.orderedAt')}</dt><dd>{time(order.orderedAt)}</dd></div>
+          <div><dt>{t('common.branch')}</dt><dd>{branchName(order.locationId)}</dd></div>
+          <div><dt>{t('orders.delivery')}</dt><dd>{order.fulfilmentMethod === 'GHTK' ? t('common.homeDeliveryByGhtk') : t('common.storePickup')}</dd></div>
+          <div><dt>{t('common.payment')}</dt><dd>{cash ? t('common.cashAtCounter') : 'VNPay'}</dd></div>
+          {order.paidAt && <div><dt>{t('orders.paidAt')}</dt><dd>{time(order.paidAt)}</dd></div>}
+          {order.completedAt && <div><dt>{order.fulfilmentMethod === 'GHTK' ? t('orders.deliveredAt') : t('orders.pickedUpAt')}</dt><dd>{time(order.completedAt)}</dd></div>}
+          {cash && order.counterPaymentDeadline && current !== 'COMPLETED' && current !== 'CANCELLED' && <div><dt>{t('orders.heldUntil')}</dt><dd>{time(order.counterPaymentDeadline)}</dd></div>}
+          {unpaidVnpay && order.paymentDeadline && <div><dt>{t('orders.payBy')}</dt><dd>{time(order.paymentDeadline)}</dd></div>}
           <OrderMoneyRows order={order} format={format} together={together} />
         </dl>}
         <div className="order-card-bottom">
-          <span className="order-more">{open ? 'Thu gọn ▲' : 'Bấm để xem chi tiết ▼'}</span>
-          <span className="order-sum">Thành tiền <strong>{format.money(order.payableAmount)}</strong></span>
+          <button type="button" className="order-more" aria-expanded={open} onClick={toggle}>{open ? t('common.showLess') : t('common.clickForDetails')}</button>
+          <span className="order-sum">{t('common.total')} <strong>{format.money(order.payableAmount)}</strong></span>
         </div>
         {(unpaidVnpay || current === 'COMPLETED' || current === 'CANCELLED' || (current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID')) && <div className="order-actions">
           {unpaidVnpay && <>
-            <button type="button" className="button outline" disabled={busy} onClick={() => cancel(order)}>Hủy đơn</button>
-            {held && <button type="button" className="button primary" disabled={busy} onClick={() => pay(order)}>{busy ? 'Đang mở VNPay…' : 'Thanh toán'}</button>}
+            <button type="button" className="button outline" disabled={busy} onClick={() => cancel(order)}>{t('orders.cancelOrder')}</button>
+            {held && <button type="button" className="button primary" disabled={busy} onClick={() => pay(order)}>{busy ? t('orders.openingVnpay') : t('orders.pay')}</button>}
           </>}
-          {current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID' && <button type="button" className="button outline" disabled={busy} onClick={() => cancelCashOrder(order)}>Hủy đơn</button>}
-          {(current === 'COMPLETED' || current === 'CANCELLED') && <button type="button" className={`button ${current === 'COMPLETED' ? 'primary' : 'outline'}`} disabled={busy} onClick={() => buyAgain(order)}>{busy ? 'Đang thêm…' : 'Mua lại'}</button>}
+          {current === 'AWAITING_PICKUP' && cash && order.paymentState === 'ACCEPTED_UNPAID' && <button type="button" className="button outline" disabled={busy} onClick={() => cancelCashOrder(order)}>{t('orders.cancelOrder')}</button>}
+          {(current === 'COMPLETED' || current === 'CANCELLED') && <button type="button" className="button outline" disabled={busy} onClick={() => buyAgain(order)}>{busy ? t('orders.adding') : t('orders.buyAgain')}</button>}
+          {/* Session 2026-11-23: "Đánh giá" opens one review screen for every product of the order; once all are
+              reviewed it becomes "Xem đánh giá" (the Member's "Đã đánh giá" tab). */}
+          {current === 'COMPLETED' && (reviewLines.get(String(order.id))?.total && !reviewLines.get(String(order.id)).pending
+            ? <Link className="button outline" to="/reviews?tab=reviewed">{t('orders.viewReviews')}</Link>
+            : <Link className="button primary" to={`/reviews/orders/${encodeURIComponent(order.id)}`}>{t('orders.review')}</Link>)}
         </div>}
       </article>;
     })}

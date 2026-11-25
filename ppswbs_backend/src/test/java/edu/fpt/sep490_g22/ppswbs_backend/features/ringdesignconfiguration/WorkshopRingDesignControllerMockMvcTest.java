@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.rules.DesignOptionRulesPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDesignException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.WorkshopRingDesignApplicationService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,8 +17,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 
 import java.util.Collections;
 import java.util.List;
@@ -57,6 +64,32 @@ class WorkshopRingDesignControllerMockMvcTest {
                 .setControllerAdvice(new WorkshopRingDesignExceptionHandler())
                 .setMessageConverters(new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
+
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of());
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(actor, null, List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/workshop-designs unauthenticated guest returns 401")
+    void createDesign_UnauthenticatedGuest_Returns401() throws Exception {
+        SecurityContextHolder.clearContext();
+        CreateDesignRequest req = CreateDesignRequest.builder()
+                .packageReference("PKG-COUPLE")
+                .startMode("BLANK")
+                .build();
+
+        mockMvc.perform(post("/api/v1/workshop-designs")
+                        .header("Idempotency-Key", "IDEMP-KEY-123")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("DESIGN_MEMBER_AUTH_REQUIRED"));
     }
 
     @Test

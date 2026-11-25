@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useCommand } from '../shared/ui/components';
-import { ProblemNotice, money } from './ui';
+import { useEnumLabel, useFormat, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
+import { ProblemNotice } from './ui';
 
 function CorrectionDetails({ correction }) {
+  const t = useT(messages);
+  const fmt = useFormat();
+  const statusLabel = useEnumLabel(messages, 'correctionStatus');
+  const refundLabel = useEnumLabel(messages, 'refundStatus');
   return (
-    <dl className="ops-facts" aria-label="Folio correction">
-      <div><dt>Correction</dt><dd>{correction.correctionReference}</dd></div>
-      <div><dt>Ticket</dt><dd>{correction.ticketCode}</dd></div>
-      <div><dt>Overcharge refunded</dt><dd>{money(correction.overchargeAmount)}</dd></div>
-      <div><dt>Status</dt><dd><span className="ops-status">{correction.status}</span></dd></div>
-      {correction.refundId && <div><dt>Bank refund request</dt><dd>{correction.refundId}</dd></div>}
-      {correction.refundStatus && <div><dt>Refund status</dt><dd><span className="ops-status">{correction.refundStatus}</span></dd></div>}
+    <dl className="ops-facts" aria-label={t('correction.details')}>
+      <div><dt>{t('correction.reference')}</dt><dd>{correction.correctionReference}</dd></div>
+      <div><dt>{t('correction.ticket')}</dt><dd>{correction.ticketCode}</dd></div>
+      <div><dt>{t('correction.overcharge')}</dt><dd>{fmt.money(correction.overchargeAmount)}</dd></div>
+      <div><dt>{t('correction.status')}</dt><dd><span className="ops-status">{statusLabel(correction.status)}</span></dd></div>
+      {correction.refundId && <div><dt>{t('correction.refundId')}</dt><dd>{correction.refundId}</dd></div>}
+      {correction.refundStatus && <div><dt>{t('correction.refundStatus')}</dt><dd><span className="ops-status">{refundLabel(correction.refundStatus)}</span></dd></div>}
     </dl>
   );
 }
@@ -23,6 +29,7 @@ function CorrectionDetails({ correction }) {
  * Nothing on this view changes the correction.
  */
 export default function FolioCorrectionLookup({ api, ticketCode, initialReference = '' }) {
+  const t = useT(messages);
   const [reference, setReference] = useState(initialReference);
   const [correction, setCorrection] = useState(null);
   const command = useCommand();
@@ -46,17 +53,17 @@ export default function FolioCorrectionLookup({ api, ticketCode, initialReferenc
 
   const notFound = command.error && (command.error.status === 404 || command.error.status === 403);
   return (
-    <section className="folio-correction-view" aria-label="Folio correction lookup">
-      <h3>Folio correction</h3>
+    <section className="folio-correction-view" aria-label={t('correction.lookupAria')}>
+      <h3>{t('correction.title')}</h3>
       <form className="ota-inline-form" onSubmit={submit}>
-        <label>Correction reference
+        <label>{t('correction.inputLabel')}
           <input value={reference} onChange={event => setReference(event.target.value)} autoComplete="off" maxLength={128} />
         </label>
-        <button className="button outline" type="submit" disabled={command.pending || !ticketCode || !reference.trim()}>View correction</button>
+        <button className="button outline" type="submit" disabled={command.pending || !ticketCode || !reference.trim()}>{t('correction.view')}</button>
       </form>
-      {command.pending && <p role="status" className="muted small">Loading correction…</p>}
+      {command.pending && <p role="status" className="muted small">{t('correction.loading')}</p>}
       {notFound
-        ? <div className="notice error" role="alert"><p>No correction with this reference is visible for this ticket.</p></div>
+        ? <div className="notice error" role="alert"><p>{t('correction.notFound')}</p></div>
         : <ProblemNotice error={command.error} onRetry={command.retry} />}
       {correction && <CorrectionDetails correction={correction} />}
     </section>

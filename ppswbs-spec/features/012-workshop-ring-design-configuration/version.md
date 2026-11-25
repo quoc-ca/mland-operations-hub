@@ -4,12 +4,31 @@
 - **Author**: Ngô Tiến Đạt
 - **Last updated by**: Ngô Tiến Đạt
 - **Date created**: 2026-11-08
-- **Date updated**: 2026-11-19
+- **Date updated**: 2026-11-22
 - **Source of truth**: Feature-012 `spec.md`, `data-model.md`, `contracts/workshop-ring-design.openapi.yaml`, `V110__workshop_ring_design_configuration.sql`, `V143__ring_design_uniform_pricing.sql`, backend Spring Boot implementation, frontend React 19 + Vite implementation, and synchronized project specifications
+
+## Current actor rebaseline — 2026-11-25
+
+- Guest may view the configurator and change parameters in a local unsaved
+  preview only.
+- Guest cannot create, evaluate, save, archive, consult with or persist a design.
+- The former Guest session, 20-minute expiry, Guest persistence and Guest-facing
+  saved-design test flows are retired from the current contract.
+- Only an authenticated active Member owns persisted design versions and may use
+  recommendation or consultation actions from a saved design.
 
 > This file is an implementation status index. Detailed behavior remains in
 > the Feature-012 artifacts and source code. Phase labels are retained for
 > tracing and audit.
+
+## Current synchronization audit — 2026-11-22
+
+The current baseline ends at `SAVED` design, advisory workshop recommendation
+and optional Feature-013 consultation. The repository still contains legacy
+booking-attachment implementation and tests; those paths must be retired or
+isolated before Feature-012 is implementation-complete under the current
+contract. The approved Figma frames are visual references only and do not
+authorize booking, payment or state-lifecycle changes.
 
 ---
 
@@ -536,6 +555,50 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
 
 
 
+### Phase L — Quota, image preprocessing, preview integrity and i18n correction (Completed 2026-11-20)
+
+1. **Aggregate Gemstone Invariant ($\le 10$)**:
+   - Backend `ManagerDesignRuleAdapter` enforces `totalGemstoneQuantity = Σ component.quantity <= 10`, returns HTTP 422 `GEMSTONE_TOTAL_LIMIT_EXCEEDED`.
+   - Frontend `RingConfigurationPage` displays badge `Total stones: X/10` / `Tổng số đá: X/10`, disables buttons at 10, retains draft without alteration on 11th addition attempt.
+   - Tested and verified via `E2E-012-007` (PASS, screenshots: `E2E-012-007--gemstones-start.jpg`, `E2E-012-007--gemstones-limit.jpg`).
+
+2. **Independent Engraving Quotas (`TEXT <= 2`, `SYMBOL <= 2`, `CUSTOM_IMAGE <= 2`)**:
+   - Backend validates quotas independently, returns specific error codes: `TEXT_ENGRAVING_LIMIT_EXCEEDED`, `SYMBOL_ENGRAVING_LIMIT_EXCEEDED`, `IMAGE_ENGRAVING_LIMIT_EXCEEDED`.
+   - Frontend displays independent counters (`Text: X/2`, `Symbols: X/2`, `Laser images: X/2`), separate add buttons, and localized boundary messages. Removing one item type frees only that quota.
+   - Tested and verified via `E2E-012-008` (PASS, screenshot: `E2E-012-008--engraving-limits.jpg`).
+
+3. **Laser Image Preprocessing Sliders & Persistence**:
+   - Sliders `contrast` (0–100, default 50) and `sharpness` (0–100, default 50) interactive canvas filters in `LaserEngravingImageCropper`.
+   - Persisted across backend DTOs, MySQL JSON snapshot, and restored upon reload. Out of bounds rejected with `IMAGE_PREPROCESSING_INVALID`.
+   - Tested and verified via `E2E-012-009` (PASS, screenshots: `E2E-012-009--image-sliders.jpg`, `E2E-012-009--image-restored.jpg`).
+
+4. **Multi-Engraving Preview & Full Restoration**:
+   - Both configurator and evaluation pages render all text items, symbols, and custom images without reliance on scalar `engravingText` or transient `previewDataUrl`.
+   - Missing images show retry/error state.
+   - Tested and verified via `E2E-012-010` (PASS, screenshots: `E2E-012-010--configurator.jpg`, `E2E-012-010--restored.jpg`).
+
+5. **Locale & Vietnamese Unicode Regression**:
+   - Full bilingual support (`vi` / `en`) via `useLanguage()` from shared `I18nProvider`.
+   - Zero mixed-language fallback, pure UTF-8 diacritics and symbols (`♥`, `∞`, `★`, `✿`, `💍`) render cleanly on SVG without tofu or broken glyphs.
+   - Tested and verified via `E2E-012-011` (PASS, screenshots: `E2E-012-011--vietnamese.jpg`, `E2E-012-011--english.jpg`).
+
+6. **Test Results**:
+   - Backend tests (`ManagerDesignRuleAdapterTest`, `WorkshopRingDesignApplicationServiceTest`, `WorkshopRingDesignControllerMockMvcTest`): **24/24 tests PASS (100%)**.
+   - Frontend Vitest suite (`designDomain`, `screens`, `workshopRingDesignApi`): **46/46 tests PASS (100%)**.
+   - E2E Browser MCP Scenarios `E2E-012-007` through `E2E-012-011`: **5/5 PASS (100%)**.
+
+## Phase H — Cross-feature integration preparation (2026-11-20)
+
+- Workshop integration is ticket-level: one group default may be overridden per
+  ticket and only `VALIDATED` versions may be attached.
+- Feature-012 exposes an immutable snapshot facade for Feature-004 custom-order
+  intake; this is not a design approval or payment operation.
+- `DRAFT` and `VALIDATED` versions may be copied into a custom-order snapshot.
+  Attached or locked versions require a clone before reuse.
+- Recommendations remain advisory and never select a package or create booking.
+- Backend implementation of this cross-feature facade is pending contract and
+  Figma approval.
+
 ## 5. Incomplete / Next Steps (Release Gates)
 
 ### Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09)
@@ -544,43 +607,131 @@ Toàn bộ 5 kịch bản E2E của Feature 012 đã được thực thi và ngh
 ### Giai đoạn 2: Phê duyệt chính thức Revision Figma
 - Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.
 
-### Phase L — Quota, image preprocessing, preview integrity and i18n correction (2026-11-19)
+## Version 1.3 — 2026-11-22 saved recommendation and custom-reference change
 
-#### Documentation changes
+### Superseding decisions
 
-- Replaced the previous per-component-only gemstone rule with an aggregate
-  maximum of 10 gemstone instances per design version.
-- Defined independent engraving quotas: 2 `TEXT`, 2 `SYMBOL` and 2 custom images.
-- Added persisted image preprocessing parameters: `contrast` and `sharpness`,
-  each integer `0..100` with default `50`.
-- Required safe image/processed-preview references so saved designs can restore
-  the selected image; transient browser `previewDataUrl` is not authoritative.
-- Required complete collection rendering for configurator and saved-design
-  previews. Legacy scalar `engravingText` cannot replace `engravingItems`.
-- Required one active locale per session, shared i18n resources, UTF-8 and no
-  mojibake in messages, SVG labels or test fixtures.
-- Updated the Feature-012 OpenAPI schemas, data model, UI flow, frontend handoff
-  and task list with the new limits and preprocessing fields.
-- Added E2E scenario specifications `E2E-012-007` through `E2E-012-011`.
+- Feature-012 no longer attaches designs to workshop tickets or bookings.
+- New lifecycle writes are `DRAFT`, `SAVED`, and `ARCHIVED`. `VALIDATED`,
+  `ATTACHED_TO_BOOKING`, and `LOCKED` are legacy-readable only.
+- More than five gemstones recommends Silver Clay; difficulty above nine
+  recommends Wax Casting; if both apply, Wax Casting is primary. Otherwise,
+  material category resolves Signature Silver or Signature Brass through
+  catalogue data.
+- Recommendation keeps all workshop discovery actions visible and does not
+  mutate booking, payment, price, or order state.
+- Feature-004 may snapshot any owner-visible design state, including archived
+  and legacy rows.
+- Saved-design consultation is available to Guest and Member through Feature-
+  013 with an appropriate opaque Guest session or Firebase identity.
 
-#### Current implementation status
+### Required work
 
-```text
-DOCUMENTATION UPDATED
-IMPLEMENTATION PENDING
-E2E VERIFICATION PENDING
-```
+- Remove booking attachment from current API/design/task baselines.
+- Add recommendation DTO, semantic package lookup, reason text and Wax Casting
+  two-session note.
+- Replace customer-facing “Đã thẩm định” with “Đã lưu” for `SAVED`.
+- Supersede E2E-012-021, E2E-012-022 and ITC-012-003; add threshold, state,
+  recommendation, custom-reference and consultation scenarios.
 
-The earlier E2E-012-001 through E2E-012-006 evidence does not verify this
-change set. It must remain historical evidence and must not be relabeled as
-passing the new requirements.
+**Current status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
 
-#### Blockers for the implementation agent
+The earlier approval record and Phase H booking-attachment notes are historical
+only. They must not be used as implementation instructions until the current
+change request is approved.
 
-1. Backend must enforce aggregate gemstone and independent engraving limits.
-2. Backend/API must persist and return `contrast`, `sharpness` and a safe image
-   reference that survives saved-design reload.
-3. Frontend message resources currently require an explicit UTF-8/mojibake
-   audit before implementation is accepted.
-4. New unit/component/API/E2E execution evidence and JPEG screenshots are
-   required before Phase L can be marked complete.
+### Figma draft evidence — approval pending
+
+- File: `mland-operation-hub` (`m5Cyk5rit6lKaX3TPprSow`).
+- Draft page: `07 · Change Request · FE-004 & FE-012` (`569:2`).
+- Feature-012 saved-design recommendation: `569:3` desktop and `569:41` mobile.
+- Feature-004 manufacturing request: `569:22`.
+- Feature-004 consultation context: `569:33`.
+- The frames are editable drafts only; they are not the approved implementation baseline.
+
+### Figma replacement draft — 2026-11-22
+
+The previous Neon Atelier draft was rejected. A replacement was created from
+the current React/Vite implementation and shared page conventions:
+
+- Page: `08 · Frontend Baseline · FE-004 & FE-012` (`572:2`).
+- FE-012 configurator desktop: `574:2`.
+- FE-012 saved-design recommendation desktop: `574:38`.
+- FE-012 saved-design recommendation mobile: `574:134`.
+- FE-004 request desktop: `574:67`.
+- FE-004 reviewer desktop: `574:102`.
+- FE-004 request mobile: `574:154`.
+- Visual evidence was captured for the saved-design and request frames.
+- Status: `APPROVED — VISUAL BASELINE ONLY`.
+
+## Version 1.4 — Member-only rebaseline and code-alignment plan (2026-11-24)
+
+### Decision
+
+- Guest can see the configurator entry, public catalogue options and sign-in
+  CTA, but cannot mutate or view private design data.
+- Only an authenticated active Member can create, configure, evaluate, save,
+  restore, archive or view a design/history.
+- The Guest design-session transport and Guest persistence path are retired from
+  the current contract. Existing legacy rows remain historical only.
+- Booking attachment is not reintroduced; saved-design recommendation remains
+  advisory and keeps all workshop discovery actions visible.
+
+### Code findings to resolve
+
+1. `WorkshopRingDesignController` currently accepts optional
+   `X-Guest-Design-Session`/`X-Guest-Session` and resolves nullable Member IDs;
+   require active Member authorization on every private command and read.
+2. `WorkshopRingDesignApplicationService` still has Guest ownership/session
+   branches and automatic Guest-to-Member claiming. Remove new Guest creation,
+   mutation and auto-claim behavior; preserve historical rows read-only where
+   an approved projection requires it.
+3. Frontend configurator routes are unguarded and the API client persists Guest
+   session values. Keep the public entry/options view, but gate the first
+   protected action and remove Guest headers/storage from commands.
+4. Remove or disable the legacy `attach-to-booking` path in current routes,
+   facade usage and tests; it must not create a new booking association.
+5. Update stale UI labels and tests that describe Guest sessions, `VALIDATED`,
+   or booking locks as current behavior.
+6. Preserve server-owned evaluation, gemstone/engraving limits and saved-design
+   recommendation thresholds; do not move rule authority into the frontend.
+
+### Implementation and test sequence
+
+1. Add backend authorization tests for Guest, inactive/non-Member, active Member,
+   Staff, Manager and Admin across options, list, detail, save, evaluate,
+   archive and restore.
+2. Add tests proving fake Guest headers, expired legacy sessions and null actor
+   cannot mutate or enumerate designs.
+3. Add Member ownership/history, version conflict, idempotency, option limits,
+   recommendation and archive-retention regression tests.
+4. Update routes, sign-in return handling, local preview and public option UI;
+   ensure no protected request is sent before authentication.
+5. Re-run recommendation, preview/i18n, restoration and cross-feature snapshot
+   E2E tests; verify Feature-004 can consume only a Member-owned snapshot.
+
+**Current status:** `SPEC UPDATED — CODE REWORK PLANNED — NO CODE CHANGED IN THIS PASS`
+
+### Existing-style-first rule — 2026-11-22
+
+The user approved the latest existing-frame updates. Frontend work must first
+reuse the current application style and the closest existing screen pattern:
+page shell, typography, color tokens, spacing, controls, cards, responsive
+behavior, bilingual wording and interaction states. New visual patterns are
+allowed only when an explicit Feature-012 requirement cannot be represented by
+the existing style; they must be minimal, reusable and documented.
+
+This visual approval does not change Feature-012 business behavior, API
+contracts, persistence rules or implementation readiness.
+
+### Existing-frame update — 2026-11-22
+
+The replacement draft was not used as a new baseline. The existing frames were
+updated in place instead:
+
+- Existing Member configurator/saved-design section: `457:1553`.
+- Existing saved-design frame: `457:1749`; recommendation panel `579:1408`;
+  consultation action `579:1415`.
+- Existing UI redesign configurator: desktop `498:482`, mobile `498:581`.
+- Existing homepage custom-request entry point: `498:14`, `498:130`, `498:131`.
+- Status: `APPROVED — VISUAL BASELINE ONLY`.

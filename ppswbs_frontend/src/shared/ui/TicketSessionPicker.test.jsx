@@ -63,6 +63,19 @@ describe('TicketSessionPicker', () => {
     expect(screen.queryByRole('radio', { name: /Both sessions together/ })).toBeNull();
   });
 
+  it('skips the session choice for a one-session ticket and lists the new sessions straight away', async () => {
+    const data = { ...base, perFromSession: [base.perFromSession[0]] };
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(<TicketSessionPicker ticketCode="T1" type="ADVANCE" loadOptions={async () => data} onSelect={onSelect} formatWindow={win} />);
+
+    const select = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-T1');
+    expect(screen.queryByRole('radio')).toBeNull();
+    await user.selectOptions(select, A2);
+
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ fromSessionReferences: [A], targetSessionReferences: [A2] }));
+  });
+
   it('clears the choice when the type changes and reloads the list', async () => {
     const loadOptions = vi.fn(async () => base);
     const onSelect = vi.fn();

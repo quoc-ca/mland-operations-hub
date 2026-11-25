@@ -59,109 +59,136 @@ describe('F11-PUBLIC-REVIEW-LIST Screen (/reviews)', () => {
   });
 });
 
-describe('F11-GUEST-LOOKUP Screen (/reviews/guest/lookup)', () => {
-  it('allows Guest to search eligible sources by email and receive opaque handle', async () => {
-    const user = userEvent.setup();
+describe('F11-GUEST-LOOKUP Retired (/reviews/guest/lookup)', () => {
+  it('redirects guest lookup route to public reviews list', async () => {
     mockFetch({
-      'POST /api/v1/review-eligibility/lookup': json(200, {
-        eligibilityHandle: 'opaque-guest-handle-xyz',
-        maskedContact: 't***t@example.com',
-        items: [
-          {
-            sourceType: 'WORKSHOP_ATTENDANCE',
-            sourceReference: 'TICK-901',
-            targetType: 'WORKSHOP_SESSION',
-            targetReference: 'SESS-101',
-            label: 'Buổi làm nhẫn hoa mai',
-            eligible: true,
-          },
-        ],
-      }),
-    });
-
-    open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
-
-    expect(await screen.findByText('Tìm giao dịch đủ điều kiện')).toBeInTheDocument();
-
-    const input = screen.getByLabelText('Email hoặc số điện thoại');
-    await user.type(input, 'test@example.com');
-
-    const submitBtn = screen.getByRole('button', { name: 'Tìm nguồn' });
-    await user.click(submitBtn);
-
-    expect(await screen.findByText('Buổi làm nhẫn hoa mai')).toBeInTheDocument();
-    expect(screen.getByText('Nguồn đã xác minh')).toBeInTheDocument();
-  });
-
-  it('displays empty state when guest has no eligible sources', async () => {
-    const user = userEvent.setup();
-    mockFetch({
-      'POST /api/v1/review-eligibility/lookup': json(200, {
-        eligibilityHandle: null,
+      'GET /api/v1/reviews': json(200, {
+        aggregate: { count: 0, averageRating: 0 },
         items: [],
       }),
     });
 
-    open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
-    const input = screen.getByLabelText('Email hoặc số điện thoại');
-    await user.type(input, 'unknown@example.com');
-    await user.click(screen.getByRole('button', { name: 'Tìm nguồn' }));
+    const { router } = open('/reviews/guest/lookup', { session: fakeSession('signed-out') });
 
-    expect(await screen.findByText('Không có nguồn đủ điều kiện.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/reviews');
+    });
+    expect(await screen.findByText('Chưa có đánh giá công khai.')).toBeInTheDocument();
   });
 });
 
-describe('F11-ELIGIBLE-SOURCES Screen (/reviews/eligible-sources)', () => {
-  it('requires session when signed out', async () => {
-    mockFetch({});
-    open('/reviews/eligible-sources', { session: fakeSession('signed-out') });
-    expect(await screen.findByText('Bạn cần đăng nhập để tiếp tục.')).toBeInTheDocument();
+describe('F11 Member reviews page (/reviews, tabs Chưa đánh giá / Đã đánh giá — session 2026-11-23)', () => {
+  const PROFILE = 'GET /api/v1/accounts/me/profile';
+  const SOURCES = 'GET /api/v1/reviews/eligible-sources';
+  const pendingRing = {
+    sourceType: 'RETAIL_ORDER_LINE', sourceReference: 'ITEM-888', targetType: 'RETAIL_PRODUCT', targetReference: '777',
+    label: 'Nhẫn bạc đính đá Topaz', orderId: 'ORDER-1', variantId: '9', size: 12, eligible: true,
+  };
+  const reviewedRing = {
+    sourceType: 'RETAIL_ORDER_LINE', sourceReference: 'ITEM-889', targetType: 'RETAIL_PRODUCT', targetReference: '778',
+    label: 'Nhẫn vàng trơn', orderId: 'ORDER-1', variantId: '10', size: 14, eligible: true, alreadyReviewed: true,
+    reviewId: 'rev-1', review: { id: 'rev-1', rating: 4, bodyText: 'Vàng đẹp', status: 'PUBLIC', canEdit: true, targetType: 'RETAIL_PRODUCT', createdAt: '2026-11-20T10:00:00Z' },
+  };
+  const reviewedWorkshop = {
+    sourceType: 'WORKSHOP_ATTENDANCE', sourceReference: 'TICK-1', targetType: 'WORKSHOP_SESSION', targetReference: 'SESS-1',
+    label: 'Workshop làm nhẫn', eligible: true, alreadyReviewed: true, reviewId: 'rev-2',
+    review: { id: 'rev-2', rating: 2, bodyText: 'Hơi đông', status: 'PUBLIC', canEdit: true, targetType: 'WORKSHOP_SESSION', createdAt: '2026-11-21T10:00:00Z' },
+  };
+  beforeEach(() => clearRoleCache());
+
+  it('no longer has the separate "có thể đánh giá" page', async () => {
+    mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), [SOURCES]: json(200, { items: [pendingRing] }) });
+    open('/reviews/eligible-sources');
+    expect(await screen.findByRole('tab', { name: /Chưa đánh giá/ })).toBeInTheDocument();
+    expect(screen.queryByText('Các sản phẩm, trải nghiệm có thể đánh giá')).toBeNull();
   });
 
-  it('renders Member eligible sources when signed in', async () => {
-    mockFetch({
-      'GET /api/v1/reviews/eligible-sources': json(200, {
-        items: [
-          {
-            sourceType: 'RETAIL_ORDER_LINE',
-            sourceReference: 'ITEM-888',
-            targetType: 'RETAIL_PRODUCT',
-            targetReference: 'PROD-777',
-            label: 'Nhẫn bạc đính đá Topaz',
-            eligible: true,
-          },
-        ],
-      }),
-    });
-
-    open('/reviews/eligible-sources', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Các sản phẩm, trải nghiệm có thể đánh giá')).toBeInTheDocument();
-    expect(screen.getByText('Nhẫn bạc đính đá Topaz')).toBeInTheDocument();
-    expect(screen.getByText('ITEM-888')).toBeInTheDocument();
+  it('lists what is left to review with the product name and size, never the internal reference', async () => {
+    mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), [SOURCES]: json(200, { items: [pendingRing, reviewedRing] }) });
+    open('/reviews');
+    expect(await screen.findByText('Nhẫn bạc đính đá Topaz')).toBeInTheDocument();
+    expect(screen.getByText('Size 12')).toBeInTheDocument();
+    expect(screen.queryByText('ITEM-888')).toBeNull();
+    expect(screen.queryByText('Nhẫn vàng trơn')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Đánh giá' })).toBeInTheDocument();
   });
 
-  it('renders already reviewed status and view details button when source already has a review', async () => {
-    mockFetch({
-      'GET /api/v1/reviews/eligible-sources': json(200, {
-        sources: [
-          {
-            sourceType: 'RETAIL_ORDER_LINE',
-            sourceReference: 'ITEM-888',
-            targetType: 'RETAIL_PRODUCT',
-            targetReference: 'PROD-777',
-            label: 'Nhẫn bạc đính đá Topaz',
-            eligible: true,
-            alreadyReviewed: true,
-            reviewId: 'rev-existing-123',
-          },
-        ],
-      }),
-    });
+  it('opens the order review screen from "Đánh giá" on a retail line', async () => {
+    const user = userEvent.setup();
+    mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), [SOURCES]: json(200, { items: [pendingRing] }) });
+    open('/reviews');
+    await user.click(await screen.findByRole('button', { name: 'Đánh giá' }));
+    expect(await screen.findByRole('heading', { name: 'Đánh giá sản phẩm' })).toBeInTheDocument();
+  });
 
-    open('/reviews/eligible-sources', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Các sản phẩm, trải nghiệm có thể đánh giá')).toBeInTheDocument();
-    expect(screen.getByText('Đã viết đánh giá')).toBeInTheDocument();
-    expect(screen.getByText(/Xem chi tiết/i)).toBeInTheDocument();
+  it('shows the Member own reviews in "Đã đánh giá" with the sort, type and star filters', async () => {
+    const user = userEvent.setup();
+    mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), [SOURCES]: json(200, { items: [pendingRing, reviewedRing, reviewedWorkshop] }) });
+    open('/reviews?tab=reviewed');
+    expect(await screen.findByText('Vàng đẹp')).toBeInTheDocument();
+    expect(screen.getByText('Hơi đông')).toBeInTheDocument();
+    expect(screen.queryByText('Nhẫn bạc đính đá Topaz')).toBeNull();
+    expect(screen.getByTestId('filter-sort')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByTestId('filter-rating'), '4');
+    expect(screen.getByText('Vàng đẹp')).toBeInTheDocument();
+    expect(screen.queryByText('Hơi đông')).toBeNull();
+
+    await user.selectOptions(screen.getByTestId('filter-rating'), '');
+    await user.selectOptions(screen.getByTestId('filter-target-type'), 'WORKSHOP_SESSION');
+    expect(screen.getByText('Hơi đông')).toBeInTheDocument();
+    expect(screen.queryByText('Vàng đẹp')).toBeNull();
+  });
+
+  it('keeps the public list for a package link', async () => {
+    mockFetch({ [PROFILE]: json(200, { role: 'MEMBER' }), 'GET /api/v1/reviews': json(200, { aggregate: { count: 0, averageRating: 0 }, items: [] }) });
+    open('/reviews?packageId=145');
+    expect(await screen.findByText('Chưa có đánh giá công khai.')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Chưa đánh giá/ })).toBeNull();
+  });
+});
+
+describe('F11 order review screen (/reviews/orders/:orderId — session 2026-11-23)', () => {
+  const SOURCES = 'GET /api/v1/reviews/eligible-sources';
+  const line = (ref, label, size, extra = {}) => ({
+    sourceType: 'RETAIL_ORDER_LINE', sourceReference: ref, targetType: 'RETAIL_PRODUCT', targetReference: `P-${ref}`,
+    label, orderId: 'ORDER-1', size, eligible: true, ...extra,
+  });
+
+  it('shows every product of the order on top of its own review and sends one review per product', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [SOURCES]: json(200, { items: [
+        line('L1', 'Nhẫn Topaz', 12),
+        line('L2', 'Nhẫn Ruby', 14),
+        line('L3', 'Nhẫn khác đơn', 10, { orderId: 'ORDER-2' }),
+      ] }),
+      'POST /api/v1/reviews': json(201, { id: 'rev-new' }),
+    });
+    open('/reviews/orders/ORDER-1');
+
+    expect(await screen.findByText('Nhẫn Topaz')).toBeInTheDocument();
+    expect(screen.getByText('Size 12')).toBeInTheDocument();
+    expect(screen.getByText('Nhẫn Ruby')).toBeInTheDocument();
+    expect(screen.queryByText('Nhẫn khác đơn')).toBeNull();
+    expect(screen.queryByText(/\bxu\b/i)).toBeNull();
+
+    const ruby = screen.getByRole('region', { name: 'Nhẫn Ruby' });
+    await user.click(within(ruby).getByRole('radio', { name: '3 sao' }));
+    await user.type(within(ruby).getByRole('textbox'), 'Hơi rộng');
+    await user.click(screen.getByRole('button', { name: 'Hoàn thành' }));
+
+    await waitFor(() => expect(calls.filter(c => c.method === 'POST')).toHaveLength(2));
+    const posts = calls.filter(c => c.method === 'POST');
+    expect(posts[0].body).toMatchObject({ sourceReference: 'L1', targetType: 'RETAIL_PRODUCT', targetReference: 'P-L1', rating: 5 });
+    expect(posts[1].body).toMatchObject({ sourceReference: 'L2', targetReference: 'P-L2', rating: 3, bodyText: 'Hơi rộng' });
+    expect(posts[0].headers['Idempotency-Key']).not.toEqual(posts[1].headers['Idempotency-Key']);
+  });
+
+  it('says so when the order has nothing left to review', async () => {
+    mockFetch({ [SOURCES]: json(200, { items: [line('L1', 'Nhẫn Topaz', 12, { alreadyReviewed: true, reviewId: 'r1', review: { id: 'r1', rating: 5 } })] }) });
+    open('/reviews/orders/ORDER-1');
+    expect(await screen.findByText('Đơn này không còn sản phẩm nào chờ đánh giá.')).toBeInTheDocument();
   });
 });
 
@@ -265,6 +292,19 @@ describe('F11-CREATE-REVIEW Screen (/reviews/new)', () => {
 });
 
 describe('F11-EDIT-REVIEW Screen (/reviews/:id/edit)', () => {
+  it('shows the reviewed product (name and size) above the form, found by review id among the Member sources', async () => {
+    mockFetch({
+      'GET /api/v1/reviews/rev-edit-02': json(200, { id: 'rev-edit-02', rating: 5, bodyText: 'oke', version: 0, status: 'PUBLIC', canEdit: true, targetType: 'RETAIL_PRODUCT', targetReference: '42' }),
+      'GET /api/v1/reviews/eligible-sources': json(200, { items: [
+        { sourceType: 'RETAIL_ORDER_LINE', sourceReference: 'L9', targetType: 'RETAIL_PRODUCT', targetReference: '42', label: 'Nhẫn bạc cành lá citrine', size: 8, alreadyReviewed: true, reviewId: 'rev-edit-02' },
+      ] }),
+    });
+    open('/reviews/rev-edit-02/edit', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('Nhẫn bạc cành lá citrine')).toBeInTheDocument();
+    expect(screen.getByText('Size 8')).toBeInTheDocument();
+  });
+
   it('loads existing review and submits update with If-Match-Version header', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
@@ -434,7 +474,7 @@ describe('F11-MODERATION-QUEUE Screen (/review-moderation)', () => {
 
     open('/review-moderation', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Staff và Manager xử lý hậu kiểm theo quyền được cấp.')).toBeInTheDocument();
     expect(screen.getByText('Chất lượng không như quảng cáo.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute('href', '/review-moderation/rev-mod-01');
   });

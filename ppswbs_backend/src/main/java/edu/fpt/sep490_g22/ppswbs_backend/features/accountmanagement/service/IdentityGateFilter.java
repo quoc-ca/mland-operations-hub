@@ -50,14 +50,15 @@ public class IdentityGateFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = normalizedRequestPath(request);
-        if ("GET".equalsIgnoreCase(request.getMethod()) && (path.startsWith("/api/v1/addresses/") || path.startsWith("/api/v1/administrative-divisions/"))) {
+        if ("GET".equalsIgnoreCase(request.getMethod())
+                && (path.startsWith("/api/v1/addresses/") || path.startsWith("/api/v1/administrative-divisions/"))) {
             return true;
         }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
 
-        // Package discovery is part of the public guest booking journey.  These
+        // Package discovery is part of the public guest booking journey. These
         // two routes expose only branch/session availability; accepting a
         // package or creating a booking remains protected by its own endpoint
         // rules and is deliberately not covered by this bypass.
@@ -70,54 +71,72 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/integrations/payments/vnpay/events".equals(path)) {
             return true;
         }
-        // 003.4 OTA provider callbacks (contract `security: []`): the provider has no Mland bearer;
-        // OtaProviderEventController authenticates X-Ota-Signature itself, fail closed (E3, T118).
-        if ("POST".equalsIgnoreCase(request.getMethod())
-                && ("/api/v1/ota-provider/booking-events".equals(path)
-                || "/api/v1/ota-provider/cancellation-events".equals(path))) {
+        // Dev-only payment simulator page opened by a customer's phone camera; the
+        // controller exists only when
+        // payment-simulator.enabled=true, otherwise this path is a 404.
+        if (("GET".equalsIgnoreCase(request.getMethod()) || "POST".equalsIgnoreCase(request.getMethod()))
+                && path.matches("/api/v1/integrations/payments/simulator/[^/]+")) {
             return true;
         }
-        // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a Guest (contract
-        // `security: [{}, {bearerAuth: []}]`). Without a bearer the request skips the gate and each service
-        // authorizes it (contact proof, Magic-Link token); with a bearer the Member is still verified here.
+        // 003.4 OTA provider callbacks (contract `security: []`): the provider has no
+        // Mland bearer;
+        // OtaProviderEventController authenticates X-Ota-Signature itself, fail closed
+        // (E3, T118).
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && ("/api/v1/ota-provider/booking-events".equals(path)
+                        || "/api/v1/ota-provider/cancellation-events".equals(path))) {
+            return true;
+        }
+        // 003.1 FR-031, FR-045, FR-047, FR-048: the group booking journey is open to a
+        // Guest (contract
+        // `security: [{}, {bearerAuth: []}]`). Without a bearer the request skips the
+        // gate and each service
+        // authorizes it (contact proof, Magic-Link token); with a bearer the Member is
+        // still verified here.
         boolean guestGroupRoute = "POST".equalsIgnoreCase(request.getMethod())
                 && ("/api/v1/workshop-cart-quotes".equals(path)
-                || "/api/v1/workshop-booking-groups".equals(path)
-                || path.matches("/api/v1/workshop-booking-groups/[^/]+/(payment-attempts|pending-hold-release|confirmation-deliveries)"));
+                        || "/api/v1/workshop-booking-groups".equals(path)
+                        || path.matches(
+                                "/api/v1/workshop-booking-groups/[^/]+/(payment-attempts|pending-hold-release|confirmation-deliveries)"));
         if (guestGroupRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
-        // Guest-only routes (contract `security: [{}]`): group lookup by group code and one contact proof, and the
+        // Guest-only routes (contract `security: [{}]`): group lookup by group code and
+        // one contact proof, and the
         // Magic-Link exchange whose single-use token is the credential.
         if ("POST".equalsIgnoreCase(request.getMethod())
                 && ("/api/v1/workshop-booking-group-lookups".equals(path)
-                || "/api/v1/workshop-booking-group-magic-links/exchanges".equals(path))) {
+                        || "/api/v1/workshop-booking-group-magic-links/exchanges".equals(path))) {
             return true;
         }
-        // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority with an OTP sent to the booking's
-        // contact email, not a bearer. Booking authorizes each request; a request with a bearer is still verified.
+        // 003.1 FR-041 (decision 2026-11-13): a Guest buyer proves authority with an
+        // OTP sent to the booking's
+        // contact email, not a bearer. Booking authorizes each request; a request with
+        // a bearer is still verified.
         boolean guestRecipientRoute = ("POST".equalsIgnoreCase(request.getMethod())
                 && path.matches("/api/v1/workshop-booking-groups/[^/]+/buyer-verifications(/[^/]+/confirmations)?"))
                 || ("PUT".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/recipient"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/cancellations"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/cancellations"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-booking-groups/[^/]+/cancellations"))
+                        && path.matches("/api/v1/workshop-booking-groups/[^/]+/cancellations"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy/answers"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy/answers"))
                 || ("GET".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/mland-remedy"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-booking-groups/[^/]+/ticket-changes"))
+                        && path.matches("/api/v1/workshop-booking-groups/[^/]+/ticket-changes"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/changes"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/changes"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"))
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/folio-lookups"))
                 || ("POST".equalsIgnoreCase(request.getMethod())
-                && path.matches("/api/v1/workshop-tickets/[^/]+/change-option-lookups"));
-        if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null) return true;
-        // 003.3 FR-040: the refund-account link token is the credential; the service checks it, its state and expiry.
+                        && path.matches("/api/v1/workshop-tickets/[^/]+/change-option-lookups"));
+        if (guestRecipientRoute && request.getHeader(HttpHeaders.AUTHORIZATION) == null)
+            return true;
+        // 003.3 FR-040: the refund-account link token is the credential; the service
+        // checks it, its state and expiry.
         if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/v1/refund-account-links/[^/]+")
                 && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
@@ -126,8 +145,10 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 && "/api/v1/review-eligibility/lookup".equals(path)) {
             return true;
         }
-        // Public review reads stay open, EXCEPT the Member's own list of reviewable sources: it needs the signed-in actor.
-        // Skipping the identity step for it left the request with no actor, so it answered 401 even for a signed-in
+        // Public review reads stay open, EXCEPT the Member's own list of reviewable
+        // sources: it needs the signed-in actor.
+        // Skipping the identity step for it left the request with no actor, so it
+        // answered 401 even for a signed-in
         // Member, and the app then signed that Member out.
         if ("GET".equalsIgnoreCase(request.getMethod())
                 && path.startsWith("/api/v1/reviews")
@@ -143,14 +164,26 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         if ("GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/api/v1/workshop-design-options")) {
             return true;
         }
+
+        // Feature-001 R-INV Internal Account Invitation public secret exchange
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/internal-account-invitations/exchanges".equals(path)) {
+            return true;
+        }
         if (path.startsWith("/api/v1/workshop-designs") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        if (path.startsWith("/api/v1/ai-support") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
+            return true;
+        }
+        if (path.startsWith("/api/v1/design-requests") && request.getHeader(HttpHeaders.AUTHORIZATION) == null) {
             return true;
         }
         return !path.startsWith("/api/");
     }
 
     /**
-     * Produces an application-relative path for route policy checks.  A filter
+     * Produces an application-relative path for route policy checks. A filter
      * sees the context path and may also see a trailing slash, whereas Spring
      * MVC maps both shapes to the same public discovery controller method.
      */
@@ -169,10 +202,9 @@ public class IdentityGateFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-        HttpServletRequest request,
-        HttpServletResponse response,
-        FilterChain filterChain
-    ) throws ServletException, IOException {
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain) throws ServletException, IOException {
         String correlationId = resolveCorrelationId(request);
         response.setHeader("X-Correlation-Id", correlationId);
 
@@ -186,13 +218,15 @@ public class IdentityGateFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
                 return;
             }
-            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN", "Bearer authentication token is required", correlationId);
+            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN",
+                    "Bearer authentication token is required", correlationId);
             return;
         }
 
         String token = authHeader.substring(7).trim();
         if (token.isEmpty()) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN", "Bearer authentication token is empty", correlationId);
+            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN",
+                    "Bearer authentication token is empty", correlationId);
             return;
         }
 
@@ -210,7 +244,8 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             return;
         } catch (Exception ex) {
             log.error("Identity verification failure correlationId={}: {}", correlationId, ex.getMessage(), ex);
-            writeError(response, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", "Identity provider is temporarily unavailable", correlationId);
+            writeError(response, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
+                    "Identity provider is temporarily unavailable", correlationId);
             return;
         }
 
@@ -218,15 +253,15 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         if (actorOpt.isPresent()) {
             CurrentAccountActor actor = actorOpt.get();
             if (actor.status() == ActorStatus.SUSPENDED) {
-                writeError(response, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "Account has been suspended", correlationId);
+                writeError(response, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "Account has been suspended",
+                        correlationId);
                 return;
             }
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                actor,
-                token,
-                List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name()))
-            );
+                    actor,
+                    token,
+                    List.of(new SimpleGrantedAuthority("ROLE_" + actor.role().name())));
             authentication.setDetails(identity.toFacade());
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("currentAccountActor", actor);
@@ -238,23 +273,22 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             if ("/api/v1/accounts/me".equals(path) && "PUT".equalsIgnoreCase(method)) {
                 // Allow bootstrap for new identity
                 CurrentAccountActor bootstrapActor = new CurrentAccountActor(
-                    null,
-                    ActorRole.MEMBER,
-                    ActorStatus.ACTIVE,
-                    identity.emailVerified(),
-                    List.of()
-                );
+                        null,
+                        ActorRole.MEMBER,
+                        ActorStatus.ACTIVE,
+                        identity.emailVerified(),
+                        List.of());
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    bootstrapActor,
-                    token,
-                    List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
-                );
+                        bootstrapActor,
+                        token,
+                        List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
                 authentication.setDetails(identity.toFacade());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 request.setAttribute("currentAccountActor", bootstrapActor);
                 request.setAttribute("verifiedIdentity", identity.toFacade());
             } else {
-                writeError(response, HttpStatus.UNAUTHORIZED, "ACCOUNT_NOT_FOUND", "Account not found for verified identity. Please bootstrap account first.", correlationId);
+                writeError(response, HttpStatus.UNAUTHORIZED, "ACCOUNT_NOT_FOUND",
+                        "Account not found for verified identity. Please bootstrap account first.", correlationId);
                 return;
             }
         }
@@ -263,22 +297,21 @@ public class IdentityGateFilter extends OncePerRequestFilter {
     }
 
     private void writeError(
-        HttpServletResponse response,
-        HttpStatus status,
-        String code,
-        String message,
-        String correlationId
-    ) throws IOException {
+            HttpServletResponse response,
+            HttpStatus status,
+            String code,
+            String message,
+            String correlationId) throws IOException {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
         ErrorResponse errorResponse = ErrorResponse.builder()
-            .code(code)
-            .message(message)
-            .correlationId(correlationId)
-            .timestamp(Instant.now())
-            .build();
+                .code(code)
+                .message(message)
+                .correlationId(correlationId)
+                .timestamp(Instant.now())
+                .build();
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }

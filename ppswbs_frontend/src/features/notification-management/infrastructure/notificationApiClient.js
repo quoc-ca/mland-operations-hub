@@ -72,6 +72,10 @@ export function notificationApiClient(request) {
         body,
         idempotencyKey: key,
       }),
+
+    // R-INV Admin manual-invitation retrieval (§2.6)
+    getManualInvitation: (requestId) =>
+      request(`/api/v1/admin/notification-requests/${enc(requestId)}/manual-invitation`),
   };
 }
 

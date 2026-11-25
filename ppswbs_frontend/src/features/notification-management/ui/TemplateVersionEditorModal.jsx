@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
 
 /**
  * Extracts all {{placeholder}} variables from a string.
@@ -17,6 +20,8 @@ export function TemplateVersionEditorModal({
   initialVersion = null,
   onSave,
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
   const [subjectTemplate, setSubjectTemplate] = useState('');
   const [htmlTemplate, setHtmlTemplate] = useState('');
   const [plainTextTemplate, setPlainTextTemplate] = useState('');
@@ -67,19 +72,15 @@ export function TemplateVersionEditorModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!subjectTemplate.trim()) {
-      setError('Tiêu đề thư không được để trống.');
+      setError(t('editor.subjectRequired'));
       return;
     }
     if (!htmlTemplate.trim() && !plainTextTemplate.trim()) {
-      setError('Vui lòng nhập nội dung HTML hoặc Plain Text.');
+      setError(t('editor.bodyRequired'));
       return;
     }
     if (invalidPlaceholders.length > 0) {
-      setError(
-        `Các biến sau không nằm trong danh sách cho phép: ${invalidPlaceholders.join(
-          ', '
-        )}`
-      );
+      setError(t('editor.invalidPlaceholders', { list: invalidPlaceholders.join(', ') }));
       return;
     }
 
@@ -93,7 +94,7 @@ export function TemplateVersionEditorModal({
       });
       onClose();
     } catch (err) {
-      setError(err?.message || 'Lưu bản nháp thất bại. Dữ liệu đã được giữ nguyên.');
+      setError(err?.message || t('editor.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -110,15 +111,15 @@ export function TemplateVersionEditorModal({
         <div className="nm-modal-header">
           <h3 id="editor-modal-title">
             {isEdit
-              ? `Chỉnh sửa bản nháp v${initialVersion.versionNumber} (${template?.name})`
-              : `Tạo bản nháp mới (${template?.name})`}
+              ? t('editor.titleEdit', { version: initialVersion.versionNumber, name: template?.name })
+              : t('editor.titleNew', { name: template?.name })}
           </h3>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
             disabled={saving}
-            aria-label="Đóng"
+            aria-label={ts('close')}
           >
             &times;
           </button>
@@ -130,7 +131,7 @@ export function TemplateVersionEditorModal({
 
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#475569' }}>
-                Biến cho phép (Allowed Placeholders):
+                {t('editor.allowed')}
               </label>
               <div className="nm-tag-list">
                 {allowed.map((ph) => (
@@ -143,7 +144,7 @@ export function TemplateVersionEditorModal({
 
             {invalidPlaceholders.length > 0 && (
               <div className="nm-alert nm-alert-warning" role="alert">
-                Cảnh báo: Biến không hợp lệ sẽ bị máy chủ từ chối:
+                {t('editor.invalidWarning')}
                 <strong> {invalidPlaceholders.map((p) => `{{${p}}}`).join(', ')}</strong>
               </div>
             )}
@@ -153,7 +154,7 @@ export function TemplateVersionEditorModal({
                 htmlFor="subjectTemplate"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Tiêu đề email (Subject) *
+                {t('editor.subject')}
               </label>
               <input
                 id="subjectTemplate"
@@ -162,7 +163,7 @@ export function TemplateVersionEditorModal({
                 style={{ width: '100%' }}
                 value={subjectTemplate}
                 onChange={(e) => setSubjectTemplate(e.target.value)}
-                placeholder="Ví dụ: [Mland] Xác nhận đặt lịch #{{bookingCode}}"
+                placeholder={t('editor.subjectPlaceholder')}
                 disabled={saving}
                 required
               />
@@ -173,7 +174,7 @@ export function TemplateVersionEditorModal({
                 htmlFor="htmlTemplate"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Nội dung HTML (HTML Template)
+                {t('editor.html')}
               </label>
               <textarea
                 id="htmlTemplate"
@@ -181,7 +182,7 @@ export function TemplateVersionEditorModal({
                 style={{ width: '100%', height: '140px' }}
                 value={htmlTemplate}
                 onChange={(e) => setHtmlTemplate(e.target.value)}
-                placeholder="<p>Chào {{customerName}}, ...</p>"
+                placeholder={t('editor.htmlPlaceholder')}
                 disabled={saving}
               />
             </div>
@@ -191,7 +192,7 @@ export function TemplateVersionEditorModal({
                 htmlFor="plainTextTemplate"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Nội dung Plain Text (Fallback)
+                {t('editor.plain')}
               </label>
               <textarea
                 id="plainTextTemplate"
@@ -199,7 +200,7 @@ export function TemplateVersionEditorModal({
                 style={{ width: '100%', height: '100px' }}
                 value={plainTextTemplate}
                 onChange={(e) => setPlainTextTemplate(e.target.value)}
-                placeholder="Chào {{customerName}}, ..."
+                placeholder={t('editor.plainPlaceholder')}
                 disabled={saving}
               />
             </div>
@@ -212,14 +213,14 @@ export function TemplateVersionEditorModal({
               onClick={onClose}
               disabled={saving}
             >
-              Hủy
+              {ts('cancel')}
             </button>
             <button
               type="submit"
               className="nm-btn nm-btn-primary"
               disabled={saving || invalidPlaceholders.length > 0}
             >
-              {saving ? 'Đang lưu…' : isEdit ? 'Cập nhật bản nháp' : 'Lưu bản nháp'}
+              {saving ? t('editor.saving') : isEdit ? t('editor.update') : t('editor.save')}
             </button>
           </div>
         </form>

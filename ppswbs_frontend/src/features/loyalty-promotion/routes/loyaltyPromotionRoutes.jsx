@@ -1,4 +1,5 @@
 import React from 'react';
+import { RouteAccessGuard } from '../../../shared/auth/RouteAccessGuard';
 import PointPolicyPage from '../ui/management/PointPolicyPage';
 import ProgramCreatePage from '../ui/management/ProgramCreatePage';
 import ProgramDetailPage from '../ui/management/ProgramDetailPage';
@@ -11,6 +12,8 @@ import PromotionListPage from '../ui/public/PromotionListPage';
 import '../ui/loyalty-promotion.css';
 
 // Routes of 006 (rendered inside the app layout by src/app/router.jsx).
+// /promotion-management/* is a MANAGER-only route family: any other role is replaced to /404 before the page renders
+// or calls the API (spec "Route masking synchronization (2026-11-20)"). The backend still decides every permission.
 export const loyaltyPromotionRoutes = [
   { path: '/promotions', element: <PromotionListPage /> },
   { path: '/promotions/:promotionId', element: <PromotionDetailPage /> },
@@ -18,7 +21,7 @@ export const loyaltyPromotionRoutes = [
   { path: '/me/saved-vouchers', element: <SavedVouchersPage /> },
   {
     path: '/promotion-management',
-    element: <PromotionManagementLayout />,
+    element: <RouteAccessGuard allowedRoles={['MANAGER']}><PromotionManagementLayout /></RouteAccessGuard>,
     children: [
       { index: true, element: <ProgramListPage /> },
       { path: 'programs', element: <ProgramListPage /> },

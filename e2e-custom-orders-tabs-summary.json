@@ -1,0 +1,27 @@
+{
+  "staffTabsInitial": [
+    "Chờ chế tác 2",
+    "Đang gia công 2",
+    "Sẵn sàng giao hàng 2",
+    "Đã hoàn tất 2",
+    "Tất cả đơn"
+  ],
+  "transitionModalCaptured": true,
+  "staffTabsAfterTransition": [
+    "Chờ chế tác 1",
+    "Đang gia công 3",
+    "Sẵn sàng giao hàng 2",
+    "Đã hoàn tất 2",
+    "Tất cả đơn"
+  ],
+  "managerTabsSynced": [
+    "Chờ chế tác 1",
+    "Đang gia công 3",
+    "Sẵn sàng giao hàng 2",
+    "Đã hoàn tất 2",
+    "Tất cả đơn"
+  ],
+  "memberStatusBadge": "",
+  "memberDetailBadge": "",
+  "passed": true
+}

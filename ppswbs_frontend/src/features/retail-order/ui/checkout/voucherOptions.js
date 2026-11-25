@@ -17,10 +17,13 @@ export function useVoucherOptions(api, vouchers, base) {
     let live = true;
     Promise.all(codes.map(code => api.previewBenefits({ ...base, estimateOnly: true, selection: { choice: 'VOUCHER', voucherCode: code, requestedPoints: '0' } })
       .then(result => {
-        const saving = result?.eligible ? BigInt(result.discountAmount || '0') : 0n;
-        return [code, { eligible: saving > 0n, saving }];
+        // Since FE-06 stacks the automatic discount with the voucher (Session 2026-11-22), discountAmount includes the
+        // automatic discount the Member gets anyway; a code's own saving is voucherDiscountAmount.
+        const saving = result?.eligible ? BigInt(result.voucherDiscountAmount ?? result.discountAmount ?? '0') : 0n;
+        // FE-06's own reason (as it wrote it), so the picker says why a voucher cannot be used here in the chosen language (2026-11-23).
+        return [code, { eligible: saving > 0n, saving, reason: saving > 0n ? null : voucherReasonCode(result?.reasons) }];
       })
-      .catch(() => [code, { eligible: false, saving: 0n }])))
+      .catch(failure => [code, { eligible: false, saving: 0n, reason: voucherReasonCode([failure?.message]) }])))
       .then(entries => { if (live) setState({ key, options: new Map(entries) }); });
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,6 +70,52 @@ export function savedProductVouchers(items) {
 export function withPublicVouchers(saved, publicVouchers) {
   const seen = new Set(saved.map(voucher => String(voucher.code).toUpperCase()));
   return [...saved, ...publicVouchers.filter(voucher => !seen.has(String(voucher.code).toUpperCase()))];
+}
+
+/** What FE-06 writes when no automatic discount applies; it never explains a voucher refusal. */
+export const NO_AUTO_DISCOUNT_REASON = 'No automatic discount applies to this cart.';
+
+/** FE-06 sends its preview reasons in English; each known one has a vi/en wording under this key in the dictionary. */
+const REASON_KEYS = {
+  [NO_AUTO_DISCOUNT_REASON]: 'reason.noAutomaticDiscount',
+  'Save this voucher in Kho Voucher before using it.': 'reason.saveVoucherFirst',
+  'The automatic discount already covers these items; this voucher gives nothing more.': 'reason.automaticDiscountCovers',
+  'No item in the cart is covered by this voucher.': 'reason.noItemCovered',
+  'This voucher does not apply at the branch of these items.': 'reason.otherBranch',
+  'The covered items do not reach the minimum amount of this voucher.': 'reason.minimumNotReached',
+  'The voucher code was not found.': 'reason.codeNotFound',
+  'This voucher is for workshop bookings, not for products.': 'reason.workshopVoucher',
+  'This promotion is paused.': 'reason.paused',
+  'This promotion has not started yet.': 'reason.notStarted',
+  'This promotion has ended.': 'reason.ended',
+  'This voucher has no uses left.': 'reason.noUsesLeft',
+  'You have already used this voucher the maximum number of times.': 'reason.memberLimitReached',
+  'Points cannot be used with this voucher.': 'reason.noPoints',
+};
+
+/** True when the dictionary has its own wording for this FE-06 reason. */
+export const isKnownReason = reason => Object.prototype.hasOwnProperty.call(REASON_KEYS, reason);
+
+/** A reason in the chosen language; an unknown reason keeps FE-06's own text. */
+export function reasonText(reason, t) {
+  return isKnownReason(reason) ? t(REASON_KEYS[reason]) : reason;
+}
+
+/** The reasons in the chosen language; an unknown reason keeps FE-06's text. */
+export function reasonsText(reasons, t) {
+  return (reasons || []).map(reason => reasonText(reason, t));
+}
+
+/** The first FE-06 reason that concerns the voucher, exactly as FE-06 wrote it, or null. */
+export function voucherReasonCode(reasons) {
+  const known = (reasons || []).filter(reason => reason && reason !== NO_AUTO_DISCOUNT_REASON);
+  return known.length ? known[0] : null;
+}
+
+/** The same reason in the chosen language, or null. */
+export function voucherReason(reasons, t) {
+  const code = voucherReasonCode(reasons);
+  return code ? reasonText(code, t) : null;
 }
 
 /** The usable voucher with the largest real saving, or null. */

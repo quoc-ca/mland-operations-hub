@@ -8,7 +8,7 @@
 
 1. Read the committed task and approved template/recipient contract; unspecified notice contracts remain TBD.
 2. Send through configured Mland SMTP and record a safe provider outcome.
-3. Retry temporary failures under the approved policy; exact retry values are TBD. Mail failure does not reverse a sale, booking or approval.
+3. Notification requests are polled every 30 seconds with at most 3 attempts (retries after 1 and 5 minutes). Booking and settlement emails make at most 2 attempts within 24 hours, polled every 5 minutes. Mail failure does not reverse a sale, booking or approval.
 
 **Failure behavior**
 

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { getOwnedBookingGroup, lookupGuestBookingGroup, WorkshopApiError } from '../api/workshops';
+import { useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { GroupDetailCard } from './GroupDetailCard';
-import { AWAITING_RESULT_MESSAGE, countdownText, groupHoldPhase } from './groupDisplay';
+import { awaitingResultMessage, countdownText, groupHoldPhase } from './groupDisplay';
 import { useBookingIdentity } from './useBookingIdentity';
 import { buildContactProof, DEFAULT_PHONE_COUNTRY } from './contactValidation';
 import { PhoneInput } from './PhoneInput';
@@ -18,23 +20,23 @@ export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error, 
   if (groupStatus === 'EXPIRED' || error?.code === 'HOLD_EXPIRED' || error?.code === 'BOOKING_EXPIRED') {
     return {
       kind: 'EXPIRED',
-      title: 'Thời hạn thanh toán đã kết thúc',
-      message: 'Chỗ giữ của nhóm đã được trả lại. Nếu tiền về trễ, hệ thống sẽ liên hệ bạn về cách xử lý.',
+      title: { key: 'return.expired.title' },
+      message: { key: 'return.expired.message' },
     };
   }
   if (error && (error.code === 'NETWORK_ERROR' || error.code === 'NETWORK_TIMEOUT' || error.code === 'REQUEST_TIMEOUT'
     || Number(error.status || 0) === 0 || error.name === 'AbortError')) {
     return {
       kind: 'NETWORK_TIMEOUT',
-      title: 'Chưa kiểm tra được trạng thái',
-      message: 'Kết quả thanh toán chưa rõ. Đừng tạo thêm giao dịch; hãy kiểm tra lại trạng thái nhóm đặt chỗ.',
+      title: { key: 'return.network.title' },
+      message: { key: 'return.network.message' },
     };
   }
   if (error) {
     return {
       kind: 'LOOKUP_ERROR',
-      title: 'Chưa đọc được nhóm đặt chỗ',
-      message: error.detail || error.message || 'MLAND chưa xác minh được nhóm đặt chỗ này.',
+      title: { key: 'return.lookupError.title' },
+      message: error.detail || error.message ? { text: error.detail || error.message } : { key: 'return.lookupError.message' },
     };
   }
   // FR-032 (T172): the browser came back from the gateway without success and the server reports no live attempt, so the
@@ -42,28 +44,28 @@ export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error, 
   if (responseCode && responseCode !== '00' && noLiveAttempt) {
     return {
       kind: 'PAYMENT_NOT_COMPLETED',
-      title: 'Thanh toán chưa hoàn tất',
-      message: 'Giao dịch chưa được thực hiện. Bạn có thể thanh toán lại hoặc hủy giữ chỗ trong thời hạn thanh toán.',
+      title: { key: 'return.notCompleted.title' },
+      message: { key: 'return.notCompleted.message' },
     };
   }
   if (responseCode === '00') {
     return {
       kind: 'PROVIDER_SUCCESS_PENDING_VERIFICATION',
-      title: 'Cổng thanh toán báo thành công',
-      message: 'VNPay báo thành công. MLAND chỉ xác nhận nhóm đặt chỗ sau khi nhận được bằng chứng IPN đã xác minh.',
+      title: { key: 'return.pending.title' },
+      message: { key: 'return.pending.message' },
     };
   }
   if (responseCode) {
     return {
       kind: 'PROVIDER_ERROR',
-      title: `Cổng thanh toán trả mã ${responseCode}`,
-      message: 'Giao dịch chưa hoàn tất tại cổng. Không suy ra xác nhận nào từ lần chuyển hướng này.',
+      title: { key: 'return.providerError.title', params: { code: responseCode } },
+      message: { key: 'return.providerError.message' },
     };
   }
   return {
     kind: 'NO_PROVIDER_RESPONSE',
-    title: 'Không nhận được phản hồi từ cổng',
-    message: 'Hãy kiểm tra trạng thái nhóm đặt chỗ với MLAND trước khi thử lại.',
+    title: { key: 'return.noResponse.title' },
+    message: { key: 'return.noResponse.message' },
   };
 }
 
@@ -73,6 +75,10 @@ export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error, 
  * ends and then the outcome the server reports. The 12-minute hold and the 2-minute buffer are never shown.
  */
 export function WorkshopPaymentReturnPage({ groupCode }) {
+  const t = useT(messages);
+  const { language } = useLanguage();
+  // An outcome/error text is { key, params } (translated here, so it follows the language) or { text } (server text).
+  const say = value => (value.key ? t(value.key, value.params) : value.text);
   const { authStatus, mode: lookupMode, profileLoading, operatorRole, memberAuthorization } = useBookingIdentity();
   const params = new URLSearchParams(window.location.search);
   const vnpResponseCode = params.get('vnp_ResponseCode');
@@ -100,15 +106,15 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
     if (event) event.preventDefault();
     if (!groupCode) return;
     if (lookupMode === null) {
-      setVerifyError({ title: 'Chưa xác minh được tài khoản', message: 'Vui lòng đăng nhập lại bằng tài khoản Member.' });
+      setVerifyError({ title: { key: 'return.verify.noAccount.title' }, message: { key: 'return.verify.noAccount.message' } });
       return;
     }
     if (lookupMode === 'GUEST' && !contactProof.trim()) {
-      setVerifyError({ title: 'Cần thông tin xác minh', message: 'Nhập email hoặc số điện thoại đã dùng khi đặt.' });
+      setVerifyError({ title: { key: 'return.verify.needProof.title' }, message: { key: 'return.verify.needProof.message' } });
       return;
     }
     if (lookupMode === 'GUEST' && !guestProof.proof) {
-      setVerifyError({ title: 'Thông tin xác minh chưa đúng', message: guestProof.error });
+      setVerifyError({ title: { key: 'return.verify.badProof.title' }, message: { text: guestProof.error } });
       return;
     }
     setIsVerifying(true);
@@ -166,13 +172,13 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
   // The one proof the Guest typed, in the normalized form every call sends: { proof, error }.
   const guestProof = buildContactProof(proofType === 'email'
     ? { email: contactProof }
-    : { phone: contactProof, phoneCountry });
+    : { phone: contactProof, phoneCountry }, language);
   const confirmed = group?.groupStatus === 'CONFIRMED';
   const returnOutcome = confirmed
     ? {
       kind: 'CONFIRMED',
-      title: 'Thanh toán thành công',
-      message: 'Đặt chỗ của bạn đã được xác nhận. Vé được liệt kê bên dưới và cũng được gửi qua email.',
+      title: { key: 'return.confirmed.title' },
+      message: { key: 'return.confirmed.message' },
     }
     : classifyGroupPaymentOutcome({
       responseCode: vnpResponseCode,
@@ -182,59 +188,56 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
 
   return (
     <main className="public-page figma-public-page">
-      <p className="eyebrow">THANH TOÁN NHÓM ĐẶT CHỖ WORKSHOP</p>
-      <h1>{resuming ? 'Tiếp tục thanh toán' : 'Kết quả chuyển hướng thanh toán'}</h1>
+      <p className="eyebrow">{t('return.eyebrow')}</p>
+      <h1>{resuming ? t('return.title.resume') : t('return.title.result')}</h1>
 
       {!resuming && <div className="workspace-card" style={{ padding: '24px', borderLeft: '4px solid #002967', marginTop: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {!confirmed && (
             <span className={vnpResponseCode === '00' ? 'status ok' : 'status'}>
-              Mã phản hồi cổng: {vnpResponseCode || 'N/A'}
+              {t('return.responseCode')} {vnpResponseCode || 'N/A'}
             </span>
           )}
-          <strong>{returnOutcome.title}</strong>
+          <strong>{say(returnOutcome.title)}</strong>
         </div>
         <p className="prototype-note" style={{ margin: '14px 0 0', lineHeight: '1.6' }}>
-          <strong>{returnOutcome.message}</strong>
+          <strong>{say(returnOutcome.message)}</strong>
           {!confirmed && returnOutcome.kind !== 'PAYMENT_NOT_COMPLETED' && (
-            <> Nhóm đặt chỗ chỉ được xác nhận sau khi MLAND nhận và xác minh kết quả có chữ ký từ VNPay; việc này thường
-            mất vài giây.</>
+            <> {t('return.signedNote')}</>
           )}
         </p>
       </div>}
 
       <section className="workspace-card" style={{ marginTop: '24px' }}>
-        <h2>{group ? (resuming ? 'Giao dịch đang chờ thanh toán' : 'Vé của bạn') : 'Kiểm tra trạng thái nhóm đặt chỗ'}</h2>
+        <h2>{group ? (resuming ? t('return.section.pending') : t('return.section.tickets')) : t('return.section.check')}</h2>
         <p className="muted" style={{ margin: '0 0 16px' }}>
-          Mã đặt chỗ: <strong>{groupCode || 'Chưa xác định'}</strong>
+          {t('return.groupCode')} <strong>{groupCode || t('return.unknown')}</strong>
         </p>
 
         {!group && operatorRole ? (
           <div role="status" className="operator-payment-note" style={{ background: '#f8fafc', border: '1px solid #dcdfe6', padding: '16px 18px', lineHeight: '1.6' }}>
-            <strong>Bạn đang đăng nhập bằng tài khoản nhân viên ({operatorRole}).</strong>
+            <strong>{t('return.operator.title', { role: operatorRole })}</strong>
             <p style={{ margin: '8px 0 0' }}>
-              Trang này dành cho khách kiểm tra đơn của mình nên không xác minh bằng tài khoản nhân viên. Hệ thống chỉ
-              ghi nhận khi nhận IPN, thường sau vài giây.
+              {t('return.operator.note')}
             </p>
             <p style={{ margin: '8px 0 12px' }}>
-              Hãy quay lại <strong>Hóa đơn quyết toán</strong>, bấm <strong>Load folio</strong> để xem số còn nợ đã cập
-              nhật, rồi chốt hóa đơn khi còn nợ bằng 0.
+              {t('return.operator.step1')} <strong>{t('return.operator.invoice')}</strong>{t('return.operator.step2')} <strong>{t('return.operator.loadFolio')}</strong>{t('return.operator.step3')}
             </p>
-            <Link className="button primary" to="/settlement">Quay lại Hóa đơn quyết toán</Link>
+            <Link className="button primary" to="/settlement">{t('return.operator.back')}</Link>
           </div>
         ) : !group ? (
           <form className="payment-form" onSubmit={readGroup}>
             <p hidden={lookupMode !== 'GUEST'} style={{ fontSize: '14px', lineHeight: '1.6', marginBottom: '14px' }}>
-              Vui lòng nhập email hoặc số điện thoại đã dùng khi đặt để xem trạng thái nhóm:
+              {t('return.guestPrompt')}
             </p>
             <p className="muted" hidden={lookupMode !== 'MEMBER'}>
-              Hệ thống dùng tài khoản Member đang đăng nhập để xác minh quyền xem nhóm; không cần thông tin liên hệ.
+              {t('return.memberNote')}
             </p>
 
             <div hidden={lookupMode !== 'GUEST'} style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
                 <input type="radio" name="proofType" checked={proofType === 'phone'} onChange={() => setProofType('phone')} />
-                Số điện thoại
+                {t('return.phone')}
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
                 <input type="radio" name="proofType" checked={proofType === 'email'} onChange={() => setProofType('email')} />
@@ -267,23 +270,23 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
                 </div>
               )}
               <button type="submit" className="button primary" disabled={isVerifying}>
-                {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái nhóm'}
+                {isVerifying ? t('return.checking') : t('return.viewStatus')}
               </button>
             </div>
 
             {lookupMode === 'MEMBER' && (
               <button type="submit" className="button primary" disabled={isVerifying}>
-                {isVerifying ? 'Đang kiểm tra...' : 'Xem trạng thái nhóm'}
+                {isVerifying ? t('return.checking') : t('return.viewStatus')}
               </button>
             )}
-            {profileLoading && <p className="muted">Đang kiểm tra tài khoản đang đăng nhập…</p>}
+            {profileLoading && <p className="muted">{t('return.profileLoading')}</p>}
             {lookupMode === null && !profileLoading && authStatus === 'signed-in' && (
-              <p className="muted">Đăng nhập lại bằng tài khoản Member, hoặc đăng xuất để tra cứu như khách.</p>
+              <p className="muted">{t('return.relogin')}</p>
             )}
             {verifyError && (
               <div role="alert" style={{ color: '#b00', fontSize: '13px', marginTop: '8px' }}>
-                <strong>{verifyError.title}</strong>
-                <p style={{ margin: '4px 0 0' }}>{verifyError.message}</p>
+                <strong>{say(verifyError.title)}</strong>
+                <p style={{ margin: '4px 0 0' }}>{say(verifyError.message)}</p>
               </div>
             )}
           </form>
@@ -291,11 +294,11 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
           <>
             {group.groupStatus === 'PENDING_PAYMENT' && phase.phase === 'PAYABLE' && (
               <p role="timer" style={{ margin: '0 0 12px' }}>
-                Thời hạn thanh toán còn <strong>{countdownText(phase.secondsLeft)}</strong>
+                {t('return.deadlineLeft')} <strong>{countdownText(phase.secondsLeft, language)}</strong>
               </p>
             )}
             {group.groupStatus === 'PENDING_PAYMENT' && phase.phase === 'AWAITING_RESULT' && (
-              <p role="status" style={{ margin: '0 0 12px' }}>{AWAITING_RESULT_MESSAGE}</p>
+              <p role="status" style={{ margin: '0 0 12px' }}>{awaitingResultMessage(language)}</p>
             )}
 
             <GroupDetailCard

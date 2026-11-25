@@ -1,4 +1,5 @@
 // Feature-012 Draft domain logic and normalization
+import { viT } from './designFormat';
 
 export function createDefaultDraft(packageReference = '', sourceModel = null) {
   if (sourceModel) {
@@ -44,37 +45,88 @@ export function createDefaultDraft(packageReference = '', sourceModel = null) {
   };
 }
 
-export function validateDraftClient(draft) {
+export function validateDraftClient(draft, t = viT) {
   const errors = {};
 
   if (!draft.packageReference) {
-    errors.packageReference = 'Vui lòng chọn gói workshop.';
+    errors.packageReference = t('validation.package');
   }
   if (!draft.materialReference) {
-    errors.materialReference = 'Vui lòng chọn chất liệu nhẫn.';
+    errors.materialReference = t('validation.material');
   }
   if (!draft.shapeReference) {
-    errors.shapeReference = 'Vui lòng chọn phom dáng đai nhẫn.';
+    errors.shapeReference = t('validation.shape');
   }
   if (!draft.ringSize) {
-    errors.ringSize = 'Vui lòng chọn size nhẫn.';
+    errors.ringSize = t('validation.size');
   }
+
+  const totalGemstones = (draft.components || []).reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
+  if (totalGemstones > 10) {
+    errors.components = t('validation.gemstones');
+  }
+
+  const customImages = draft.engraving?.customImages || [];
+  if (customImages.length > 2) {
+    errors.customImages = t('validation.images');
+  }
+
+  customImages.forEach((img, idx) => {
+    if (img.contrast !== undefined && (img.contrast < 0 || img.contrast > 100)) {
+      errors[`customImage_contrast_${idx}`] = t('validation.contrast');
+      if (!errors.customImages) {
+        errors.customImages = t('validation.imageContrast');
+      }
+    }
+    if (img.sharpness !== undefined && (img.sharpness < 0 || img.sharpness > 100)) {
+      errors[`customImage_sharpness_${idx}`] = t('validation.sharpness');
+      if (!errors.customImages) {
+        errors.customImages = t('validation.imageSharpness');
+      }
+    }
+  });
 
   if (draft.engraving?.enabled) {
     const items = draft.engraving.items || [];
+    const textItems = items.filter((it) => (it.type || 'TEXT').toUpperCase() !== 'SYMBOL');
+    const symbolItems = items.filter((it) => (it.type || 'TEXT').toUpperCase() === 'SYMBOL');
+
+    if (items.length > 2) {
+      errors.engravingText = t('validation.engravingItems');
+      if (textItems.length > 2) {
+        errors.engravingText = t('validation.engravingTextItems');
+      }
+      if (symbolItems.length > 2) {
+        errors.engravingSymbol = t('validation.engravingSymbolItems');
+      }
+    }
+
     if (items.length > 0) {
       const emptyItem = items.find((it) => !it.content || it.content.trim().length === 0);
       if (emptyItem) {
-        errors.engravingText = 'Vui lòng nhập nội dung cho tất cả các vị trí khắc đã thêm.';
+        errors.engravingText = t('validation.engravingEmpty');
       }
-      const tooLongItem = items.find((it) => it.content && it.content.trim().length > 50);
+      const tooLongItem = items.find((it) => it.content && it.content.length > 50);
       if (tooLongItem) {
-        errors.engravingText = 'Nội dung mỗi vị trí khắc tối đa 50 ký tự.';
+        errors.engravingText = t('validation.engravingItemLong');
       }
     } else if (!draft.engraving.text || draft.engraving.text.trim().length === 0) {
-      errors.engravingText = 'Vui lòng nhập nội dung khắc hoặc tắt tùy chọn khắc.';
-    } else if (draft.engraving.text.trim().length > 50) {
-      errors.engravingText = 'Nội dung khắc tối đa 50 ký tự.';
+      errors.engravingText = t('validation.engravingMissing');
+    } else if (draft.engraving.text.length > 50) {
+      errors.engravingText = t('validation.engravingLong');
+    }
+
+    // Check conflict: Cannot engrave outer band if stones are mounted on outer band
+    if (totalGemstones > 0) {
+      const hasOuterItem = items.some((it) => it.placement === 'OUTER_BAND');
+      const hasOuterPlacement = draft.engraving.placement === 'OUTER_BAND';
+      const hasOuterImg = customImages.some((img) => img.placement === 'OUTER_BAND');
+      if (hasOuterItem || hasOuterPlacement || hasOuterImg) {
+        errors.engraving = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        if (!errors.engravingText) {
+          errors.engravingText = t('validation.engravingOuterStoneConflict') || 'Do mẫu thiết kế có đính đá ở ngoài nên không thể khắc lazer';
+        }
+      }
     }
   }
 
@@ -100,6 +152,9 @@ export function normalizeDraftForSave(draft) {
     cropY: Math.round(img.cropY || 0),
     cropWidth: 160,
     cropHeight: 160,
+    contrast: img.contrast !== undefined ? Math.round(Number(img.contrast)) : 50,
+    sharpness: img.sharpness !== undefined ? Math.round(Number(img.sharpness)) : 50,
+    processedPreviewReference: img.processedPreviewReference || img.previewDataUrl || img.previewUrl || img.imageUrl,
     price: 100000,
   }));
 

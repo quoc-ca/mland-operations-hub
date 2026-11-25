@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
@@ -43,9 +43,9 @@ async function verifyBuyer(user) {
 }
 
 async function pickTarget(user) {
-  await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
+  await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
   await user.click(screen.getByRole('button', { name: 'Show sessions' }));
-  await user.click((await screen.findAllByRole('radio'))[0]);
+  await waitFor(() => expect(document.querySelector('select[name^="to-"]')).toBeTruthy());
   return (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'to-TK-1');
 }
 
@@ -53,7 +53,7 @@ describe('Staff ticket change across locations', () => {
   it('shows the location name, seats and changes left on every option, and a reference when the name is missing', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-tickets/TK-1/change-options': json(200, OPTIONS) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
     const select = await pickTarget(user);
     const texts = Array.from(select.options).filter(option => option.value).map(option => option.textContent);
     expect(texts[0]).toMatch(/^Mland Hà Nội – .*3 seats left · 2 changes left$/);
@@ -65,7 +65,7 @@ describe('Staff ticket change across locations', () => {
   it('lists the target location of a ticket added to the change', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-tickets/TK-1/change-options': json(200, OPTIONS) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
     const select = await pickTarget(user);
     await user.selectOptions(select, HN);
     await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
@@ -86,8 +86,8 @@ describe('Staff ticket change across locations', () => {
         : two),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
-    await user.type(await screen.findByLabelText('Mã vé cần đổi'), 'TK-1');
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
+    await user.type(await screen.findByLabelText('Ticket code to change'), 'TK-1');
     await user.click(screen.getByRole('button', { name: 'Show sessions' }));
     await user.click(await screen.findByRole('radio', { name: /Both sessions together/ }));
     const pair = (await screen.findAllByRole('combobox')).find(item => item.getAttribute('name') === 'pair-TK-1');
@@ -106,12 +106,12 @@ describe('Staff ticket change across locations', () => {
       ...verifyHandlers,
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/ticket-actions?tab=change' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/ticket-actions?tab=change' });
     const select = await pickTarget(user);
     await user.selectOptions(select, HN);
     await user.click(screen.getByRole('button', { name: 'Add ticket to the change' }));
     await user.type(screen.getByLabelText('Reason (required)'), 'counter');
-    await user.type(screen.getByLabelText('Mã đặt chỗ'), 'GRP-1');
+    await user.type(screen.getByLabelText('Booking code'), 'GRP-1');
     await verifyBuyer(user);
     await user.click(screen.getByRole('button', { name: 'Change tickets' }));
     const alert = await screen.findByRole('alert');
@@ -133,7 +133,7 @@ describe('Mland remedy across locations', () => {
   it('shows the location next to each offered session and names it in the confirmation; an old offer shows the time only', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/mland-remedy': json(200, OFFER) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy' });
     const radios = await screen.findAllByRole('radio');
     expect(screen.getByText(/^Mland Hà Nội – /)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).toBeNull();
@@ -148,7 +148,7 @@ describe('Mland remedy across locations', () => {
       'POST /api/v1/workshop-tickets/TK-1/mland-remedy/answers': json(409, { code: 'REPLACEMENT_SESSION_UNAVAILABLE', correlationId: 'c' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/workshop-tickets/TK-1/remedy' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy' });
     await user.click((await screen.findAllByRole('radio'))[0]);
     await user.click(screen.getByRole('button', { name: 'Send my answer' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
@@ -165,7 +165,7 @@ describe('Manager: change-request approval refused for a switched-off location',
       'POST /api/v1/workshop-change-requests/CR-1/decisions': json(409, { code: 'PACKAGE_NOT_AVAILABLE_AT_LOCATION', correlationId: 'c-1' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/change-requests' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     await user.type(within(screen.getByRole('dialog')).getByRole('textbox'), 'ok');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Approve' }));
@@ -189,7 +189,7 @@ describe('Manager: add-ons sold at the previous location', () => {
       'GET /api/v1/workshop-tickets/TK-1/folio/previous-location-add-ons': json(200, [ADDON]),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await open(user);
     const block = await screen.findByRole('region', { name: 'Add-ons sold at the previous location' });
     expect(block).toHaveTextContent('Clay set');
@@ -203,18 +203,18 @@ describe('Manager: add-ons sold at the previous location', () => {
       'GET /api/v1/workshop-tickets/TK-1/folio/previous-location-add-ons': json(200, []),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await open(user);
-    await screen.findAllByText('450.000 VND');
+    await screen.findAllByText('450,000 ₫');
     expect(screen.queryByRole('region', { name: 'Add-ons sold at the previous location' })).toBeNull();
   });
 
   it('never calls the route for Staff', async () => {
     const calls = mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, FOLIO), 'GET /api/v1/workshop-tickets/TK-1/folio/add-ons': json(200, []) });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await open(user);
-    await screen.findAllByText('450.000 VND');
+    await screen.findAllByText('450,000 ₫');
     expect(calls.some(call => call.path.endsWith('previous-location-add-ons'))).toBe(false);
   });
 
@@ -224,9 +224,9 @@ describe('Manager: add-ons sold at the previous location', () => {
       'GET /api/v1/workshop-tickets/TK-1/folio/previous-location-add-ons': json(500, { code: 'X' }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await open(user);
     expect(await screen.findByText(/could not be loaded/)).toBeInTheDocument();
-    expect(screen.getAllByText('450.000 VND').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('450,000 ₫').length).toBeGreaterThan(0);
   });
 });

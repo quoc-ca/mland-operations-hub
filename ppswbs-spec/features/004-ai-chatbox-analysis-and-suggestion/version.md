@@ -1,3 +1,154 @@
+# Version 1.8 — Feature 004 & Custom Manufacturing Integration: Full Handover Implementation (Dev A, B, C, D)
+
+- **Feature**: 004 — Design Request, Human Review & Custom Manufacturing Integration
+- **Author**: Ngô Tiến Đạt
+- **Last updated by**: Ngô Tiến Đạt
+- **Date created**: 2026-11-21
+- **Date updated**: 2026-11-24
+- **Status**: Implementation handover with payment-schema and contract remediation in progress.
+
+## Current actor and consent rebaseline — 2026-11-25
+
+- Design Request creation, image upload, tracking, revision and result access are
+  Member-only. Guest sees the entry point and receives a sign-in prompt.
+- Guest quota, Guest tracking token, Guest session and Guest private-request
+  history are retired; older test results are historical evidence only.
+- Reference-image consent is mandatory before storage or submission and is
+  described as temporary storage plus human Staff/Manager review, with no AI
+  image-analysis wording.
+
+## Summary of Implementation
+
+## Current synchronization audit — 2026-11-22
+
+The approved current baseline is human review only. The repository still
+contains historical AI-support, AI-image-analysis and AI-price-suggestion code
+and tests, including the old `PriceProposalIT` suite; these must be retired or
+isolated before the human-review-only contract can be called implementation
+complete. The current backend also requires a separate audit for any remaining
+AI routes, providers, security allowlists and migrations. This entry is an
+implementation blocker, not evidence that the historical AI tests validate the
+current baseline.
+
+The current visual baseline is approved in existing Figma frames. Frontend
+implementation must follow `ppswbs-spec/DESIGN.md` and reuse the existing style
+before introducing any new component or visual pattern.
+
+Unified Feature-012 (Workshop Ring Design Configuration), Feature-004 (Custom Design Request & Human Review), and Custom Manufacturing (Quote, Full Payment, Production, Fulfilment).
+
+## Version 1.9 — 2026-11-22 terminology, design-state and consultation update
+
+- Rename customer UI to `Yêu cầu chế tác` and custom-order UI to `Đơn hàng cá nhân`.
+- Replace `Thế hệ báo giá` with `Phiên bản báo giá`.
+- Allow an owner to attach a Feature-012 design reference from any readable
+  state. Feature-004 stores an immutable snapshot and never changes the source
+  design state.
+- Add saved-design consultation launch through Feature-013 for Guest and Member.
+- Preserve full payment, no cart and no deposit behavior.
+
+### Existing-frame update — 2026-11-22
+
+The current Figma screens were updated in place rather than adding new
+customer pages. Existing Staff review frames `414:1084` and `414:1109` now
+show human-only review, reference images/design snapshots and mandatory written
+explanations. The old Manager AI price frame `414:2984` is explicitly marked
+historical and is not part of the current Feature-004 flow.
+
+### Visual baseline approval — 2026-11-22
+
+The user approved the latest in-place Figma updates as the Feature-004 visual
+baseline. Approved references are the existing Staff human-review queue/detail
+frames `414:1084` and `414:1109`, the historical-only Manager frame
+`414:2984`, and the shared customer page conventions already present in the
+current frontend. The approval is visual only; it does not approve changes to
+Feature-004 business rules, API contracts, permissions, persistence or code.
+
+Feature-004 frontend implementation must follow the existing-style-first rule:
+inspect and reuse the closest existing page, component, token, spacing,
+responsive and bilingual patterns before creating anything new. Any required
+new pattern must be a minimal reusable extension and must be documented with
+its reason.
+
+### Replacement Figma draft — 2026-11-22
+
+- Page: `08 · Frontend Baseline · FE-004 & FE-012` (`572:2`).
+- Customer request: `574:67` desktop and `574:154` mobile.
+- Staff/Manager review detail: `574:102`.
+- These frames are based on the current React/Vite shell but are historical
+  draft references, not the approved current baseline. The approved baseline is
+  the in-place existing-frame update recorded above.
+
+**Status:** `DOCUMENTATION UPDATED — IMPLEMENTATION PENDING — VISUAL BASELINE APPROVED`
+
+## Version 1.10 — 2026-11-24 frontend redesign and scroll-stability handoff
+
+- Reviewed the current React request and consultation screens before design work.
+- Created editable Figma draft frames in the existing page 498:2:
+  - F04 desktop `588:43`.
+  - F04 mobile `590:43`.
+  - Related consultation frames are recorded in Feature-013.
+- The draft follows the existing Mland style and improves hierarchy for the
+  request form, Feature-012 reference snapshot, five-image gallery and quality
+  feedback without changing the business contract.
+- The contextual consultation chat must use the same outer width and responsive
+  geometry as the general consultation chat.
+- The scroll defect is documented as a frontend implementation issue: no
+  scroll-to-bottom on route mount, conversation load, polling, focus,
+  visibility changes or empty/loading states; explicit successful send may
+  reveal the sent message while preserving the reader position otherwise.
+- Added required E2E coverage for visual consistency, initial top position,
+  polling stability, send behavior, loading/empty width stability, UTF-8
+  Vietnamese rendering and role-safe context display.
+
+**Status:** `FIGMA DRAFT PENDING USER APPROVAL — CODE NOT CHANGED`
+
+### Phase H — Post-test defect remediation (2026-11-21)
+
+- `BUG-E2E-0018`: Added `V191__widen_custom_order_payment_kind.sql` and aligned
+  the JPA enum mapping to support `CUSTOM_ORDER_FULL_PAYMENT` without MySQL
+  truncation. Payment ingress regression coverage now verifies dispatch to the
+  Custom Manufacturing facade.
+- `BUG-CONTRACT-0002`: OpenAPI and `APIs.md` now describe Guest and Member
+  creation, opaque Guest session/tracking headers and the compatibility
+  `/design-requests` route. Runtime behavior remains governed by the backend.
+- `E2E-004-029` remains `RETEST_REQUIRED` until it is executed against the
+  migrated database and produces fresh payment evidence. A historical PASS
+  record must not override the defect log.
+- `BUG-E2E-0016` and `BUG-E2E-0017` remain open pending independent rule-output
+  reconciliation and archive-flow retest; no expected value was changed to
+  force a pass.
+
+### 1. Dev A — Feature-004 Backend Intake & Clarification Flow
+- **Flyway Migration**: `V190__custom_manufacturing_and_order_intake.sql` adding `custom_design_reference_snapshots` and `custom_design_request_revisions`.
+- **Feature-012 Snapshot Capture**: Integrated `WorkshopRingDesignFacade.getDesignSnapshot()` to capture immutable JSON snapshots of persisted Feature-012 designs (`DRAFT` or `VALIDATED`).
+- **Human Review with Clarification**: Staff and Manager can record `CLARIFICATION_REQUIRED`, `ACCEPTED`, or `REJECTED` with a mandatory explanation.
+- **Revision Handling**: `reviseDesignRequest()` validates `CLARIFICATION_REQUIRED` state and `If-Match-Version`, increments version, logs revision, and resets state to `NEED_REVIEW`.
+- **Dual-Mapped Endpoints**: Controllers mapped to both `/api/v1/design-requests` and `/api/v1/custom-design-requests`.
+
+### 2. Dev B — Custom Manufacturing & Payment Backend
+- **Custom Order Aggregate**: Added entities `CustomOrder`, `CustomOrderQuote`, `CustomOrderPaymentContext`, and `CustomOrderIdempotencyRecord`.
+- **Quote Lifecycle**: Staff prepares quotes; Manager approves (`/api/v1/custom-orders/{orderId}/approve-quote`).
+- **100% Full Payment Rule**: Custom orders require 100% full payment in one attempt via VNPay (`CUSTOM_ORDER_FULL_PAYMENT`). Strictly banned: Add to Cart, deposits, remaining balance, and split payments.
+- **Quote Expiry & Renewal**: Quotes expire at `quoteExpiresAt`. Expired quotes cancel queue hold and transition order to `EXPIRED`. Members can request a new quote (`/request-new-quote`) generating a new quote version while preserving history.
+- **Production & Fulfilment**: Status progression from `PAID` -> `IN_PRODUCTION` -> `FULFILLED` -> `CLOSED`.
+
+### 3. Dev C — Frontend UI Implementation
+- **Member Custom Orders View**: Created `/account/my-custom-orders` with two tabs:
+  - **Requests Tab**: Displays custom design requests, status badges, clarification explanations, and an interactive "Phản hồi làm rõ" revision modal.
+  - **Orders Tab**: Displays custom orders, quote details (100% full amount, quote generation #, payment deadline), and CTAs for "Thanh toán toàn bộ" (Full Payment) and "Yêu cầu báo giá mới" (Request New Quote).
+- **Custom Order Detail View**: Created `/account/my-custom-orders/:customOrderId` featuring:
+  - 4-step progress stepper: Báo giá & Duyệt -> Thanh toán 100% -> Chế tác sản xuất -> Bàn giao sản phẩm.
+  - Immutable ring snapshot preview and order breakdown.
+  - One-click full payment CTA opening VNPay checkout.
+- **Staff/Manager Review Queue**: Updated `/design-review-requests/:requestId` to support `CLARIFICATION_REQUIRED` decision option and quote preparation block upon acceptance.
+- **Strict Copy Compliance**: Zero occurrences of "đặt cọc" (deposit), remaining balance, or cart lines in the custom order UI.
+- **Test Suite**: Added comprehensive Vitest tests in `customOrders.test.jsx`, passing with 31/31 feature tests.
+
+### 4. Dev D — Specification and Documentation Synchronization
+- Synchronized `spec.md`, `data-model.md`, `plan.md`, `tasks.md`, and `version.md` to reflect the completed handoff and verified invariants.
+
+---
+
 # Version 1.7 — Feature 004: AI Chatbox Daily Quota & Session Accounting (Demo Quota & Gemini Integration)
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
@@ -5,7 +156,36 @@
 - **Last updated by**: Phan Sơn
 - **Date created**: 2026-10-24
 - **Date updated**: 2026-11-18
-- **Source of truth**: Feature-004 `spec.md`, `design.md`, OpenAPI contract, `V182__ai_guest_sessions_and_prompt_quota.sql` and synchronized project specifications
+- **Source of truth**: The 2026-11-20 human-review `spec.md`, `research.md`, `design.md` and `contracts/design-request-human-review.openapi.yaml`. The AI quota contract and `V182__ai_guest_sessions_and_prompt_quota.sql` are historical only.
+
+## Phase I — Custom-order one-time full-payment revision (2026-11-20)
+
+- Custom orders no longer use a deposit, remaining balance, final-balance
+  proposal, or retail cart line.
+- After a valid human review and Manager-approved quote, the Member pays the
+  complete quoted amount from the custom-order detail page in one payment
+  context.
+- The quote stores an immutable total, currency, quote generation and expiry.
+  If verified full payment is not received before expiry, the quote/order is
+  expired or cancelled and any temporary queue hold is released.
+- A new quote is a new immutable generation on the same custom order where the
+  policy permits it; the old quote remains history.
+- The custom-order customer page is split into `Requests` and `Orders` views.
+  It never exposes an Add to Cart action and never treats a custom order as a
+  ready-ring retail order.
+- Updated Feature-004 `spec.md`, `data-model.md`, custom-order OpenAPI,
+  `ppswbs-spec/APIs.md`, `spec-general.md`, `screen.md`, Report 2 scope and
+  Report 3 custom-manufacturing/payment references.
+- Workshop booking deposits and ready-ring retail full payment are unchanged.
+
+### Current status
+
+```text
+CUSTOM ORDER FULL-PAYMENT BASELINE DOCUMENTED
+NO DEPOSIT OR RETAIL CART
+QUOTE EXPIRY/CANCELLATION REQUIRED
+BACKEND/FRONTEND IMPLEMENTATION PENDING CONTRACT REVIEW
+```
 
 ### Phase G — AI Chatbox Daily Quota & Session Accounting (2026-11-18)
 1. **Calendar-Day Quota Enforcement (Asia/Ho_Chi_Minh)**:
@@ -45,6 +225,68 @@
 ---
 
 # Version 1.6 — Feature 004: Custom Design Workspace Refinement & Request Tracking Enhancements
+
+## Phase G — Human Review Rebaseline (2026-11-20)
+
+### New source of truth
+
+Feature-004 is logically renamed to `004-design-request-and-human-review`. The
+legacy directory is retained temporarily for history, but all new implementation
+must use the human-review specification and contract.
+
+> **Historical-content boundary:** Sections below this Phase G baseline may
+> describe the former AI workflow. They are retained for audit/history only and
+> must not be used to implement Feature-004.
+
+### Retired behavior
+
+- Basic AI Support, Gemini, AI image analysis, candidate features, confidence and
+  AI price suggestion are removed from Feature-004.
+- The old 3,000,000 VND Staff/Manager threshold is retired.
+- `CLARIFICATION_REQUIRED` is removed from the V1 review lifecycle.
+- Existing AI E2E results are historical and cannot verify this baseline.
+
+### New behavior
+
+- Guest and Member can create independent requests.
+- Each request accepts a description and/or up to five images.
+- Image quality is checked immediately in the UI and authoritatively by backend.
+- `TOO_BLURRY` blocks submission.
+- Guest quota is five requests per calendar day; the sixth returns HTTP 429.
+- Guest tracking uses an opaque expirable token/link.
+- Staff and Manager have equal accept/reject authority.
+- Every terminal decision requires a mandatory explanation.
+- Customer projections expose status and explanation without raw tokens, storage keys,
+  database IDs or private contact information.
+
+### Phase H — Custom-order intake integration (2026-11-20)
+
+- Feature-004 now owns custom design intake, clarification, human review and quote
+  handoff; Custom Manufacturing owns production, balance payment and fulfilment.
+- A Member may submit a Feature-012 `DRAFT` or `VALIDATED` snapshot. Attached or
+  locked designs require cloning before reuse.
+- `CLARIFICATION_REQUIRED` is non-terminal and creates a new auditable revision.
+- Quotes use Manager-configured expiry. No queue slot is held until deposit starts;
+  then the queue hold is at most 15 minutes and the VNPay link is valid for 10.
+- Implementation remains blocked until the new contract, Figma screens, migration
+  plan and payment-facade ownership are reviewed.
+
+### Documentation and Figma gate
+
+Added `research.md`, the human-review OpenAPI draft, rewritten `spec.md`,
+`data-model.md`, `design.md` and `tasks.md`. A new Figma design pack for Guest,
+Member, Staff, Manager and Admin is required; implementation is blocked until the
+user approves its revision and node mapping.
+
+### Status
+
+```text
+DOCUMENTATION REBASED
+AI BOUNDARY REMOVED
+HUMAN REVIEW BASELINE DRAFT
+FIGMA DESIGN PENDING APPROVAL
+IMPLEMENTATION BLOCKED UNTIL CONTRACT REVIEW
+```
 
 - **Feature**: 004 — AI Chatbox Analysis and Suggestion
 - **Author**: Ngô Tiến Đạt
@@ -1116,5 +1358,53 @@ Toàn bộ 4 kịch bản E2E của Feature 004 đã được thực thi và ngh
    - Admin đăng nhập mở cùng URL hiển thị chuẩn xác Chế độ xem kiểm toán kỹ thuật, ẩn dữ liệu giá thương mại, hiển thị provider correlation ID `gemini-price-21878445` ([`screenshots/E2E-004-004--admin-audit.jpg`](test-results/screenshots/E2E-004-004--admin-audit.jpg)).
 
 **Tổng kết Feature 004**: Đạt **4/4 kịch bản E2E PASS (100%)**, toàn bộ blocker kỹ thuật và defect `BUG-E2E-0005` đã được đóng hoàn toàn.
+
+## Version 1.4 — Member-only rebaseline and code-alignment plan (2026-11-24)
+
+### Decision
+
+- Guest can see the custom-design entry, explanation and sign-in CTA only.
+- Only an authenticated active Member can create, upload, read, revise or track
+  a private design request or custom order.
+- The previous Guest design session, Guest tracking token and five-per-day quota
+  are retired from the current contract. Historical records are preserved and
+  are not exposed through a new Guest path.
+- Human Staff/Manager review remains mandatory; AI is not part of the current
+  Feature-004 business flow.
+
+### Code findings to resolve
+
+1. `DesignRequestController` currently derives a nullable caller identity and
+   can reach submission without proving Member role. Add a shared active-Member
+   authorization guard before multipart/JSON request creation.
+2. Detail/tracking/revision endpoints still accept Guest tracking proof. Remove
+   or deprecate the Guest branch and return an authentication error without
+   request enumeration.
+3. `designreview` frontend routes for new/detail are not uniformly protected;
+   add a Member gate while keeping the public feature entry screen visible.
+4. `designReviewApi.js` still stores and sends `X-Guest-AI-Session`; remove this
+   legacy transport and any guest-success fallback.
+5. Legacy AI Support/price-suggestion artifacts remain in code and tests even
+   though current Feature-004 is human-review-only. Mark them deprecated or
+   isolate them from Feature-004 acceptance and protect any remaining endpoint.
+6. Audit raw-image access and all request projections to ensure only Member
+   ownership, reviewer scope, or technical audit scope can read them.
+7. Keep Feature-012 handoff Member-owned and snapshot-based; never read its
+   repository directly.
+
+### Implementation and test sequence
+
+1. Add backend authorization tests for unauthenticated, Guest, inactive Member,
+   active Member, Staff, Manager and Admin on every customer endpoint.
+2. Remove Guest token/session creation and tracking tests; add tests proving no
+   protected API call is made before sign-in.
+3. Add Member ownership, five-image, quality, idempotency, revision and stale
+   decision regression tests.
+4. Update React route guards and sign-in return handling; preserve form context
+   only in safe local UI state.
+5. Run Staff/Manager review, Admin-denied, Member ownership and Guest smoke E2E
+   scenarios, then run full backend/frontend regression.
+
+**Current status:** `SPEC UPDATED — CODE REWORK PLANNED — NO CODE CHANGED IN THIS PASS`
 
 

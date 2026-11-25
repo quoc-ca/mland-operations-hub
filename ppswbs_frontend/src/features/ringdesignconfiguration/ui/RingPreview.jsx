@@ -1,4 +1,6 @@
 import React from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 
 /**
  * 2D Interactive SVG Live Ring Preview with Dual Views:
@@ -15,6 +17,7 @@ export default function RingPreview({
 }) {
   const [draggingStoneId, setDraggingStoneId] = React.useState(null);
   const svgRef = React.useRef(null);
+  const t = useT(messages);
   const {
     material,
     shape,
@@ -33,6 +36,10 @@ export default function RingPreview({
   } = previewModel || {};
 
   const stonesToRender = stones.length > 0 ? stones : gemstones;
+
+  const innerEngravings = (engravingItems && engravingItems.length > 0)
+    ? engravingItems.filter((it) => !it.placement || it.placement === 'INNER_BAND')
+    : (engravingText ? [{ id: 'legacy-text', content: engravingText, type: 'TEXT' }] : []);
 
   // Scaled stroke width for Top View based on thickness (1.0mm -> 10px, 3.0mm -> 22px)
   const topStrokeWidth = Math.round(9 + (thicknessMm - 1.0) * 6.5);
@@ -114,15 +121,15 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">Mặt chính diện (Top View)</span>
+          <span className="ring-view-badge">{t('topViewLabel')}</span>
           <span className="ring-view-meta">
-            Size {ringSize} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${stonesToRender.length} đá`}
+            {t('sizeShort', { size: ringSize })} · {circumferenceMm} mm {stonesToRender.length > 0 && `· ${t('preview.stones', { count: stonesToRender.length })}`}
           </span>
         </div>
 
         {!readOnly && stonesToRender.length > 0 && (
           <div className="ring-drag-help-pill" data-testid="gemstone-drag-hint">
-            <span>💡 Nhấn giữ và kéo viên đá để bố trí quanh đường tròn nhẫn</span>
+            <span>💡 {t('preview.dragHint')}</span>
           </div>
         )}
 
@@ -132,7 +139,7 @@ export default function RingPreview({
             viewBox="0 0 300 270"
             className="ring-preview-svg"
             role="img"
-            aria-label={`Mô phỏng mặt chính diện nhẫn ${material?.label || ''} dáng ${shape?.label || ''} size ${ringSize}`}
+            aria-label={t('preview.topAria', { material: material?.label || '', shape: shape?.label || '', size: ringSize })}
           >
             <defs>
               <linearGradient id="ringTopMetallicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -239,13 +246,13 @@ export default function RingPreview({
               />
             )}
 
-            {/* Inner Engraving Text Arc */}
-            {engravingText && (
-              <g>
+            {/* Inner Engraving Text Arc (supports multiple items) */}
+            {innerEngravings.length > 0 && (
+              <g data-testid="ring-preview-inner-engraving">
                 <path id="topEngravingArc" d="M 95,150 A 55,55 0 0,0 205,150" fill="none" />
                 <text fill="#475569" fontSize="8" fontWeight="600" letterSpacing="1.2">
                   <textPath href="#topEngravingArc" startOffset="50%" textAnchor="middle">
-                    {engravingText}
+                    {innerEngravings.map((it) => it.content).join(' • ')}
                   </textPath>
                 </text>
               </g>
@@ -287,7 +294,6 @@ export default function RingPreview({
                   key={stoneId}
                   id={stoneId}
                   className={`ring-preview-gemstone ${isDragging ? 'is-dragging' : ''}`}
-                  filter="url(#ringGemGlow)"
                   style={{
                     cursor: readOnly ? 'default' : isDragging ? 'grabbing' : 'grab',
                     touchAction: 'none',
@@ -295,7 +301,7 @@ export default function RingPreview({
                   onPointerDown={(e) => handlePointerDown(stoneId, e)}
                   tabIndex={readOnly ? -1 : 0}
                   role={readOnly ? 'presentation' : 'button'}
-                  aria-label={`Viên đá ${gem.label || ''} tại góc ${Math.round(angleDeg)} độ. Kéo thả để bố trí quanh đai nhẫn`}
+                  aria-label={t('preview.gemAria', { label: gem.label || '', angle: Math.round(angleDeg) })}
                   data-testid={`gemstone-marker-${stoneId}`}
                 >
                   {/* Outer mounting prong/base */}
@@ -351,7 +357,7 @@ export default function RingPreview({
 
             {/* Center Size & Diameter Watermark */}
             <text x="150" y="132" textAnchor="middle" fontSize="14" fontWeight="600" fill="#64748B">
-              {isNeutral ? 'Mẫu chuẩn' : `Size ${ringSize}`}
+              {isNeutral ? t('preview.standardModel') : t('sizeShort', { size: ringSize })}
             </text>
             <text x="150" y="150" textAnchor="middle" fontSize="11" fontWeight="500" fill="#94A3B8">
               Ø ~{diameterMm} mm · C {circumferenceMm} mm
@@ -365,9 +371,9 @@ export default function RingPreview({
           ========================================================================= */}
       <div className="ring-view-card" data-testid="ring-side-view-card">
         <div className="ring-view-header">
-          <span className="ring-view-badge">Mặt cạnh / Tiết diện (Side View)</span>
+          <span className="ring-view-badge">{t('sideViewLabel')}</span>
           <span className="ring-view-meta">
-            Rộng {bandWidthMm.toFixed(1)} mm · Dày {thicknessMm.toFixed(1)} mm
+            {t('preview.dims', { width: bandWidthMm.toFixed(1), thick: thicknessMm.toFixed(1) })}
           </span>
         </div>
 
@@ -376,7 +382,7 @@ export default function RingPreview({
             viewBox="0 0 300 130"
             className="ring-preview-svg ring-side-svg"
             role="img"
-            aria-label={`Mô phỏng mặt cạnh nhẫn ${material?.label || ''} bề rộng ${bandWidthMm}mm độ dày ${thicknessMm}mm`}
+            aria-label={t('preview.sideAria', { material: material?.label || '', width: bandWidthMm, thick: thicknessMm })}
           >
             <defs>
               {/* Cylindrical horizontal metallic gradient */}
@@ -399,7 +405,7 @@ export default function RingPreview({
 
             {/* Mounted Gemstones Profile in Side View */}
             {stonesToRender.length > 0 && (
-              <g filter="url(#ringGemGlow)">
+              <g>
                 {stonesToRender.slice(0, 4).map((gem, idx) => {
                   const stoneCount = Math.min(stonesToRender.length, 4);
                   const offsetX = 150 + (idx - (stoneCount - 1) / 2) * 18;
@@ -561,6 +567,7 @@ export default function RingPreview({
                 fontWeight="700"
                 letterSpacing="1.2"
                 opacity="0.8"
+                data-testid="ring-preview-outer-engraving"
               >
                 {engravingItems
                   .filter((it) => it.placement === 'OUTER_BAND')
@@ -569,15 +576,17 @@ export default function RingPreview({
               </text>
             )}
 
-            {/* Outer Band Custom Image Mark */}
-            {customImages.some((img) => img.placement === 'OUTER_BAND') && (
-              <g transform={`translate(${sideStartX + 18}, ${sideCenterY - 6})`}>
-                <rect width="12" height="12" rx="2" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="1 1" />
-                <text x="6" y="9" textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="bold">
-                  📷
-                </text>
-              </g>
-            )}
+            {/* Outer Band Custom Image Marks */}
+            {customImages
+              .filter((img) => img.placement === 'OUTER_BAND')
+              .map((img, idx) => (
+                <g key={img.id || idx} transform={`translate(${sideStartX + 18 + idx * 16}, ${sideCenterY - 6})`} data-testid={`outer-laser-mark-${img.id || idx}`}>
+                  <rect width="12" height="12" rx="2" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="1 1" />
+                  <text x="6" y="9" textAnchor="middle" fontSize="7" fill="#ef4444" fontWeight="bold">
+                    📷
+                  </text>
+                </g>
+              ))}
 
             {/* Dimension Callout - Độ rộng bề mặt nhẫn (Height Indicator) */}
             <g>
@@ -606,13 +615,13 @@ export default function RingPreview({
           2 SLIDERS ĐIỀU CHỈNH ĐỘ DÀY & ĐỘ RỘNG NHẪN
           ========================================================================= */}
       <div className="ring-dimension-sliders-card" data-testid="ring-dimension-sliders">
-        <h4 className="ring-dimension-title">Tùy chỉnh thông số kích thước</h4>
+        <h4 className="ring-dimension-title">{t('dimensionsHeading')}</h4>
 
         {/* Slider 1: Độ dày nhẫn (1.0mm - 3.0mm, step 0.1) */}
         <div className="ring-slider-group">
           <div className="ring-slider-meta">
             <label htmlFor="thickness-range" className="ring-slider-label">
-              Độ dày nhẫn (Thickness)
+              {t('thicknessLabel')}
             </label>
             <span className="ring-slider-value" data-testid="thickness-value">
               {thicknessMm.toFixed(1)} mm
@@ -628,13 +637,13 @@ export default function RingPreview({
             disabled={readOnly}
             onChange={(e) => onThicknessChange?.(parseFloat(e.target.value))}
             className="ring-range-input"
-            aria-label="Độ dày nhẫn mm"
+            aria-label={t('preview.thicknessAria')}
             data-testid="thickness-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.0 mm (Mỏng)</span>
-            <span>2.0 mm (Tiêu chuẩn)</span>
-            <span>3.0 mm (Dày dặn)</span>
+            <span>1.0 mm ({t('preview.thin')})</span>
+            <span>2.0 mm ({t('preview.standard')})</span>
+            <span>3.0 mm ({t('preview.thick')})</span>
           </div>
         </div>
 
@@ -642,7 +651,7 @@ export default function RingPreview({
         <div className="ring-slider-group" style={{ marginTop: '1rem' }}>
           <div className="ring-slider-meta">
             <label htmlFor="bandwidth-range" className="ring-slider-label">
-              Độ rộng bề mặt (Band Width)
+              {t('bandWidthLabel')}
             </label>
             <span className="ring-slider-value" data-testid="bandwidth-value">
               {bandWidthMm.toFixed(1)} mm
@@ -658,13 +667,13 @@ export default function RingPreview({
             disabled={readOnly}
             onChange={(e) => onBandWidthChange?.(parseFloat(e.target.value))}
             className="ring-range-input"
-            aria-label="Độ rộng bề mặt mm"
+            aria-label={t('preview.widthAria')}
             data-testid="bandwidth-slider"
           />
           <div className="ring-slider-ticks">
-            <span>1.5 mm (Thanh mảnh)</span>
-            <span>3.5 mm (Vừa vặn)</span>
-            <span>6.0 mm (Bản to)</span>
+            <span>1.5 mm ({t('preview.slender')})</span>
+            <span>3.5 mm ({t('preview.medium')})</span>
+            <span>6.0 mm ({t('preview.wide')})</span>
           </div>
         </div>
       </div>
@@ -685,42 +694,114 @@ export default function RingPreview({
           data-testid="laser-preview-gallery"
         >
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#1e293b' }}>
-            Bản xem trước khắc laser (160px × 160px)
+            {t('laserPreviewTitle')}
           </h4>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            {customImages.map((img) => (
-              <div key={img.id} style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '160px',
-                    height: '160px',
-                    border: '2px solid #0f172a',
-                    borderRadius: '6px',
-                    background: '#ffffff',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {img.previewDataUrl ? (
-                    <img
-                      src={img.previewDataUrl}
-                      alt="B&W Laser Engraving Preview"
-                      style={{ width: '160px', height: '160px', imageRendering: 'pixelated' }}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>160 × 160 B&W</span>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
-                  {img.placement === 'OUTER_BAND' ? 'Mặt ngoài (+100k)' : 'Mặt trong (+100k)'}
-                </span>
-              </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              alignItems: 'flex-start',
+            }}
+          >
+            {customImages.map((img, idx) => (
+              <LaserPreviewThumbnail key={img.id || idx} img={img} />
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LaserPreviewThumbnail({ img }) {
+  const t = useT(messages);
+  const [loadError, setLoadError] = React.useState(false);
+  const imageSrc = img.previewDataUrl || img.processedPreviewReference || img.imageReference || img.imageUrl;
+  const placementText = img.placement === 'OUTER_BAND' ? t('preview.outerPlus') : t('preview.innerPlus');
+  const detailsText = img.contrast !== undefined ? ` · C:${img.contrast} S:${img.sharpness}` : '';
+  const fullCaption = `${placementText}${detailsText}`;
+
+  return (
+    <div
+      style={{
+        width: '160px',
+        maxWidth: '160px',
+        minWidth: '160px',
+        flex: '0 0 160px',
+        textAlign: 'center',
+        boxSizing: 'border-box',
+      }}
+      data-testid={`laser-preview-item-${img.id || 'custom'}`}
+    >
+      <div
+        style={{
+          width: '160px',
+          height: '160px',
+          border: '2px solid #0f172a',
+          borderRadius: '6px',
+          background: '#f8fafc',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
+        }}
+      >
+        {imageSrc && !loadError ? (
+          <img
+            src={imageSrc}
+            alt={t('preview.laserAlt')}
+            onError={() => setLoadError(true)}
+            style={{ width: '160px', height: '160px', objectFit: 'contain', imageRendering: 'pixelated' }}
+            data-testid="laser-preview-image"
+          />
+        ) : (
+          <div style={{ padding: '0.5rem', textAlign: 'center' }} data-testid="laser-preview-error">
+            <span style={{ fontSize: '0.75rem', color: '#ef4444', display: 'block', fontWeight: 600 }}>
+              {loadError ? t('imageLoadError') : t('preview.missingImage')}
+            </span>
+            {loadError && (
+              <button
+                type="button"
+                onClick={() => setLoadError(false)}
+                style={{
+                  marginTop: '0.25rem',
+                  fontSize: '0.7rem',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  cursor: 'pointer',
+                }}
+                data-testid="laser-preview-retry-btn"
+              >
+                {t('imageRetry')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: '#64748b',
+          display: 'block',
+          marginTop: '0.25rem',
+          width: '100%',
+          maxWidth: '160px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box',
+        }}
+        title={fullCaption}
+      >
+        {placementText}
+        {detailsText}
+      </span>
     </div>
   );
 }

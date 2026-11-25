@@ -9,6 +9,8 @@ export class WorkshopApiError extends Error {
     this.correlationId = correlationId || null;
     this.detail = detail || message;
     this.data = data || null;
+    // A lost response has no server text; screens fall back to their own bilingual string for the code.
+    if (status === 0) { this.message = ''; this.detail = ''; }
   }
 }
 
@@ -17,10 +19,7 @@ export function isValidUuid(val) {
 }
 
 export function getApiBaseUrl() {
-  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL)
-    || (typeof process !== 'undefined' && process?.env?.VITE_API_BASE_URL);
-  if (typeof envUrl === 'string' && envUrl !== '') return envUrl.replace(/\/$/, '');
-  return (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080';
 }
 
 async function request(path, { params = {}, method = 'GET', headers = {}, body = null } = {}) {
@@ -53,10 +52,9 @@ async function request(path, { params = {}, method = 'GET', headers = {}, body =
       body: body !== null && body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
     });
   } catch (error) {
-    throw new WorkshopApiError('Không nhận được phản hồi từ backend.', {
+    throw new WorkshopApiError('', {
       status: 0,
       code: error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
-      detail: 'Không nhận được phản hồi từ backend.',
     });
   }
 

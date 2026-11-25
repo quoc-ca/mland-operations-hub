@@ -1,15 +1,18 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { useT } from '../../../../shared/i18n/I18nProvider';
+import { useLanguage, useT } from '../../../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
-import { sizeGuide } from './sizeGuide';
+import { sizeGuides } from './sizeGuide';
 
 /**
  * "Bảng Quy Đổi Kích Cỡ" dialog: title, one line of description, the shop's size chart image and, for each way to
  * measure, a heading with numbered steps.
- * The content comes from {@link sizeGuide}; a missing image shows a short notice instead of a broken picture.
+ * The content comes from {@link sizeGuides} in the chosen language (T188), Vietnamese when that language has none; a
+ * missing image shows a short notice instead of a broken picture.
  */
-export function SizeGuideDialog({ onClose, guide = sizeGuide }) {
+export function SizeGuideDialog({ onClose, guide: given }) {
   const t = useT(messages);
+  const { language } = useLanguage();
+  const guide = given || sizeGuides[language] || sizeGuides.vi;
   const titleId = useId();
   const closeRef = useRef(null);
   const [imageFailed, setImageFailed] = useState(false);

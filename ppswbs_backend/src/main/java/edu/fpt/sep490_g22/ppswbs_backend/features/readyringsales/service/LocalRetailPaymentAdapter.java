@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 /**
  * Local-only VNPay substitute. The verification result is server-side mock data, not a browser callback.
@@ -40,6 +39,6 @@ public class LocalRetailPaymentAdapter implements RetailPaymentPort {
 
     @Override public RetailCheckoutPorts.PaymentInitiation initiate(String checkoutId, BigDecimal amount) {
         return new RetailCheckoutPorts.PaymentInitiation("https://local.mock/vnpay/checkout/" + checkoutId,
-            Instant.now().plus(15, ChronoUnit.MINUTES), true);
+            Instant.now().plus(RetailPaymentMethods.VNPAY_HOLD), true);
     }
 }

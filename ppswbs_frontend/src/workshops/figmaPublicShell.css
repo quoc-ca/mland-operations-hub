@@ -323,6 +323,8 @@
 .hold-pay-timer.urgent { color: #b00; }
 .hold-pay-button { width: 100%; min-height: 52px; font-size: 16px; }
 .hold-pay-note { margin: 0; font-size: 13px; }
+/* BUG-E2E-0015: scrolling the pay button into view must stop below the sticky topbar (about 84px high), not under it. */
+.hold-pay,.hold-pay-button{scroll-margin-top:110px}
 
 /* Centred confirmation pop-up (add to cart): closes itself, never blocks the page. */
 .toast-center { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; display: flex; align-items: center; gap: 10px; padding: 18px 28px; border-radius: 12px; background: #1b5e37; color: #fff; font-size: 18px; font-weight: 600; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28); pointer-events: none; animation: toast-center-in 0.18s ease-out; }
@@ -334,3 +336,6 @@
 .ws-filter-grid .ws-filter-branch { grid-column: 1 / -1; }
 .ws-filter-grid label { min-width: 0; }
 .ws-filter-grid select, .ws-filter-grid input { box-sizing: border-box; width: 100%; height: 44px; }
+.filter-bar.ws-filter-grid select, .filter-bar.ws-filter-grid input { min-width: 0; }
+
+@media (max-width: 480px) { .ws-filter-grid { grid-template-columns: minmax(0, 1fr); } }

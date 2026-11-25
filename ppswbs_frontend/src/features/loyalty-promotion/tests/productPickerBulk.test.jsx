@@ -1,8 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { loyaltyPromotionRoutes } from '../routes/loyaltyPromotionRoutes';
+import { signInAs } from './fixtures';
+
+beforeEach(() => signInAs('MANAGER'));
 
 const P = '/api/v1/promotion-programs';
 const C = '/api/v1/catalogue-management/products';

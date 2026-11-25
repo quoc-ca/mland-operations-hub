@@ -1,4 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useT } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
+import { renderRich } from './richText';
 
 export function ResendConfirmationModal({
   isOpen,
@@ -7,6 +11,8 @@ export function ResendConfirmationModal({
   onResend,
   userRole = 'MANAGER',
 }) {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
   const [reason, setReason] = useState('');
   const [duplicateRiskAccepted, setDuplicateRiskAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -37,16 +43,16 @@ export function ResendConfirmationModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isManagerForbidden) {
-      setError('Quản lý không có quyền gửi lại yêu cầu UNKNOWN_OUTCOME.');
+      setError(t('resend.notAllowed'));
       return;
     }
     const trimmed = reason.trim();
     if (trimmed.length < 10) {
-      setError('Lý do gửi lại là bắt buộc và phải có tối thiểu 10 ký tự.');
+      setError(t('resend.reasonTooShort'));
       return;
     }
     if (isUnknownOutcome && !duplicateRiskAccepted) {
-      setError('Bạn phải xác nhận chấp nhận rủi ro gửi thư trùng trước khi tiếp tục.');
+      setError(t('resend.riskRequired'));
       return;
     }
 
@@ -56,7 +62,7 @@ export function ResendConfirmationModal({
       await onResend(requestItem.id, trimmed, duplicateRiskAccepted);
       onClose();
     } catch (err) {
-      setError(err?.message || 'Gửi lại yêu cầu thất bại.');
+      setError(err?.message || t('resend.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -71,13 +77,13 @@ export function ResendConfirmationModal({
     >
       <div className="nm-modal">
         <div className="nm-modal-header">
-          <h3 id="resend-modal-title">Gửi lại email thông báo #{requestItem.id}</h3>
+          <h3 id="resend-modal-title">{t('resend.title', { id: requestItem.id })}</h3>
           <button
             type="button"
             className="nm-modal-close"
             onClick={onClose}
             disabled={submitting}
-            aria-label="Đóng"
+            aria-label={ts('close')}
           >
             &times;
           </button>
@@ -88,10 +94,10 @@ export function ResendConfirmationModal({
             {error && <div className="nm-alert nm-alert-danger" role="alert">{error}</div>}
 
             <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#334155' }}>
-              <div><strong>Mã sự kiện:</strong> {requestItem.businessEventReference}</div>
-              <div><strong>Mẫu thư:</strong> {requestItem.templateCode}</div>
-              <div><strong>Người nhận:</strong> {requestItem.recipientAddressMasked}</div>
-              <div><strong>Trạng thái hiện tại:</strong> {requestItem.deliveryState}</div>
+              <div><strong>{t('request.event')}</strong> {requestItem.businessEventReference}</div>
+              <div><strong>{t('request.template')}</strong> {requestItem.templateCode}</div>
+              <div><strong>{t('request.recipient')}</strong> {requestItem.recipientAddressMasked}</div>
+              <div><strong>{t('request.currentState')}</strong> {requestItem.deliveryState}</div>
             </div>
 
             {isUnknownOutcome && (
@@ -101,14 +107,14 @@ export function ResendConfirmationModal({
               >
                 {isManagerForbidden ? (
                   <div>
-                    <strong>Từ chối quyền: Chỉ Quản trị viên (ADMIN) mới có quyền gửi lại</strong>
+                    {renderRich(t('resend.deniedTitle'))}
                     <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem' }}>
-                      Trạng thái thư này là <code>UNKNOWN_OUTCOME</code> (tiến trình bị gián đoạn khi đang kết nối máy chủ thư). Chỉ Quản trị viên (Admin) mới có quyền can thiệp gửi lại.
+                      {renderRich(t('resend.deniedBody'))}
                     </p>
                   </div>
                 ) : (
                   <div>
-                    <strong>Cảnh báo quan trọng:</strong> Thư này có trạng thái <code>UNKNOWN_OUTCOME</code>. Máy chủ thư có thể đã gửi thư đi trước khi sự cố xảy ra. Gửi lại có thể khiến khách hàng nhận hai email cùng nội dung.
+                    {renderRich(t('resend.warning'))}
                   </div>
                 )}
               </div>
@@ -124,7 +130,7 @@ export function ResendConfirmationModal({
                     disabled={submitting}
                     style={{ marginTop: '0.2rem' }}
                   />
-                  <span>Tôi đã xác nhận với dịch vụ mail và chấp nhận rủi ro khách hàng có thể nhận thư trùng.</span>
+                  <span>{t('resend.riskCheckbox')}</span>
                 </label>
               </div>
             )}
@@ -134,7 +140,7 @@ export function ResendConfirmationModal({
                 htmlFor="resendReason"
                 style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}
               >
-                Lý do gửi lại (Bắt buộc, tối thiểu 10 ký tự) *
+                {t('resend.reasonLabel')}
               </label>
               <textarea
                 id="resendReason"
@@ -142,7 +148,7 @@ export function ResendConfirmationModal({
                 style={{ width: '100%', height: '80px' }}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Ví dụ: Khách hàng báo chưa nhận được email xác nhận trong hộp thư đến"
+                placeholder={t('resend.reasonPlaceholder')}
                 disabled={submitting || isManagerForbidden}
                 required
               />
@@ -156,7 +162,7 @@ export function ResendConfirmationModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Hủy
+              {ts('cancel')}
             </button>
             <button
               type="submit"
@@ -168,7 +174,7 @@ export function ResendConfirmationModal({
                 (isUnknownOutcome && !duplicateRiskAccepted)
               }
             >
-              {submitting ? 'Đang xếp hàng…' : 'Xác nhận gửi lại'}
+              {submitting ? t('resend.submitting') : t('resend.submit')}
             </button>
           </div>
         </form>

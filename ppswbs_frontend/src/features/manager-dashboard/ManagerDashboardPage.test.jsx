@@ -49,12 +49,27 @@ const trend = (overrides = {}) => ({
   ...overrides,
 });
 
-const routes = (reportBody = report(), trendBody = trend()) => ({
-  'GET /api/v1/executive-reports': json(200, reportBody),
-  'GET /api/v1/executive-reports/trends': json(200, trendBody),
+const manager = json(200, { role: 'MANAGER', fullName: 'Quản lý' });
+
+const topSellers = (overrides = {}) => ({
+  scope: { periodType: 'MONTH', startAt: '2026-10-31T17:00:00Z', endAt: '2026-11-14T03:00:00Z', timezone: 'Asia/Ho_Chi_Minh', locationIds: [1, 2] },
+  products: [
+    { id: 7, name: 'Nhẫn bạc Moon', quantity: 12, revenue: '6000000' },
+    { id: 3, name: 'Nhẫn vàng Sun', quantity: 4, revenue: '8000000' },
+  ],
+  packages: [{ id: 2, name: 'Signature Workshop - Silver 925', quantity: 9, revenue: '13500000' }],
+  unavailable: [], lastUpdatedAt: '2026-11-14T03:00:00Z',
+  ...overrides,
 });
 
-// The sidebar also asks for the profile; count only the dashboard reads.
+const routes = (reportBody = report(), trendBody = trend(), topBody = topSellers()) => ({
+  'GET /api/v1/accounts/me/profile': manager,
+  'GET /api/v1/executive-reports': json(200, reportBody),
+  'GET /api/v1/executive-reports/trends': json(200, trendBody),
+  'GET /api/v1/executive-reports/top-sellers': json(200, topBody),
+});
+
+// The page also asks for the profile and the operations blocks; count only the revenue report reads.
 const reads = calls => calls.filter(call => call.path === '/api/v1/executive-reports');
 const kpis = () => within(screen.getByRole('region', { name: 'Chỉ số chính' }));
 
@@ -63,8 +78,7 @@ describe('FE-10 Manager dashboard', () => {
     const calls = mockFetch(routes());
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
-    expect(await screen.findByRole('heading', { name: 'Dashboard điều hành' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Quản lý đánh giá' })).toHaveAttribute('href', '/review-moderation');
+    expect(await screen.findByRole('region', { name: 'Chỉ số chính' })).toBeInTheDocument();
     expect(await kpis().findByText('Tổng doanh thu')).toBeInTheDocument();
     expect(kpis().getAllByRole('article')).toHaveLength(5);
     expect(kpis().getByText('55%')).toBeInTheDocument();
@@ -94,7 +108,7 @@ describe('FE-10 Manager dashboard', () => {
   });
 
   it('shows unknown values as a dash with a partial-data notice, never as zero', async () => {
-    mockFetch({ 'GET /api/v1/executive-reports': json(200, report({
+    mockFetch({ 'GET /api/v1/accounts/me/profile': manager, 'GET /api/v1/executive-reports': json(200, report({
       status: 'PARTIAL',
       totals: values('500000', null, 1, 0, 0),
       branches: [{ locationId: 1, branchName: 'MLAND Hoan Kiem', currency: 'VND', values: values('500000', null, 1, 0, 0) }],
@@ -111,7 +125,7 @@ describe('FE-10 Manager dashboard', () => {
   });
 
   it('explains a refused scope without showing any revenue', async () => {
-    mockFetch({ 'GET /api/v1/executive-reports': json(403, { code: 'MANAGER_REPORTING_FORBIDDEN', message: 'no' }) });
+    mockFetch({ 'GET /api/v1/accounts/me/profile': manager, 'GET /api/v1/executive-reports': json(403, { code: 'MANAGER_REPORTING_FORBIDDEN', message: 'no' }) });
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
     expect(await screen.findByText(/Chỉ Manager được phân công chi nhánh/)).toBeInTheDocument();
@@ -148,6 +162,35 @@ describe('FE-10 Manager dashboard', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Năm' }));
     await waitFor(() => expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')).toHaveLength(2));
     expect(calls.filter(c => c.path === '/api/v1/executive-reports/trends')[1].query.periodType).toBe('YEAR');
+  });
+
+  it('ranks the best-selling products and workshop packages with the same filters', async () => {
+    const calls = mockFetch(routes());
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    const top = within(await screen.findByRole('region', { name: 'Bán chạy nhất' }));
+    const products = within(await top.findByRole('figure', { name: /Top 5 sản phẩm bán chạy/ }));
+    const rows = products.getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('Nhẫn bạc Moon', { selector: '.md-rank-name' })).toBeInTheDocument();
+    expect(rows[0]).toHaveAccessibleName(/1\. Nhẫn bạc Moon: 12 chiếc/);
+    expect(within(rows[1]).getByText('Nhẫn vàng Sun', { selector: '.md-rank-name' })).toBeInTheDocument();
+    const packages = within(top.getByRole('figure', { name: /Top 5 gói workshop/ }));
+    expect(packages.getByRole('listitem')).toHaveAccessibleName(/Signature Workshop - Silver 925: 9 vé/);
+    const topCalls = () => calls.filter(c => c.path === '/api/v1/executive-reports/top-sellers');
+    expect(topCalls()[0].query).toEqual({ periodType: 'MONTH' });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Tuần' }));
+    await waitFor(() => expect(topCalls()).toHaveLength(2));
+    expect(topCalls()[1].query.periodType).toBe('WEEK');
+  });
+
+  it('tells an unreadable best-seller source apart from a period with no sales', async () => {
+    mockFetch(routes(report(), trend(), topSellers({ products: null, packages: [], unavailable: ['TOP_PRODUCTS'] })));
+    renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
+
+    expect(await screen.findByText('Tạm thời không đọc được dữ liệu này.')).toBeInTheDocument();
+    expect(screen.getByText('Chưa có vé workshop nào được xác nhận trong kỳ này.')).toBeInTheDocument();
   });
 
   it('names a trend source that could not be read and draws it as unknown', async () => {

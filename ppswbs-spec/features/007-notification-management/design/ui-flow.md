@@ -1,11 +1,13 @@
 # UI Flow Design: FE-007 Notification Management
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-06
+**Date updated**: 2026-11-24
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Feature**: [spec.md](../spec.md) | **Plan**: [plan.md](../plan.md) | **Workflows**: [workflows.md](workflows.md)
+
+**R-INV scoped design approved; UI implementation open:** ADMIN opens invitation status from Account management and sees `createdAt`, `expiresAt`, `serverNow`, delivery state and a countdown based on server time. Only terminal `FAILED` after two definite SMTP attempts and a current unexpired link enables “Lấy nội dung email để gửi ngoài hệ thống”. The action retrieves pinned subject/HTML/plain text with the setup URL from the ADMIN-only no-store API and offers safe copy controls; UI never executes returned HTML or persists content in browser storage. `UNKNOWN_OUTCOME`, expired, rotated and used links disable the action. A copied message remains `FAILED`, with no claim of outside delivery.
 
 ---
 

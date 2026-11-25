@@ -1,13 +1,14 @@
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+const apiBaseUrl = (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
 
+// An empty message means the server gave no text: the screen maps `code` to a bilingual string (shared/ui useErrorText).
 export class RetailApiError extends Error {
   constructor(code, message, correlationId) { super(message); this.code = code; this.correlationId = correlationId; }
 }
 
 async function protectedRequest(path, { method = 'GET', token, body, idempotencyKey } = {}) {
-  if (!token) throw new RetailApiError('AUTHENTICATION_REQUIRED', 'Đăng nhập Member để tiếp tục.');
+  if (!token) throw new RetailApiError('AUTHENTICATION_REQUIRED', '');
   const response = await fetch(`${apiBaseUrl}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new RetailApiError(payload.code || `HTTP_${response.status}`, payload.message || 'Không thể xử lý yêu cầu.', payload.correlationId); }
+  if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new RetailApiError(payload.code || `HTTP_${response.status}`, payload.message || '', payload.correlationId); }
   return response.status === 204 ? undefined : response.json();
 }
 

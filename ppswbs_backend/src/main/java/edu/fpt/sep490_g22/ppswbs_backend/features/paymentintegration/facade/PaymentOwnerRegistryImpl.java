@@ -2,14 +2,46 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.dao.PaymentOwnerRegistrationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
-@Service @RequiredArgsConstructor
+@Service
 public class PaymentOwnerRegistryImpl implements PaymentOwnerRegistry {
     private final PaymentOwnerRegistrationRepository repository;
+    private final Map<PaymentOwnerKind, PaymentOwnerHandler> handlers = new ConcurrentHashMap<>();
+
+    public PaymentOwnerRegistryImpl(PaymentOwnerRegistrationRepository repository) {
+        this(repository, List.of());
+    }
+
+    @Autowired
+    public PaymentOwnerRegistryImpl(
+            PaymentOwnerRegistrationRepository repository,
+            @org.springframework.context.annotation.Lazy List<PaymentOwnerHandler> handlerList
+    ) {
+        this.repository = repository;
+        if (handlerList != null) {
+            handlerList.forEach(this::registerHandler);
+        }
+    }
+
+    @Override
+    public void registerHandler(PaymentOwnerHandler handler) {
+        if (handler != null && handler.supportedKind() != null) {
+            handlers.put(handler.supportedKind(), handler);
+        }
+    }
+
+    @Override
+    public Optional<PaymentOwnerHandler> findHandler(PaymentOwnerKind kind) {
+        if (kind == null) return Optional.empty();
+        return Optional.ofNullable(handlers.get(kind));
+    }
     @Override @Transactional
     public PaymentOwnerRegistration register(String merchantReference, String bookingReference, PaymentOwnerKind kind,
                                              long amountVnd, String currencyCode) {

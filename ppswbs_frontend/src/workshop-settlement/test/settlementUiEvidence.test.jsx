@@ -11,7 +11,7 @@ describe('Settlement rendered UI evidence', () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [] }),
     });
-    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('All settlement cases')).toBeInTheDocument();
     expect(screen.getByText('No settlement cases found.')).toBeInTheDocument();
     const statusFilter = screen.getByRole('combobox', { name: 'Status' });
@@ -24,9 +24,9 @@ describe('Settlement rendered UI evidence', () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-001', caseType: 'MLAND_CANCELLATION_REMEDY', status: 'PENDING_PROVIDER', bookingCode: 'BK-001' }] }),
     });
-    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cases?tab=cases' });
     expect(await screen.findByText('CASE-001')).toBeInTheDocument();
-    expect(screen.getByText('PENDING_PROVIDER')).toBeInTheDocument();
+    expect(screen.getByText('Pending provider', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText('BK-001')).toBeInTheDocument();
   });
 
@@ -34,8 +34,8 @@ describe('Settlement rendered UI evidence', () => {
     mockFetch({
       'GET /api/v1/workshop-settlement-cases': json(503, { code: 'SETTLEMENT_UNAVAILABLE', message: 'Settlement service unavailable', correlationId: 'corr-settlement-1' }),
     });
-    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
-    expect(await screen.findByText('Hệ thống tạm thời chưa xử lý được. Bấm Thử lại để gửi lại đúng thao tác này.')).toBeInTheDocument();
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cases?tab=cases' });
+    expect(await screen.findByText('The system could not process this right now. Choose Try again to resend this same action.')).toBeInTheDocument();
     expect(screen.getByText(/corr-settlement-1/)).toBeInTheDocument();
     expect(screen.queryByText('No settlement cases found.')).not.toBeInTheDocument();
   });
@@ -45,7 +45,7 @@ describe('Settlement rendered UI evidence', () => {
       'GET /api/v1/workshop-settlement-cases': json(200, { items: [{ caseReference: 'CASE-9', caseType: 'CUSTOMER_CANCELLATION', status: 'OPEN', bookingCode: 'BK-9' }] }),
     });
     const user = userEvent.setup();
-    renderRoutes(settlementRoutes, { path: '/settlement/cases?tab=cases' });
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cases?tab=cases' });
     await user.click(await screen.findByText('CASE-9'));
     expect(screen.queryByRole('link', { name: 'Required session change' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('GRP-…')).not.toBeInTheDocument();

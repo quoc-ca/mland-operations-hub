@@ -1,220 +1,179 @@
-# Feature Specification: AI Chatbox Analysis and Suggestion
+# Feature-004 — Custom Design Request and Human Review
 
-**Date created**: 2026-10-21
-**Date updated**: 2026-11-16
-**Author**: Ngô Tiến Đạt
-**Last updated by**: Phan Sơn
+Date created: 2026-11-20
+Date updated: 2026-11-24
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
-**Feature**: `004-ai-chatbox-analysis-and-suggestion`
-**Status**: Independent frontend behavior synchronized (updated 2026-11-16 for Section 3.1 Unauthenticated Access & Session Guard at /design-requests/new); backend/API integration gates remain open
-**Source alignment**: Feature-004 design, current React/Vite slice, Report 1 FE-04/FE-05 and Report 3
+Status: `MEMBER-ONLY REBASELINE — IMPLEMENTATION PLAN REQUIRED`
 
-## 1. Scope and independent boundary
+## 1. Purpose and boundary
 
-Feature-004 owns:
+Feature-004 lets an authenticated, active Member submit and follow a custom
+manufacturing design request. The request may contain a text description, up to
+five reference images, and/or an immutable snapshot of a Member-owned
+Feature-012 configured design.
 
-1. Basic AI Support for approved public information.
-2. Independent Design Request creation with optional description and/or reference image.
-3. AI image analysis and safe result display.
-4. Staff/Manager human review integration when the backend returns a review state.
-5. Manager-only advisory price suggestion for new workshop packages or retail products.
+Guest users may see the feature entry point, its explanation and a sign-in CTA.
+They must not create, upload, track, revise, or read a private design request.
+When a Guest attempts a protected action, the frontend shows the sign-in flow
+and preserves a safe return route; the backend remains the final authority.
 
-The Design Request is independent from Workshop Booking. It MUST NOT require or
-mutate package, location, session, booking, payment, deposit, ticket, capacity,
-settlement or custom-manufacturing state. An opaque catalogue reference may be sent
-only when the backend contract explicitly permits it.
+Feature-004 performs human review and quote handoff. It does not use AI to
+assess images, decide feasibility, set a price, approve a request, or reject a
+request. It does not own Feature-012 validation, workshop booking, payment
+settlement, production, or fulfilment.
+
+Before a Member uploads or submits any reference image, the system must record
+affirmative, versioned consent for temporary storage and sharing the image with
+authorized Staff/Manager reviewers. The consent message describes human design-
+request review only and must not claim that an AI provider analyzes the image.
+Without consent, the image cannot be stored or submitted.
 
 ## 2. Actors and permissions
 
-| Actor | Allowed capability |
-| --- | --- |
-| Guest | Basic AI Support in public scope only (Tối đa 3 prompt/ngày lịch Việt Nam `Asia/Ho_Chi_Minh`, reset lúc 00:00; quản lý qua `X-Guest-AI-Session`). Không được sử dụng dữ liệu Member hoặc operational data. Cannot create or upload a Design Request. |
-| Member | Basic AI Support in public scope (Tối đa 10 prompt/ngày lịch Việt Nam `Asia/Ho_Chi_Minh`, reset lúc 00:00; gắn với active Firebase Member account); create and view own Independent Design Requests. |
-| Staff | Review requests only within server-authorized scope. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
-| Manager | Review requests requiring Manager authority; request and decide advisory catalogue price suggestions. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
-| Admin | Technical configuration and approved technical/audit projection only; no business review or price decision. Không thuộc nhóm sử dụng Basic AI Support (trả `403 AI_ACTOR_NOT_ALLOWED`). |
-| AI provider | Returns validated safe output only; cannot mutate Mland state. |
-| Cloud storage | Temporary image storage/deletion only. |
+| Capability | Guest | Member | Staff | Manager | Admin |
+|---|---|---|---|---|---|
+| See feature entry/description | Allow | Allow | Allow | Allow | Allow |
+| Start custom request | Deny; prompt sign-in | Allow for own account | Deny as customer | Deny as customer | Deny |
+| Upload/read request images | Deny | Own request only | Authorized review projection | Authorized review projection | Technical projection only |
+| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Audit projection only |
+| Submit revision after clarification | Deny | Own request only | Deny | Deny | Deny |
+| Review request | Deny | Deny | Allow | Allow | Deny |
+| Write decision explanation | Deny | Deny | Mandatory explanation | Mandatory explanation | Deny |
+| Prepare/approve quote | Deny | View own quote/payment state | Prepare if assigned | Approve business quote | Deny |
+| Pay custom order | Deny | Own order, full payment | Deny | Deny | Deny |
 
-The frontend route guard is a navigation aid. Firebase identity, Mland role/status,
-ownership, reviewer authority and resource scope are enforced by the backend.
-Client-provided role, owner, reviewer, price, status or decision is untrusted.
+All Member actions require Firebase identity, an active Mland Member account,
+resource ownership and current request/version state. Client-supplied role,
+owner, status, quote, or reviewer fields are ignored.
 
-### 2.1 Demo AI Chat Quota and Session Rules
-1. **Quota Boundary**:
-   - Guest: 3 prompts per calendar day (`Asia/Ho_Chi_Minh`), reset at 00:00.
-   - Active Member: 10 prompts per calendar day (`Asia/Ho_Chi_Minh`), reset at 00:00.
-   - Staff/Manager/Admin: Gated with HTTP 403 `AI_ACTOR_NOT_ALLOWED`.
-2. **Session and Accounting Lifecycle**:
-   - Guest requests use an opaque session token sent via `X-Guest-AI-Session`. If absent, backend generates a new 24h TTL session and returns it in `X-Guest-AI-Session` header.
-   - If `X-Guest-AI-Session` is expired or invalid, backend returns HTTP 401 `AI_GUEST_SESSION_INVALID`.
-   - Quota usage is consumed atomically by backend authority upon passing initial length/non-empty validation. The quota write commits independently before downstream screening/provider work, so prompt injection, forbidden context, unsafe output and provider errors consume quota once validated and cannot roll it back.
-   - Quota metadata is returned in response headers (`X-AI-Quota-Limit`, `X-AI-Quota-Remaining`, `X-AI-Quota-Reset-At`) and response body (`quota` object).
-   - When quota is exhausted, backend returns HTTP 429 `AI_DAILY_QUOTA_EXCEEDED` with `Retry-After: <seconds-to-midnight>` and quota metadata.
-
-## 3. Independent Design Request behavior
-
-The Member opens `/design-requests/new` and may submit:
-
-- description only;
-- reference image only; or
-- description and reference image together.
-
-Description is limited to 4,000 characters. An image requires purpose-specific
-consent before storage or provider processing. The image is validated for supported
-MIME/signature, size, dimensions, malware policy and the Member image rate limit.
-The request contains no booking fields.
-
-When an image is supplied, the Member must submit the current consent version and
-purpose. When no image is supplied, image consent fields are omitted and no image
-storage/provider image call occurs.
-
-### 3.1 Unauthenticated access and session guard
-When an unauthenticated guest or user with expired session accesses `/design-requests/new`:
-1. The route MUST NOT render a blank/empty container or hang silently.
-2. It MUST render an inline empty-state notice (`<RequireSession requiredText="...">`) stating: "Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh".
-3. It MUST provide an accessible "Đăng nhập" action button (`<SignInLink>`) directly routing to `/login`.
-
-### 3.2 Removal of catalogue reference field
-To streamline customer workflow, the input field for catalogue reference (`catalogueReference`) has been removed from the Custom Design screen (`/design-requests/new`). Independent custom designs focus purely on customer descriptions and reference imagery without requiring pre-association with catalogue products.
-
-### 3.3 Pre-submission image validation and error clarity
-Before dispatching a design request:
-1. The client performs strict pre-submission image validation:
-   - File format check: allowed MIME types `image/jpeg`, `image/png`, `image/webp`. Rejects invalid formats with explicit notice.
-   - Non-empty check: rejects 0-byte or corrupted image files.
-   - Size limit: enforces maximum 10 MB limit with human-readable file size reporting.
-   - Resolution check: validates that dimensions do not exceed 4096×4096px.
-2. Clear error messaging: All client validation and server error codes (e.g. rate limit `429 IMAGE_RATE_LIMITED`, consent requirement, descriptive limits) are translated into explicit Vietnamese messages detailing the specific issue and recovery steps.
-
-### 3.4 Submission feedback
-Upon successful submission, the system returns and displays the confirmation notice:
-> *"Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên"*
-The customer is transitioned to the Design Request detail view (`/design-requests/:designRequestId`) with the active success banner.
-
-### 3.5 Guest and Member request tracking
-1. **Member Tracking**: Authenticated Members can view the full history and real-time status of their custom design requests via `/my/designs?tab=custom`, displaying request references, dates, AI analysis status, and staff review decisions (`NEED_REVIEW`, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`).
-2. **Guest Lookup & Review Visibility**: Guests possessing their opaque request reference or direct link can view their design request details and staff review feedback directly at `/design-requests/:designRequestId` without session gating.
-3. **Staff & Manager Review**: Staff and Manager actors review custom design requests through the standard review queue (`/design-review-requests`) and detail decision screen (`/design-review-requests/:reviewRequestId`), mirroring the evaluation workflow of blank ring designs.
-
-## 4. Basic AI Support
+## 3. Customer flow
 
 ```text
-Receive request
-→ Resolve Firebase Member or Guest AI session
-→ Validate actor/status (Staff/Manager/Admin -> 403 AI_ACTOR_NOT_ALLOWED)
-→ Normalize prompt
-→ Validate non-empty and max 2,000 characters (invalid -> 400 AI_INPUT_INVALID)
-→ Atomically consume daily quota (exceeded -> 429 AI_DAILY_QUOTA_EXCEEDED with Retry-After)
-→ Screen scope and prompt injection (violation -> 422 AI_PROMPT_INJECTION_DETECTED / AI_CONTEXT_NOT_ALLOWED)
-→ Build fixed system prompt with allowlisted public context
-→ Call Gemini adapter
-→ Validate provider output
-→ Persist safe interaction/audit with 30-day retention
-→ Return response and quota metadata
+Guest sees feature entry
+  → selects protected action
+  → sign-in prompt
+  → Member authentication
+  → request form
+  → optional description and/or up to five images
+  → immediate image-quality feedback
+  → submit with Idempotency-Key
+  → server validation and persistence
+  → NEED_REVIEW
+  → Member views status and staff/manager explanation
 ```
 
-The assistant may answer catalogue, workshop package/session, store-information and
-approved FAQ questions. It cannot confirm booking/payment, publish a price, decide
-feasibility, accept/reject a custom order or expose private/operational data.
+At least one description or image is required. Each image is validated in the
+browser for type, size and readable quality, then revalidated by the backend.
+`TOO_BLURRY` blocks submission. The backend owns all quality thresholds.
 
-Error codes and status mapping:
-- `AI_INPUT_INVALID`: 400 (Bad Request - empty prompt or > 2,000 chars)
-- `AI_GUEST_SESSION_INVALID`: 401 (Unauthorized - missing/expired/revoked session)
-- `AI_ACTOR_NOT_ALLOWED`: 403 (Forbidden - internal staff/manager/admin roles)
-- `AI_PROMPT_INJECTION_DETECTED`: 422 (Unprocessable - prompt injection)
-- `AI_CONTEXT_NOT_ALLOWED`: 422 (Unprocessable - forbidden private/payment contexts)
-- `AI_OUTPUT_POLICY_VIOLATION`: 422 (Unprocessable - unsafe provider output)
-- `AI_DAILY_QUOTA_EXCEEDED`: 429 (Too Many Requests - daily quota exhausted, includes `Retry-After`)
-- `AI_UNAVAILABLE`: 503 (Service Unavailable - provider timeout or offline)
+Feature-012 design attachment is optional. If supplied, it must belong to the
+current Member and be in any non-`ARCHIVED` state. Feature-004 stores its own
+immutable snapshot at submission time; later edits to the source design do not
+alter the request. An archived design cannot be attached.
 
-## 5. Analysis and review states
-
-Technical analysis and business review are separate:
+## 4. Human review lifecycle
 
 ```text
-analysis: PENDING → PROCESSING → SUCCEEDED / FAILED
-review:   NEED_REVIEW → ACCEPTED / REJECTED / CLARIFICATION_REQUIRED
+NEED_REVIEW → CLARIFICATION_REQUIRED → NEED_REVIEW
+NEED_REVIEW → ACCEPTED
+NEED_REVIEW → REJECTED
 ```
 
-The frontend displays the actual backend state returned by the response. It does not
-assume polling, asynchronous processing or automatic acceptance. Safe results may
-contain candidate features, image quality, confidence/uncertainty and explanation;
-raw provider payload and raw temporary image data are never displayed.
+Staff and Manager must provide a non-empty explanation for every decision.
+Every decision records actor, role, request version, timestamp and audit data.
+Admin has technical/audit access only and cannot make a business decision.
 
-Every valid image request follows the backend review policy. AI cannot create a
-terminal review decision. A stale version or conflict requires reload/reconciliation;
-the frontend must not retry with a new command key automatically.
+Member can read the safe status, explanation and next action of an own request.
+A terminal request cannot receive another decision; stale or concurrent commands
+return a conflict.
 
-## 6. Price suggestion
-
-Only Manager-authorized users may view commercial price suggestions and record a
-decision. Admin may receive a technical/audit projection without commercial detail.
-Guest, Member and Staff do not see internal price suggestions.
-
-The suggestion is advisory and applies only to a new workshop package or retail
-product proposal. It cannot automatically update or publish a catalogue price,
-change a payment amount, price an individual Member quotation or price a
-custom-manufacturing order.
-
-## 7. Security, validation and retention invariants
-
-- Validate transport, Firebase identity, Mland role/status, ownership/scope, rate limit/idempotency and input schema before provider calls.
-- Prompt input is untrusted data; system policy and user content are separated.
-- Reject prompt injection before provider invocation with `AI_PROMPT_INJECTION_DETECTED`.
-- Do not send tokens, credentials, payment data, raw operational data, unnecessary PII or unnormalized request bodies to the provider.
-- Member image submissions are limited to three attempts in a rolling five-minute window. The fourth attempt returns `429 IMAGE_RATE_LIMITED` and `Retry-After`.
-- Duplicate retries with the same idempotency key do not consume another image quota slot.
-- Temporary images are deleted after processing on success and failure. The current frontend never caches raw image data beyond the active form interaction.
-- Text prompt/response retention is at most 30 days according to the shared retention policy.
-- Frontend must preserve recoverable form data on validation, network, `409`, `429` and `503` failures.
-
-## 8. Frontend routes and API baseline
+## 5. Member-only API baseline
 
 ```text
-/ai-support
-/design-requests/new
-/design-requests/:designRequestId
-/design-review-requests
-/design-review-requests/:reviewRequestId
-/price-proposals/:proposalId/ai-suggestions
-```
-
-The current backend compatibility shape is:
-
-```text
-POST /api/v1/ai-support/messages
 POST /api/v1/design-requests
-GET  /api/v1/design-requests/{id}
+GET  /api/v1/design-requests
+GET  /api/v1/design-requests/{designRequestId}
+POST /api/v1/custom-design-requests/{id}
 GET  /api/v1/design-review-requests
-POST /api/v1/design-review-requests/{id}/decisions
-POST /api/v1/price-proposals/{id}/ai-suggestions
-GET  /api/v1/price-proposals/{id}/ai-suggestions
-POST /api/v1/price-proposals/{id}/ai-suggestions/decisions
+GET  /api/v1/design-review-requests/{reviewRequestId}
+POST /api/v1/design-review-requests/{reviewRequestId}/decisions
+POST /api/v1/custom-design-requests/{id}/quote
+GET  /api/v1/members/me/custom-orders
+GET  /api/v1/members/me/custom-orders/{customOrderId}
+POST /api/v1/members/me/custom-orders/{customOrderId}/payment
+POST /api/v1/members/me/custom-orders/{customOrderId}/request-new-quote
 ```
 
-The current implementation returns `message` rather than the drafted `answer`,
-uses `designVersion` for review commands, accepts price `bodyContext` as raw body
-with `targetType` query parameter, and returns `200` for price suggestion. These
-are documented compatibility facts; they must be synchronized with OpenAPI before
-the integration contract is called final.
+`POST`, `PATCH` and other mutations require `Idempotency-Key`; versioned
+commands require `If-Match-Version`. No Guest token, Guest design session,
+tracking link, or Guest daily quota is part of the current contract. Any legacy
+tracking endpoint must be removed or return a documented authentication error;
+it must not reveal old request data.
 
-## 9. Non-goals
+The old Basic AI Support, AI image analysis and AI price-suggestion routes are
+not Feature-004 capabilities. If legacy routes remain in the repository, they
+must be explicitly deprecated or separately protected and cannot be used as
+acceptance evidence for this feature.
 
-- Workshop booking, package/location/session selection, payment, ticketing or settlement.
-- Catalogue price publication from an AI response.
-- Final design, feasibility, custom-manufacturing acceptance or final custom-order price.
-- Guest Design Request creation or Guest image upload.
-- Raw provider/image exposure.
-- New global frontend state, UI kit or form library.
+## 6. Quote and custom-order handoff
 
-## 10. Acceptance criteria
+`ACCEPTED` moves a Member request to quote preparation. A quote has a configured
+expiry. The Member must pay the complete quoted amount in one payment; there is
+no deposit, cart line, or indefinite unpaid hold. An expired unpaid quote is
+cancelled and requires a new quote where policy permits. Custom Manufacturing
+owns production, fulfilment and closure after verified full payment.
 
-- Guest can use Basic AI Support but receives no Design Request mutation path.
-- Member can submit description-only, image-only or combined requests.
-- Image consent and validation happen before image submission.
-- Invalid image, prompt injection, rate limit and forbidden responses do not call the provider or mutate business state.
-- Owner result screens display only safe backend projections.
-- Staff/Manager/Admin screens respect backend authorization and projection boundaries.
-- No frontend route or API call introduces booking/payment prerequisites.
-- UI tests cover loading, empty, validation, success, forbidden, failure, retry, rate-limit and conflict states.
+## 7. Privacy, security and retention
+
+- Public/Member/reviewer/audit projections are separate DTOs.
+- No raw image, storage key, Firebase token, private contact data or internal
+  database ID is returned to a Guest or another Member.
+- Images are retained according to the approved manufacturing-history policy.
+- Request, revision, decision and quote audit records are append-only.
+- Feature-004 never directly accesses Feature-012 repositories.
+- All authorization is enforced server-side; frontend gating is only UX.
+
+## 8. Explicit non-goals
+
+- Guest request creation or private request tracking.
+- AI analysis, AI pricing or automated approval/rejection.
+- Workshop booking or ticket mutation.
+- Catalogue pricing publication.
+- Deposit or cart support for custom orders.
+- Direct access to Feature-012 persistence.
+
+## 9. Acceptance scenarios
+
+1. Guest can see the feature entry and sign-in CTA but cannot submit a request.
+2. Guest interaction with the form/upload/status action opens sign-in and sends
+   no protected request API call.
+3. Active Member submits description-only, image-only, or mixed input.
+4. A request with more than five images or a blurry image is rejected before
+   persistence and before review creation.
+5. A valid request starts at `NEED_REVIEW`.
+6. Staff/Manager decisions without an explanation are rejected.
+7. Member sees the latest decision, explanation and next action for own request.
+8. Member cannot read or revise another Member's request.
+9. Admin cannot accept, reject, clarify, quote, or pay through Feature-004.
+10. Quote payment is full amount only; expired unpaid quote cannot be paid.
+11. A Feature-012 reference is copied as an immutable snapshot and never changes
+    when the original design changes.
+12. Duplicate commands and stale versions return typed `409` responses.
+
+## 10. Frontend redesign handoff — pending approval
+
+The custom-design request page must use the existing Mland shell, typography,
+paper/white/gold palette, cards, field styling and bilingual copy patterns.
+The contextual consultation entry point must use the same outer chat width,
+spacing and responsive breakpoint as the general consultation chat. Context
+attachment may change header content, not chat geometry.
+
+The draft Figma frames are pending user approval, not an approved baseline:
+
+- F04 desktop: 588:43
+- F04 mobile: 590:43
+
+The draft preserves the current Member-only submission, optional Feature-012
+reference, five-image limit, immediate quality feedback and human-review flow.

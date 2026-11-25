@@ -1,12 +1,18 @@
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { ringDesignConfigurationRoutes } from '../routes';
+import { I18nProvider } from '../../../shared/i18n/I18nProvider';
+import RingPreview from '../ui/RingPreview';
 
 const testRoutes = [
   ...ringDesignConfigurationRoutes,
+  {
+    path: '/workshops',
+    element: <div data-testid="mock-workshops-page">Mock Workshops Page</div>,
+  },
   {
     path: '/workshops/booking',
     element: <div data-testid="mock-booking-page">Mock Booking Page</div>,
@@ -193,7 +199,26 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByTestId('bandwidth-slider')).toBeInTheDocument();
     });
 
-    it('updates size, toggles engraving, and executes create and save commands', async () => {
+    it('redirects unauthenticated guest to login when clicking save and evaluate', async () => {
+      const user = userEvent.setup();
+      mockFetch({
+        'GET /api/v1/workshop-design-options': json(200, mockOptionsData),
+      });
+
+      const { router } = open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
+        session: fakeSession('signed-out'),
+      });
+
+      expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
+      const saveBtn = screen.getByTestId('save-and-evaluate-btn');
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/login');
+      });
+    });
+
+    it('updates size, toggles engraving, and executes create and save commands for signed-in member', async () => {
       const user = userEvent.setup();
 
       mockFetch({
@@ -201,7 +226,6 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         'POST /api/v1/workshop-designs': json(201, {
           designId: 'DSG-NEW-456',
           designVersion: 1,
-          guestSession: 'guest-sess-abc',
           status: 'DRAFT',
         }),
         'POST /api/v1/workshop-designs/DSG-NEW-456/versions': json(200, {
@@ -212,7 +236,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       });
 
       const { router } = open('/workshops/PKG-COUPLE-01/design/configure?mode=BLANK', {
-        session: fakeSession('signed-out'),
+        session: fakeSession('signed-in'),
       });
 
       expect(await screen.findByTestId('ring-configuration-page')).toBeInTheDocument();
@@ -235,9 +259,6 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       await waitFor(() => {
         expect(router.state.location.pathname).toBe('/workshops/PKG-COUPLE-01/design/DSG-NEW-456');
       });
-
-      // Guest session should be preserved in sessionStorage
-      expect(sessionStorage.getItem('mland_guest_design_session')).toBe('guest-sess-abc');
     });
 
     it('shows surface texture warning when outer engraving is selected on a textured shape', async () => {
@@ -323,17 +344,23 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       },
     };
 
+    it('shows login requirement when guest visits evaluation page', async () => {
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      expect(await screen.findByText('Vui lòng đăng nhập để xem thông tin mẫu thiết kế đã lưu.')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
+    });
+
     it('renders evaluation status, estimated price, and difficulty score', async () => {
       mockFetch({
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, mockDesignData),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
       expect(screen.getByText(/Mã thiết kế:/)).toBeInTheDocument();
       expect(screen.getByText('DSG-EVAL-789')).toBeInTheDocument();
-      expect(screen.getByText('350.000 đ')).toBeInTheDocument();
+      expect(screen.getByText('350.000 ₫')).toBeInTheDocument();
       expect(screen.getByText('3.5 / 10')).toBeInTheDocument();
       expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Trung bình');
       expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Trung bình');
@@ -352,7 +379,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, veryHardData),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
       expect(screen.getByText('9.4 / 10')).toBeInTheDocument();
@@ -361,22 +388,20 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByTestId('difficulty-very-hard-warning')).toBeInTheDocument();
     });
 
-    it('navigates to workshop booking flow when clicking proceed to booking', async () => {
+    it('navigates to workshops page when clicking proceed to booking', async () => {
       const user = userEvent.setup();
       mockFetch({
         'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, mockDesignData),
       });
 
       const { router } = open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', {
-        session: fakeSession('signed-out'),
+        session: fakeSession('signed-in'),
       });
 
       const proceedBtn = await screen.findByTestId('proceed-booking-btn');
       await user.click(proceedBtn);
 
-      expect(router.state.location.pathname).toBe('/workshops/booking');
-      expect(router.state.location.search).toContain('packageReference=PKG-COUPLE-01');
-      expect(router.state.location.search).toContain('designId=DSG-EVAL-789');
+      expect(router.state.location.pathname).toBe('/workshops');
     });
 
     it('archives design when user confirms archive action', async () => {
@@ -391,10 +416,12 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
         }),
       });
 
-      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-out') });
+      open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       const archiveBtn = await screen.findByTestId('archive-design-btn');
       await user.click(archiveBtn);
+      const confirmBtn = await screen.findByTestId('confirm-archive-btn');
+      await user.click(confirmBtn);
 
       expect(await screen.findByText('Đã lưu trữ')).toBeInTheDocument();
     });
@@ -447,8 +474,157 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByTestId('member-design-history-page')).toBeInTheDocument();
       expect(await screen.findByText('DSG-DEMO-MEMBER-01')).toBeInTheDocument();
-      expect(screen.getByText('250.000 đ')).toBeInTheDocument();
+      expect(screen.getByText('250.000 ₫')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Xem chi tiết →' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Chỉnh sửa' })).toBeInTheDocument();
+      expect(screen.getByTestId('delete-design-btn-DSG-DEMO-MEMBER-01')).toBeInTheDocument();
+    });
+
+    it('shows confirmation popup with warning when delete button is clicked and soft deletes on confirm', async () => {
+      const user = userEvent.setup();
+      let archivedDesignId = null;
+
+      mockFetch({
+        'GET /api/v1/workshop-designs': json(200, [
+          {
+            designId: 'DSG-TO-DELETE-01',
+            packageReference: 'PKG-COUPLE-01',
+            status: 'DRAFT',
+            designVersion: 1,
+            estimatedPrice: '300000.00',
+            difficultyScore: 1.5,
+            componentSnapshot: {
+              materialReference: 'MAT-SILVER-925',
+              shapeReference: 'SHP-CLASSIC-ROUND',
+              ringSize: '9',
+              components: [],
+            },
+            updatedAt: '2026-11-14T10:00:00Z',
+          },
+        ]),
+        'POST /api/v1/workshop-designs/DSG-TO-DELETE-01/archive': (req) => {
+          archivedDesignId = 'DSG-TO-DELETE-01';
+          return json(200, {
+            designId: 'DSG-TO-DELETE-01',
+            status: 'ARCHIVED',
+            designVersion: 1,
+          });
+        },
+      });
+
+      open('/my/designs', { session: fakeSession('signed-in') });
+
+      const deleteBtn = await screen.findByTestId('delete-design-btn-DSG-TO-DELETE-01');
+      expect(deleteBtn).toBeInTheDocument();
+
+      // Click delete button
+      await user.click(deleteBtn);
+
+      // Warning modal dialog should be displayed
+      const modal = await screen.findByTestId('delete-confirm-modal');
+      expect(modal).toBeInTheDocument();
+      expect(screen.getByText(/Cảnh báo: Mẫu thiết kế DSG-TO-DELETE-01 của bạn sẽ bị xóa vĩnh viễn/)).toBeInTheDocument();
+
+      // Confirm delete
+      const confirmBtn = screen.getByTestId('confirm-delete-btn');
+      await user.click(confirmBtn);
+
+      // Verify archive API was called and item is removed from view
+      expect(archivedDesignId).toBe('DSG-TO-DELETE-01');
+      await waitFor(() => {
+        expect(screen.queryByTestId('design-item-DSG-TO-DELETE-01')).not.toBeInTheDocument();
+      });
+    });
+
+    it('paginates workshop designs list with 5 items per page', async () => {
+      const user = userEvent.setup();
+      const mockItems = Array.from({ length: 12 }, (_, i) => ({
+        designId: `DSG-PAGE-${i + 1}`,
+        packageReference: 'PKG-COUPLE-01',
+        status: 'DRAFT',
+        designVersion: 1,
+        estimatedPrice: '200000.00',
+        difficultyScore: 1.0,
+        componentSnapshot: {
+          materialReference: 'MAT-SILVER-925',
+          shapeReference: 'SHP-CLASSIC-ROUND',
+          ringSize: '8',
+          components: [],
+        },
+        updatedAt: '2026-11-14T10:00:00Z',
+      }));
+
+      mockFetch({
+        'GET /api/v1/workshop-designs': json(200, mockItems),
+      });
+
+      open('/my/designs', { session: fakeSession('signed-in') });
+
+      // Page 1 should show first 5 items (DSG-PAGE-1 to DSG-PAGE-5)
+      expect(await screen.findByText('DSG-PAGE-1')).toBeInTheDocument();
+      expect(screen.getByText('DSG-PAGE-5')).toBeInTheDocument();
+      expect(screen.queryByText('DSG-PAGE-6')).not.toBeInTheDocument();
+
+      // Check pagination info
+      expect(screen.getByTestId('workshop-pagination-info')).toHaveTextContent('Hiển thị 1–5 trên tổng số 12 mục');
+
+      // Click Next
+      const nextBtn = screen.getByTestId('workshop-pagination-next');
+      await user.click(nextBtn);
+
+      // Page 2 should show DSG-PAGE-6 to DSG-PAGE-10
+      expect(await screen.findByText('DSG-PAGE-6')).toBeInTheDocument();
+      expect(screen.getByText('DSG-PAGE-10')).toBeInTheDocument();
+      expect(screen.queryByText('DSG-PAGE-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('workshop-pagination-info')).toHaveTextContent('Hiển thị 6–10 trên tổng số 12 mục');
+    });
+
+    it('renders laser preview gallery on a single non-wrapping row with text-overflow ellipsis when contrast and sharpness are 100', () => {
+      const mockModel = {
+        material: { primary: '#D6D8DC' },
+        shape: { name: 'Round' },
+        customImages: [
+          {
+            id: 'img-1',
+            placement: 'OUTER_BAND',
+            contrast: 100,
+            sharpness: 100,
+            previewDataUrl: 'data:image/png;base64,mock1',
+          },
+          {
+            id: 'img-2',
+            placement: 'INNER_BAND',
+            contrast: 100,
+            sharpness: 100,
+            previewDataUrl: 'data:image/png;base64,mock2',
+          },
+        ],
+      };
+
+      const { getByTestId } = render(
+        <I18nProvider initialLanguage="vi">
+          <RingPreview previewModel={mockModel} />
+        </I18nProvider>
+      );
+
+      const gallery = getByTestId('laser-preview-gallery');
+      expect(gallery).toBeInTheDocument();
+
+      const flexContainer = gallery.querySelector('div[style*="display: flex"]');
+      expect(flexContainer).toHaveStyle({ flexWrap: 'nowrap' });
+
+      const item1 = getByTestId('laser-preview-item-img-1');
+      const item2 = getByTestId('laser-preview-item-img-2');
+      expect(item1).toHaveStyle({ maxWidth: '160px', flex: '0 0 160px' });
+      expect(item2).toHaveStyle({ maxWidth: '160px', flex: '0 0 160px' });
+
+      const caption1 = item1.querySelector('span[title]');
+      expect(caption1).toHaveStyle({ textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      expect(caption1.title).toBe('Mặt ngoài (+100k) · C:100 S:100');
+
+      const caption2 = item2.querySelector('span[title]');
+      expect(caption2).toHaveStyle({ textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      expect(caption2.title).toBe('Mặt trong (+100k) · C:100 S:100');
     });
   });
 });

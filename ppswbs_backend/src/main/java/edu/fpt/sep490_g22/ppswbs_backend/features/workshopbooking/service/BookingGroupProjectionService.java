@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.common.settlement.TicketBalancePort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.settlement.TicketRemedyPendingPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.BookingGroupLineRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.TicketBookingRepository;
@@ -48,6 +49,7 @@ public class BookingGroupProjectionService {
     private final TicketRecipientRepository recipients;
     private final WorkshopOperationsAdapter operations;
     private final TicketRemedyPendingPort remedyPending;
+    private final TicketBalancePort balancePort;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.dao.GroupPaymentAttemptRepository attempts;
 
     /** @param forOwningMember adds each ticket's opaque reference; only the owning Member may receive it. */
@@ -69,11 +71,13 @@ public class BookingGroupProjectionService {
 
         List<TicketBooking> groupTickets = tickets.findByGroupIdOrderByLineIndexAscParticipantOrdinalAsc(group.getId());
         Set<String> pendingRemedies = forOwningMember ? pendingRemedies(groupTickets) : Set.of();
+        Map<String, TicketBalancePort.TicketBalance> balances = currentBalances(groupTickets);
         List<BookingGroupView.TicketView> ticketViews = new ArrayList<>();
         for (TicketBooking ticket : groupTickets) {
             TicketPriceSnapshot snapshot = snapshots.findByTicketId(ticket.getId()).orElse(null);
             TicketRecipient recipient = recipients.findByTicketId(ticket.getId()).orElse(null);
             boolean confirmed = ticket.getTicketStatus() == BookingStatus.CONFIRMED;
+            TicketBalancePort.TicketBalance balance = balances.get(ticket.getTicketCode());
             DeliverySafeTicket current = ticket.getOperationsTicketReference() == null ? null
                     : currentByTicketReference.get(ticket.getOperationsTicketReference());
             ticketViews.add(new BookingGroupView.TicketView(
@@ -95,7 +99,11 @@ public class BookingGroupProjectionService {
                     confirmed ? ticket.getQrReference() : null,
                     forOwningMember && confirmed ? ticket.getOperationsTicketReference() : null,
                     sessions(current, lineByIndex.get(ticket.getLineIndex())),
-                    confirmed && pendingRemedies.contains(ticket.getTicketCode())));
+                    confirmed && pendingRemedies.contains(ticket.getTicketCode()),
+                    balance == null ? null : balance.totalVnd(),
+                    balance == null ? null : balance.addOnVnd(),
+                    balance == null ? null : balance.paidVnd(),
+                    balance == null ? null : balance.balanceDueVnd()));
         }
         return new BookingGroupView(group.getGroupCode(), group.getGroupStatus().name(),
                 group.getPaymentMode() == null ? null : group.getPaymentMode().name(), group.getGroupCollectionVnd(),
@@ -116,6 +124,16 @@ public class BookingGroupProjectionService {
         } catch (RuntimeException failure) {
             log.warn("Pending Mland remedy hint unavailable: {}", failure.getMessage());
             return Set.of();
+        }
+    }
+
+    /** Display figures only: when Settlement cannot answer, the booking-time figures stay on screen. */
+    private Map<String, TicketBalancePort.TicketBalance> currentBalances(List<TicketBooking> groupTickets) {
+        try {
+            return balancePort.balancesOf(groupTickets.stream().map(TicketBooking::getTicketCode).toList());
+        } catch (RuntimeException failure) {
+            log.warn("Current ticket balances unavailable: {}", failure.getClass().getSimpleName());
+            return Map.of();
         }
     }
 

@@ -6,59 +6,55 @@ Guest, Member
 
 #### Secondary Actors
 
-None
+Mail Gateway
 
 #### Description
 
-Allows a customer to retrieve a workshop booking by reference code and view its schedule, package, status, payment information, and QR check-in ticket.
+As a Guest or Member, I want to open my booking group so that I can see its tickets, their status and money, and the check-in QR codes.
 
 #### Preconditions
 
 1. The platform is available.
-2. The customer has a booking reference code.
-3. The booking exists and is eligible for customer lookup.
-
+2. A booking group exists.
+3. The actor is the signed-in owning Member, or holds the group code with one stored contact value, or holds the emailed Magic Link.
 
 #### Postconditions
 
-- The system displays booking details and the QR ticket when the reference is valid.
-- No booking, payment, capacity, or check-in data is changed.
+- The actor sees the read-only group with each ticket, or a safe refusal.
+- No booking, payment, or capacity changes.
 
 #### Normal Flow
 
 **Look Up Booking Details**
 
-1. The customer opens the booking lookup page.
-2. The customer enters the booking reference code.
-3. The system validates the format and searches for the booking.
-4. The system displays the location, date, session, package, booking status, invoice/deposit status, participant summary, and QR check-in ticket when available.
-5. The customer reviews or saves the displayed QR ticket.
+1. A Member opens the list of their booking groups; a Guest enters the group code and exactly one stored contact email or phone, or opens the Magic Link.
+2. The system verifies ownership, the contact proof, or the link.
+3. The system displays the group and each ticket with status, attendance, collected and remaining amounts.
+4. The buyer also sees each ticket QR code.
+5. From Booking Lookup, the buyer may request the confirmation email again; the Magic Link view is read-only and does not offer this action.
 
 #### Alternative Flows
 
-**Step 2 — Reference code is blank or malformed**
+**Step 2 — Proof does not match**
 
-The system displays a validation message and asks the customer to enter a valid code.
+The system refuses without saying which value was wrong. Guest attempts are rate limited.
 
-**Step 3 — Booking is not found**
+**Step 2 — Magic Link is expired or revoked**
 
-The system displays a not-found message without exposing another customer's data.
+The system refuses the link; the buyer returns to Booking Lookup and verifies the booking before requesting another confirmation email.
 
-**Step 4 — Booking is not confirmed or has no QR ticket**
+**Step 3 — Group is still awaiting payment**
 
-The system displays the current payment/booking status and omits the QR ticket until the booking is confirmed.
-
-**Step 3 — Lookup fails**
-
-The system displays an error and allows the customer to retry.
+The buyer may retry payment or release the hold from this view.
 
 #### Business Rules
 
-BR-19-01, BR-19-02
+BR-19-01, BR-19-02, BR-19-03
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
-| BR-19-01 | Only a valid booking reference code may retrieve booking details. |
-| BR-19-02 | A QR check-in ticket is displayed only for a confirmed booking. |
+| BR-19-01 | A Guest needs the group code and exactly one stored contact value, or the Magic Link; the group code alone is never enough. |
+| BR-19-02 | The Member list shows at most 30 of the Member own groups, newest first. |
+| BR-19-03 | Only the buyer sees ticket QR codes; a ticket recipient QR email gives no group view. |

@@ -44,9 +44,9 @@ public class CartService {
         if (totalForVariant(cart, request.variantId()) + request.quantity() > MAX_VARIANT_QUANTITY) {
             throw new RetailConflictException("Variant quantity cannot exceed 99 across the cart");
         }
-        int requestedTotal = totalForVariantAtLocation(cart, request.variantId(), request.locationId())
-            + request.quantity();
-        ensureAvailable(request.variantId(), request.locationId(), requestedTotal);
+        int alreadyInCart = totalForVariantAtLocation(cart, request.variantId(), request.locationId());
+        int requestedTotal = alreadyInCart + request.quantity();
+        ensureAvailable(request.variantId(), request.locationId(), requestedTotal, alreadyInCart);
 
         if (existingLine == null) {
             if (cart.getLines().size() >= MAX_CART_LINES) {
@@ -69,7 +69,8 @@ public class CartService {
         if (totalForVariant(cart, line.getVariantId()) - line.getQuantity() + request.quantity() > MAX_VARIANT_QUANTITY) {
             throw new RetailConflictException("Variant quantity cannot exceed 99 across the cart");
         }
-        ensureAvailable(line.getVariantId(), line.getLocationId(), totalAfterUpdate);
+        ensureAvailable(line.getVariantId(), line.getLocationId(), totalAfterUpdate,
+            totalAfterUpdate - request.quantity());
         line.changeQuantity(request.quantity());
         cart.touch();
         return toView(cartRepository.save(cart));
@@ -114,7 +115,7 @@ public class CartService {
         }
     }
 
-    private void ensureAvailable(Long variantId, Long locationId, int totalQuantity) {
+    private void ensureAvailable(Long variantId, Long locationId, int totalQuantity, int alreadyInCart) {
         var fact = cataloguePort.readCartProduct(variantId, locationId);
         if (fact == null) {
             throw new RetailIntegrationUnavailableException("Catalogue returned no variant facts");
@@ -131,11 +132,23 @@ public class CartService {
                 throw new RetailIntegrationUnavailableException("Catalogue quantity is invalid");
             }
             if (BigInteger.valueOf(totalQuantity).compareTo(available) > 0) {
-                throw new RetailConflictException("Requested quantity exceeds current availability");
+                // A specific code when the cart already holds some: "Mua Ngay" then opens checkout with that line.
+                throw alreadyInCart > 0
+                    ? new RetailConflictException("RETAIL_CART_QUANTITY_LIMIT", availabilityMessage(available, alreadyInCart))
+                    : new RetailConflictException(availabilityMessage(available, alreadyInCart));
             }
         } catch (NumberFormatException exception) {
             throw new RetailIntegrationUnavailableException("Catalogue quantity is invalid");
         }
+    }
+
+    /** Tells the Member why the quantity was refused, counting what is already in the cart at that branch. */
+    static String availabilityMessage(BigInteger available, int alreadyInCart) {
+        if (alreadyInCart <= 0) {
+            return "Chi nhánh chỉ còn " + available + " sản phẩm này.";
+        }
+        return "Bạn đã có " + alreadyInCart + " sản phẩm này trong giỏ hàng. Không thể thêm số lượng đã chọn vào "
+            + "giỏ hàng vì sẽ vượt quá số lượng còn tại chi nhánh (" + available + ").";
     }
 
     private CartDtos.RetailCartView toView(RetailCart cart) {

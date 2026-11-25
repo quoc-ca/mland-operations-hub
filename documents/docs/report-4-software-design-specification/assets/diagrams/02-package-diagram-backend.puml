@@ -1,0 +1,54 @@
+@startuml
+!pragma charset UTF-8
+skinparam shadowing false
+skinparam packageStyle folder
+skinparam ArrowColor #555555
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #555555
+}
+
+package "MLAND Back-End" {
+
+  package "Entry point" {
+    package "PpswbsBackendApplication" {
+    }
+    package "configuration" {
+    }
+  }
+
+  package "Presentation Layer" {
+    package "controller" {
+    }
+    package "dto" {
+    }
+  }
+
+  package "Service Layer" {
+    package "service" {
+    }
+    package "facade" {
+    }
+  }
+
+  package "Data Access Layer" {
+    package "dao" {
+    }
+    package "entity" {
+    }
+  }
+
+  package "common" {
+  }
+}
+
+PpswbsBackendApplication .down.> configuration
+controller .right.> dto
+controller .down.> service
+service .right.> facade
+service .down.> dao
+service ..> entity
+dao .right.> entity
+service ..> dto
+service ..> common
+@enduml

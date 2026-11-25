@@ -1,8 +1,11 @@
-export const designReviewMessages = {
+import { ordersMessages } from './messages.orders';
+import { screensMessages } from './messages.screens';
+
+const baseMessages = {
   vi: {
     // Shared & Navigation
     'nav.aiSupport': 'Trợ lý AI',
-    'nav.designWorkspace': 'Không gian Thiết kế',
+    'nav.designWorkspace': 'Yêu cầu Chế tác',
     'nav.reviewQueue': 'Hàng đợi Thẩm duyệt',
     'nav.priceProposal': 'Đề xuất giá AI',
 
@@ -20,15 +23,15 @@ export const designReviewMessages = {
     'aiChat.quotaExceeded': 'Bạn đã sử dụng hết số lượt hỏi AI trong ngày. Lượt hỏi sẽ được làm mới vào lúc 00:00.',
 
     // F04-DESIGN-WORKSPACE
-    'workspace.title': 'Không gian Thiết kế Độc lập',
-    'workspace.subtitle': 'Tạo yêu cầu phân tích thiết kế trang sức. Quy trình này hoạt động độc lập và không yêu cầu đặt trước workshop hay thanh toán.',
-    'workspace.boundaryNotice': 'Yêu cầu thiết kế độc lập không tạo, liên kết hay ràng buộc với mã đặt chỗ workshop, thanh toán hay giữ chỗ.',
+    'workspace.title': 'Biến ý tưởng của bạn thành hiện thực',
+    'workspace.subtitle': 'Hãy mô tả chiếc nhẫn bạn muốn chúng tôi chế tác và chúng tôi sẽ thẩm định và đưa ra giá cả phù hợp cho thiết kế của bạn',
+    'workspace.boundaryNotice': '',
     'workspace.descriptionLabel': 'Mô tả ý tưởng thiết kế',
     'workspace.descriptionPlaceholder': 'Mô tả chi tiết ý tưởng nhẫn, vật liệu mong muốn, họa tiết, phong cách (tối đa 4.000 ký tự)…',
     'workspace.catalogueRefLabel': 'Mã tham chiếu sản phẩm / danh mục (không bắt buộc)',
     'workspace.catalogueRefPlaceholder': 'Ví dụ: RING-SILVER-CLASSIC-01',
     'workspace.imageLabel': 'Hình ảnh tham khảo mẫu thiết kế (không bắt buộc)',
-    'workspace.imageHint': 'Định dạng JPEG, PNG, WEBP. Tối đa 10 MB. Độ phân giải tối đa 4096×4096.',
+    'workspace.imageHint': 'Định dạng JPEG, PNG, WEBP. Tối đa 5 MB. Độ phân giải tối đa 4096×4096.',
     'workspace.submit': 'Gửi yêu cầu thiết kế',
     'workspace.success': 'Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên',
     'workspace.charCount': '{count}/4.000 ký tự',
@@ -36,9 +39,19 @@ export const designReviewMessages = {
     'workspace.removeImage': 'Gỡ bỏ ảnh',
 
     // F04-CONSENT
-    'consent.title': 'Chấp thuận Xử lý Hình ảnh Tham khảo',
-    'consent.body': 'Bằng việc gửi hình ảnh, bạn đồng ý cho phép hệ thống lưu trữ tạm thời và xử lý hình ảnh này phục vụ mục đích phân tích thiết kế bằng AI. Hình ảnh sẽ được tự động xóa sau khi quá trình trích xuất hoàn tất.',
-    'consent.checkbox': 'Tôi đồng ý với mục đích sử dụng hình ảnh ({purpose}, phiên bản {version}).',
+    'consent.title': 'Chấp thuận Điều khoản Sử dụng Hình ảnh & Bản quyền Chế tác',
+    'consent.body': 'Bằng việc gửi hình ảnh, bạn đồng ý cho phép chuyên viên cửa hàng và thợ kim hoàn lưu trữ và xem hình ảnh này để thẩm định và chế tác mẫu nhẫn thủ công.',
+    'consent.checkbox': 'Tôi đồng ý với Điều khoản Sử dụng Hình ảnh & Miễn trừ Trách nhiệm Bản quyền Chế tác ({purpose}, phiên bản {version}).',
+    'consent.cardSummary': 'Xưởng chế tác sẽ sử dụng hình ảnh Quý khách cung cấp để tạo mẫu thiết kế và không chịu trách nhiệm về vi phạm bản quyền. Vui lòng xem và chấp thuận điều khoản chi tiết trước khi gửi yêu cầu.',
+    'consent.openModal': '📜 Đọc & Chấp thuận Điều khoản',
+    'consent.reviewModal': 'Xem lại điều khoản',
+    'consent.acceptedBadge': '✓ Đã chấp thuận điều khoản',
+    'consent.modalTitle': 'Điều khoản Sử dụng Hình ảnh & Miễn trừ Trách nhiệm Bản quyền Chế tác',
+    'consent.modalSubtitle': 'Quý khách vui lòng cuộn xuống đọc hết nội dung điều khoản bên dưới để kích hoạt lựa chọn Chấp nhận hoặc Từ chối.',
+    'consent.modalScrollWarning': 'Vui lòng cuộn xuống cuối văn bản điều khoản để kích hoạt lựa chọn.',
+    'consent.modalScrollSuccess': 'Quý khách đã đọc hết nội dung điều khoản. Vui lòng chọn Chấp nhận để tiếp tục hoặc Từ chối để quay về.',
+    'consent.accept': 'Chấp nhận',
+    'consent.decline': 'Từ chối',
 
     // F04-ANALYSIS-STATUS & F04-RESULT
     'detail.title': 'Chi tiết Yêu cầu Thiết kế',
@@ -107,7 +120,7 @@ export const designReviewMessages = {
     // Validation & Errors
     'validation.required': 'Trường này không được để trống.',
     'validation.invalidImageType': 'Định dạng ảnh không hợp lệ. Chỉ chấp nhận JPEG, PNG hoặc WEBP.',
-    'validation.imageTooLarge': 'Dung lượng ảnh vượt quá giới hạn 10 MB.',
+    'validation.imageTooLarge': 'Dung lượng ảnh vượt quá giới hạn 5 MB. Vui lòng chọn ảnh nhỏ hơn 5 MB.',
     'validation.imageEmpty': 'Tệp ảnh rỗng hoặc bị lỗi (0 bytes). Vui lòng chọn tệp ảnh hợp lệ.',
     'validation.imageDimensionTooLarge': 'Độ phân giải ảnh vượt quá giới hạn tối đa 4096×4096px. Vui lòng giảm kích thước ảnh.',
     'validation.consentRequired': 'Bạn phải tích chọn đồng ý xử lý hình ảnh trước khi gửi.',
@@ -116,11 +129,27 @@ export const designReviewMessages = {
     'validation.descriptionTooLong': 'Mô tả vượt quá giới hạn 4.000 ký tự.',
     'validation.reasonTooLong': 'Lý do vượt quá giới hạn 2.000 ký tự.',
     'validation.finalPriceRequired': 'Vui lòng nhập giá chốt cuối cùng khi chọn điều chỉnh.',
+    'validation.imageTooBlurry': 'Ảnh quá mờ! Vui lòng chọn ảnh khác rõ nét hơn để nhân viên có thể thẩm định.',
+    'validation.maxImagesExceeded': 'Chỉ được tải lên tối đa 5 ảnh cho mỗi yêu cầu.',
+    'validation.imageQualityChecking': 'Đang kiểm tra độ sắc nét của ảnh...',
+
+    // Guest & Tracking
+    'guest.trackingLink': 'Liên kết theo dõi yêu cầu',
+    'guest.trackingLinkDesc': 'Vui lòng lưu lại liên kết này để theo dõi tiến độ và phản hồi từ nhân viên:',
+    'guest.copyLink': 'Sao chép liên kết',
+    'guest.copied': 'Đã sao chép liên kết theo dõi vào bộ nhớ tạm!',
+    'guest.dailyLimitExceeded': 'Bạn đã sử dụng hết giới hạn 5 yêu cầu/ngày cho khách vãng lai. Vui lòng đăng nhập hoặc quay lại vào ngày mai.',
+
+    // Reviewer feedback
+    'detail.reviewerFeedback': 'Phản hồi từ nhân viên / quản lý',
+    'detail.decisionExplanation': 'Lý do & hướng dẫn từ chuyên viên thẩm duyệt',
+    'detail.imagesGallery': 'Danh sách ảnh mẫu thiết kế ({count}/5)',
+    'detail.guestBanner': 'Bạn đang xem yêu cầu với tư cách Khách thông qua mã bảo mật theo dõi.',
 
     // Status translations
-    'status.NEED_REVIEW': 'Đang đợi phản hồi của nhân viên',
-    'status.ACCEPTED': 'Đã được chấp thuận',
-    'status.REJECTED': 'Đã từ chối',
+    'status.NEED_REVIEW': 'Đang chờ nhân viên thẩm duyệt',
+    'status.ACCEPTED': 'Đã chấp nhận thiết kế',
+    'status.REJECTED': 'Từ chối thiết kế',
     'status.CLARIFICATION_REQUIRED': 'Cần làm rõ thêm',
     'status.SUCCEEDED': 'Hoàn thành phân tích',
     'status.PROCESSING': 'Đang phân tích',
@@ -128,6 +157,11 @@ export const designReviewMessages = {
     'status.PENDING': 'Đang chờ xử lý',
 
     // Server error codes
+    'error.DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED': 'Bạn đã gửi tối đa 5 yêu cầu trong ngày hôm nay. Vui lòng quay lại vào ngày mai hoặc đăng nhập tài khoản thành viên.',
+    'error.DESIGN_REQUEST_IMAGE_TOO_BLURRY': 'Ảnh gửi lên quá mờ, không đạt độ sắc nét để nhân viên thẩm định. Vui lòng chọn ảnh rõ nét hơn.',
+    'error.DESIGN_REQUEST_MAX_IMAGES_EXCEEDED': 'Mỗi yêu cầu chỉ được gửi tối đa 5 ảnh.',
+    'error.DESIGN_REVIEW_ALREADY_DECIDED': 'Yêu cầu này đã được thẩm duyệt trước đó (trạng thái cuối cùng).',
+    'error.DESIGN_REVIEW_EXPLANATION_REQUIRED': 'Vui lòng nhập đầy đủ văn bản giải thích lý do chấp nhận hoặc từ chối thiết kế.',
     'error.AI_INPUT_INVALID': 'Dữ liệu nhập vào không hợp lệ hoặc không đúng định dạng.',
     'error.AUTHENTICATION_REQUIRED': 'Bạn cần đăng nhập bằng tài khoản Hội viên để tiếp tục.',
     'error.MEMBER_INACTIVE_OR_INVALID': 'Tài khoản không phải là Hội viên đang hoạt động.',
@@ -171,15 +205,15 @@ export const designReviewMessages = {
     'aiChat.quotaExceeded': 'You have reached your daily AI prompt limit. Quota resets at 00:00.',
 
     // F04-DESIGN-WORKSPACE
-    'workspace.title': 'Independent Design Workspace',
-    'workspace.subtitle': 'Create a jewelry design analysis request. This flow operates independently without requiring a workshop booking or payment.',
-    'workspace.boundaryNotice': 'Independent design requests do not create, link to, or depend on workshop bookings, payments, or capacity holds.',
+    'workspace.title': 'Bringing Your Ideas to Life',
+    'workspace.subtitle': 'Describe the ring you want us to craft, and we will evaluate and propose the best pricing for your bespoke design.',
+    'workspace.boundaryNotice': '',
     'workspace.descriptionLabel': 'Design idea description',
     'workspace.descriptionPlaceholder': 'Describe your ring idea, preferred materials, engravings, style (up to 4,000 characters)…',
     'workspace.catalogueRefLabel': 'Product / Catalogue reference (optional)',
     'workspace.catalogueRefPlaceholder': 'E.g. RING-SILVER-CLASSIC-01',
     'workspace.imageLabel': 'Reference design image (optional)',
-    'workspace.imageHint': 'JPEG, PNG, WEBP. Max 10 MB. Max resolution 4096×4096.',
+    'workspace.imageHint': 'JPEG, PNG, WEBP. Max 5 MB. Max resolution 4096×4096.',
     'workspace.submit': 'Submit design request',
     'workspace.success': 'Your request has been submitted successfully and is awaiting staff review.',
     'workspace.charCount': '{count}/4,000 characters',
@@ -187,9 +221,19 @@ export const designReviewMessages = {
     'workspace.removeImage': 'Remove image',
 
     // F04-CONSENT
-    'consent.title': 'Reference Image Processing Consent',
-    'consent.body': 'By providing an image, you consent to Mland temporarily storing and processing this image for AI design analysis. The image will be deleted after feature extraction completes.',
-    'consent.checkbox': 'I consent to the image processing purpose ({purpose}, version {version}).',
+    'consent.title': 'Image Use Terms & Crafting Copyright Disclaimer',
+    'consent.body': 'By providing an image, you consent to Mland storing and reviewing this image for crafting feasibility and manual ring creation.',
+    'consent.checkbox': 'I agree to the Image Use Terms & Crafting Copyright Disclaimer ({purpose}, version {version}).',
+    'consent.cardSummary': 'The workshop will use submitted images to craft this design and is not liable for copyright infringement. Please review and accept the detailed terms before submitting.',
+    'consent.openModal': '📜 Read & Accept Terms',
+    'consent.reviewModal': 'Review Terms',
+    'consent.acceptedBadge': '✓ Terms Accepted',
+    'consent.modalTitle': 'Custom Crafting Image Use & Copyright Liability Terms',
+    'consent.modalSubtitle': 'Please scroll to the bottom of the terms below to enable Accept or Decline.',
+    'consent.modalScrollWarning': 'Please scroll to the bottom of the document to enable choices.',
+    'consent.modalScrollSuccess': 'You have read all terms. Please choose Accept to proceed or Decline to return.',
+    'consent.accept': 'Accept',
+    'consent.decline': 'Decline',
 
     // F04-ANALYSIS-STATUS & F04-RESULT
     'detail.title': 'Design Request Details',
@@ -258,7 +302,7 @@ export const designReviewMessages = {
     // Validation & Errors
     'validation.required': 'This field is required.',
     'validation.invalidImageType': 'Invalid image format. Only JPEG, PNG, or WEBP are supported.',
-    'validation.imageTooLarge': 'Image size exceeds the 10 MB limit.',
+    'validation.imageTooLarge': 'Image size exceeds the 5 MB limit. Please select a file smaller than 5 MB.',
     'validation.imageEmpty': 'Image file is empty or corrupted (0 bytes). Please choose a valid image file.',
     'validation.imageDimensionTooLarge': 'Image resolution exceeds the 4096×4096px limit. Please reduce image dimensions.',
     'validation.consentRequired': 'You must give consent for image processing before submitting.',
@@ -267,6 +311,22 @@ export const designReviewMessages = {
     'validation.descriptionTooLong': 'Description exceeds the 4,000 character limit.',
     'validation.reasonTooLong': 'Reason exceeds the 2,000 character limit.',
     'validation.finalPriceRequired': 'Final price is required when adjusting the price.',
+    'validation.imageTooBlurry': 'Image is too blurry! Please select a sharper image for staff review.',
+    'validation.maxImagesExceeded': 'You can only upload up to 5 images per request.',
+    'validation.imageQualityChecking': 'Checking image sharpness...',
+
+    // Guest & Tracking
+    'guest.trackingLink': 'Design Request Tracking Link',
+    'guest.trackingLinkDesc': 'Please save this link to track your request status and staff feedback:',
+    'guest.copyLink': 'Copy Link',
+    'guest.copied': 'Tracking link copied to clipboard!',
+    'guest.dailyLimitExceeded': 'You have exceeded the daily limit of 5 requests for guests. Please sign in or try again tomorrow.',
+
+    // Reviewer feedback
+    'detail.reviewerFeedback': 'Staff / Manager Feedback',
+    'detail.decisionExplanation': 'Reviewer decision rationale & guidance',
+    'detail.imagesGallery': 'Reference Design Images ({count}/5)',
+    'detail.guestBanner': 'You are viewing this design request as a Guest using your secure tracking token.',
 
     // Status translations
     'status.NEED_REVIEW': 'Awaiting staff review',
@@ -279,6 +339,11 @@ export const designReviewMessages = {
     'status.PENDING': 'Pending',
 
     // Server error codes
+    'error.DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED': 'Guest daily limit of 5 design requests exceeded. Please try again tomorrow or sign in.',
+    'error.DESIGN_REQUEST_IMAGE_TOO_BLURRY': 'Image is too blurry to be reviewed. Please upload a clearer image.',
+    'error.DESIGN_REQUEST_MAX_IMAGES_EXCEEDED': 'Maximum of 5 images allowed per design request.',
+    'error.DESIGN_REVIEW_ALREADY_DECIDED': 'This design request has already been reviewed (terminal state).',
+    'error.DESIGN_REVIEW_EXPLANATION_REQUIRED': 'A detailed explanation is required for approving or rejecting the design request.',
     'error.AI_INPUT_INVALID': 'Invalid or malformed input provided.',
     'error.AUTHENTICATION_REQUIRED': 'You must sign in with a Member account to continue.',
     'error.MEMBER_INACTIVE_OR_INVALID': 'Account is not an active Member.',
@@ -303,3 +368,8 @@ export const designReviewMessages = {
   },
 };
 
+
+export const designReviewMessages = {
+  vi: { ...baseMessages.vi, ...ordersMessages.vi, ...screensMessages.vi },
+  en: { ...baseMessages.en, ...ordersMessages.en, ...screensMessages.en },
+};

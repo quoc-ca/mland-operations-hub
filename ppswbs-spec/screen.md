@@ -1,5 +1,18 @@
 # Mland — Screen Flow
 
+## Current Feature-004 and Feature-012 screen baseline — 2026-11-22
+
+The current Feature-004 flow is human review only: image quality validation,
+request submission, Staff/Manager review, mandatory written explanation and
+owner status tracking. It does not render AI analysis, AI pricing or automated
+design decisions.
+
+The current Feature-012 flow ends at saved-design recommendation and Feature-013
+consultation. It does not attach a design to a booking or ticket, perform branch
+revalidation for attachment, create payment, or hide alternative workshops.
+Older booking-attachment and AI-analysis diagrams in this file are historical
+references and must not be used as implementation instructions.
+
 ## Feature-011 Review Management screens
 
 ```text
@@ -9,7 +22,7 @@ Manager Review Moderation → Hide / Remove / Reply Editor
 Admin Technical/Audit View → Sanitized Evidence
 ```
 
-Guest uses email/phone lookup; Member uses authenticated own-source lookup.
+Guest sees the review entry point and public review pages; Member uses authenticated own-source lookup to create or edit reviews.
 Only checked-in workshop attendance and picked-up/delivered retail order lines
 are shown. Create validates rating 1–5 and text ≤2,000 characters, then shows
 the review as `PUBLIC`. There is no branch-review action, Google write-back,
@@ -140,7 +153,6 @@ flowchart LR
     Lookup["Booking Lookup"]
     Details["Booking Details / QR Ticket"]
     Store["Store Information"]
-    Maps[["Google Maps / Review Link"]]
     AI(["Basic AI Chat — chatbox"])
 
     Home --> Login
@@ -180,7 +192,7 @@ flowchart LR
     Home --> Lookup -->|"Kiểm tra quyền tra cứu phù hợp"| Details
     Details -->|"Pending và payment/hold còn đủ điều kiện"| Deposit
     Details -->|"Hết hạn; bắt đầu booking mới"| Packages
-    Home --> Store --> Maps
+    Home --> Store
     Home --> AI
 ```
 
@@ -312,7 +324,12 @@ flowchart TB
 - Booking Summary hiển thị package, cơ sở, lịch, số người, contact, design đã chọn nếu có, các khoản giá được phép và tiền cọc trước khi xác nhận. Theo hợp đồng hiện có, workshop deposit bằng 50% package; link 10 phút, hold 15 phút. Không lấy giá ước lượng thiết kế làm số tiền phải thu khi chưa có quy tắc được duyệt.
 - Lỗi cơ sở không hỗ trợ design/material, lịch hết chỗ hoặc contact không hợp lệ dẫn về bước cần sửa; thay đổi liên quan phải được kiểm tra lại. QR chỉ hiển thị sau booking confirmed.
 
-### A2.2. Tự làm nhẫn — freestyle và ba nhánh custom
+### A2.2. Historical workshop design branches — superseded
+
+The following diagram is retained for traceability only. It contains former
+AI-analysis and booking-attachment assumptions and must not be used for current
+Feature-004 or Feature-012 implementation. Use the current feature artifacts
+and existing approved Figma frames instead.
 
 ```mermaid
 flowchart TB
@@ -323,7 +340,7 @@ flowchart TB
     Photo["Shop Design Photo Details"]
     Config["Ring Options Configurator"]
     Image["Booking Design Image Upload"]
-    Analysis["AI Analysis and Editable Design Options"]
+    Analysis["Historical AI Analysis and Editable Design Options"]
     Recalculate(["Cập nhật options / ước lượng giá / đánh giá lại độ khó"])
     Difficulty{"Kết quả đánh giá hiện tại"}
     Consult["Design Consultation / Review Request"]
@@ -368,7 +385,7 @@ flowchart TB
 | Shop Design Album / Photo Details | Chọn ảnh mẫu shop; preview và xác nhận mẫu muốn tự làm. Album này phục vụ thiết kế workshop, không phải hành động mua sản phẩm retail. |
 | Ring Options Configurator | Chọn chi tiết/họa tiết và các options được hỗ trợ → xem cấu hình/giá theo quy tắc hiện có → xác nhận → Selected Design Summary. |
 | Booking Design Image Upload | Upload ảnh ý tưởng → kiểm tra file/context → phân tích. Ảnh không hợp lệ hoặc xử lý lỗi cho phép thử ảnh khác. |
-| AI Analysis and Editable Design Options | Hiển thị các thành phần nhận diện, shape/material/options, giá ước lượng và độ khó. Khi sửa options, cập nhật estimate và đánh giá độ khó theo cấu hình mới; không tiếp tục với kết quả của cấu hình cũ. |
+| Historical AI Analysis and Editable Design Options | Historical Feature-004/booking design flow only. Not part of the current human-review or saved-design recommendation baseline. |
 | Design Consultation / Review Request | Gửi cấu hình hiện tại để tư vấn, xem trạng thái chờ và kết quả. Chờ review chưa tạo booking/hold. |
 | Cannot Self-make — Available Alternatives | Cho Member chọn yêu cầu shop làm hoặc quay lại upload/chọn thiết kế khác. Yêu cầu shop làm không tự được chấp nhận hay chuyển thanh toán. |
 | Selected Design Summary | Review mẫu/options đã chốt → Branch Selection → chọn lịch → thông tin → thanh toán như A2. |
@@ -401,17 +418,14 @@ flowchart LR
     Schedule["Wax Workshop Date and Session Selection"]
     Deadline["Requested Completion Date — nếu có, chỉ request shop làm"]
     Contact["Contact / Participants / Recipient Information — theo journey"]
-    Summary["Booking or Request Summary / Deposit Quote"]
-    Deposit["Deposit Payment — theo booking/request context"]
-    GatewayDeposit[["VNPay — deposit"]]
-    DepositResult["Payment Result — deposit"]
+    Summary["Booking or Custom-order Quote Summary"]
+    Deposit["Workshop Deposit / Custom Full Payment"]
+    GatewayDeposit[["VNPay — context-specific payment"]]
+    DepositResult["Payment Result"]
     Mine["My Bookings"]
     Orders(["Shop-made Orders — tab/list trong lịch sử"])
     BookingDetails["Wax Booking Details / QR Ticket"]
     Details["Shop Completion / Custom Order Details"]
-    Balance["Custom Balance Payment"]
-    GatewayBalance[["VNPay — balance"]]
-    BalanceResult["Payment Result — balance"]
     Attend(["Member tham gia workshop; Staff check-in theo quyền"])
     Shop(["Shop hoàn thiện sản phẩm"])
     StaffProposal(["Staff lập đề xuất final amount và gửi Manager"])
@@ -426,33 +440,27 @@ flowchart LR
     Schedule -->|"Session/capacity phù hợp"| Contact
     Deadline -->|"Deadline/queue capacity phù hợp"| Contact
     Contact --> Summary
-    Summary -->|"Điều kiện/quote hợp lệ; Member xác nhận"| Deposit
+    Summary -->|"Workshop booking: deposit; custom order: complete quote payment"| Deposit
     Summary -->|"Không đủ điều kiện nhận làm / dữ liệu cần sửa"| Input
     Deposit --> GatewayDeposit --> DepositResult
     DepositResult -->|"Booking wax: đọc payment facts; confirmed mới có QR"| BookingDetails
-    DepositResult -->|"Request shop làm: đọc payment facts đã xác minh"| Details
+    DepositResult -->|"Custom order: read verified full-payment facts"| Details
     Mine -->|"Own wax booking"| BookingDetails
     BookingDetails -->|"Xem phần shop hoàn thiện của booking này"| Details
     BookingDetails -.->|"Đến ngày tham gia; booking confirmed"| Attend
     Attend -.->|"Sau hoạt động workshop"| Shop
     Mine --> Orders -->|"Own order"| Details
-    Details -.->|"Request chỉ shop làm; deposit hợp lệ và đủ điều kiện"| Shop
-    Shop -.->|"Sản phẩm ready"| StaffProposal
-    StaffProposal -.->|"Chờ Manager duyệt lần cuối"| ManagerApproval
-    ManagerApproval -.->|"Cần chỉnh sửa; chưa gửi payment request"| StaffProposal
-    ManagerApproval -.->|"Đã duyệt; chốt balance và gửi payment request"| Details
-    Details -->|"Final balance đã được Manager duyệt; đủ điều kiện thanh toán"| Balance
-    Balance --> GatewayBalance --> BalanceResult
-    BalanceResult -->|"Hiển thị payment facts đã xác minh"| Details
-    Details -.->|"Verified final payment và đủ điều kiện fulfilment"| Handoff
+    Details -.->|"Custom order; full quote payment verified"| Shop
+    Details -.->|"Verified full payment and eligible for production"| Shop
+    Shop -.->|"Sản phẩm ready"| Handoff
     Handoff -.->|"Ghi kết quả bàn giao, không phải courier tracking"| Details
 ```
 
 - Làm sáp cho upload ảnh ý tưởng bất kỳ về mặt lựa chọn mẫu, vẫn phải kiểm tra file và các yêu cầu kỹ thuật. Khách chọn chất liệu; màn summary hiển thị số tiền cọc theo chính sách/quote được áp dụng, không tự hiểu là khách nhập một số tiền cọc tùy ý.
 - Lịch của gói làm sáp đã được người dùng xác nhận là **ngày tham gia workshop tại cơ sở**, không phải deadline giao/hoàn thành. Luồng là ảnh/chất liệu → cơ sở → lịch/session → thông tin → summary → cọc → booking confirmed/QR → tham gia → shop hoàn thiện → final payment nếu còn phải thu → gửi hàng. Không tự thêm quy tắc bắt buộc hai session từ poster khi số buổi và cách xếp lịch chưa được chốt.
-- Deadline/queue capacity trong custom-manufacturing contract áp dụng cho request shop làm theo điều kiện hiện có; không thay thế kiểm tra session/capacity của wax workshop. Contract hiện có nêu deposit bằng 50% wax-package và final balance bằng remaining 50% cộng actual surcharges. Cách material/estimate mới ảnh hưởng quote/cọc cần được đồng bộ nếu khác contract này; không tự thay bằng 50% AI estimate.
+- Deadline/queue capacity trong custom-manufacturing contract áp dụng cho request shop làm theo điều kiện hiện có; không thay thế kiểm tra session/capacity của wax workshop. Custom order dùng một Manager-approved full quote, không có deposit, balance hoặc Add to Cart.
 - Reference image của yêu cầu shop làm là dữ liệu phục vụ chế tác theo retention riêng, khác AI image input bị xóa sau xử lý. AI không nhận quyền quyết định nhận làm hoặc tự chốt final manufacturing amount.
-- Với wax, shop hoàn thiện sau khi Member tham gia; request chỉ shop làm đi vào thực hiện sau deposit hợp lệ và các điều kiện nhận làm. Khi ready, Staff lập đề xuất số tiền cuối và gửi Manager duyệt. Chỉ sau Manager approval mới chốt balance, gửi payment request và cho Member thanh toán; verified balance là điều kiện trước actual handoff. Thiết kế/material của wax booking được mang sang phần hoàn thiện, không yêu cầu Member upload lại hoặc thanh toán lại cùng khoản cọc.
+- Với wax, shop hoàn thiện sau khi Member tham gia; custom order chỉ đi vào thực hiện sau khi full quote payment được xác minh và các điều kiện nhận làm đáp ứng. Thiết kế/material của wax booking được mang sang phần hoàn thiện; custom order không tạo thêm khoản balance.
 - Cần đồng bộ cách liên kết wax booking với phần shop hoàn thiện, payment purpose và resource reservation trong Report 3. Sơ đồ chỉ thể hiện hành trình; không tự quyết định phải tạo hai đơn, thu hai cọc hay giữ đồng thời hai loại tài nguyên. Handoff ghi thủ công; không thêm GHTK tracking/API hoặc tự động báo delivered.
 
 ## 4. B. Staff Dashboard
@@ -527,8 +535,8 @@ flowchart LR
     Carrier(["Record Actual GHTK Handoff — form"])
     Customs["Custom Order List"]
     Custom["Custom Order Operations"]
-    FinalProposal(["Final Amount Proposal — Staff form"])
-    FinalReview["Final Amount Review / Approval — Manager"]
+    FinalProposal(["Custom Quote Preparation — Staff form"])
+    FinalReview["Custom Quote Approval — Manager"]
     CustomHandoff(["Custom Pickup / GHTK Handoff — form"])
     Inbox["Consultation Inbox"]
     Chat["Consultation Conversation"]
@@ -551,12 +559,12 @@ flowchart LR
     Carrier -->|"Ghi handed_to_carrier và evidence"| Order
 
     B --> Customs -->|"Phạm vi xử lý được phép"| Custom
-    Custom -->|"Sản phẩm ready; lập đề xuất"| FinalProposal
+    Custom -->|"Request accepted; prepare complete quote"| FinalProposal
     FinalProposal -->|"Lưu và gửi duyệt; hiển thị pending approval"| Custom
     FinalProposal -.->|"Chuyển đề xuất cho Manager; Staff không có quyền chốt"| FinalReview
     FinalReview -.->|"Yêu cầu sửa; chưa gửi payment request"| FinalProposal
-    FinalReview -.->|"Đã duyệt; chốt balance và gửi payment request"| Custom
-    Custom -->|"Đủ điều kiện fulfilment và verified final payment"| CustomHandoff
+    FinalReview -.->|"Đã duyệt; tạo one-time full-payment request"| Custom
+    Custom -->|"Verified full payment và đủ điều kiện fulfilment"| CustomHandoff
     CustomHandoff -->|"Ghi bàn giao thực tế"| Custom
     B --> Inbox --> Chat
     Chat -->|"Quay lại danh sách hội thoại"| Inbox
@@ -567,7 +575,7 @@ flowchart LR
 - Prepared for carrier khác actual handoff. GHTK chỉ được ghi nhận bàn giao thủ công, không có API/fee quote/tracking.
 - Các màn session/list/custom operations là cách gom điều hướng đề xuất; dữ liệu và hành động phải giới hạn theo thẩm quyền đã xác định, không suy ra quyền đọc toàn hệ thống.
 - Kết quả tư vấn thiết kế được Member xem tại A2.2. Không thể tự làm dẫn tới màn phương án thay thế; chỉ khi Member chọn yêu cầu shop làm mới đi tiếp A2.4, và shop vẫn kiểm tra điều kiện nhận làm.
-- Staff chỉ lập/sửa và gửi **Final Amount Proposal**, không chốt số tiền cuối hoặc gửi payment request từ đề xuất chưa duyệt. Manager review là chuyển xử lý giữa vai trò, không phải màn Staff được quyền mở. Cần chỉnh sửa thì quay lại đề xuất; sửa nội dung đã duyệt phải được Manager duyệt lại trước khi dùng để yêu cầu thanh toán.
+- Staff chỉ chuẩn bị và gửi **Custom Quote**, không tự chốt quote hoặc gửi payment request từ quote chưa được Manager duyệt. Manager review là chuyển xử lý giữa vai trò, không phải màn Staff được quyền mở. Cần chỉnh sửa thì quay lại quote; quote đã duyệt phải được tạo thành một payment request cho toàn bộ số tiền, không tạo deposit hoặc balance.
 
 ## 5. C. Manager Dashboard
 
@@ -598,8 +606,8 @@ flowchart LR
     Queue["Custom Queue Configuration"]
     Customs["Custom Order List"]
     Custom["Custom Order Operations"]
-    FinalQueue["Final Amount Approval List"]
-    FinalReview["Final Amount Review / Approval"]
+    FinalQueue["Custom Quote Approval List"]
+    FinalReview["Custom Quote Review / Approval"]
     StaffRevision(["Staff chỉnh sửa và gửi lại proposal — chuyển xử lý"])
 
     C --> Revenue --> Filters -->|"Chọn scope hợp lệ; cập nhật dữ liệu"| Revenue
@@ -624,8 +632,8 @@ flowchart LR
     C --> Queue
     C --> Customs -->|"Phạm vi được phép"| Custom
     C --> FinalQueue -->|"Chọn đề xuất Staff đã gửi"| FinalReview
-    Custom -->|"Xem đề xuất final amount đang chờ duyệt"| FinalReview
-    FinalReview -->|"Manager duyệt lần cuối; chốt balance và gửi payment request"| Custom
+    Custom -->|"Xem custom quote đang chờ duyệt"| FinalReview
+    FinalReview -->|"Manager duyệt quote; tạo one-time full-payment request"| Custom
     FinalReview -.->|"Chưa duyệt; yêu cầu sửa"| StaffRevision
     StaffRevision -.->|"Gửi lại đề xuất để review"| FinalQueue
 ```
@@ -634,7 +642,7 @@ flowchart LR
 - Workshop settings và schedule edits bảo vệ bookings/holds hiện có. Enabled Klook synchronization là xử lý hệ thống; có thể hiển thị trạng thái liên quan trong workshop screens, không thêm màn cancellation hoặc reconciliation.
 - AI price suggestion hỗ trợ giá package/product, không phải giá custom manufacturing. Với retail, Manager approval vẫn cần authorized maintainer apply riêng và publication riêng.
 - Product maintenance và retail-order operations của Manager chỉ mở khi có explicit applicable delegation. Khi có quyền, dùng lại màn B tương ứng; Dashboard không mặc định cấp các quyền này.
-- **Final Amount Approval** là quyết định cuối của Manager đối với đề xuất Staff gửi lên. Trong lúc chờ duyệt hoặc cần chỉnh sửa, Member chưa được nhận yêu cầu thanh toán cho đề xuất đó. Số tiền dùng cho payment request phải đúng bản đã được Manager duyệt.
+- **Custom Quote Approval** là quyết định của Manager đối với quote Staff chuẩn bị. Trong lúc chờ duyệt hoặc cần chỉnh sửa, Member chưa được nhận yêu cầu thanh toán. Sau khi duyệt, số tiền trong payment request phải đúng toàn bộ quote đã duyệt; không có balance request.
 
 ## 6. D. Admin Dashboard
 
@@ -689,6 +697,30 @@ flowchart LR
 - Logout là hành động trong account menu của cả bốn Dashboard, kết thúc phiên và về Home/Login. Không cần một trang Logout riêng.
 - Dữ liệu recipient và media hiển thị theo chính sách retention; không lộ lại dữ liệu đã đến hạn retire qua màn details hoặc technical support.
 
+## Feature-004 replacement flow — Design Request and Human Review
+
+The previous AI image-analysis screens are retired. The current customer flow is:
+
+```text
+Member Design Request (Guest sees sign-in prompt)
+→ Description and up to five images
+→ Immediate image-quality feedback
+→ Replace/remove blurry images
+→ Submit
+→ NEED_REVIEW
+→ Staff/Manager Review
+→ ACCEPTED or REJECTED with mandatory explanation
+→ Customer Tracking/History and Decision Explanation
+```
+
+Guest uses an opaque tracking link; Member uses authenticated ownership. Staff and
+Manager have equal decision authority. Admin has technical/audit visibility only.
+After `ACCEPTED`, the request enters quote handoff. The customer sees a
+Manager-configured quote expiry and starts one full-payment attempt from My
+Custom Orders; no Add to Cart action exists. If payment is not verified before
+expiry, the quote/order is expired or cancelled and the queue hold is released.
+Feature-004 does not own production or fulfilment.
+
 ## Feature-012 workshop booking flow
 
 The customer flow is:
@@ -703,12 +735,13 @@ Package Selection
 → Deposit Payment
 ```
 
-There is one design per booking. Branch selection triggers server-side
-revalidation of material/component compatibility. Evaluation is advisory and
-does not alter package price, deposit or payment. After the booking transaction
-commits, the attached design version is locked and Booking owns the immutable
-snapshot; a failed submission leaves the design retryable. Feature-004 image
-analysis is not part of the default configurator flow.
+There is one design snapshot per ticket. A group may have a default design, and
+each ticket may override it before submission. Branch selection triggers
+server-side revalidation of material/component compatibility. Evaluation and
+recommendation are advisory and do not alter package price, deposit or payment.
+After the booking transaction commits, each attached design version is locked;
+a failed submission leaves designs retryable. Feature-004 custom-order intake is
+not part of the default workshop booking flow.
 
 ## 8. Căn cứ và điểm cần đồng bộ
 
@@ -720,3 +753,29 @@ analysis is not part of the default configurator flow.
 - Làm rõ mới của người dùng cho phần Member: hai hành trình chính là mua sản phẩm và booking ba gói; nhẫn có freestyle/album/options/upload ảnh, clay booking thẳng, wax upload reference/chọn chất liệu, tham gia workshop tại cơ sở rồi shop hoàn thiện và gửi hàng. Ngày chọn cho wax là ngày tham gia, đã được người dùng xác nhận. Nhánh AI có thể tự làm / cần tư vấn / không thể tự làm và cập nhật estimate khi đổi options thay thế mô tả routing mơ hồ trước đó trong sơ đồ; Report 3 cần đồng bộ riêng. Image-specific consent trong UC30 chưa thống nhất với general Terms/Privacy trong scope nên không tự thêm consent screen.
 - Cần chốt số session/cách xếp lịch wax, liên kết booking với shop completion/resource reservation và ảnh hưởng của material/estimated design price tới deposit quote nếu khác quy tắc hiện có. Không coi deadline chế tác là lịch tham gia. Giá, phụ thu và thời gian trên ảnh không tự trở thành các giá trị vận hành hardcode trong sơ đồ.
 - Tên UI **Price Proposal Review** diễn đạt đúng phạm vi product/package của UC31. **Prepared for carrier** và **actual carrier handoff** được thể hiện riêng để tránh nhầm tên UC53 với sự kiện bàn giao thực tế.
+## Current custom-order payment override (2026-11-20)
+
+The current custom-manufacturing baseline supersedes older diagram notes that
+mention a deposit, final-balance proposal or balance payment. The active flow is:
+
+```text
+Request accepted
+→ Staff prepares complete quote
+→ Manager approves quote
+→ Member pays the full quote from My Custom Orders
+→ Verified payment
+→ Production and fulfilment
+```
+
+There is no Add to Cart action for custom orders. If full payment is not verified
+before the quote deadline, the quote/order expires or is cancelled and any
+temporary queue hold is released. Workshop booking deposit flow remains separate.
+# 2026-11-22 screen superseding notes
+
+- Feature-012 saved-design screen contains recommendation, reason, optional Wax
+  Casting two-session note, `Tư vấn thiết kế`, and always-visible `Khám phá các
+  workshop`. It does not contain booking attachment controls.
+- Feature-004 uses `Yêu cầu chế tác` and `Đơn hàng cá nhân`; the design picker may
+  show any owner-visible Feature-012 state without exposing internal IDs.
+- The saved-design consultation action opens Feature-013 with safe design
+  context for Guest or Member. Staff and Manager can participate.

@@ -163,14 +163,138 @@ describe('Design Draft Domain Logic', () => {
     expect(preview.hasOuterEngraving).toBe(true);
     expect(preview.showSurfaceTextureWarning).toBe(true);
   });
+
+  it('validates aggregate gemstone limit (maximum 10)', () => {
+    const draftWithinLimit = {
+      packageReference: 'PKG-1',
+      materialReference: 'MAT-SILVER-925',
+      shapeReference: 'SHP-CLASSIC-ROUND',
+      ringSize: '8',
+      components: [
+        { reference: 'GEM-CZ-WHITE-2MM', quantity: 6 },
+        { reference: 'GEM-CZ-BLUE-2MM', quantity: 4 },
+      ],
+    };
+    expect(validateDraftClient(draftWithinLimit).isValid).toBe(true);
+
+    const draftExceedingLimit = {
+      ...draftWithinLimit,
+      components: [
+        { reference: 'GEM-CZ-WHITE-2MM', quantity: 6 },
+        { reference: 'GEM-CZ-BLUE-2MM', quantity: 5 },
+      ],
+    };
+    const res = validateDraftClient(draftExceedingLimit);
+    expect(res.isValid).toBe(false);
+    expect(res.errors.components).toContain('không được vượt quá 10 viên');
+  });
+
+  it('validates independent engraving quotas (TEXT <= 2, SYMBOL <= 2, CUSTOM_IMAGE <= 2)', () => {
+    const baseDraft = {
+      packageReference: 'PKG-1',
+      materialReference: 'MAT-SILVER-925',
+      shapeReference: 'SHP-CLASSIC-ROUND',
+      ringSize: '8',
+    };
+
+    // 3 TEXT items should fail
+    const draft3Text = {
+      ...baseDraft,
+      engraving: {
+        enabled: true,
+        items: [
+          { type: 'TEXT', content: 'A' },
+          { type: 'TEXT', content: 'B' },
+          { type: 'TEXT', content: 'C' },
+        ],
+      },
+    };
+    const resText = validateDraftClient(draft3Text);
+    expect(resText.isValid).toBe(false);
+    expect(resText.errors.engravingText).toContain('chữ khắc không được vượt quá 2 mục');
+
+    // 3 SYMBOL items should fail
+    const draft3Symbol = {
+      ...baseDraft,
+      engraving: {
+        enabled: true,
+        items: [
+          { type: 'SYMBOL', content: '♥' },
+          { type: 'SYMBOL', content: '★' },
+          { type: 'SYMBOL', content: '∞' },
+        ],
+      },
+    };
+    const resSymbol = validateDraftClient(draft3Symbol);
+    expect(resSymbol.isValid).toBe(false);
+    expect(resSymbol.errors.engravingSymbol).toContain('biểu tượng khắc không được vượt quá 2 mục');
+
+    // 3 custom images should fail
+    const draft3Images = {
+      ...baseDraft,
+      engraving: {
+        enabled: true,
+        text: 'Valid',
+        customImages: [
+          { imageUrl: 'data:1' },
+          { imageUrl: 'data:2' },
+          { imageUrl: 'data:3' },
+        ],
+      },
+    };
+    const resImages = validateDraftClient(draft3Images);
+    expect(resImages.isValid).toBe(false);
+    expect(resImages.errors.customImages).toContain('không được vượt quá 2 ảnh');
+  });
+
+  it('validates laser image preprocessing slider parameters (contrast and sharpness 0..100)', () => {
+    const baseDraft = {
+      packageReference: 'PKG-1',
+      materialReference: 'MAT-SILVER-925',
+      shapeReference: 'SHP-CLASSIC-ROUND',
+      ringSize: '8',
+    };
+
+    const draftInvalidSlider = {
+      ...baseDraft,
+      engraving: {
+        enabled: true,
+        text: 'Valid',
+        customImages: [
+          { imageUrl: 'data:1', contrast: 120, sharpness: 50 },
+        ],
+      },
+    };
+    const res = validateDraftClient(draftInvalidSlider);
+    expect(res.isValid).toBe(false);
+    expect(res.errors.customImages).toContain('từ 0 đến 100');
+
+    const draftValidSliders = {
+      ...baseDraft,
+      engraving: {
+        enabled: true,
+        text: 'Valid',
+        customImages: [
+          { imageUrl: 'data:1', contrast: 70, sharpness: 30, cropX: 10, cropY: 15 },
+        ],
+      },
+    };
+    expect(validateDraftClient(draftValidSliders).isValid).toBe(true);
+
+    const normalized = normalizeDraftForSave(draftValidSliders);
+    expect(normalized.engraving.customImages[0].contrast).toBe(70);
+    expect(normalized.engraving.customImages[0].sharpness).toBe(30);
+    expect(normalized.engraving.customImages[0].cropX).toBe(10);
+    expect(normalized.engraving.customImages[0].cropY).toBe(15);
+  });
 });
 
 describe('Design Preview Model Derivation', () => {
   it('returns fallback model when draft is null or undefined', () => {
     const preview = derivePreviewModel(null);
     expect(preview.isNeutral).toBe(true);
-    expect(preview.material).toEqual(MATERIAL_PALETTES['MAT-SILVER-925']);
-    expect(preview.shape).toEqual(SHAPE_STROKES['SHP-CLASSIC-ROUND']);
+    expect(preview.material).toEqual({ ...MATERIAL_PALETTES['MAT-SILVER-925'], label: 'Bạc Ý 925' });
+    expect(preview.shape).toEqual({ ...SHAPE_STROKES['SHP-CLASSIC-ROUND'], label: 'Tròn cổ điển' });
   });
 
   it('derives accurate visual tokens and gemstone glows for selected options', () => {
@@ -214,7 +338,7 @@ describe('Design Error Formatting', () => {
 
   it('falls back to error.message or default text when code is unknown', () => {
     expect(getErrorMessage({ message: 'Custom server error' })).toBe('Custom server error');
-    expect(getErrorMessage(null, 'Mặc định')).toBe('Mặc định');
+    expect(getErrorMessage(null)).toBe('Đã xảy ra lỗi không xác định.');
   });
 });
 
@@ -270,6 +394,16 @@ describe('Difficulty Score Classification & Meta', () => {
     expect(meta2.score).toBe('9.8');
     expect(meta2.label).toBe('Rất khó');
     expect(meta2.isVeryHard).toBe(true);
+  });
+
+  it('classifies > 11 as Too Risky (Quá rủi ro) without workshop recommendation', () => {
+    const meta = getDifficultyMeta(11.5);
+    expect(meta.score).toBe('11.5');
+    expect(meta.level).toBe('TOO_RISKY');
+    expect(meta.label).toBe('Quá rủi ro');
+    expect(meta.isTooRisky).toBe(true);
+    expect(meta.note).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
+    expect(meta.advice).toContain('Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo');
   });
 });
 

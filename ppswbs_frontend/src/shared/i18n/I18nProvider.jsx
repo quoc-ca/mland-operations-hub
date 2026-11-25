@@ -44,6 +44,21 @@ export function useT(messages) {
   return useCallback((key, params) => translate(messages, language, key, params), [messages, language]);
 }
 
+/**
+ * Label for a backend enum value (status, state, category...). Looks up `${prefix}.${value}` in the feature
+ * dictionary and falls back to the raw value, so an unmapped enum never shows a "prefix.VALUE" key.
+ */
+export function enumLabel(messages, language, prefix, value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const key = `${prefix}.${value}`;
+  return messages[language]?.[key] ?? messages.vi?.[key] ?? String(value);
+}
+
+export function useEnumLabel(messages, prefix) {
+  const { language } = useLanguage();
+  return useCallback(value => enumLabel(messages, language, prefix, value), [messages, language, prefix]);
+}
+
 /** Groups the digits of a decimal-string integer (optionally signed) without converting it through a JS number. */
 export function formatNumber(value, language) {
   if (value === null || value === undefined || value === '') return '—';

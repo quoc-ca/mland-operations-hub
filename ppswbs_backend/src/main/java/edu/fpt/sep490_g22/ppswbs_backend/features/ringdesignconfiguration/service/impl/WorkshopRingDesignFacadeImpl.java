@@ -38,8 +38,7 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
             String packageReference,
             String branchReference,
             Long memberAccountId,
-            String guestSessionReference
-    ) {
+            String guestSessionReference) {
         AttachDesignRequestDto req = AttachDesignRequestDto.builder()
                 .bookingReference(bookingReference)
                 .packageReference(packageReference)
@@ -47,7 +46,8 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
                 .build();
 
         String internalIdempotencyKey = "FACADE-ATTACH-" + UUID.randomUUID();
-        return applicationService.attachToBooking(designId, req, memberAccountId, guestSessionReference, null, internalIdempotencyKey);
+        return applicationService.attachToBooking(designId, req, memberAccountId, guestSessionReference, null,
+                internalIdempotencyKey);
     }
 
     @Override
@@ -55,10 +55,10 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
     public void unlockDesignOnBookingRollback(String designId) {
         designRepository.findLatestByDesignReference(designId).ifPresent(design -> {
             if (design.getStatus() == RingDesignStatus.ATTACHED_TO_BOOKING) {
-                design.setStatus(RingDesignStatus.VALIDATED);
+                design.setStatus(RingDesignStatus.SAVED);
                 design.setBookingReference(null);
                 designRepository.save(design);
-                log.info("Rolled back design {} to VALIDATED state after booking failure", designId);
+                log.info("Rolled back design {} to SAVED state after booking failure", designId);
             }
         });
     }
@@ -82,8 +82,10 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
             Map<String, Object> snapshot = Collections.emptyMap();
             if (design.getComponentSnapshot() != null && !design.getComponentSnapshot().isBlank()) {
                 try {
-                    snapshot = objectMapper.readValue(design.getComponentSnapshot(), new TypeReference<>() {});
-                } catch (Exception ignored) {}
+                    snapshot = objectMapper.readValue(design.getComponentSnapshot(), new TypeReference<>() {
+                    });
+                } catch (Exception ignored) {
+                }
             }
             return BookingDesignSnapshotDto.builder()
                     .designReference(design.getDesignReference())
@@ -97,13 +99,14 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
     @Override
     @Transactional(readOnly = true)
     public java.util.List<WorkshopRingDesignConsultationOption> findMemberDesignsForConsultation(Long memberAccountId) {
-        if (memberAccountId == null) return Collections.emptyList();
+        if (memberAccountId == null)
+            return Collections.emptyList();
         var list = designRepository.findAllByOwner(RingDesignOwnerType.MEMBER, String.valueOf(memberAccountId));
-        if (list.isEmpty()) return Collections.emptyList();
+        if (list.isEmpty())
+            return Collections.emptyList();
 
         Map<String, RingDesign> latest = new java.util.LinkedHashMap<>();
         for (RingDesign d : list) {
-            if (d.getStatus() == RingDesignStatus.ARCHIVED) continue;
             RingDesign ex = latest.get(d.getDesignReference());
             if (ex == null || d.getDesignVersion() > ex.getDesignVersion()) {
                 latest.put(d.getDesignReference(), d);
@@ -114,7 +117,7 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public Optional<WorkshopRingDesignConsultationOption> validateMemberDesignForConsultation(
             Long memberAccountId, String designReference, Integer designVersion
     ) {
@@ -129,8 +132,11 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
         }
         if (opt.isEmpty()) return Optional.empty();
         RingDesign d = opt.get();
-        if (d.getStatus() == RingDesignStatus.ARCHIVED) return Optional.empty();
-        if (d.getOwnerType() != RingDesignOwnerType.MEMBER || !String.valueOf(memberAccountId).equals(d.getOwnerReference())) {
+        if (d.getOwnerType() == RingDesignOwnerType.GUEST_SESSION) {
+            d.setOwnerType(RingDesignOwnerType.MEMBER);
+            d.setOwnerReference(String.valueOf(memberAccountId));
+            designRepository.save(d);
+        } else if (d.getOwnerType() != RingDesignOwnerType.MEMBER || !String.valueOf(memberAccountId).equals(d.getOwnerReference())) {
             return Optional.empty();
         }
         return Optional.of(toConsultationOption(d));
@@ -138,19 +144,31 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
 
     private WorkshopRingDesignConsultationOption toConsultationOption(RingDesign d) {
         String code = d.getDesignReference();
-        String name = d.getDesignName() != null && !d.getDesignName().isBlank() ? d.getDesignName() : "Thiết kế nhẫn tùy chỉnh";
+        String name = d.getDesignName() != null && !d.getDesignName().isBlank() ? d.getDesignName()
+                : "Thiết kế nhẫn tùy chỉnh";
         String summary = String.format("Chất liệu: %s, Dáng: %s, Kích thước: %s",
                 d.getMaterialReference() != null ? d.getMaterialReference() : "Tiêu chuẩn",
                 d.getShapeReference() != null ? d.getShapeReference() : "Tiêu chuẩn",
                 d.getRingSize() != null ? d.getRingSize() : "Mặc định");
+        String imageUrl = null;
+        if (d.getComponentSnapshot() != null && !d.getComponentSnapshot().isBlank()) {
+            try {
+                Map<String, Object> snap = objectMapper.readValue(d.getComponentSnapshot(), new TypeReference<>() {
+                });
+                if (snap.get("previewImageUrl") != null) {
+                    imageUrl = snap.get("previewImageUrl").toString();
+                } else if (snap.get("thumbnailUrl") != null) {
+                    imageUrl = snap.get("thumbnailUrl").toString();
+                }
+            } catch (Exception ignored) {
+            }
+        }
         return new WorkshopRingDesignConsultationOption(
                 d.getDesignReference(),
                 code,
                 name,
                 d.getDesignVersion(),
-                null,
-                summary
-        );
+                imageUrl,
+                summary);
     }
 }
-

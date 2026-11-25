@@ -1,1 +1,7 @@
-Date,Tester / Business User,Area Explored (BF-ID / Screen),Observation / Feedback,Severity,Defect ID (if any)
+﻿Date,Tester / Business User,Area Explored (BF-ID / Screen),Observation / Feedback,Severity,Defect ID (if any)
+2026-11-25,Ngô Tiến Đạt,UX-UTF8 / all bilingual screens,Vietnamese/English switching works seamlessly; no mojibake; fonts render correctly.,Pass
+2026-11-25,Ngô Tiến Đạt,BF-DESIGN / Feature-012,Preview restoration works; 10 gemstone limit enforced; difficulty calculation triggers correct package.,Pass
+2026-11-25,Ngô Tiến Đạt,BF-CUSTOM / Feature-004,Mandatory image consent enforced; blur warning displayed; clarification loop preserves revision.,Pass
+2026-11-25,Ngô Tiến Đạt,BF-CONSULTATION / Feature-013,Stable chat width; initial scroll at top; polling does not jitter viewport; post-close disabled.,Pass
+2026-11-25,Ngô Tiến Đạt,BF-OPS / Staff-Manager,Staff/Manager custom orders tabs display 2 orders each; radio transitions open confirmation popup.,Pass
+2026-11-25,Ngô Tiến Đạt,BF-PAYMENT / VNPay,VNPay Sandbox callback transitions order to PAID without duplicate creation; full payment only.,Pass

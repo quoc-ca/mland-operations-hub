@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Field, ErrorNotice } from '../../shared/ui/components';
+import { useT } from '../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../shared/ui/messages';
+import { otaMessages } from '../messages';
 
 export function PriceTermsModal({ open, mapping, onClose, onSave }) {
+  const t = useT(otaMessages);
+  const tShared = useT(sharedMessages);
   const [form, setForm] = useState({
     retailAmount: '',
     retailCurrency: 'VND',
@@ -22,16 +27,16 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
   const validate = () => {
     const errs = {};
     if (!form.retailAmount || isNaN(Number(form.retailAmount)) || Number(form.retailAmount) <= 0) {
-      errs.retailAmount = 'Retail amount must be a positive number';
+      errs.retailAmount = t('price.retail.invalid');
     }
     if (!form.targetNetAmount || isNaN(Number(form.targetNetAmount)) || Number(form.targetNetAmount) <= 0) {
-      errs.targetNetAmount = 'Target net amount must be a positive number';
+      errs.targetNetAmount = t('price.net.invalid');
     }
     if (!form.providerConfirmationEvidenceReference.trim()) {
-      errs.providerConfirmationEvidenceReference = 'Provider confirmation evidence reference is required';
+      errs.providerConfirmationEvidenceReference = t('price.evidence.required');
     }
     if (!form.reason.trim()) {
-      errs.reason = 'Reason is required';
+      errs.reason = t('price.reason.required');
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -62,29 +67,31 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
     }
   };
 
+  const example = (value) => t('field.example', { value });
+
   return (
     <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-modal="true" aria-label="Record Confirmed Price Terms">
-        <h2>Record Confirmed Price Terms</h2>
+      <div className="dialog" role="dialog" aria-modal="true" aria-label={t('price.title')}>
+        <h2>{t('price.title')}</h2>
         <p className="small muted">
-          Record externally confirmed commercial price terms for mapping <strong className="mono">{mapping.mappingId}</strong>.
+          {t('price.intro')} <strong className="mono">{mapping.mappingId}</strong>.
         </p>
 
         <ErrorNotice error={apiError} />
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
-            <Field label="Retail Amount" error={errors.retailAmount || apiError?.fieldError('retailAmount')}>
+          <div className="ota-grid-2-1">
+            <Field label={t('price.retailAmount')} error={errors.retailAmount || apiError?.fieldError('retailAmount')}>
               <input
                 type="text"
                 name="retailAmount"
                 value={form.retailAmount}
                 onChange={(e) => setForm({ ...form, retailAmount: e.target.value })}
-                placeholder="e.g. 500000"
+                placeholder={example('500000')}
                 disabled={submitting}
               />
             </Field>
-            <Field label="Currency" error={apiError?.fieldError('retailCurrency')}>
+            <Field label={t('price.currency')} error={apiError?.fieldError('retailCurrency')}>
               <input
                 type="text"
                 name="retailCurrency"
@@ -95,18 +102,18 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
             </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
-            <Field label="Target Net Amount (Payout)" error={errors.targetNetAmount || apiError?.fieldError('targetNetAmount')}>
+          <div className="ota-grid-2-1">
+            <Field label={t('price.netAmount')} error={errors.targetNetAmount || apiError?.fieldError('targetNetAmount')}>
               <input
                 type="text"
                 name="targetNetAmount"
                 value={form.targetNetAmount}
                 onChange={(e) => setForm({ ...form, targetNetAmount: e.target.value })}
-                placeholder="e.g. 400000"
+                placeholder={example('400000')}
                 disabled={submitting}
               />
             </Field>
-            <Field label="Currency" error={apiError?.fieldError('targetNetCurrency')}>
+            <Field label={t('price.currency')} error={apiError?.fieldError('targetNetCurrency')}>
               <input
                 type="text"
                 name="targetNetCurrency"
@@ -118,8 +125,8 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
           </div>
 
           <Field
-            label="Provider Confirmation Evidence Reference"
-            hint="Safe reference to external signed terms (no secrets or PII)"
+            label={t('price.evidence')}
+            hint={t('price.evidenceHint')}
             error={errors.providerConfirmationEvidenceReference || apiError?.fieldError('providerConfirmationEvidenceReference')}
           >
             <input
@@ -127,13 +134,13 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
               name="providerConfirmationEvidenceReference"
               value={form.providerConfirmationEvidenceReference}
               onChange={(e) => setForm({ ...form, providerConfirmationEvidenceReference: e.target.value })}
-              placeholder="e.g. CONF-KLOOK-PRICE-20261101"
+              placeholder={example('CONF-KLOOK-PRICE-20261101')}
               disabled={submitting}
             />
           </Field>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <Field label="Effective From" error={apiError?.fieldError('effectiveFrom')}>
+          <div className="ota-grid-1-1">
+            <Field label={t('price.effectiveFrom')} error={apiError?.fieldError('effectiveFrom')}>
               <input
                 type="datetime-local"
                 name="effectiveFrom"
@@ -142,7 +149,7 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
                 disabled={submitting}
               />
             </Field>
-            <Field label="Effective To (Optional)" error={apiError?.fieldError('effectiveTo')}>
+            <Field label={t('price.effectiveTo')} error={apiError?.fieldError('effectiveTo')}>
               <input
                 type="datetime-local"
                 name="effectiveTo"
@@ -153,12 +160,12 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
             </Field>
           </div>
 
-          <Field label="Reason / Commercial Notes" error={errors.reason || apiError?.fieldError('reason')}>
+          <Field label={t('price.reason')} error={errors.reason || apiError?.fieldError('reason')}>
             <textarea
               name="reason"
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
-              placeholder="Record why these price terms are approved..."
+              placeholder={t('price.reasonPlaceholder')}
               disabled={submitting}
               rows={3}
             />
@@ -166,10 +173,10 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
 
           <div className="dialog-actions">
             <button type="button" className="button outline" onClick={onClose} disabled={submitting}>
-              Cancel
+              {tShared('cancel')}
             </button>
             <button type="submit" className="button primary" disabled={submitting}>
-              {submitting ? 'Saving...' : 'Record Terms'}
+              {submitting ? t('price.saving') : t('price.submit')}
             </button>
           </div>
         </form>
@@ -177,4 +184,3 @@ export function PriceTermsModal({ open, mapping, onClose, onSave }) {
     </div>
   );
 }
-

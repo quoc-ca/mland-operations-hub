@@ -1,0 +1,33 @@
+// Manager screen of 003.3 FR-040: refund-account key replacement (moved from Admin on 2026-11-23).
+export const messagesAdmin = {
+  vi: {
+    'keyRepl.title': 'Thay khóa tài khoản hoàn tiền',
+    'keyRepl.intro': 'Dùng sau khi đã đổi biến khóa mã hóa và khởi động lại dịch vụ. Hệ thống xóa số tài khoản cũ đã mã hóa, đưa các yêu cầu về "chờ tài khoản" và gửi khách link mới. Sau khi khách nhập tài khoản mới, Manager duyệt lại.',
+    'keyRepl.managerOnly': 'Chỉ Manager mới mở được màn này.',
+    'keyRepl.warning': 'Mọi yêu cầu hoàn tiền còn giữ số tài khoản đã mã hóa sẽ bị đưa về chờ tài khoản, và lần duyệt trước của Manager không còn hiệu lực.',
+    'keyRepl.run': 'Thay khóa',
+    'keyRepl.confirmTitle': 'Xác nhận thay khóa tài khoản hoàn tiền',
+    'keyRepl.confirmBody': 'Chỉ chạy sau khi đã đổi biến khóa và khởi động lại dịch vụ. Nhập lý do để ghi vào nhật ký audit.',
+    'keyRepl.resultTitle': 'Kết quả lần chạy gần nhất',
+    'keyRepl.reset': 'Yêu cầu đã đưa về chờ tài khoản',
+    'keyRepl.sent': 'Link mới đã gửi',
+    'keyRepl.failed': 'Yêu cầu lỗi',
+    'keyRepl.failedHint': 'Có yêu cầu lỗi. Chạy lại được: chỉ các yêu cầu còn số tài khoản đã mã hóa mới bị xử lý.',
+    'keyRepl.done': 'Đã thay khóa. Mỗi yêu cầu có một bản ghi audit.',
+  },
+  en: {
+    'keyRepl.title': 'Replace refund-account key',
+    'keyRepl.intro': 'Run this after the encryption key variable is replaced and the service restarted. The system deletes the old encrypted account numbers, returns the requests to "pending account" and sends each payer a new link. A Manager approves again after the customer enters the new account.',
+    'keyRepl.managerOnly': 'Only a Manager can open this screen.',
+    'keyRepl.warning': 'Every refund request that still holds an encrypted account number goes back to pending account, and the earlier Manager approval no longer applies.',
+    'keyRepl.run': 'Replace key',
+    'keyRepl.confirmTitle': 'Confirm refund-account key replacement',
+    'keyRepl.confirmBody': 'Run only after the key variable is replaced and the service restarted. Enter a reason for the audit record.',
+    'keyRepl.resultTitle': 'Result of the last run',
+    'keyRepl.reset': 'Requests returned to pending account',
+    'keyRepl.sent': 'New links sent',
+    'keyRepl.failed': 'Failed requests',
+    'keyRepl.failedHint': 'Some requests failed. A rerun is safe: only requests that still hold an encrypted account number are touched.',
+    'keyRepl.done': 'Key replaced. Each request has an audit record.',
+  },
+};

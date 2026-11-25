@@ -1,7 +1,7 @@
 # Data Model: Product Management
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16 (cột `submitter_branches` cho FR-061, duyệt 2026-11-16; trước đó: 2026-11-08 (bảng `catalogue_variant_branch_stock` cho US10 — tồn kho theo chi nhánh; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới)))
+**Date updated**: 2026-11-23 (Session 2026-11-23 — thêm size sau khi tạo, FR-069/FR-070: size thêm được, dòng tồn kho chỉ ở chi nhánh nơi thêm, không migration mới; trước đó cùng ngày: Session 2026-11-23 (Đặng Thị Khương chốt trong phiên): bộ lọc con *Bị từ chối* `PRICE_REJECTED` trong tab Chờ duyệt giá, `priceRejected`, số tab của Staff; trước đó: 2026-11-16 (cột `submitter_branches` cho FR-061, duyệt 2026-11-16; trước đó: 2026-11-08 (bảng `catalogue_variant_branch_stock` cho US10 — tồn kho theo chi nhánh; trước đó: 2026-10-26 (V1 không MFA theo 001; tên facade identity; tham chiếu 001 mới))))
 **Author**: Đặng Thị Khương
 **Last updated by**: Đặng Thị Khương
 
@@ -20,7 +20,7 @@ Text lưu utf8mb4, đo Unicode code point sau Unicode trim đầu/cuối. Tên d
 | --- | --- | --- |
 | catalogue_categories | id, name VARCHAR(200), name_key VARBINARY(1600), description TEXT nullable, active, version, created_at/updated_at | Unique name_key toàn hệ thống kể cả inactive; tên 1–200, mô tả tùy chọn tối đa 5.000 và active=true lúc tạo đã được chốt. Không xóa danh mục đã tham chiếu. |
 | catalogue_products | id, name VARCHAR(200), description TEXT, category_id FK, published, first_published_at nullable, deleted_at/by nullable, content_version, version, created_at/updated_at | Tên 1–200, mô tả 1–5.000. deleted_at chặn public/commands. first_published_at chỉ được đặt lần đầu, không reset khi ẩn. Category hoạt động cần cho public, không sửa lịch sử khi category inactive. |
-| catalogue_variants | id, product_id FK, ring_size SMALLINT, sku VARCHAR(25), remaining_unsold DECIMAL(19,0), sale_enabled, applied_price DECIMAL(19,0) nullable, applied_proposal_id nullable, applied_sequence, pending_proposal_id nullable, version | Unique(product_id, ring_size), unique sku; size 5–29 cố định sau tạo; 1–25 rows/product. SKU tối đa 2 + 19 + 2 + 2 = 25 ASCII chars. No engraving fields. remaining_unsold >= held under guard. Giá null trước áp dụng, không dùng giá đề xuất thay thế. |
+| catalogue_variants | id, product_id FK, ring_size SMALLINT, sku VARCHAR(25), remaining_unsold DECIMAL(19,0), sale_enabled, applied_price DECIMAL(19,0) nullable, applied_proposal_id nullable, applied_sequence, pending_proposal_id nullable, version | Unique(product_id, ring_size), unique sku; size 5–29; size và SKU đã có không đổi/xóa, thêm row mới theo FR-069 (Session 2026-11-23; unique(product_id, ring_size) chặn trùng); 1–25 rows/product. SKU tối đa 2 + 19 + 2 + 2 = 25 ASCII chars. No engraving fields. remaining_unsold >= held under guard. Giá null trước áp dụng, không dùng giá đề xuất thay thế. |
 | catalogue_product_reviews | id, product_id FK, revision, content_version, state, effective, submitted_by/at, decided_by/at nullable, rejection_reason nullable, snapshot JSON | Unique(product_id, revision), snapshot chứa content/category/media references/size IDs và proposal revisions đúng hồ sơ, không chứa raw identity tokens hoặc hold records. Decision/history bất biến; effective=false không xóa quyết định. |
 | catalogue_price_proposals | id, variant_id FK, review_id nullable FK, revision, version, state, effective, proposed_amount, approved_amount nullable, currency=VND, base_applied_sequence, terms_digest, submitted_by/at, decided_by/at, reason nullable, supersedes_id nullable FK | Proposal revision mới là row mới, version bảo vệ cập nhật trạng thái; chỉ current effective PENDING được variant.pending_proposal_id tham chiếu. APPROVED không đồng nghĩa đã áp dụng. terms_digest gắn identity/size/currency và ngữ cảnh duyệt; quantity không phải điều khoản giá. |
 | catalogue_price_applications | id, variant_id FK, proposal_id FK, applied_sequence, old_amount nullable, new_amount, actor_id, applied_at | Unique(variant_id, applied_sequence), unique proposal_id cho một lần áp dụng; new_amount khớp approved_amount của revision còn hiệu lực. Không áp dụng proposal có base sequence cũ sau giá mới hơn. |
@@ -84,13 +84,14 @@ Không có mutation thêm/đổi/xóa size; size không còn bán dùng DISABLED
 
 | Table / entity | Fields and relationships | Invariants |
 | --- | --- | --- |
-| catalogue_variant_branch_stock | id BIGINT, variant_id FK → catalogue_variants, location_id BIGINT (id chi nhánh của nguồn chi nhánh chuẩn 003.2, **không FK chéo module**), remaining_unsold DECIMAL(19,0), sale_enabled BOOLEAN, version BIGINT, created_at/updated_at | Unique(variant_id, location_id). remaining_unsold ≥ 0 và ≥ giữ hợp lệ tại (variant, location) dưới guard của FE-08. Không xóa dòng; ngừng bán tại chi nhánh = sale_enabled=false. Chi nhánh được kiểm tra tồn tại/đang hoạt động qua port chi nhánh lúc tạo/thêm, không đọc thẳng bảng `workshop_locations`. |
+| catalogue_variant_branch_stock | id BIGINT, variant_id FK → catalogue_variants, location_id BIGINT (id chi nhánh của nguồn chi nhánh chuẩn 003.2, **không FK chéo module**), remaining_unsold DECIMAL(19,0), sale_enabled BOOLEAN, version BIGINT, created_at/updated_at | Unique(variant_id, location_id). remaining_unsold ≥ 0 và ≥ giữ hợp lệ tại (variant, location) dưới guard của FE-08. Không xóa dòng; ngừng bán tại chi nhánh = sale_enabled=false. *(Session 2026-11-23, FR-047/FR-069)*: một size có thể không có dòng ở một chi nhánh sản phẩm đang bán (size thêm sau chỉ có dòng ở chi nhánh nơi thêm); không có dòng = chi nhánh không bán size đó. Chi nhánh được kiểm tra tồn tại/đang hoạt động qua port chi nhánh lúc tạo/thêm, không đọc thẳng bảng `workshop_locations`. |
 
 Thay đổi kèm theo (đề xuất):
 
 - `catalogue_variants.remaining_unsold` thôi là nguồn quyết định mua sau migration. *(Triển khai 2026-11-08)*: cột được giữ và luôn bằng tổng các dòng chi nhánh của size (mọi lệnh tồn kho cập nhật cả hai trong cùng transaction, dưới khóa size), vì FE-08 vẫn đọc và trừ tổng cho tới T124; size chưa có dòng chi nhánh giữ tổng cũ. Gỡ cột hoặc đổi nghĩa chỉ sau khi FE-08 gửi chi nhánh. `catalogue_variants.sale_enabled` giữ nghĩa ngừng bán ở mọi chi nhánh (FR-021).
 - Khả dụng tại chi nhánh = `branch_stock.remaining_unsold` − giữ hợp lệ của FE-08 tại (variant, location). FE-08 cần thêm `location_id` vào giữ hàng (`retail_variant_holds`) và guard (`retail_variant_availability_guards` đổi khóa thành variant + location) — thuộc owner FE-08, ghi tại FR-053.
-- Audit (`catalogue_audit_events`) ghi thêm `location_id` trong `safe_changes` cho lệnh tồn kho; command receipt dùng action mới (ví dụ `variant.branch.quantity`, `product.branch.add`, `product.branch.sale`).
+- Audit (`catalogue_audit_events`) ghi thêm `location_id` trong `safe_changes` cho lệnh tồn kho; command receipt dùng action mới (ví dụ `variant.branch.quantity`, `product.branch.add`, `product.branch.sale`; từ Session 2026-11-23 thêm `product.size.add`, `safe_changes` gồm `locationId`, `sizes[]` {size, sku, newSize, quantity, proposedPrice}).
+- *(Session 2026-11-23, FR-069/FR-070)*: **không cần migration mới** — thêm size chỉ ghi row vào `catalogue_variants`, `catalogue_variant_branch_stock`, `catalogue_price_proposals` (và review nháp mới trước lần công khai đầu) với các cột đã có. Thêm size tăng `catalogue_products.content_version` và `version`. Điều kiện đọc công khai (FR-070) đổi từ "không size nào thiếu `applied_price`" sang "ít nhất một size có `applied_price`", và chỉ size có `applied_price` được trả.
 - Index: (location_id, variant_id) cho lọc danh sách theo chi nhánh và đọc công khai theo size.
 
 Migration (FR-055): `INSERT … SELECT` một dòng cho mỗi variant với `location_id` của chi nhánh mặc định tra theo **mã** (Q-B1), `remaining_unsold` và `sale_enabled=true` như cũ; không có mã đó thì không chuyển gì (sản phẩm cũ "chưa gán chi nhánh", gán sau trên giao diện — FR-055 bản sửa, không dừng migration để không chặn backend cả nhóm); `INSERT IGNORE`/kiểm tra unique để chạy lại không trùng. Số migration cấp theo high-water mark lúc triển khai (hiện V108), không đặt trước.
@@ -112,6 +113,23 @@ Dạng JSON (value data, không phải DTO dùng chung):
 Phạm vi lấy từ cùng `CatalogueBranchScope.current()` đã dùng cho kiểm tra FR-050 của lệnh đó, không đọc lại lần hai. Không thêm FK chéo module tới chi nhánh. Không backfill hàng cũ (không có nguồn lịch sử đáng tin); hàng cũ hiện "Chưa ghi nhận". Tên người **không** chụp lại: đọc qua `AccountFacade.findAccountFullName` lúc đọc màn chi tiết (đổi họ tên thì hiện tên mới — chấp nhận vì là cùng một người; tránh lưu bản sao PII). Đọc theo lô các actor id khác nhau của một sản phẩm (gộp trước khi gọi facade, một lần mỗi id), id không phải số nguyên bỏ qua facade.
 
 Migration: một file mới, số cấp theo high-water mark lúc triển khai (hiện V162 → dự kiến V163), chỉ `ALTER TABLE … ADD COLUMN submitter_branches JSON NULL` cho hai bảng; không sửa migration đã áp dụng, không đổi dữ liệu cũ.
+
+## Tab danh sách quản trị (FR-064, FR-065 — Session 2026-11-22)
+
+Không đổi schema, không migration. Tab là giá trị dẫn xuất lúc đọc từ các cột đã có; "hồ sơ hiện hành" = dòng `catalogue_product_reviews` có `effective = true` và `revision` lớn nhất của sản phẩm.
+
+| Tab | Điều kiện trên `catalogue_products` (luôn `deleted_at IS NULL`) |
+| --- | --- |
+| `DRAFT` | `first_published_at IS NULL` và (không có hồ sơ `effective` hoặc hồ sơ hiện hành `state = DRAFT`) |
+| `PENDING` / `REJECTED` | `first_published_at IS NULL` và hồ sơ hiện hành có `state` tương ứng |
+| `APPROVED` | `first_published_at IS NULL`, `published = false`, hồ sơ hiện hành `state = APPROVED` |
+| `PUBLISHED` | `published = true` |
+| `HIDDEN` | `published = false` và `first_published_at IS NOT NULL` |
+| `PRICE_PENDING` | `first_published_at IS NOT NULL` và có `catalogue_price_proposals` của biến thể thuộc sản phẩm với `state = PENDING`, `effective = true` |
+| `PRICE_DRAFT` | như `PRICE_PENDING` nhưng `state = DRAFT` (bộ lọc con *Nháp chưa gửi*, Session 2026-11-22) |
+| `PRICE_REJECTED` | như `PRICE_PENDING` nhưng `state = REJECTED` (bộ lọc con *Bị từ chối*, Session 2026-11-23). Đề xuất bị từ chối giữ `effective = true` đến khi lập đề xuất mới cho size (đề xuất mới làm hết hiệu lực đề xuất trước), nên điều kiện này là "lần mới nhất của size bị từ chối". Ba bộ lọc giá chỉ tính đề xuất độc lập (`review_id is null`). |
+
+Sau lần công khai đầu, hồ sơ không bị làm mất hiệu lực nữa (FR-012), nên các tab trạng thái loại trừ nhau. Số đếm dùng cùng điều kiện cộng với bộ lọc `q`/`categoryId`/`locationId` của list; `pricePending` đếm số đề xuất. Truy vấn dùng các index hiện có (`product_id`, `variant_id`); quy mô V1 không cần index mới, nếu đo thấy chậm thì thêm index bằng migration mới.
 
 ## Public reads and indexes
 

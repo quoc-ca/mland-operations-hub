@@ -1,3 +1,14 @@
+import { vi } from 'vitest';
+import * as currentAccount from '../../accountmanagement/hooks/useCurrentAccount';
+
+/** The 001 Account bootstrap read by RouteAccessGuard (no Firebase in tests): signed in with the given role. */
+export function signInAs(role) {
+  return vi.spyOn(currentAccount, 'useCurrentAccount').mockReturnValue({
+    account: { accountId: 10, role, status: 'ACTIVE' },
+    status: 'authenticated', error: null, reloadAccount: vi.fn(), signOut: vi.fn(), retry: vi.fn(),
+  });
+}
+
 // Response shapes copied from the backend DTOs (PromotionReadDtos, PublicPromotionDtos, LoyaltyAccountDtos, LoyaltyPolicyDtos).
 export function program(overrides = {}) {
   return {

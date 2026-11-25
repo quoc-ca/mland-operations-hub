@@ -1,19 +1,20 @@
 import React from 'react';
-import { OperationsSidebar } from '../shared/ui/OperationsSidebar';
+import { useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import '../ota-connectivity/ota-connectivity.css';
 import './workshop-settlement.css';
 
 /** Staff/Manager settlement screen frame: sidebar, heading and content. The backend decides every permission. */
-export function OpsPage({ eyebrow = 'SETTLEMENT OPERATIONS', title, intro, children }) {
+export function OpsPage({ eyebrow, title, intro, children }) {
+  const t = useT(messages);
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
-        <div className="ota-topline">MLAND / WORKSHOP SETTLEMENT <span>● Backend-authorized</span></div>
+        <div className="ota-topline">{t('frame.topline')} <span>● {t('frame.backendAuthorized')}</span></div>
         <header className="ota-page-heading">
           <div>
-            <p className="ota-eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
+            
             {intro && <p>{intro}</p>}
           </div>
         </header>
@@ -27,7 +28,7 @@ export function OpsPage({ eyebrow = 'SETTLEMENT OPERATIONS', title, intro, child
 export function CustomerPage({ title, intro, children }) {
   return (
     <main className="settlement-customer">
-      <h1>{title}</h1>
+      
       {intro && <p className="muted">{intro}</p>}
       {children}
     </main>

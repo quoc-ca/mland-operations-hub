@@ -1,8 +1,11 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.PriceProposalRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.ProductVariantRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dao.VariantBranchStockRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.dto.ActionResult;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.PriceProposal;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.Product;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.ProductVariant;
 import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.entity.VariantBranchStock;
@@ -59,6 +62,19 @@ public class ProductBranchStockService {
     public record ValidBranch(long locationId, Map<Integer, BigInteger> quantities) {
     }
 
+    /** FR-069: a size the product does not have yet, with its proposed price (add-branch command). */
+    public record NewSize(Integer size, String proposedPrice) {
+    }
+
+    /**
+     * FR-069: one line of the add-size command. {@code proposedPrice} is required for a size the product does not have
+     * yet and forbidden for an existing size (only its stock row at the branch is created).
+     */
+    public record SizeAdd(Integer size, String quantity, String proposedPrice) {
+    }
+
+    public static final String SIZE_ADD_ACTION = "product.size.add";
+
     private final VariantBranchStockRepository stocks;
     private final ProductVariantRepository variants;
     private final CatalogueLockCoordinator locks;
@@ -67,11 +83,19 @@ public class ProductBranchStockService {
     private final CatalogueCommandExecutor executor;
     private final CatalogueBranchScope scope;
     private final ObjectProvider<SellingLocationPort> locations;
+    private final ProductRepository products;
+    private final PriceProposalRepository proposals;
+    private final ProductReviewInvalidationService invalidation;
 
     public ProductBranchStockService(VariantBranchStockRepository stocks, ProductVariantRepository variants,
                                      CatalogueLockCoordinator locks, CatalogueAvailabilityService availability,
                                      CatalogueAuditWriter audit, CatalogueCommandExecutor executor,
-                                     CatalogueBranchScope scope, ObjectProvider<SellingLocationPort> locations) {
+                                     CatalogueBranchScope scope, ObjectProvider<SellingLocationPort> locations,
+                                     ProductRepository products, PriceProposalRepository proposals,
+                                     ProductReviewInvalidationService invalidation) {
+        this.products = products;
+        this.proposals = proposals;
+        this.invalidation = invalidation;
         this.stocks = stocks;
         this.variants = variants;
         this.locks = locks;
@@ -183,11 +207,25 @@ public class ProductBranchStockService {
      */
     public CatalogueCommandExecutor.Outcome addBranch(String actorId, UUID commandId, String productId,
                                                       long expectedVersion, BranchInput input) {
+        return addBranch(actorId, commandId, productId, expectedVersion, input, List.of());
+    }
+
+    /**
+     * FR-049 with FR-069 (Session 2026-11-23): {@code newSizes} adds sizes the product does not have yet in the same
+     * transaction; their quantity at this branch comes from the branch quantities (missing = 0).
+     */
+    public CatalogueCommandExecutor.Outcome addBranch(String actorId, UUID commandId, String productId,
+                                                      long expectedVersion, BranchInput input, List<NewSize> newSizes) {
         long id = CatalogueValues.parseId("productId", productId);
+        Map<Integer, BigInteger> newPrices = parseNewSizes(newSizes);
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("productId", id);
         request.put("expectedVersion", expectedVersion);
         request.put("branch", input);
+        if (!newPrices.isEmpty()) {
+            // Only when present, so the digest of an add-branch command without new sizes stays as before.
+            request.put("newSizes", stringValues(newPrices));
+        }
         var key = new CatalogueCommandExecutor.CommandKey(actorId, ADD_ACTION, commandId,
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
@@ -197,10 +235,15 @@ public class ProductBranchStockService {
             CatalogueLockCoordinator.requireVersion(product.getVersion(), expectedVersion);
             List<ProductVariant> sizes = locked.variants();
             Set<Integer> sizeSet = sizes.stream().map(ProductVariant::getRingSize).collect(Collectors.toSet());
+            if (newPrices.keySet().stream().anyMatch(sizeSet::contains)) {
+                throw new CatalogueException(CatalogueErrorCode.SIZE_ALREADY_EXISTS);
+            }
             List<VariantBranchStock> existing = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(ids(sizes));
             boolean firstBranch = existing.isEmpty();
             BranchInput effective = firstBranch ? withOldTotals(input, sizes) : input;
-            ValidBranch branch = validate(List.of(effective), sizeSet).getFirst();
+            Set<Integer> allowed = new HashSet<>(sizeSet);
+            allowed.addAll(newPrices.keySet());
+            ValidBranch branch = validate(List.of(effective), allowed).getFirst();
             if (existing.stream().anyMatch(row -> row.getLocationId() == branch.locationId())) {
                 throw new CatalogueException(CatalogueErrorCode.BRANCH_ALREADY_ADDED);
             }
@@ -212,17 +255,198 @@ public class ProductBranchStockService {
                     BigInteger newTotal = firstBranch ? quantity : variant.getRemainingUnsold().add(quantity);
                     variant.updateRemainingUnsold(newTotal, held.getOrDefault(variant.getId(), BigInteger.ZERO));
                 }
-                stocks.saveAllAndFlush(added);
                 variants.saveAllAndFlush(sizes);
+                List<ProductVariant> created = createSizes(product, sizes, newPrices, branch.quantities());
+                created.forEach(variant -> added.add(VariantBranchStock.create(variant.getId(), branch.locationId(),
+                        variant.getRemainingUnsold())));
+                stocks.saveAllAndFlush(added);
                 Map<String, Object> changes = new LinkedHashMap<>();
                 changes.put("locationId", Long.toString(branch.locationId()));
                 changes.put("firstBranch", firstBranch);
                 changes.put("quantities", quantitiesBySize(branch));
+                if (!created.isEmpty()) {
+                    changes.put("newSizes", newSizeAudit(created, newPrices));
+                }
                 audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, ADD_ACTION, "product", Long.toString(id),
-                        product.getVersion(), null, List.of("branches"), changes));
+                        product.getVersion(), null, created.isEmpty() ? List.of("branches") : List.of("branches", "variants"),
+                        changes));
                 return productResult(commandId, ADD_ACTION, product, "ADDED", true);
             });
         });
+    }
+
+    /**
+     * FR-069 (Session 2026-11-23): start selling sizes at a branch where the product is already sold. A size the
+     * product does not have yet is created (SKU, proposed price); an existing size only gets its stock row here. Other
+     * branches get no row. One transaction; any bad line changes nothing.
+     */
+    public CatalogueCommandExecutor.Outcome addSizes(String actorId, UUID commandId, String productId,
+                                                     String locationId, long expectedVersion, List<SizeAdd> lines) {
+        long id = CatalogueValues.parseId("productId", productId);
+        long location = CatalogueValues.parseId("locationId", locationId);
+        if (lines == null || lines.isEmpty() || lines.size() > 25) {
+            throw CatalogueException.invalidField("sizes", "Choose from 1 to 25 sizes.");
+        }
+        Map<Integer, BigInteger> quantities = new LinkedHashMap<>();
+        Map<Integer, BigInteger> prices = new LinkedHashMap<>();
+        for (int i = 0; i < lines.size(); i++) {
+            SizeAdd line = lines.get(i);
+            String field = "sizes[" + i + "]";
+            int size = CatalogueValues.requireSize(field + ".size", line == null ? null : line.size());
+            if (quantities.containsKey(size)) {
+                throw CatalogueException.invalidField(field + ".size", "Each size may be chosen once.");
+            }
+            quantities.put(size, CatalogueValues.parseQuantity(field + ".quantity", line.quantity()));
+            if (line.proposedPrice() != null) {
+                prices.put(size, CatalogueValues.parseAmount(field + ".proposedPrice", line.proposedPrice()));
+            }
+        }
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("productId", id);
+        request.put("locationId", location);
+        request.put("expectedVersion", expectedVersion);
+        request.put("quantities", stringValues(quantities));
+        request.put("prices", stringValues(prices));
+        var key = new CatalogueCommandExecutor.CommandKey(actorId, SIZE_ADD_ACTION, commandId,
+                CatalogueCommandExecutor.digest(request));
+        return executor.execute(key, () -> {
+            scope.requireBranches(List.of(location));
+            scope.requireActiveBranch(location);
+            var locked = locks.lockProduct(id);
+            Product product = locked.product();
+            product.requireNotDeleted();
+            CatalogueLockCoordinator.requireVersion(product.getVersion(), expectedVersion);
+            List<ProductVariant> sizes = locked.variants();
+            Map<Integer, ProductVariant> bySize = sizes.stream()
+                    .collect(Collectors.toMap(ProductVariant::getRingSize, variant -> variant));
+            Set<Long> atBranch = stocks.findByVariantIdInOrderByVariantIdAscLocationIdAsc(ids(sizes)).stream()
+                    .filter(row -> row.getLocationId() == location).map(VariantBranchStock::getVariantId)
+                    .collect(Collectors.toSet());
+            if (atBranch.isEmpty()) {
+                throw new CatalogueException(CatalogueErrorCode.BRANCH_STOCK_NOT_FOUND);
+            }
+            List<ProductVariant> touched = new ArrayList<>();
+            Map<Integer, BigInteger> newPrices = new LinkedHashMap<>();
+            int index = 0;
+            for (Integer size : quantities.keySet()) {
+                String field = "sizes[" + index++ + "].proposedPrice";
+                ProductVariant variant = bySize.get(size);
+                if (variant != null) {
+                    if (atBranch.contains(variant.getId())) {
+                        throw new CatalogueException(CatalogueErrorCode.SIZE_ALREADY_EXISTS);
+                    }
+                    if (prices.containsKey(size)) {
+                        throw CatalogueException.invalidField(field, "An existing size keeps its price: send no price.");
+                    }
+                    touched.add(variant);
+                } else if (!prices.containsKey(size)) {
+                    throw CatalogueException.invalidField(field, "A new size needs a proposed price.");
+                } else {
+                    newPrices.put(size, prices.get(size));
+                }
+            }
+            return guarded(product, touched, held -> {
+                List<VariantBranchStock> added = new ArrayList<>();
+                for (ProductVariant variant : touched) {
+                    BigInteger quantity = quantities.get(variant.getRingSize());
+                    added.add(VariantBranchStock.create(variant.getId(), location, quantity));
+                    variant.updateRemainingUnsold(variant.getRemainingUnsold().add(quantity),
+                            held.getOrDefault(variant.getId(), BigInteger.ZERO));
+                }
+                if (!touched.isEmpty()) {
+                    variants.saveAllAndFlush(touched);
+                }
+                List<ProductVariant> created = createSizes(product, sizes, newPrices, quantities);
+                created.forEach(variant -> added.add(VariantBranchStock.create(variant.getId(), location,
+                        variant.getRemainingUnsold())));
+                // Rows of existing sizes alone are stock, not reviewable content (FR-011): the product version stays.
+                stocks.saveAllAndFlush(added);
+                List<Map<String, Object>> lineAudit = new ArrayList<>();
+                touched.forEach(variant -> lineAudit.add(lineAudit(variant, false, quantities.get(variant.getRingSize()), null)));
+                created.forEach(variant -> lineAudit.add(lineAudit(variant, true, variant.getRemainingUnsold(),
+                        newPrices.get(variant.getRingSize()))));
+                Map<String, Object> changes = new LinkedHashMap<>();
+                changes.put("locationId", Long.toString(location));
+                changes.put("sizes", lineAudit);
+                audit.recordSuccess(new CatalogueAuditWriter.Entry(actorId, SIZE_ADD_ACTION, "product", Long.toString(id),
+                        product.getVersion(), null, List.of("variants", "branchStocks"), changes));
+                return productResult(commandId, SIZE_ADD_ACTION, product, "SIZES_ADDED", true);
+            });
+        });
+    }
+
+    /**
+     * FR-069: creates the new sizes with their quantity at the branch and their proposed price. After the first
+     * publication each gets an independent DRAFT proposal (FR-013); before it the proposal joins the initial review and
+     * an already submitted/decided review is withdrawn (FR-011). The product's content version moves either way.
+     */
+    private List<ProductVariant> createSizes(Product product, List<ProductVariant> existing,
+                                             Map<Integer, BigInteger> newPrices, Map<Integer, BigInteger> quantities) {
+        if (newPrices.isEmpty()) {
+            return List.of();
+        }
+        long productId = product.getId();
+        List<ProductVariant> created = variants.saveAllAndFlush(newPrices.keySet().stream().sorted()
+                .map(size -> ProductVariant.create(productId, size, quantities.getOrDefault(size, BigInteger.ZERO)))
+                .toList());
+        product.markContentChanged();
+        products.saveAndFlush(product);
+        if (product.hasEverBeenPublished()) {
+            proposals.saveAllAndFlush(created.stream()
+                    .map(variant -> PriceProposal.draft(variant.getId(), null, 1, newPrices.get(variant.getRingSize()),
+                            variant.getAppliedSequence(), ProposalTerms.digest(variant, null), null))
+                    .toList());
+        } else {
+            List<ProductVariant> all = new ArrayList<>(existing);
+            all.addAll(created);
+            Map<Long, BigInteger> byVariant = new HashMap<>();
+            created.forEach(variant -> byVariant.put(variant.getId(), newPrices.get(variant.getRingSize())));
+            invalidation.invalidateBeforeFirstPublication(product, all, byVariant);
+        }
+        return created;
+    }
+
+    private static Map<Integer, BigInteger> parseNewSizes(List<NewSize> newSizes) {
+        Map<Integer, BigInteger> prices = new LinkedHashMap<>();
+        if (newSizes == null) {
+            return prices;
+        }
+        if (newSizes.size() > 25) {
+            throw CatalogueException.invalidField("newSizes", "At most 25 sizes.");
+        }
+        for (int i = 0; i < newSizes.size(); i++) {
+            NewSize entry = newSizes.get(i);
+            String field = "newSizes[" + i + "]";
+            int size = CatalogueValues.requireSize(field + ".size", entry == null ? null : entry.size());
+            if (prices.containsKey(size)) {
+                throw CatalogueException.invalidField(field + ".size", "Each size may be chosen once.");
+            }
+            prices.put(size, CatalogueValues.parseAmount(field + ".proposedPrice", entry.proposedPrice()));
+        }
+        return prices;
+    }
+
+    private static Map<String, String> stringValues(Map<Integer, BigInteger> values) {
+        Map<String, String> result = new LinkedHashMap<>();
+        values.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> result.put(entry.getKey().toString(), entry.getValue().toString()));
+        return result;
+    }
+
+    private static List<Map<String, Object>> newSizeAudit(List<ProductVariant> created, Map<Integer, BigInteger> prices) {
+        return created.stream().map(variant -> lineAudit(variant, true, variant.getRemainingUnsold(),
+                prices.get(variant.getRingSize()))).toList();
+    }
+
+    private static Map<String, Object> lineAudit(ProductVariant variant, boolean newSize, BigInteger quantity,
+                                                 BigInteger proposedPrice) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("size", variant.getRingSize());
+        line.put("sku", variant.getSku());
+        line.put("newSize", newSize);
+        line.put("quantity", quantity.toString());
+        line.put("proposedPrice", proposedPrice == null ? null : proposedPrice.toString());
+        return line;
     }
 
     /** FR-049: quantity of one size at one branch; the size's total follows. */
@@ -240,7 +464,7 @@ public class ProductBranchStockService {
                 CatalogueCommandExecutor.digest(request));
         return executor.execute(key, () -> {
             scope.requireBranches(List.of(location));
-            scope.requireActiveBranch(location);
+            scope.requireQuantityEditableBranch(location);
             Long productId = variants.findProductIdById(id)
                     .orElseThrow(() -> new CatalogueException(CatalogueErrorCode.VARIANT_NOT_FOUND));
             var locked = locks.lockProduct(productId);
@@ -287,6 +511,8 @@ public class ProductBranchStockService {
             throw new CatalogueException(CatalogueErrorCode.BRANCH_REQUIRED);
         }
         scope.requireBranches(List.of(rows.getFirst().getLocationId()));
+        // T180: same rule as the per-branch command (FR-050, Session 2026-11-20).
+        scope.requireQuantityEditableBranch(rows.getFirst().getLocationId());
         rows.getFirst().setRemainingUnsold(newTotal);
         stocks.saveAndFlush(rows.getFirst());
         return true;
@@ -419,7 +645,7 @@ public class ProductBranchStockService {
     /** Runs {@code work} with the valid held quantity per size: a proven zero before publication, else under the guard. */
     private CatalogueCommandExecutor.CommandResult guarded(Product product, List<ProductVariant> sizes,
                                                            java.util.function.Function<Map<Long, BigInteger>, CatalogueCommandExecutor.CommandResult> work) {
-        if (!product.hasEverBeenPublished()) {
+        if (!product.hasEverBeenPublished() || sizes.isEmpty()) {
             return work.apply(Map.of());
         }
         List<Long> ids = ids(sizes);

@@ -30,10 +30,9 @@ export function DiscountText({ discount }) {
   return <>{t('discount.text', { value: `${discount.percentage}%`, max: format.money(discount.maxDiscountAmount) })}</>;
 }
 
-/** Workshop targets shown by name on cards and details (the create form still asks for their IDs). */
+/** Workshop targets shown by name on cards and details. */
 const NAMED_TARGETS = ['packageIds', 'branchIds'];
 
-/** Conditions shown on cards and details: window, minimum, points, scope targets, limits. */
 /** Terms of a programme; `labels` ({ productIds: {id: name}, ... }) names targets where the page could read them. */
 export function Terms({ item, labels }) {
   const t = useT(messages);

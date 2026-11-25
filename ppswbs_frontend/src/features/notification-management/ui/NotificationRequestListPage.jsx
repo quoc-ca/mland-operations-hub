@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useNotificationRequests } from '../application/useNotificationRequests';
 import { useRole } from '../../../shared/auth/useRole';
+import { useT, useEnumLabel, useFormat } from '../../../shared/i18n/I18nProvider';
+import { sharedMessages } from '../../../shared/ui/messages';
+import { notificationMessages } from '../messages';
+import { renderRich } from './richText';
 import NotificationRequestDetailDrawer from './NotificationRequestDetailDrawer';
-import OperationsSidebar from '../../../shared/ui/OperationsSidebar';
 import './notification.css';
+
+const DELIVERY_STATES = ['PENDING', 'PROCESSING', 'RETRY_SCHEDULED', 'SENT', 'FAILED', 'UNKNOWN_OUTCOME', 'CANCELLED'];
 
 function stateBadgeClass(state) {
   if (!state) return 'nm-badge-pending';
@@ -11,6 +16,10 @@ function stateBadgeClass(state) {
 }
 
 export function NotificationRequestListPage() {
+  const t = useT(notificationMessages);
+  const ts = useT(sharedMessages);
+  const stateLabel = useEnumLabel(notificationMessages, 'state');
+  const fmt = useFormat();
   const userRole = useRole() || 'MANAGER';
   const {
     data,
@@ -41,13 +50,12 @@ export function NotificationRequestListPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
         <div className="nm-container">
           <div className="nm-header">
             <div className="nm-title-group">
-              <h1>Nhật ký gửi thông báo (Delivery Logs)</h1>
-              <p>Chẩn đoán hàng đợi gửi email giao dịch, số lần thử và nhật ký kiểm toán</p>
+              <p>{t('list.subtitle')}</p>
             </div>
             <div className="nm-actions">
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', color: '#475569', cursor: 'pointer' }}>
@@ -56,7 +64,7 @@ export function NotificationRequestListPage() {
                   checked={autoRefresh}
                   onChange={(e) => setAutoRefresh(e.target.checked)}
                 />
-                <span>Tự động làm mới (30s)</span>
+                <span>{t('list.autoRefresh')}</span>
               </label>
 
               <button
@@ -65,7 +73,7 @@ export function NotificationRequestListPage() {
                 onClick={reload}
                 disabled={loading}
               >
-                {loading ? 'Đang tải…' : 'Làm mới'}
+                {loading ? ts('loading') : t('refresh')}
               </button>
             </div>
           </div>
@@ -79,7 +87,7 @@ export function NotificationRequestListPage() {
                 style={{ marginLeft: '1rem' }}
                 onClick={reload}
               >
-                Thử lại
+                {ts('retry')}
               </button>
             </div>
           )}
@@ -88,43 +96,39 @@ export function NotificationRequestListPage() {
           <div className="nm-card" style={{ marginBottom: '1rem' }}>
             <div className="nm-filter-bar">
               <div className="nm-filter-item">
-                <label htmlFor="filter-state">Trạng thái gửi</label>
+                <label htmlFor="filter-state">{t('list.filterState')}</label>
                 <select
                   id="filter-state"
                   className="nm-select"
                   value={filters.deliveryState}
                   onChange={(e) => setFilter('deliveryState', e.target.value)}
                 >
-                  <option value="">Tất cả trạng thái</option>
-                  <option value="PENDING">Chờ xử lý (PENDING)</option>
-                  <option value="PROCESSING">Đang gửi (PROCESSING)</option>
-                  <option value="RETRY_SCHEDULED">Đang chờ thử lại (RETRY_SCHEDULED)</option>
-                  <option value="SENT">Đã gửi thành công (SENT)</option>
-                  <option value="FAILED">Gửi thất bại (FAILED)</option>
-                  <option value="UNKNOWN_OUTCOME">Kết quả chưa xác định (UNKNOWN_OUTCOME)</option>
-                  <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+                  <option value="">{t('list.filterAll')}</option>
+                  {DELIVERY_STATES.map((value) => (
+                    <option key={value} value={value}>{stateLabel(value)}</option>
+                  ))}
                 </select>
               </div>
 
               <div className="nm-filter-item">
-                <label htmlFor="filter-event">Mã sự kiện / đơn / booking</label>
+                <label htmlFor="filter-event">{t('list.filterEvent')}</label>
                 <input
                   id="filter-event"
                   type="text"
                   className="nm-input"
-                  placeholder="VD: BK-2026..., ORD-..."
+                  placeholder={t('list.eventPlaceholder')}
                   value={filters.businessEventReference}
                   onChange={(e) => setFilter('businessEventReference', e.target.value)}
                 />
               </div>
 
               <div className="nm-filter-item">
-                <label htmlFor="filter-template">Mã mẫu thư</label>
+                <label htmlFor="filter-template">{t('list.filterTemplate')}</label>
                 <input
                   id="filter-template"
                   type="text"
                   className="nm-input"
-                  placeholder="BOOKING_CONFIRMED"
+                  placeholder={t('list.templatePlaceholder')}
                   value={filters.templateCode}
                   onChange={(e) => setFilter('templateCode', e.target.value)}
                 />
@@ -136,7 +140,7 @@ export function NotificationRequestListPage() {
                   className="nm-btn nm-btn-sm"
                   onClick={resetFilters}
                 >
-                  Xóa bộ lọc
+                  {t('list.clearFilters')}
                 </button>
               </div>
             </div>
@@ -146,25 +150,25 @@ export function NotificationRequestListPage() {
           <div className="nm-card">
             {loading ? (
               <div style={{ padding: '3rem 0', textAlign: 'center', color: '#64748b' }} role="status">
-                Đang tải dữ liệu nhật ký gửi thư…
+                {t('list.loadingData')}
               </div>
             ) : data.content.length === 0 ? (
               <div style={{ padding: '3rem 0', textAlign: 'center', color: '#64748b' }} role="status">
-                Không tìm thấy yêu cầu gửi thư nào khớp với bộ lọc.
+                {t('list.empty')}
               </div>
             ) : (
               <div className="nm-table-container">
                 <table className="nm-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Mã sự kiện</th>
-                      <th>Mẫu thư</th>
-                      <th>Người nhận (đã che)</th>
-                      <th>Trạng thái</th>
-                      <th>Lần thử</th>
-                      <th>Thời gian tạo</th>
-                      <th style={{ textAlign: 'right' }}>Thao tác</th>
+                      <th>{t('list.colId')}</th>
+                      <th>{t('list.colEvent')}</th>
+                      <th>{t('list.colTemplate')}</th>
+                      <th>{t('list.colRecipient')}</th>
+                      <th>{t('list.colState')}</th>
+                      <th>{t('list.colAttempts')}</th>
+                      <th>{t('list.colCreatedAt')}</th>
+                      <th style={{ textAlign: 'right' }}>{t('col.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -189,19 +193,19 @@ export function NotificationRequestListPage() {
                         </td>
                         <td>{item.attemptCount}</td>
                         <td>
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : '—'}
+                          {fmt.dateTime(item.createdAt)}
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <button
                             type="button"
                             className="nm-btn nm-btn-sm"
-                            aria-label={`Xem chi tiết #${item.id}`}
+                            aria-label={t('list.viewDetailAria', { id: item.id })}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenDetail(item.id);
                             }}
                           >
-                            Xem chi tiết
+                            {t('list.viewDetail')}
                           </button>
                         </td>
                       </tr>
@@ -224,8 +228,7 @@ export function NotificationRequestListPage() {
                 }}
               >
                 <span style={{ color: '#64748b' }}>
-                  Tổng cộng <strong>{data.totalElements}</strong> yêu cầu &bull; Trang{' '}
-                  <strong>{page + 1}</strong> / {data.totalPages}
+                  {renderRich(t('list.total', { total: data.totalElements, page: page + 1, pages: data.totalPages }))}
                 </span>
                 <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                   <button
@@ -234,7 +237,7 @@ export function NotificationRequestListPage() {
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
                   >
-                    Trang trước
+                    {t('list.prev')}
                   </button>
                   <button
                     type="button"
@@ -242,7 +245,7 @@ export function NotificationRequestListPage() {
                     onClick={() => setPage((p) => Math.min(data.totalPages - 1, p + 1))}
                     disabled={page >= data.totalPages - 1}
                   >
-                    Trang sau
+                    {t('list.next')}
                   </button>
                 </div>
               </div>

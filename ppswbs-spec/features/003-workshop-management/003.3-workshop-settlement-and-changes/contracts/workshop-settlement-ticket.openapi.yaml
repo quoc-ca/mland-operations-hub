@@ -43,8 +43,8 @@ info:
     object, ATTACHED image not deleted before 5 years after the request reaches
     REFUNDED or CLOSED_UNREACHABLE (delete job T166, after V1).
     Served 2026-11-16 (T154, backend): the two receipt-image routes POST /workshop-refund-requests/{refundId}/receipt-images and
-    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Admin-only refund-account key
-    replacement POST /workshop-refund-account-key-replacements (T137; Manager and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
+    GET /workshop-refund-requests/{refundId}/receipt-image (T154). Served 2026-11-16: the Manager-only refund-account key
+    replacement POST /workshop-refund-account-key-replacements (T137; Admin and Staff get 403), the reconciliation list (T133), the absorbed-undercharge
     record, void and list (T135) and the Manager-only cash reversal
     POST /workshop-tickets/{ticketCode}/folio/collections/{collectionId}/cash-reversals
     (T144). The TicketCancellation field voucherRestored is replaced by the
@@ -480,10 +480,10 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-account-key-replacements:
     post:
-      summary: Admin replaces the refund-account encryption key operationally (FR-040)
+      summary: Manager replaces the refund-account encryption key operationally (FR-040)
       description: >-
-        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Admin only
-        (Manager and Staff are 403). Run after the environment variable
+        FR-040, decided 2026-11-15, served 2026-11-16 (task T137). Manager only
+        since 2026-11-23 (Admin and Staff are 403). Run after the environment variable
         WORKSHOP_REFUND_ACCOUNT_KEY was replaced and the service restarted: for
         every refund request still holding an encrypted account number it
         deletes the ciphertext (the mask is kept), returns the request to
@@ -585,7 +585,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes:
     get:
-      summary: List the cash-close differences awaiting a Manager (Manager home, 013 R-3)
+      summary: List the cash-close differences awaiting a Manager (navigation shell and dashboard, 014 R-3)
       description: >-
         With awaitingConfirmation=true: the closes in state PENDING_MANAGER_CONFIRMATION, oldest first, i.e. exactly the
         set counted by /workshop-cash-closes/awaiting-confirmation-count. Manager only; read-only; no audit row. Each
@@ -685,7 +685,7 @@ paths:
       security: [{bearerAuth: []}]
       parameters:
         - {name: status, in: query, required: false, schema: {$ref: '#/components/schemas/RefundStatus'}}
-        - {name: waiting, in: query, required: false, schema: {type: boolean}, description: 'Manager home (013 R-2). With true the list holds exactly the requests counted by /workshop-refund-requests/waiting-count (the four PENDING_* statuses); it cannot be combined with status (422 WAITING_AND_STATUS_EXCLUSIVE).'}
+        - {name: waiting, in: query, required: false, schema: {type: boolean}, description: 'navigation shell and dashboard (014 R-2). With true the list holds exactly the requests counted by /workshop-refund-requests/waiting-count (the four PENDING_* statuses); it cannot be combined with status (422 WAITING_AND_STATUS_EXCLUSIVE).'}
       responses:
         '200': {description: Refund requests, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/RefundRequest'}}}}}
         '401': {$ref: '#/components/responses/Problem'}
@@ -706,7 +706,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-refund-requests/waiting-count:
     get:
-      summary: Count refund requests waiting for a Manager (Manager home, 013 R-2)
+      summary: Count refund requests waiting for a Manager (navigation shell and dashboard, 014 R-2)
       description: >-
         PENDING_ACCOUNT, PENDING_APPROVAL, PENDING_TRANSFER and PENDING_RECONCILIATION; REFUNDED and CLOSED_UNREACHABLE are
         not waiting. Equals the size of GET /workshop-refund-requests?waiting=true. Manager only; read-only; no audit row.
@@ -717,7 +717,7 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes/awaiting-confirmation-count:
     get:
-      summary: Count cash-close differences awaiting a Manager (Manager home, 013 R-3)
+      summary: Count cash-close differences awaiting a Manager (navigation shell and dashboard, 014 R-3)
       description: >-
         Closes in state PENDING_MANAGER_CONFIRMATION. Count only: no list of these closes exists yet, so the Manager home
         shows no card for it. Manager only; read-only; no audit row.

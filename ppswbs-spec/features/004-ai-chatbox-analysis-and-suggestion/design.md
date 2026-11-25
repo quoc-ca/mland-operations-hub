@@ -1,157 +1,117 @@
-# Feature-004 Frontend Design — Independent AI Design Workspace
+# Feature-004 Frontend Design — Design Request and Human Review
 
-**Date created**: 2026-10-24
-**Date updated**: 2026-11-16
-**Author**: Ngô Tiến Đạt
-**Last updated by**: Phan Sơn
+Date created: 2026-11-20
+Date updated: 2026-11-24
+Author: Ngô Tiến Đạt
+Last updated by: Ngô Tiến Đạt
 
-**Feature**: `004-ai-chatbox-analysis-and-suggestion`
-**Status**: Frontend behavior synchronized with the current React/Vite implementation (updated 2026-11-16 for F04-DESIGN-WORKSPACE unauthenticated empty state and login CTA); backend contract blockers remain documented
-**Design baseline**: [`ppswbs-spec/DESIGN.md`](../../DESIGN.md) and [`FRONTEND-ARCHITECTURE.md`](../../FRONTEND-ARCHITECTURE.md)
+## Baseline
 
-## 1. Objective and boundary
+React/Vite, shared auth, HTTP, i18n and UI primitives remain the frontend baseline.
+The existing `designreview` slice may be reused, but AI pages, AI messages, AI
+result cards and price-suggestion screens are retired from Feature-004.
 
-Feature-004 exposes three independent capabilities:
-
-1. Guest or Member Basic AI Support.
-2. Member-owned Independent Design Request with optional description and/or reference image.
-3. Manager advisory price suggestion for a new workshop package or retail product proposal.
-
-The Design Request flow is independent from booking. It must not render or require
-package, location, session, booking, payment, deposit, ticket, capacity or settlement
-data. The frontend never decides authorization or business state; the backend remains
-the authority.
-
-## 2. Confirmed actor and input policy
-
-| Actor | Frontend capability |
-| --- | --- |
-| Guest | Basic AI Support only. The Design Request entry is protected by `RequireSession`. |
-| Member | Basic AI Support, create an own Design Request and view its own result. |
-| Staff | Open review queue/detail when backend grants review permission. |
-| Manager | Review requests and use the price-suggestion screen when backend grants authority. |
-| Admin | View only the technical/audit projection returned by the backend. |
-
-An Independent Design Request is valid when it contains a description, an image, or
-both. A description-only request does not show image consent. An image request must
-record the configured consent before submission. The frontend sends the current
-backend field names and does not convert them to a different OpenAPI shape.
-
-## 3. Frontend structure
-
-### 3.1 Current implementation
-
-The current slice is:
+## Routes
 
 ```text
-src/features/designreview/
-  api/designReviewApi.js
-  api/useDesignReviewApi.js
-  public/AiSupportPage.jsx
-  workspace/DesignWorkspacePage.jsx
-  workspace/DesignDetailPage.jsx
-  review/ReviewQueuePage.jsx
-  review/ReviewDetailPage.jsx
-  pricing/PriceProposalAiPage.jsx
-  rules.js
-  messages.js
-  designreview.css
-  test/
+/design-requests/new
+/design-requests/:designRequestId
+/my/designs?tab=custom
+/account/my-custom-orders
+/account/my-custom-orders/{customOrderId}
+/design-review-requests
+/design-review-requests/:reviewRequestId
 ```
 
-Routes are registered by `src/features/designreview/routes.jsx` and composed in
-`src/app/router.jsx`. Shared HTTP, Firebase session, i18n and UI primitives are
-used instead of feature-local replacements.
+`/design-requests/new` is Member-only. A Guest may see the entry point, but the
+frontend must show a sign-in prompt before form, upload or tracking access. The backend remains authoritative for Member ownership. Review routes are Staff/Manager-only; Admin receives only the
+approved technical projection.
 
-### 3.2 Normalization direction
+## Screens and states
 
-Future maintenance may map the current slice to the project architecture as:
+Customer screens: entry/form, five-image gallery, per-image quality feedback,
+submission confirmation, Member history, request detail and
+accepted/rejected result. The Member custom-order area has separate Requests and
+Orders views. A valid quote is paid in full from custom-order detail; there is
+no Add to Cart, deposit or balance-payment screen.
 
-```text
-ui/             pages and feature components
-application/    use-case hooks and command/resource lifecycle
-domain/         pure validation and state rules
-infrastructure/ REST adapter and DTO mapping
-routes/         feature-owned route declarations
-tests/          feature tests
-```
+Operational screens: review queue, review detail, image gallery, mandatory
+explanation form, decision confirmation, terminal conflict and access denied.
 
-This is a maintenance direction, not a requirement to refactor the current
-prototype slice during documentation synchronization.
+Every screen covers loading, empty, invalid input, image processing, blurry image,
+five-image limit, pending review, accepted, rejected,
+conflict, retry and service failure. Custom-order screens also cover quote ready,
+full-payment pending, payment success, quote expiry/cancellation and request-new-
+quote states.
 
-## 4. Route and screen inventory
+## UI behavior
 
-| ID | Route | Actor | Required states |
-| --- | --- | --- | --- |
-| `F04-AI-CHAT` | `/ai-support` | Guest/Member | Empty, pending, validation, provider failure, retry, advisory scope label. |
-| `F04-DESIGN-WORKSPACE` | `/design-requests/new` | Member | Description-only, image-only, combined input, client pre-validation (size, MIME, empty file, resolution), consent, pending, unauthenticated empty state with login CTA (`RequireSession requiredText`), and recoverable failure with clear error messages. (Note: catalogue reference input field is removed). |
-| `F04-CONSENT` | Inline workspace state | Member | Purpose/version display, affirmative consent, consent-required error. |
-| `F04-IMAGE-UPLOAD` | Inline workspace state | Member | JPEG/PNG/WEBP, 10 MB, 4096×4096, rate-limit, empty-file check, and file validation states. |
-| `F04-ANALYSIS-STATUS` | `/design-requests/:designRequestId` | Member owner / Guest lookup | `PROCESSING`, `SUCCEEDED`, `FAILED`, retry and safe failure evidence. Displays success confirmation: "Yêu cầu đã được gửi thành công, đang đợi phản hồi của nhân viên". |
-| `F04-RESULT` | Same detail route | Member owner / Guest lookup | Candidate features, image quality, confidence/uncertainty and review status (`NEED_REVIEW` - Awaiting staff review, `ACCEPTED`, `REJECTED`, `CLARIFICATION_REQUIRED`); never raw provider payload. |
-| `F04-REVIEW-QUEUE` | `/design-review-requests` | Staff/Manager | Loading, empty, forbidden and API failure states. |
-| `F04-REVIEW-DETAIL` | `/design-review-requests/:reviewRequestId` | Staff/Manager | Decision form, reason validation, stale version and conflict recovery. |
-| `F04-PRICE-PROPOSAL` | `/price-proposals/:proposalId/ai-suggestions` | Manager/Admin projection | Advisory suggestion, manual fallback, decision and technical-audit view. |
-| `F04-MEMBER-CUSTOM-LIST` | `/my/designs?tab=custom` | Member | List of member's own custom design requests with real-time review/analysis status badges and link to detail. |
+- Show image quality feedback immediately after upload.
+- Disable submit while any image is processing or too blurry.
+- Preserve description and selected images during recoverable errors.
+- Use one locale consistently per session and valid UTF-8 text/font rendering.
+- Never display raw token, database ID, storage key, private contact or AI data.
+- Use stable test IDs for image slots, quality states, quota messages, decision form,
+  explanation field and status/result projections.
 
-## 5. Screen and API mapping
+## Existing-style-first visual rule
 
-| API | Screen | Frontend behavior |
-| --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | `F04-AI-CHAT` | Guest uses public scope; Member may send Firebase identity. Invalid authenticated identity is not downgraded to Guest. |
-| `POST /api/v1/design-requests` | Workspace/Consent/Upload | Multipart `description`, `catalogueReference`, consent fields, `designVersion`, optional `image`, and one `Idempotency-Key`. |
-| `GET /api/v1/design-requests/{id}` | Status/Result | Owner-safe projection; cross-owner access is displayed as typed forbidden/not-found behavior. |
-| `GET /api/v1/design-review-requests` | Review Queue | Display the returned queue only; do not invent branch/session filters. |
-| `POST /api/v1/design-review-requests/{id}/decisions` | Review Detail | Send `designVersion`, decision and reason; preserve form state on recoverable error. |
-| Price suggestion endpoints | Price Proposal/Admin Audit | Manager sees commercial advisory data; Admin sees only the technical projection returned by the backend. |
+Feature-004 must follow the closest approved existing customer and operations
+patterns before introducing new components. The in-place Figma frames are the
+visual reference for this feature; reuse their layout, typography, tokens,
+spacing, controls, responsive behavior and bilingual interaction states. Any
+new pattern must be the smallest reusable extension required by the human-review
+and custom-order requirements. Visual approval does not change the Feature-004
+business rules, API contract, permission boundary or state lifecycle.
 
-The current backend returns `message` for Basic AI Support, uses `designVersion`
-for review decisions, accepts raw price context with `targetType`, and currently
-returns `200` for price suggestion. These shapes are implementation compatibility
-facts; OpenAPI synchronization remains a backend task.
+## Figma gate
 
-## 6. Data and command lifecycle
+Use the approved existing in-place frames and current application page patterns
+as the Feature-004 visual baseline. Do not create a duplicate Figma page when an
+existing frame can be updated. Record node IDs and revision in `version.md`.
+Visual approval is complete for the current baseline; implementation remains
+subject to the specification, API contract, permission and engineering gates.
 
-```text
-Route
-  → feature page
-  → application hook/command
-  → shared HTTP client
-  → Firebase token when required
-  → backend controller/service
-  → safe DTO
-  → local feature state
-  → loading/success/error UI
-```
+## Draft redesign for user review — 2026-11-24
 
-Every write action creates one idempotency key. A retry of the same command reuses
-the key. The client does not auto-retry commands or infer a successful mutation
-from a timeout.
+The current React implementation was reviewed before preparing a new draft.
+The request page keeps its existing fields and validation but replaces the
+basic visual treatment with the existing Mland shell, card hierarchy and
+responsive patterns.
 
-## 7. Required UI behavior
+Draft frames in file mland-operation-hub, page 498:2:
 
-- Customer screens are mobile-first; operational screens are desktop-first and responsive.
-- Use bilingual messages from the feature message catalog.
-- Keep recoverable input on validation, network, `409`, `429` and `503` errors.
-- Disable duplicate submission while a command is pending.
-- Treat `401` through the shared auth refresh path; show access denied for `403` without signing out.
-- Show text labels with semantic colors; color alone cannot communicate status.
-- Provide keyboard-accessible controls, visible focus, labels and live status for asynchronous changes.
-- Never render raw image payload, provider payload, Firebase token, private identity or internal price suggestion to an unauthorized actor.
+| Screen | Desktop | Mobile |
+|---|---:|---:|
+| Custom design request | 588:43 | 590:43 |
 
-## 8. Acceptance traceability
+The draft gives the selected Feature-012 snapshot a clear reference card,
+makes the five-image limit visible and makes image-quality feedback a first-
+class state beside the upload area. It does not add a field or change the
+Member-only request boundary.
 
-The frontend handoff is complete only when the implementation can trace each screen
-to `spec.md`, the API contract, backend response fields and tests. The current
-implementation is a frontend delivery slice, not proof that live backend integration,
-OpenAPI synchronization or production provider integration has passed.
+## Consultation geometry and scroll contract
 
-## 9. Figma visual mapping (2026-11-05)
+The contextual and general consultation chats share one outer width token,
+header/message/composer spacing scale, desktop maximum width and mobile
+full-width behavior. Loading, empty, error and loaded sidebar states reserve
+the same horizontal width.
 
-The visual handoff is pending reviewer approval in Figma file
-`m5Cyk5rit6lKaX3TPprSow`. The created sections are `413:2` for Feature-004
-customer screens, `414:1083` for Staff operations and `414:2983` for Manager
-operations. The frames include desktop/mobile variants for AI chat, independent
-design workspace, consent, image upload, analysis/result, review decisions and
-Manager price proposal. Visual frames do not alter the independent flow or any
-backend authority rule.
+The implementation must not scroll the page or message thread as a side effect
+of route mount, conversation selection, polling, focus, visibility change,
+loading or empty-state rendering. The first view opens at the top. A successful
+explicit send may reveal the sent message. Polling preserves the reader's
+position; a new inbound message while reading older content uses a non-blocking
+new-message affordance rather than moving the viewport.
+
+## Frontend and E2E handoff
+
+The next implementation agent must recompose the request page from existing
+shared patterns, reuse one consultation surface-width contract, remove effects
+that scroll solely because messages changed or polling completed, preserve
+Vietnamese UTF-8 rendering, and add E2E coverage for geometry, initial top
+position, polling stability, send behavior, sidebar width stability and
+permission-safe context display.
+
+No production code is changed by this update. The Figma draft remains pending
+user approval.

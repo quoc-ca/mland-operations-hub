@@ -14,6 +14,7 @@ As an authorized catalogue maintainer, I want to create, rename, activate and de
 
 This use case includes the following sub-flows:
 
+- Find Categories
 - Create or Update Category
 - Deactivate or Activate Category
 
@@ -23,9 +24,16 @@ This use case includes the following sub-flows:
 
 #### Normal Flow
 
+**Find Categories**
+
+1. The actor opens Product Categories. The Categories section lists all categories ordered by name and then identity.
+2. The actor optionally selects a status filter (All, Active or Inactive) and enters part of a category name, then selects Find or presses Enter.
+3. The system trims the name, matches it as a case-insensitive substring of the category name and combines it with the status filter. Filtering is applied before paging, so the total count and the number of pages match the filter.
+4. The system shows the first page of matching categories and keeps the filter and the name in the page address.
+
 **Create or Update Category**
 
-1. The actor opens Category Management and selects New category or an existing category.
+1. The actor opens Product Categories and fills in the new category, or selects Edit on an existing category.
 2. The actor enters a name (1–200 characters) and an optional description (up to 5,000 characters).
 3. The system trims the values and checks that the name is unique across all categories, including inactive ones, ignoring case.
 4. The system saves the category (new categories are active by default), records an audit entry and confirms (MSG10).
@@ -39,6 +47,14 @@ This use case includes the following sub-flows:
 5. Later, the actor may select Activate. The system restores public visibility only for products that are still published, not deleted and meet all publication conditions.
 
 #### Alternative Flows
+
+**Find Step 3 — Name is longer than 200 characters**
+
+The system rejects the search and identifies the name field as invalid (MSG08).
+
+**Find Step 4 — No category matches**
+
+The system shows a separate empty message (MSG61) and keeps the filter and the name so that the actor can change them.
 
 **Create or Update Step 3 — Name already exists**
 
@@ -63,12 +79,14 @@ The system rejects the request or keeps the previous state (MSG01, MSG03, MSG04)
 
 #### Business Rules
 
-BR-18-01, BR-18-02, BR-18-03
+GBR-16, BR-18-01, BR-18-02, BR-18-03, BR-18-04
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
 |---|---|
+| GBR-16 | Deactivating a category never cancels valid holds, changes accepted orders or removes history. |
 | BR-18-01 | A category name is 1–200 characters and unique across all categories, including inactive ones, after trimming and ignoring case; the description is optional and at most 5,000 characters. |
 | BR-18-02 | Before deactivation, the affected products are shown; an inactive category and its products are excluded from public reads and new purchases. |
 | BR-18-03 | Reactivation restores only products that are still published, not deleted and eligible; a used category is deactivated instead of deleted, without rewriting history or valid holds. |
+| BR-18-04 | The category list can be filtered by status (All, Active, Inactive) and by a trimmed, case-insensitive part of the name of at most 200 characters; both filters are applied before paging, and the order stays name then identity. Changing the filter returns to the first page. |

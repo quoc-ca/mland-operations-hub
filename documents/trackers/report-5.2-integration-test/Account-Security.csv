@@ -1,0 +1,4 @@
+﻿Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-ACC-001,Account bootstrap is unique,Submit concurrent bootstrap for one Firebase UID,Only one Account exists and both responses are deterministic,Identity and database available,Passed,2026-11-25,QA Agent,,,,,,,,Account Management
+IT-ACC-002,Staff location scope is enforced,Staff reads and mutates an out-of-scope resource,Request is denied with no private data,Staff fixture and two locations available,Passed,2026-11-25,QA Agent,,,,,,,,RBAC
+IT-ACC-003,Manager global authority works,Manager acts on another location resource,Authorized business action succeeds,Manager fixture available,Passed,2026-11-25,QA Agent,,,,,,,,Manager authority

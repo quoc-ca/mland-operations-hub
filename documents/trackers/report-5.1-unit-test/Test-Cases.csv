@@ -1,2 +1,9 @@
 No,Module Name,Sheet Name,Description,Pre-Condition
-1,Booking domain,Module-Booking,Unit-test candidates derived from approved booking rules,Implementation baseline TBD
+1,Account and RBAC,Module-Account,Identity role status ownership and location-scope unit cases,Backend test baseline available
+2,Booking domain,Module-Booking,Package-first booking capacity deposit and payment-state unit cases,Backend test baseline available
+3,Design Request and Ring Design,Module-Design-Review-Config,Member-only request validation human review and ring configuration boundaries,Feature specs and services available
+4,Review and Consultation,Module-Review-Consultation,Review lifecycle and Member-Staff-Manager chat unit cases,Feature specs and services available
+5,Custom Order and Payment,Module-Custom-Payment,Quote full-payment lifecycle and idempotency unit cases,Custom manufacturing and payment contracts available
+6,Loyalty and Promotion,Module-Loyalty-Promotion,Promotion targeting voucher and points calculation boundaries,Feature-006 contract available
+7,Notification Fulfilment and Retention,Module-Notification-Fulfilment,Template delivery handoff and retention unit cases,Feature-007/008 contracts available
+8,Architecture and Security,Module-Architecture-Security,Modulith dependency logging and security boundary unit cases,Constitution and security baseline available

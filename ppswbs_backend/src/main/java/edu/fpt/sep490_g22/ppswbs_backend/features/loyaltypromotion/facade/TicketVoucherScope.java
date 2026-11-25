@@ -9,8 +9,9 @@ import java.math.BigInteger;
  *                       workshop discount or points alone are never lost on a session move (FR-045)
  * @param inScope        whether the ticket with the proposed sessions satisfies the accepted voucher revision's package,
  *                       branch, date and session targets (every session must match); {@code true} without a voucher
- * @param lostDiscount   the ticket's allocated voucher share it would lose: its accepted part's programme discount when
- *                       it leaves scope, otherwise zero; never computed anew
+ * @param lostDiscount   the ticket's allocated voucher share it would lose: its accepted part's voucher discount (not
+ *                       the automatic share, Session 2026-11-22) when it leaves scope, otherwise zero; never computed
+ *                       anew
  */
 public record TicketVoucherScope(boolean voucherApplied, boolean inScope, BigInteger lostDiscount) {
 

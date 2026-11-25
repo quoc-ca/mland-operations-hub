@@ -4,12 +4,16 @@ import { newCommandId } from '../../shared/api/http';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useOtaConnectivityApi } from '../api/useOtaConnectivityApi';
 import { ErrorNotice, Loading, SuccessNotice } from '../../shared/ui/components';
-import { OperationsSidebar } from '../../shared/ui/OperationsSidebar';
+import { useT, useEnumLabel, useFormat } from '../../shared/i18n/I18nProvider';
+import { otaMessages } from '../messages';
+import { moneyText } from '../moneyText';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import '../ota-connectivity.css';
 
 /** Manager refund of a paid add-on bill (POST /ota-addon-bills/{ref}/refunds); the server decides what is refundable. */
 function AddonRefundPanel({ api, billStatus, onDone }) {
+  const t = useT(otaMessages);
+  const fmt = useFormat();
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,31 +42,31 @@ function AddonRefundPanel({ api, billStatus, onDone }) {
 
   return (
     <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e3e3e3' }}>
-      <h3 style={{ margin: '0 0 8px', fontSize: '15px' }}>Hoàn tiền add-on</h3>
+      <h3 style={{ margin: '0 0 8px', fontSize: '15px' }}>{t('refund.title')}</h3>
       {refunds.length > 0 && (
         <ul style={{ margin: '0 0 10px', paddingLeft: '18px', fontSize: '13px' }}>
           {refunds.map(r => (
-            <li key={r.refundReference}>{Number(r.amountVnd).toLocaleString('vi-VN')} ₫ · {r.status} · {r.reason}</li>
+            <li key={r.refundReference}>{fmt.money(r.amountVnd)} · {r.status} · {r.reason}</li>
           ))}
         </ul>
       )}
       {open ? (
-        <p className="muted" style={{ fontSize: '13px' }}>Đang có một yêu cầu hoàn tiền chờ xử lý; chờ xong rồi mới tạo yêu cầu mới.</p>
+        <p className="muted" style={{ fontSize: '13px' }}>{t('refund.pending')}</p>
       ) : (
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px' }}>Số tiền hoàn (VND)
+          <label style={{ fontSize: '13px' }}>{t('refund.amount')}
             <input value={amount} onChange={e => setAmount(e.target.value)} inputMode="numeric" disabled={busy} style={{ display: 'block', width: '100%', padding: '8px' }} />
           </label>
-          <label style={{ fontSize: '13px' }}>Lý do
+          <label style={{ fontSize: '13px' }}>{t('refund.reason')}
             <input value={reason} onChange={e => setReason(e.target.value)} disabled={busy} style={{ display: 'block', width: '100%', padding: '8px' }} />
           </label>
           <button type="submit" className="button outline" disabled={busy || !amountOk || !reason.trim()}>
-            {busy ? 'Đang gửi…' : 'Tạo yêu cầu hoàn tiền'}
+            {busy ? t('refund.sending') : t('refund.submit')}
           </button>
         </form>
       )}
       {error && <ErrorNotice error={error} />}
-      {done && <SuccessNotice>Đã tạo yêu cầu hoàn tiền {done.refundReference}.</SuccessNotice>}
+      {done && <SuccessNotice>{t('refund.created', { ref: done.refundReference })}</SuccessNotice>}
     </div>
   );
 }
@@ -70,6 +74,12 @@ function AddonRefundPanel({ api, billStatus, onDone }) {
 export default function OtaAddonPage() {
   const { status } = useAuth();
   const api = useOtaConnectivityApi();
+  const t = useT(otaMessages);
+  const fmt = useFormat();
+  const addonOptionLabel = useEnumLabel(otaMessages, 'addonOption');
+  const addonTypeLabel = useEnumLabel(otaMessages, 'addonType');
+  const quoteLabel = useEnumLabel(otaMessages, 'quote');
+  const billLabel = useEnumLabel(otaMessages, 'bill');
   const [searchParams] = useSearchParams();
   const paramBookingId = searchParams.get('channelBookingId') || '';
 
@@ -141,7 +151,7 @@ export default function OtaAddonPage() {
         : { addonType: 'LASER_ENGRAVING', itemDescription: form.itemDescription.trim(), amount: { amount: '0', currency: 'VND' } };
       const result = await api.createAddonQuote(form.bookingId.trim(), payload);
       setQuote(result);
-      setSuccess('Add-on quote recorded at the Mland shop.');
+      setSuccess(t('addon.quoteRecorded'));
     } catch (err) {
       setError(err);
     } finally {
@@ -159,7 +169,7 @@ export default function OtaAddonPage() {
         acceptanceReference: acceptanceReference.trim()
       });
       setQuote(result);
-      setSuccess('Customer acceptance recorded.');
+      setSuccess(t('addon.acceptanceRecorded'));
     } catch (err) {
       setError(err);
     } finally {
@@ -173,7 +183,7 @@ export default function OtaAddonPage() {
     try {
       const result = await api.createAddonDirectBill(quote.quoteId);
       setBillResult(result);
-      setSuccess('Direct Mland bill created.');
+      setSuccess(t('addon.billCreated'));
     } catch (err) {
       setError(err);
     } finally {
@@ -188,7 +198,7 @@ export default function OtaAddonPage() {
     try {
       const attempt = await api.createAddonPaymentAttempt(billResult.settlementBillReference);
       setPaymentAttempt(attempt);
-      setSuccess('Đã tạo liên kết thanh toán VNPay.');
+      setSuccess(t('addon.paymentLinkCreated'));
     } catch (err) {
       setError(err);
     } finally {
@@ -201,7 +211,7 @@ export default function OtaAddonPage() {
     return (
       <OperationsAuthWorkspace
         topline="MLAND / OTA CONNECTIVITY"
-        message="Authentication required to record shop add-ons."
+        message={t('auth.addons')}
       />
     );
   }
@@ -211,29 +221,21 @@ export default function OtaAddonPage() {
 
   return (
     <div className="ota-workspace">
-      <OperationsSidebar />
+      
       <main className="ota-main">
-        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● Direct Mland billing</span></div>
+        <div className="ota-topline">MLAND / OTA CONNECTIVITY <span>● {t('addon.sub')}</span></div>
         <header className="ota-page-heading">
           <div>
-            <p className="ota-eyebrow">WORKSHOP SERVICE</p>
-            <h1>Shop add-ons</h1>
-            <p>Record free engraving or a paid option at the workshop. OTA checkout and channel settlement stay unchanged.</p>
+            <p>{t('addon.intro')}</p>
           </div>
         </header>
-        <nav className="ota-nav-tabs" aria-label="OTA Navigation">
-          <Link to="/ota-connectivity/channels">Channels</Link>
-          <Link to="/ota-connectivity/reconciliation">Queue</Link>
-          <Link to="/ota-connectivity/finance">Finance</Link>
-          <Link className="active" to="/ota-connectivity/add-ons">Add-ons</Link>
-        </nav>
         <SuccessNotice>{success}</SuccessNotice>
         <ErrorNotice error={error} />
         <section className="ota-panel ota-addon-layout">
           <form className="ota-form" onSubmit={createQuote}>
-            <h2>Create shop quote</h2>
+            <h2>{t('addon.createQuoteTitle')}</h2>
             <label>
-              Channel booking ID
+              {t('addon.bookingId')}
               <input
                 required
                 value={form.bookingId}
@@ -242,15 +244,15 @@ export default function OtaAddonPage() {
               />
             </label>
             <label>
-              Add-on type
+              {t('addon.type')}
               <select value={form.addonType} onChange={e => setForm({ ...form, addonType: e.target.value })}>
-                <option value="LASER_ENGRAVING">Laser engraving (free)</option>
-                <option value="PAID_OPTION">Paid option</option>
+                <option value="LASER_ENGRAVING">{addonOptionLabel('LASER_ENGRAVING')}</option>
+                <option value="PAID_OPTION">{addonOptionLabel('PAID_OPTION')}</option>
               </select>
             </label>
             {form.addonType === 'PAID_OPTION' ? (
               <label>
-                Catalogue add-on reference
+                {t('addon.catalogueRef')}
                 <input
                   required
                   value={form.catalogueAddOnReference}
@@ -260,7 +262,7 @@ export default function OtaAddonPage() {
               </label>
             ) : (
               <label>
-                Description
+                {t('addon.description')}
                 <textarea
                   required
                   value={form.itemDescription}
@@ -268,28 +270,27 @@ export default function OtaAddonPage() {
                 />
               </label>
             )}
-            <button className="button primary" type="submit" disabled={busy}>Create quote</button>
+            <button className="button primary" type="submit" disabled={busy}>{t('addon.createQuote')}</button>
           </form>
 
           <div className="ota-quote-preview">
-            <p className="ota-eyebrow">CURRENT QUOTE</p>
             {quote ? (
               <>
-                <h2>{quote.addonType}</h2>
-                <span className="badge badge-enabled">{quote.status}</span>
-                <p>{quote.amount?.amount || '0'} {quote.amount?.currency || 'VND'}</p>
+                <h2>{addonTypeLabel(quote.addonType)}</h2>
+                <span className="badge badge-enabled">{quoteLabel(quote.status)}</span>
+                <p>{moneyText(fmt, quote.amount)}</p>
                 <code>{quote.quoteId}</code>
                 {quote.addonType === 'LASER_ENGRAVING' && (
-                  <p className="muted">Free for OTA customers. No direct bill is created.</p>
+                  <p className="muted">{t('addon.freeNote')}</p>
                 )}
                 {quote.status === 'QUOTED' && (
                   <>
                     <label>
-                      Acceptance reference
+                      {t('addon.acceptanceRef')}
                       <input
                         value={acceptanceReference}
                         onChange={e => setAcceptanceReference(e.target.value)}
-                        placeholder="Signed at counter"
+                        placeholder={t('addon.acceptancePlaceholder')}
                       />
                     </label>
                     <button
@@ -298,27 +299,27 @@ export default function OtaAddonPage() {
                       onClick={acceptQuote}
                       disabled={busy || !acceptanceReference.trim()}
                     >
-                      Record acceptance
+                      {t('addon.recordAcceptance')}
                     </button>
                   </>
                 )}
                 {quote.status === 'ACCEPTED' && quote.addonType !== 'LASER_ENGRAVING' && (
                   <button className="button primary" type="button" onClick={billQuote} disabled={busy}>
-                    Create direct Mland bill
+                    {t('addon.createBill')}
                   </button>
                 )}
                 {billResult && (
                   <div className="ota-result-card" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div>
-                      <strong>Bill linked: </strong>
+                      <strong>{t('addon.billLinked')}</strong>
                       <code>{billResult.settlementBillReference}</code>
                     </div>
                     <div>
-                      <strong>Trạng thái: </strong>
+                      <strong>{t('addon.status')}</strong>
                       {isPaid ? (
-                        <span className="badge badge-enabled" style={{ marginLeft: '6px' }}>Đã thanh toán (PAID)</span>
+                        <span className="badge badge-enabled" style={{ marginLeft: '6px' }}>{t('addon.paidBadge')}</span>
                       ) : (
-                        <span className="badge badge-warning" style={{ marginLeft: '6px' }}>{billStatus?.lifecycleStatus || 'OPEN'}</span>
+                        <span className="badge badge-warning" style={{ marginLeft: '6px' }}>{billLabel(billStatus?.lifecycleStatus || 'OPEN')}</span>
                       )}
                     </div>
                     {!isPaid && (
@@ -329,12 +330,12 @@ export default function OtaAddonPage() {
                           onClick={startPayment}
                           disabled={busy}
                         >
-                          Thu tiền (VNPay)
+                          {t('addon.collect')}
                         </button>
                         {hasActivePaymentUrl && (
                           <div style={{ padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px' }}>
                             <p style={{ margin: '0 0 6px', fontSize: '13px', fontWeight: 600, color: '#166534' }}>
-                              Đã tạo URL thanh toán:
+                              {t('addon.paymentUrlCreated')}
                             </p>
                             <a
                               href={paymentAttempt.paymentUrl}
@@ -343,11 +344,11 @@ export default function OtaAddonPage() {
                               className="button outline"
                               style={{ display: 'inline-block', fontSize: '12px', padding: '4px 10px', textDecoration: 'none' }}
                             >
-                              Mở cổng thanh toán VNPay
+                              {t('addon.openGateway')}
                             </a>
                             {paymentAttempt.expiresAt && (
                               <p className="muted" style={{ margin: '6px 0 0', fontSize: '11px' }}>
-                                Hết hạn lúc: {new Date(paymentAttempt.expiresAt).toLocaleTimeString()}
+                                {t('addon.expiresAt', { time: fmt.dateTime(paymentAttempt.expiresAt) })}
                               </p>
                             )}
                           </div>
@@ -356,7 +357,7 @@ export default function OtaAddonPage() {
                     )}
                     {isPaid && (
                       <p style={{ margin: 0, color: '#166534', fontWeight: 600, fontSize: '13px' }}>
-                        Thanh toán add-on đã được hoàn tất và ghi nhận thành công.
+                        {t('addon.paidNote')}
                       </p>
                     )}
                     {isPaid && (
@@ -366,7 +367,7 @@ export default function OtaAddonPage() {
                 )}
               </>
             ) : (
-              <p className="muted">Create a quote to review the immutable amount and consent steps.</p>
+              <p className="muted">{t('addon.previewEmpty')}</p>
             )}
           </div>
         </section>

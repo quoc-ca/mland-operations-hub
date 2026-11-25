@@ -19,29 +19,29 @@ import {
   subscribeToCart,
   updateCartLineParticipants,
 } from './cartStorage';
-import { failingLinesOf, vnd } from './groupDisplay';
+import { failingLinesOf } from './groupDisplay';
 import { GroupResultHeading } from './GroupResultHeading';
 import { useBookingIdentity } from './useBookingIdentity';
 import { useHttp } from '../shared/api/useHttp';
+import { useFormat, useLanguage, useT } from '../shared/i18n/I18nProvider';
+import { messages } from './messages';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
 import './figmaPublicShell.css';
 import './cartShopee.css';
 
-const CART_ERROR_MESSAGE = {
-  // 003.1 FR-055 (003.2 FR-039): nothing was held; the cart and the typed fields are kept (proposed copy, Q7).
-  PACKAGE_NOT_AVAILABLE_AT_LOCATION: 'Có dòng trong giỏ là gói hiện không còn bán tại chi nhánh đã chọn. Hệ thống không giữ chỗ nào; giỏ và thông tin bạn đã nhập vẫn được giữ. Hãy chọn chi nhánh khác ở trang gói hoặc xóa dòng đó.',
-  CART_HOLD_REJECTED: 'Giỏ chưa được giữ chỗ vì có dòng không còn đủ chỗ. Hệ thống không giữ chỗ nào; vui lòng sửa giỏ rồi báo giá lại.',
-  INSUFFICIENT_CAPACITY: 'Có dòng trong giỏ không còn đủ chỗ. Hệ thống không giữ chỗ nào.',
-  QUOTE_EXPIRED: 'Báo giá đã hết hạn. Vui lòng báo giá lại.',
-  DEPENDENCY_UNAVAILABLE: 'Hệ thống tạm thời chưa xử lý được yêu cầu. Giỏ và thông tin bạn đã nhập vẫn được giữ; vui lòng thử lại sau.',
-  CART_BENEFITS_NEED_A_MEMBER: 'Voucher và điểm chỉ áp dụng cho tài khoản Member đang đăng nhập.',
-};
+const CART_ERROR_CODES = new Set(["PACKAGE_NOT_AVAILABLE_AT_LOCATION","CART_HOLD_REJECTED","INSUFFICIENT_CAPACITY","QUOTE_EXPIRED","DEPENDENCY_UNAVAILABLE","CART_BENEFITS_NEED_A_MEMBER"]);
 
-const describe = error => ({
-  code: error?.code || 'CLIENT_ERROR',
-  message: CART_ERROR_MESSAGE[error?.code] || error?.detail || error?.message || 'Không thể hoàn tất yêu cầu.',
-  correlationId: error?.correlationId || null,
-});
+// The message is a dictionary key (translated when shown) unless the server sent its own text.
+const describe = error => {
+  const known = CART_ERROR_CODES.has(error?.code);
+  const text = known ? null : (error?.detail || error?.message || null);
+  return {
+    code: error?.code || 'CLIENT_ERROR',
+    messageKey: known ? `cart.err.${error.code}` : (text ? null : 'cart.err.default'),
+    message: text,
+    correlationId: error?.correlationId || null,
+  };
+};
 
 /**
  * The workshop cart (003.1 FR-030, FR-031, FR-045). The unquoted cart lives in this browser; this page quotes it with
@@ -49,6 +49,10 @@ const describe = error => ({
  * A capacity failure names the failing lines, holds nothing and leaves the cart editable.
  */
 export function WorkshopCartPage() {
+  const t = useT(messages);
+  const { language } = useLanguage();
+  const format = useFormat();
+  const vnd = value => format.money(String(Math.round(Number(value || 0))));
   const { authStatus, mode: bookingMode, profile, profileLoading, profileError, memberAuthorization } = useBookingIdentity();
   const http = useHttp();
   const [lines, setLines] = useState(() => readCart());
@@ -321,7 +325,7 @@ export function WorkshopCartPage() {
   };
 
   const confirm = async () => {
-    const errors = validateBookingContact(contact);
+    const errors = validateBookingContact(contact, language);
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -377,38 +381,37 @@ export function WorkshopCartPage() {
     <>
     <CartTabs active="workshop" />
     <main className="public-page figma-public-page">
-      <p className="eyebrow">GIỎ WORKSHOP</p>
-      <h1>Giỏ đặt workshop</h1>
+      <p className="eyebrow">{t('cart.eyebrow')}</p>
+      <h1>{t('cart.title')}</h1>
       <p className="lead">
-        Mỗi dòng là một gói workshop với số người tham gia; mỗi người là một vé riêng. Cả giỏ được giữ chỗ và thanh toán
-        một lần.
+        {t('cart.lead')}
       </p>
 
       <div role="status" style={{ margin: '20px 0', padding: '12px 16px', border: '1px solid #dcdfe6', background: '#f8fafc', color: '#002967' }}>
         {authStatus === 'loading' || profileLoading
-          ? 'Đang xác định thông tin tài khoản...'
+          ? t('booking.who.loading')
           : bookingMode === 'MEMBER'
-            ? 'Đang đặt với tư cách Hội viên MLAND (Member).'
+            ? t('booking.who.member')
             : bookingMode === 'GUEST'
-              ? 'Đang đặt với tư cách Khách vãng lai (Guest).'
-              : 'Không thể xác minh vai trò tài khoản.'}
+              ? t('booking.who.guest')
+              : t('booking.who.unknown')}
         {profileError && authStatus === 'signed-in' && (
           <small style={{ display: 'block', color: '#8a4b00', marginTop: '4px' }}>
-            Không tải được hồ sơ Member; luồng đặt chỗ đang tạm khóa để tránh dùng sai quyền tài khoản.
+            {t('booking.profileError')}
           </small>
         )}
       </div>
 
       {lines.length === 0 ? (
         <div className="empty-state">
-          <p>Giỏ workshop của bạn đang trống.</p>
-          <Link className="button primary" to="/workshops">Xem các gói workshop</Link>
+          <p>{t('cart.empty')}</p>
+          <Link className="button primary" to="/workshops">{t('cart.viewPackages')}</Link>
         </div>
       ) : (
-        <section className="workspace-card" aria-label="Các dòng trong giỏ">
+        <section className="workspace-card" aria-label={t('cart.linesAria')}>
           <div className="cart-head">
-            <input type="checkbox" aria-label="Chọn tất cả các dòng" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} />
-            <span>Gói workshop</span><span>Đơn giá</span><span>Số vé</span><span>Thành tiền</span><span>Thao tác</span>
+            <input type="checkbox" aria-label={t('cart.selectAllAria')} checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} />
+            <span>{t('cart.th.package')}</span><span>{t('cart.th.unit')}</span><span>{t('cart.th.qty')}</span><span>{t('cart.th.total')}</span><span>{t('cart.th.actions')}</span>
           </div>
           <ul className="cart-rows">
             {lines.map((line, index) => {
@@ -420,43 +423,43 @@ export function WorkshopCartPage() {
               const quotedLine = shownQuote?.lines?.find(item => item.lineIndex === selectedLines.findIndex(picked => picked.lineId === line.lineId));
               const sumOf = key => (quotedLine?.tickets || []).reduce((sum, ticket) => sum + Number(ticket[key] || 0), 0);
               const lineQuoted = quotedLine && quotedLine.tickets?.length && selectedIds.includes(line.lineId)
-                ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
+                ? { gross: sumOf('packagePriceVnd'), final: sumOf('finalPriceVnd'), auto: sumOf('autoDiscountVnd'), voucher: sumOf('voucherDiscountVnd'), points: sumOf('pointDiscountVnd') }
                 : null;
               return (
                 <li key={line.lineId} className={`cart-row${failed ? ' failed' : ''}`}>
                   <div className="cart-cell cart-check">
                     <input
                       type="checkbox"
-                      aria-label={`Chọn dòng ${index + 1}`}
+                      aria-label={t('cart.selectLineAria', { n: index + 1 })}
                       checked={selectedIds.includes(line.lineId)}
                       onChange={() => toggleLine(line.lineId)}
                       disabled={quoting || confirming}
                     />
                   </div>
                   <div className="cart-cell cart-product">
-                    <strong>{line.packageName || `Gói #${line.packageId}`}</strong>
+                    <strong>{line.packageName || t('quote.package', { id: line.packageId })}</strong>
                     <p className="muted">
-                      Dòng {index + 1}{locationNames[`${line.packageId}:${line.locationId}`] ? ` · ${locationNames[`${line.packageId}:${line.locationId}`]}` : ''}
+                      {t('cart.lineN', { n: index + 1 })}{locationNames[`${line.packageId}:${line.locationId}`] ? ` · ${locationNames[`${line.packageId}:${line.locationId}`]}` : ''}
                     </p>
                     {line.sessionLabels?.length > 0 && (
                       <ul className="muted cart-sessions">
                         {line.sessionLabels.map((label, position) => (
-                          <li key={`${line.lineId}-${position}`}>Buổi {position + 1}: {label}</li>
+                          <li key={`${line.lineId}-${position}`}>{t('cart.session', { n: position + 1, label })}</li>
                         ))}
                       </ul>
                     )}
                     {line.pricePerParticipantVnd ? <WorkshopOfferBadges offers={offers} /> : null}
                   </div>
-                  <div className="cart-cell cart-unit" data-label="Đơn giá">
+                  <div className="cart-cell cart-unit" data-label={t('cart.th.unit')}>
                     {line.pricePerParticipantVnd ? (
                       <WorkshopOfferPrice offers={offers} voucher={false} fallback={<span className="price">{vnd(line.pricePerParticipantVnd)}</span>} />
                     ) : '—'}
                   </div>
-                  <div className="cart-cell" data-label="Số vé">
-                    <div className="participant-stepper" role="group" aria-label={`Số người của dòng ${index + 1}`}>
+                  <div className="cart-cell" data-label={t('cart.th.qty')}>
+                    <div className="participant-stepper" role="group" aria-label={t('cart.participantsAria', { n: index + 1 })}>
                       <button
                         type="button"
-                        aria-label={`Giảm số vé dòng ${index + 1}`}
+                        aria-label={t('cart.decreaseAria', { n: index + 1 })}
                         disabled={line.participantCount <= (line.minParticipants || 1) || quoting || confirming}
                         onClick={() => changeParticipants(line.lineId, line.participantCount - 1)}
                       >
@@ -467,13 +470,13 @@ export function WorkshopCartPage() {
                         min={line.minParticipants || 1}
                         max={line.maxParticipants || undefined}
                         value={line.participantCount}
-                        aria-label={`Số vé dòng ${index + 1}`}
+                        aria-label={t('cart.qtyAria', { n: index + 1 })}
                         onChange={event => changeParticipants(line.lineId, Number(event.target.value))}
                         disabled={quoting || confirming}
                       />
                       <button
                         type="button"
-                        aria-label={`Tăng số vé dòng ${index + 1}`}
+                        aria-label={t('cart.increaseAria', { n: index + 1 })}
                         disabled={Boolean(line.maxParticipants) && line.participantCount >= line.maxParticipants}
                         onClick={() => changeParticipants(line.lineId, line.participantCount + 1)}
                       >
@@ -481,15 +484,16 @@ export function WorkshopCartPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="cart-cell cart-subtotal" data-label="Thành tiền">
+                  <div className="cart-cell cart-subtotal" data-label={t('cart.th.total')}>
                     {lineQuoted ? (
                       <>
                         {lineQuoted.final < lineQuoted.gross && <s className="cart-was">{vnd(lineQuoted.gross)}</s>}
                         <span>{vnd(lineQuoted.final)}</span>
-                        {(lineQuoted.voucher > 0 || lineQuoted.points > 0) && (
+                        {(lineQuoted.auto > 0 || lineQuoted.voucher > 0 || lineQuoted.points > 0) && (
                           <small className="cart-saved">
-                            {lineQuoted.voucher > 0 ? `Voucher −${vnd(lineQuoted.voucher)}` : ''}
-                            {lineQuoted.points > 0 ? `${lineQuoted.voucher > 0 ? ' · ' : ''}Điểm −${vnd(lineQuoted.points)}` : ''}
+                            {lineQuoted.auto > 0 ? t('cart.saved.auto', { amount: vnd(lineQuoted.auto) }) : ''}
+                            {lineQuoted.voucher > 0 ? `${lineQuoted.auto > 0 ? ' · ' : ''}${t('cart.saved.voucher', { amount: vnd(lineQuoted.voucher) })}` : ''}
+                            {lineQuoted.points > 0 ? `${lineQuoted.auto > 0 || lineQuoted.voucher > 0 ? ' · ' : ''}${t('cart.saved.points', { amount: vnd(lineQuoted.points) })}` : ''}
                           </small>
                         )}
                       </>
@@ -497,14 +501,14 @@ export function WorkshopCartPage() {
                   </div>
                   <div className="cart-cell">
                     <button type="button" className="cart-remove" onClick={() => remove(line.lineId)} disabled={quoting || confirming}>
-                      Xóa dòng
+                      {t('cart.remove')}
                     </button>
                   </div>
                   {failed && (
                     <p role="alert" className="cart-row-alert">
                       {failingCode === 'PACKAGE_NOT_AVAILABLE_AT_LOCATION'
-                        ? <>Gói này không còn bán tại chi nhánh đã chọn. <a className="text-link" href={`/workshops/${line.packageId}`}>Chọn chi nhánh khác</a></>
-                        : 'Dòng này không còn đủ chỗ. Hãy giảm số người hoặc chọn ca khác.'}
+                        ? <>{t('cart.rowNotAvailable')} <a className="text-link" href={`/workshops/${line.packageId}`}>{t('booking.otherBranch')}</a></>
+                        : t('cart.rowNoCapacity')}
                     </p>
                   )}
                 </li>
@@ -515,29 +519,30 @@ export function WorkshopCartPage() {
           {quoteError && (
             <div role="alert" style={{ marginTop: '12px', color: '#b00' }}>
               <strong>{quoteError.code}</strong>
-              <p style={{ margin: '4px 0 0' }}>{quoteError.message}</p>
+              <p style={{ margin: '4px 0 0' }}>{quoteError.messageKey ? t(quoteError.messageKey) : quoteError.message}</p>
             </div>
           )}
 
           <div className="cart-bar">
             <label className="cart-bar-all">
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} /> Chọn tất cả ({lines.length})
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={quoting || confirming} /> {t('cart.selectAll', { count: lines.length })}
             </label>
             <div className="cart-bar-total" aria-live="polite">
               {(quote || preview) ? (
                 <>
-                  <span className="muted">Tổng sau ưu đãi ({totalTickets} vé)</span>
+                  <span className="muted">{t('cart.totalAfter', { count: totalTickets })}</span>
                   <strong>{vnd((quote || preview).finalTotalVnd)}</strong>
                   <small className="muted">
-                    {Number((quote || preview).voucherDiscountVnd || 0) > 0 ? `Voucher −${vnd((quote || preview).voucherDiscountVnd)}` : 'Chưa có voucher phù hợp'}
-                    {Number((quote || preview).pointDiscountVnd || 0) > 0 ? ` · Điểm −${vnd((quote || preview).pointDiscountVnd)} (${Number((quote || preview).pointsUsed || 0).toLocaleString('vi-VN')} điểm)` : ''}
+                    {Number((quote || preview).autoDiscountVnd || 0) > 0 ? `${t('cart.saved.auto', { amount: vnd((quote || preview).autoDiscountVnd) })} · ` : ''}
+                    {Number((quote || preview).voucherDiscountVnd || 0) > 0 ? t('cart.saved.voucher', { amount: vnd((quote || preview).voucherDiscountVnd) }) : t('cart.noVoucher')}
+                    {Number((quote || preview).pointDiscountVnd || 0) > 0 ? ` · ${t('cart.saved.pointsFull', { amount: vnd((quote || preview).pointDiscountVnd), points: format.number(String((quote || preview).pointsUsed || 0)) })}` : ''}
                   </small>
                 </>
               ) : (
                 <>
-                  <span className="muted">{autoPicking ? 'Đang chọn ưu đãi tốt nhất…' : `Tạm tính (${totalTickets} vé)`}</span>
+                  <span className="muted">{autoPicking ? t('cart.picking') : t('cart.estimate', { count: totalTickets })}</span>
                   <strong>{vnd(estimatedTotal)}</strong>
-                  <small className="muted">Chưa gồm voucher/điểm; số tiền cuối do bước báo giá quyết định.</small>
+                  <small className="muted">{t('cart.estimateNote')}</small>
                 </>
               )}
             </div>
@@ -547,19 +552,19 @@ export function WorkshopCartPage() {
               onClick={proceed}
               disabled={quoting || confirming || autoPicking || selectedLines.length === 0 || bookingMode === null || profileLoading}
             >
-              {quoting ? 'Đang báo giá...' : 'Xem báo giá và đặt chỗ'}
+              {quoting ? t('booking.quoting') : t('cart.proceed')}
             </button>
           </div>
         </section>
       )}
 
       {bookingMode === 'MEMBER' && lines.length > 0 && (
-        <section className="workspace-card" style={{ marginTop: '24px' }} aria-label="Ưu đãi và điểm thưởng">
+        <section className="workspace-card" style={{ marginTop: '24px' }} aria-label={t('cart.benefitsAria')}>
           <div className="card-head" style={{ marginBottom: '16px' }}>
             <div>
-              <h2 style={{ margin: 0 }}>Ưu đãi &amp; Điểm thưởng</h2>
+              <h2 style={{ margin: 0 }}>{t('cart.benefitsTitle')}</h2>
               <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-                Một lần dùng voucher áp cho cả nhóm; hệ thống phân bổ ưu đãi cho từng vé khi báo giá.
+                {t('booking.benefitsHint')}
               </p>
             </div>
           </div>
@@ -576,7 +581,7 @@ export function WorkshopCartPage() {
         </section>
       )}
 
-      <CartQuoteDialog open={Boolean(quote)} title="Báo giá giỏ workshop" busy={confirming} onClose={invalidateQuote}>
+      <CartQuoteDialog open={Boolean(quote)} title={t('cart.dialogTitle')} busy={confirming} onClose={invalidateQuote}>
       <CartQuotePanel
         quote={quote}
         contact={contact}
@@ -589,7 +594,7 @@ export function WorkshopCartPage() {
         failingCode={failingCode}
         onCancel={invalidateQuote}
         packageHrefOf={index => `/workshops/${lines[index]?.packageId}`}
-        title="Báo giá giỏ workshop"
+        title={t('cart.dialogTitle')}
       />
       </CartQuoteDialog>
     </main>

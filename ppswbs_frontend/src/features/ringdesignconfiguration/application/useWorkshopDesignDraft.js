@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from 'react';
+import { translate } from '../../../shared/i18n/I18nProvider';
+import { messages } from '../messages';
 import { createDefaultDraft, normalizeDraftForSave, validateDraftClient } from '../domain/designDraft';
 import { derivePreviewModel, findNextAvailableAngle } from '../domain/designPreview';
 
-export function useWorkshopDesignDraft(packageReference, initialModel = null) {
+export function useWorkshopDesignDraft(packageReference, initialModel = null, t = (key, params) => translate(messages, 'vi', key, params)) {
   const [draft, setDraft] = useState(() => createDefaultDraft(packageReference, initialModel));
   const [isDirty, setIsDirty] = useState(false);
 
-  const previewModel = useMemo(() => derivePreviewModel(draft), [draft]);
-  const clientValidation = useMemo(() => validateDraftClient(draft), [draft]);
+  const previewModel = useMemo(() => derivePreviewModel(draft, t), [draft, t]);
+  const clientValidation = useMemo(() => validateDraftClient(draft, t), [draft, t]);
 
   const updateMaterial = useCallback((materialReference) => {
     setDraft((prev) => ({ ...prev, materialReference }));
@@ -37,11 +39,23 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
   }, []);
 
   const setComponentQuantity = useCallback((componentReference, rawQuantity, maxQuantity = 10) => {
-    const qty = Math.max(0, Math.min(Number(maxQuantity) || 10, Number(rawQuantity) || 0));
     setDraft((prev) => {
-      let nextComponents;
       const existing = prev.components.find((c) => c.reference === componentReference);
+      const otherTotal = prev.components
+        .filter((c) => c.reference !== componentReference)
+        .reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
 
+      const requestedQty = Math.max(0, Number(rawQuantity) || 0);
+      if (requestedQty > (existing?.quantity || 0) && otherTotal + requestedQty > 10) {
+        // Exceeds aggregate limit of 10: do not change draft on 11th attempt
+        return prev;
+      }
+
+      const allowedForThis = Math.min(Number(maxQuantity) || 10, 10 - otherTotal);
+      if (allowedForThis < 0) return prev;
+      const qty = Math.min(allowedForThis, requestedQty);
+
+      let nextComponents;
       if (qty <= 0) {
         nextComponents = prev.components.filter((c) => c.reference !== componentReference);
       } else if (existing) {
@@ -103,6 +117,10 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
           components: prev.components.filter((c) => c.reference !== componentReference),
           gemstonePositions: (prev.gemstonePositions || []).filter((p) => p.reference !== componentReference),
         };
+      }
+      const currentTotal = prev.components.reduce((sum, c) => sum + (Number(c.quantity) || 1), 0);
+      if (currentTotal >= 10) {
+        return prev; // Reached aggregate limit of 10
       }
       const stoneId = `gem-${componentReference}-0`;
       const currentPositions = prev.gemstonePositions || [];
@@ -182,6 +200,22 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
   const resetFromSavedDesign = useCallback((designResponse) => {
     if (!designResponse) return;
     const snapshot = designResponse.componentSnapshot || {};
+    const restoredImages = (snapshot.engraving?.customImages || []).map((img, idx) => ({
+      id: img.id || `img-${idx + 1}`,
+      placement: img.placement || 'INNER_BAND',
+      imageUrl: img.imageUrl || img.imageReference,
+      imageReference: img.imageReference || img.imageUrl,
+      processedPreviewReference: img.processedPreviewReference || img.previewDataUrl || img.previewUrl || img.imageUrl,
+      previewDataUrl: img.previewDataUrl || img.processedPreviewReference || img.previewUrl || img.imageUrl,
+      cropX: Number(img.cropX) || 0,
+      cropY: Number(img.cropY) || 0,
+      cropWidth: Number(img.cropWidth) || 160,
+      cropHeight: Number(img.cropHeight) || 160,
+      contrast: img.contrast !== undefined ? Number(img.contrast) : 50,
+      sharpness: img.sharpness !== undefined ? Number(img.sharpness) : 50,
+      price: Number(img.price) || 100000,
+    }));
+
     setDraft({
       packageReference: designResponse.packageReference,
       sourceModelReference: snapshot.sourceModelReference || designResponse.sourceModelReference || null,
@@ -198,7 +232,7 @@ export function useWorkshopDesignDraft(packageReference, initialModel = null) {
         text: snapshot.engraving?.text || '',
         placement: snapshot.engraving?.placement || 'INNER_BAND',
         items: snapshot.engraving?.items || [],
-        customImages: snapshot.engraving?.customImages || [],
+        customImages: restoredImages,
       },
     });
     setIsDirty(false);

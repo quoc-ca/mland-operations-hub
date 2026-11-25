@@ -2,7 +2,7 @@
 
 #### Primary Actors
 
-Staff
+Staff, Manager
 
 #### Secondary Actors
 
@@ -10,49 +10,49 @@ None
 
 #### Description
 
-Allows Staff to verify a confirmed workshop booking using its QR code or booking code and record the participant's attendance.
+As an assigned Staff member or a Manager, I want to check in a ticket holder for a session by QR code or ticket code so that attendance is recorded per ticket and per session.
 
 #### Preconditions
 
-1. Staff is authenticated and authorized to perform workshop check-in.
-2. The workshop session exists.
-3. The customer provides a QR ticket or valid booking code.
-
+1. The actor is a Manager, or Staff who has the location in scope and is assigned to the session.
+2. The session is published, sales-paused, or in progress.
+3. The check-in opening time of the session has passed (60 minutes before the start by default).
 
 #### Postconditions
 
-- The confirmed booking is marked checked in with the Staff actor and time recorded.
-- A duplicate check-in is not created.
-- Invalid bookings do not change attendance data.
+- Attendance of the ticket for that session is recorded once.
+- A refused scan changes nothing.
 
 #### Normal Flow
 
 **Check In Participant**
 
-1. Staff opens the workshop check-in screen.
-2. Staff scans the customer's QR code or enters the booking code manually.
-3. The system locates the booking and validates its confirmation status, session, and check-in state.
-4. The system displays the booking and participant summary for Staff verification.
-5. Staff confirms the attendee's presence.
-6. The system records the check-in actor and time and displays a successful check-in result.
+1. The actor opens the session.
+2. The actor scans the ticket QR code or enters the ticket code.
+3. The system validates the ticket, the session, the actor scope, and the check-in time.
+4. The system records the attendance immediately and shows the result.
 
 #### Alternative Flows
 
-**Step 2 — QR/code is invalid or booking is not found**
+**Step 2 — Only a booking code is entered**
 
-The system rejects the lookup and asks Staff to retry or use manual verification.
+The system lists the tickets of that session for selection; the booking code alone never checks anyone in.
 
-**Step 3 — Booking is unpaid, cancelled, or unconfirmed**
+**Step 3 — Check-in has not opened**
 
-The system refuses check-in and displays the booking status.
+The system refuses the check-in.
 
-**Step 3 — Booking belongs to another session/date**
+**Step 3 — Ticket belongs to another session or location**
 
-The system warns Staff and does not check in the participant without an authorized operational decision.
+The system refuses the check-in; an override cannot move the ticket.
 
-**Step 5 — Booking is already checked in**
+**Step 3 — Ticket already checked in**
 
-The system displays the existing check-in and does not create a duplicate record.
+The system reports that the ticket is already checked in and records nothing new.
+
+**Step 4 — A recorded check-in is wrong**
+
+Only a Manager may reverse it, with a reason.
 
 #### Business Rules
 
@@ -62,6 +62,6 @@ BR-20-01, BR-20-02, BR-20-03
 
 | ID | Rule Definition |
 |---|---|
-| BR-20-01 | Only a confirmed booking may be checked in. |
-| BR-20-02 | Check-in may be performed by QR scan or manual booking-code lookup. |
-| BR-20-03 | Check-in records the Staff actor and must not create duplicate attendance records. |
+| BR-20-01 | Attendance is recorded per ticket and per session. |
+| BR-20-02 | Staff needs both location scope and session assignment; a Manager has global access. |
+| BR-20-03 | Check-in works only online and only after the session check-in opening time; overrides require a reason. |

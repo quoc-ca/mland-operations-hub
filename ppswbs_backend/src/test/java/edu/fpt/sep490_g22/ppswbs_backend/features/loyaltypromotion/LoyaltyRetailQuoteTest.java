@@ -179,13 +179,16 @@ class LoyaltyRetailQuoteTest {
 
     @Test
     void onlyABranchLimitedVoucherBindsTheDiscountedLinesInTheDigest() {
-        List<SourceLine> cart = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 11, 500_000, BRANCH_B));
-        List<SourceLine> swapped = List.of(lineAt(1, 11, 500_000, BRANCH_B), lineAt(1, 11, 500_000, BRANCH_A));
+        // Between preview and accept the two sizes swap branches: same amounts, but the voucher now discounts the
+        // other size, so the customer must confirm again.
+        List<SourceLine> cart = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 12, 500_000, BRANCH_B));
+        List<SourceLine> moved = List.of(lineAt(1, 11, 500_000, BRANCH_B), lineAt(1, 12, 500_000, BRANCH_A));
         Result before = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
                 branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
-        Result after = RetailQuote.compute(swapped, select(SelectionChoice.VOUCHER, 0),
+        Result after = RetailQuote.compute(moved, select(SelectionChoice.VOUCHER, 0),
                 branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
-        assertThat(RetailQuote.digest(before, 1, n(0))).isNotEqualTo(RetailQuote.digest(after, 1, n(0)));
+        assertThat(after.programDiscount()).isEqualTo(before.programDiscount());
+        assertThat(RetailQuote.digest(before, cart, 1, n(0))).isNotEqualTo(RetailQuote.digest(after, moved, 1, n(0)));
 
         Result plain = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0),
                 voucher(1, percent("10", 50_000, 500_000), true, Set.of(1L)), List.of(), POLICY, n(0), false);
@@ -193,6 +196,53 @@ class LoyaltyRetailQuoteTest {
                 plain.netBeforePoints(), plain.maxPoints(), plain.pointsAllowed(), plain.pointsUsed(),
                 plain.pointDiscount(), plain.earnBase(), plain.candidate(), plain.reasonDetails());
         assertThat(RetailQuote.digest(plain, 1, n(0))).isEqualTo(RetailQuote.digest(plainWithoutLines, 1, n(0)));
+        assertThat(RetailQuote.digest(plain, CART, 1, n(0))).isEqualTo(RetailQuote.digest(plain, 1, n(0)));
+    }
+
+    @Test
+    void theSameLinesInAnotherOrderKeepTheDigestOfABranchLimitedVoucher() {
+        // BUG-INT-0003: the owner may rebuild the lines at accept in another order than at preview.
+        List<SourceLine> preview = List.of(lineAt(1, 11, 500_000, BRANCH_A), lineAt(1, 12, 300_000, BRANCH_B),
+                lineAt(1, 13, 200_000, BRANCH_A));
+        List<SourceLine> accept = List.of(preview.get(2), preview.get(1), preview.get(0));
+        Result before = RetailQuote.compute(preview, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), false);
+        Result after = RetailQuote.compute(accept, select(SelectionChoice.VOUCHER, 0),
+                branchVoucher(Set.of(BRANCH_A)), List.of(), POLICY, n(0), true);
+        assertThat(RetailQuote.digest(after, accept, 1, n(0))).isEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
+    }
+
+    @Test
+    void theSameLinesInAnotherOrderKeepTheSplitAndTheDigestOfAVoucherOnTopOfAnAutomaticDiscount() {
+        // BUG-INT-0003: preview in cart order, accept grouped by branch. Two equal lines make the largest remainder
+        // tie, which must not go to whichever line happens to come first.
+        SourceLine a = lineAt(1, 11, 500_000, BRANCH_B);
+        SourceLine b = lineAt(1, 12, 500_000, BRANCH_A);
+        SourceLine c = lineAt(1, 13, 333_333, BRANCH_A);
+        List<SourceLine> preview = List.of(a, b, c);
+        List<SourceLine> accept = List.of(b, c, a);
+        List<Candidate> autos = List.of(auto(2, EARLY, fixed(60_001, 60_001, 0), Set.of(1L)));
+        Candidate voucher = voucher(1, percent("10", 1_000_000, 0), true, Set.of(1L));
+        Result before = RetailQuote.compute(preview, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), false);
+        Result after = RetailQuote.compute(accept, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), true);
+
+        assertThat(after.autoDiscount()).isEqualTo(before.autoDiscount());
+        assertThat(after.programDiscount()).isEqualTo(before.programDiscount());
+        for (int i = 0; i < preview.size(); i++) {
+            int j = accept.indexOf(preview.get(i));
+            assertThat(after.lineAutoDiscounts().get(j)).isEqualTo(before.lineAutoDiscounts().get(i));
+            assertThat(after.lineVoucherDiscounts().get(j)).isEqualTo(before.lineVoucherDiscounts().get(i));
+        }
+        assertThat(RetailQuote.digest(after, accept, 1, n(0))).isEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
+
+        // A different split of the same totals is still a different quote.
+        List<SourceLine> otherBranch = List.of(lineAt(1, 11, 500_000, BRANCH_A), b, c);
+        Result moved = RetailQuote.compute(otherBranch, select(SelectionChoice.VOUCHER, 0), voucher, autos, POLICY,
+                n(0), false);
+        assertThat(RetailQuote.digest(moved, otherBranch, 1, n(0)))
+                .isNotEqualTo(RetailQuote.digest(before, preview, 1, n(0)));
     }
 
     @Test
@@ -207,12 +257,51 @@ class LoyaltyRetailQuoteTest {
     }
 
     @Test
-    void choosingAVoucherReplacesTheAutomaticDiscount() {
+    void aChosenVoucherIsAddedOnTopOfTheAutomaticDiscount() {
+        // Session 2026-11-22, FR-015: the best automatic discount stays and the voucher is added on top.
         Result result = RetailQuote.compute(CART, select(SelectionChoice.VOUCHER, 0),
                 voucher(1, fixed(5_000, 5_000, 0), true, Set.of(1L)),
                 List.of(auto(2, EARLY, fixed(30_000, 30_000, 0), Set.of(1L))), POLICY, n(0), false);
-        assertThat(result.programDiscount()).as("never stacked").isEqualTo(n(5_000));
+        assertThat(result.programDiscount()).as("stacked").isEqualTo(n(35_000));
+        assertThat(result.autoDiscount()).isEqualTo(n(30_000));
+        assertThat(result.voucherDiscount()).isEqualTo(n(5_000));
         assertThat(result.candidate().kind()).isEqualTo(ProgramKind.VOUCHER);
+        assertThat(result.auto().programId()).isEqualTo(2L);
+        assertThat(result.lineAutoDiscounts()).containsExactly(n(30_000), n(0));
+        assertThat(result.lineVoucherDiscounts()).containsExactly(n(5_000), n(0));
+    }
+
+    @Test
+    void scenario3a_theVoucherIsMeasuredOnTheLinesAfterTheirAutomaticShare() {
+        // US4 scenario 3a (Session 2026-11-22): A 600.000đ and B 400.000đ in a 10% automatic discount; a 20% voucher
+        // capped at 100.000đ, minimum 300.000đ, covers B only.
+        List<SourceLine> cart = List.of(line(1, 11, 1, 600_000), line(2, 21, 1, 400_000));
+        List<Candidate> autos = List.of(auto(2, EARLY, percent("10", 1_000_000, 0), Set.of(1L, 2L)));
+        Result result = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                voucher(1, percent("20", 100_000, 300_000), true, Set.of(2L)), autos, POLICY, n(0), false);
+        assertThat(result.autoDiscount()).isEqualTo(n(100_000));
+        assertThat(result.lineAutoDiscounts()).containsExactly(n(60_000), n(40_000));
+        assertThat(result.eligibleSubtotal()).as("B after its automatic share").isEqualTo(n(360_000));
+        assertThat(result.voucherDiscount()).isEqualTo(n(72_000));
+        assertThat(result.lineVoucherDiscounts()).containsExactly(n(0), n(72_000));
+        assertThat(result.programDiscount()).isEqualTo(n(172_000));
+        assertThat(result.eligibleLines()).containsExactly(0, 1);
+
+        Result refused = RetailQuote.compute(cart, select(SelectionChoice.VOUCHER, 0),
+                voucher(1, percent("20", 100_000, 400_000), true, Set.of(2L)), autos, POLICY, n(0), false);
+        assertThat(refused.reasonDetails()).extracting(r -> r.code().name()).containsExactly("BELOW_MINIMUM_AMOUNT");
+        assertThat(refused.programDiscount()).as("the automatic discount still applies").isEqualTo(n(100_000));
+        assertThat(refused.candidate().kind()).isEqualTo(ProgramKind.AUTO_DISCOUNT);
+    }
+
+    @Test
+    void noVoucherStillGetsTheAutomaticDiscount() {
+        // FR-015: NONE means no voucher; the automatic discount cannot be declined.
+        Result result = RetailQuote.compute(CART, select(SelectionChoice.NONE, 0), null,
+                List.of(auto(2, EARLY, fixed(30_000, 30_000, 0), Set.of(1L))), POLICY, n(0), false);
+        assertThat(result.programDiscount()).isEqualTo(n(30_000));
+        assertThat(result.candidate().kind()).isEqualTo(ProgramKind.AUTO_DISCOUNT);
+        assertThat(result.reasonDetails()).isEmpty();
     }
 
     @Test

@@ -110,31 +110,28 @@ post-commit and does not block account mutations.
 Capacity values, expiry behaviour, booking schema, and payment-provider handoff
 remain feature-contract decisions.
 
-### 3.3 Independent AI design workspace and feasibility review (`designreview`)
+### 3.3 Design Request and Human Review (`designreview`)
 
 | Boundary | Method and route | Access | UC | Purpose | Maturity |
 | --- | --- | --- | --- | --- | --- |
 | Public client REST | `GET /api/v1/ring-models` | Public | UC-03 | List published ring-model design paths approved through the catalogue authority. | Draft |
 | Public client REST | `GET /api/v1/ring-components` | Public | UC-03 | List published components usable by the configurator. | Draft |
-| Client REST | `POST /api/v1/design-requests` | Approved Member; Guest only after ownership-proof decision | UC-03 | Create an independent Design Request with optional description and/or image. No booking, session, location, payment or ticket context is accepted. | Draft |
-| Protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Approved owner; authorized Staff/Manager review scope | UC-03 | Read an owner-safe analysis/review projection without exposing raw provider payloads or another owner's data. | Draft |
+| Protected client REST | `POST /api/v1/design-requests` | Member | UC-03 | Create an independent human-reviewed Design Request with description and/or up to five images. No booking, location, payment or ticket context is accepted. | Implementation baseline |
+| Protected client REST | `GET /api/v1/design-requests/{designRequestId}` | Member owner/authorized Staff/Manager | UC-03 | Read a safe human-review projection without exposing raw image, private owner data or internal identifiers. | Implementation baseline |
 | Protected client REST | `GET /api/v1/design-review-requests` | Staff or Manager within approved scope | UC-03, UC-08 | List independent Design Requests requiring human review. | Draft |
 | Protected client REST | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | Staff or Manager, according to the approved review policy and authority scope | UC-03, UC-08 | Record Accepted, Rejected, or Clarification Required with actor, reason, current design version and decision context. AI cannot create this decision. | Draft |
-| Public or protected client REST | `POST /api/v1/ai-support/messages` | Guest or Member; public context only | UC-26 | Submit an in-scope public-information/FAQ prompt and receive a validated basic-support response. No transaction or business decision is created. | Draft |
-| Protected client REST | `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Manager | UC-28 | Request an advisory package/product price suggestion from complete configured inputs; the suggestion never publishes or changes the final price. | Draft |
+| Historical client REST | `POST /api/v1/ai-support/messages` | Historical Feature-004 AI baseline | Historical UC-26 | Retired. No current Feature-004 design-request flow calls an AI provider. | Historical only |
+| Historical client REST | `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Historical Feature-004 AI baseline | Historical UC-28 | Retired from Feature-004; no AI price suggestion is part of the current design-request flow. | Historical only |
 
-AI output is candidate feature data or advisory pricing information only. The
-independent Design Request flow has no booking prerequisite or booking side effect.
-Guest ownership, text-only requests, human-review policy and image retention remain
-explicit implementation gates from the independent handoff.
+The current Design Request flow has no AI output. It has no booking prerequisite
+or booking side effect. Member ownership, human-review policy and image retention
+remain explicit implementation gates from the independent handoff.
 
 #### Feature-04 endpoint detail
 
-For `POST /api/v1/ai-support/messages`, quota admission is committed before
-screening/provider work. If a first Guest command fails after a session is
-created, the opaque session is returned in `X-Guest-AI-Session` and the safe
-error projection so the client cannot bypass the daily quota by starting a new
-session. The response also exposes `Retry-After` on quota exhaustion.
+The current Feature-004 API does not expose an AI-support or AI-price command.
+Member authentication and ownership are enforced before request creation; image
+quality validation occurs before persistence.
 
 The following is the API catalog-level contract for Feature-04. The feature
 OpenAPI contract remains authoritative for exact schemas, field types, enum values,
@@ -142,12 +139,10 @@ headers and error payloads.
 
 | Method and route | Input | Successful output | Allowed actors and conditions | Important errors / side effects |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/ai-support/messages` | Headers: optional `Authorization: Bearer <token>`, optional `X-Guest-AI-Session: <session>`; JSON `{ message }`; normalized text up to 2,000 characters. | Validated text response with safe scope metadata, correlation data, quota metadata (`actor`, `limit`, `remaining`, `resetAt`), and `X-AI-Quota-*` / `X-Guest-AI-Session` headers. | Guest (3 prompt/ngày) or Member (10 prompt/ngày); only approved public catalogue, workshop, store and FAQ context. Reset lúc 00:00 Asia/Ho_Chi_Minh. Staff/Manager/Admin forbidden (403 `AI_ACTOR_NOT_ALLOWED`). | `400` (`AI_INPUT_INVALID`); `401` (`AI_GUEST_SESSION_INVALID`); `403` (`AI_ACTOR_NOT_ALLOWED`); `422` (`AI_PROMPT_INJECTION_DETECTED`, `AI_CONTEXT_NOT_ALLOWED`); `429` (`AI_DAILY_QUOTA_EXCEEDED` with `Retry-After`); `503` (`AI_UNAVAILABLE`). No booking, payment, review or price mutation. |
-| `POST /api/v1/design-requests` | Multipart optional `description`, optional opaque `catalogueReference`, optional image/consent and `Idempotency-Key`; no booking/payment fields. | `202` independent versioned Design Request projection. | Approved owner policy; Member own data; Guest only after approved proof. Consent is required before image storage/provider call; maximum three image attempts per rolling five minutes. | `401/403/409/422/429`; invalid requests do not call Gemini or store image. |
-| `GET /api/v1/design-requests/{designRequestId}` | Path identifier; no request body. | Owner-safe or reviewer-scoped analysis/review projection. | Approved owner, in-scope Staff/Manager, or approved Admin audit access. | `401/403/404`; never returns raw image, raw provider payload, credentials or another owner's data. |
+| `POST /api/v1/design-requests` | Multipart optional `description`, optional opaque `catalogueReference`, optional `designReference`, up to five images and `Idempotency-Key`; no booking/payment fields. | `201` independent human-review projection. | Authenticated Member only. Image quality is checked before persistence and image consent is mandatory. | `400/401/403/409/422`; invalid requests do not create a request or persist invalid images. No AI provider call or automated decision. |
+| `GET /api/v1/design-requests/{designRequestId}` | Path identifier with Firebase identity. | Owner-safe or reviewer-scoped human-review projection. | Member owner or authorized Staff/Manager. | `401/403/404`; never returns raw image payload, private owner data or internal audit data. |
 | `GET /api/v1/design-review-requests` | Optional scope/filter and pagination query parameters defined by the feature contract. | Reviewer-scoped queue of requests requiring human action. | Staff or Manager with active status, branch/delegation scope and applicable authority. | `401/403`; read-only and must not broaden reviewer scope through client parameters. |
 | `POST /api/v1/design-review-requests/{reviewRequestId}/decisions` | JSON `{ decision, designVersion, reason }`; decision is `ACCEPTED`, `REJECTED` or `CLARIFICATION_REQUIRED`. | Updated review projection with reviewer, decision time, reason and next action. | In-scope Staff/Manager under the approved review policy; exact tier/threshold remains an implementation gate until resolved. | `401/403/409/422`; stale/concurrent decisions return conflict. Reviewer cannot review own/conflicted request. AI cannot create the decision. |
-| `POST /api/v1/price-proposals/{proposalId}/ai-suggestions` | Proposal identifier and validated package/product pricing context; no custom-manufacturing order, Member quotation, invoice or payment amount. | Advisory price-suggestion projection with warning/advisory flag and provider correlation. | Authorized Manager only. | `401/403/422/503` for authorization, incomplete/invalid input or provider failure. Manager may use manual fallback; AI cannot apply or publish a price. |
 
 For all protected routes, Firebase identity is verified first and Mland role,
 status, ownership and authority are checked server-side. Client-supplied role,
@@ -268,9 +263,9 @@ provider-specific contract, security review, and feature approval.
 | Owner | Boundary | Contract / route | Counterparty | Trace | Required invariant | Maturity |
 | --- | --- | --- | --- | --- | --- | --- |
 | `paymentintegration` | Inbound integration | `GET /api/v1/integrations/payments/vnpay/events` | VNPay | UC-01, UC-04 | One HTTPS ingress verifies the signed VNPay callback once, deduplicates delivery, resolves immutable owner-qualified merchant reference, and dispatches redacted evidence to exactly one owner facade. It never confirms business state itself. Canonical contract: `features/003-workshop-management/contracts/vnpay-payment-ingress.openapi.yaml`. | Confirmed 003 boundary; provider configuration TBD |
-| `designreview` | Outbound integration port | `ImageFeatureAnalysisPort.analyse(...)` | AI Vision API | UC-03 | Send a reference image only after explicit consent and accepted validation; treat output only as candidate features. | TBD dependency |
+| `designreview` | Historical outbound integration port | `ImageFeatureAnalysisPort.analyse(...)` | AI Vision API | Historical UC-03 | Retired from the current Feature-004 contract. No current Feature-004 request sends an image to an AI provider or treats an AI response as a business decision. | Historical only |
 | `workshopbooking`, `readyringsales` | Outbound integration port | `NotificationDeliveryPort.send(...)` | Email Sender | UC-01, UC-04 | Send requested booking/order notifications without leaking tokens or unnecessary PII. | TBD dependency |
-| Google Maps/Places read-only owner | Outbound read-only integration | Google Maps Embed and permitted Places display | Google Maps/Places | Display permitted public information with attribution/link; Feature-011 does not import or write review content. | Existing read-only boundary |
+| Google Maps/Places (Retired) | None | Google Maps Embed and Places display | Google Maps/Places | Not used; removed from V1 (confirmed 2026-11-25). Feature-011 reviews are Mland reviews, not Google reviews. | Retired |
 
 Provider selection, signing/authentication scheme, payload schema, retry and
 reconciliation policy, dead-letter handling, rate limits, operational ownership,
@@ -314,9 +309,9 @@ and reply edit.
 
 | Boundary | Method and route | Access | Purpose | Maturity |
 | --- | --- | --- | --- | --- |
-| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Guest email/phone match | Normalize contact, verify eligible workshop and retail sources through facades, and return sources plus a 30-minute opaque handle. | Approved |
+| `reviewmanagement` | `POST /api/v1/review-eligibility/lookup` | Retired | Guest email/phone lookup is retired; Member eligibility is resolved through the authenticated Member endpoint. | Retired 2026-11-25 |
 | `reviewmanagement` | `GET /api/v1/reviews/eligible-sources` | Authenticated Member | Return the Member’s own eligible sources. | Approved |
-| `reviewmanagement` | `POST /api/v1/reviews` | Matched Guest with valid handle or owning Member with Firebase identity | Revalidate source/target ownership, then create one `PUBLIC` review with idempotency and source uniqueness. | Approved |
+| `reviewmanagement` | `POST /api/v1/reviews` | Owning Member with Firebase identity | Revalidate source/target ownership, then create one `PUBLIC` review with idempotency and source uniqueness. | Approved |
 | `reviewmanagement` | `GET /api/v1/reviews`, `GET /api/v1/reviews/{id}` | Public/authorized Member owner | Read safe public projection; an authenticated owner may receive the owner projection. | Approved |
 | `reviewmanagement` | `PATCH /api/v1/reviews/{id}` | Review owner | Edit rating/text while retaining `PUBLIC`; append revision/audit. | Approved |
 | `reviewmanagement` | `PATCH /api/v1/reviews/{id}/visibility` | Staff/Manager | Staff may only hide; Manager may hide, restore or remove according to transition and audit rules. | Approved |
@@ -324,8 +319,9 @@ and reply edit.
 | `reviewmanagement` | `POST/PATCH /api/v1/reviews/{id}/reply` | Manager | Create/edit the single current reply; audit edits. | Approved |
 
 Admin has technical/audit access only and no business moderation authority. No
-endpoint imports or writes Google Places reviews. Guest create requires the
-opaque handle returned by lookup; a raw source identifier is insufficient.
+endpoint integrates with Google Maps/Places or imports/writes Google reviews.
+Guest create is not supported; a raw source identifier is insufficient ownership
+proof and Member authentication is required.
 Public responses exclude source identifiers, owner references, contact data and
 transaction data. Admin has no business moderation or reply endpoint; technical
 audit access is provided only through the platform audit boundary when enabled.
@@ -340,23 +336,61 @@ the required state (`CHECKED_IN`, `PICKED_UP` or `DELIVERED`). Feature-011
 receives opaque references and sanitized evidence, not foreign repositories or
 full transaction records.
 
+## Feature-004 — Design Request and Human Review (supersedes AI contract)
+
+Owner: `designrequesthumanreview` (logical); the legacy directory/module name is
+retained temporarily for migration history.
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/design-requests` | Member | Create an independent request with description and up to five images. |
+| GET | `/api/v1/design-requests/{id}` | Member owner | Safe status, quality and decision-explanation projection. |
+| GET | `/api/v1/design-requests` | Member | Own request history only. |
+| GET | `/api/v1/design-review-requests` | Staff/Manager | Pending review queue. |
+| GET | `/api/v1/design-review-requests/{id}` | Staff/Manager | Safe review detail. |
+| POST | `/api/v1/design-review-requests/{id}/decisions` | Staff/Manager | `CLARIFICATION_REQUIRED`, `ACCEPTED` or `REJECTED` with mandatory explanation. |
+
+All writes use `Idempotency-Key`; review decisions and revisions use
+`If-Match-Version`. The custom-order intake contract is defined in
+`contracts/custom-design-order-intake.openapi.yaml`. Feature-004 receives
+immutable Feature-012 snapshots through a facade, then hands accepted requests
+to Custom Manufacturing for quote, payment and fulfilment. No direct repository
+access is permitted.
+
+### Feature-004 custom-order intake routes
+
+| Method | Endpoint | Actor | Contract boundary |
+| --- | --- | --- | --- |
+| POST | `/api/v1/custom-design-requests` | Member | Create request from description, images and/or Feature-012 snapshot. |
+| GET | `/api/v1/custom-design-requests/{requestId}` | Member owner | Read safe request, revision, decision and quote projection. |
+| POST | `/api/v1/custom-design-requests/{requestId}` | Member owner | Submit a revision after `CLARIFICATION_REQUIRED`. |
+| POST | `/api/v1/custom-design-requests/{requestId}/decisions` | Staff/Manager | Record clarification, acceptance or rejection with explanation. |
+| POST | `/api/v1/custom-design-requests/{requestId}/quote` | Authorized quote actor | Create a Manager-policy-bound full-payment quote handoff; no payment is confirmed by this call and no retail cart line is created. |
+| GET | `/api/v1/members/me/custom-design-requests` | Member owner | List the Member's own requests and quote summaries for the Requests view. |
+| GET | `/api/v1/members/me/custom-orders` | Member owner | List the Member's own custom orders for the Orders view, including quote/payment/production/fulfilment status. |
+| GET | `/api/v1/members/me/custom-orders/{customOrderId}` | Member owner | Read the safe custom-order detail and the current complete-payment quote. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/payment` | Member owner | Create one payment attempt for the complete active quote; no cart line, deposit or balance payment is created. |
+| POST | `/api/v1/members/me/custom-orders/{customOrderId}/request-new-quote` | Member owner | Request a new quote generation after expiry where business policy permits it; the previous quote remains immutable history. |
+
+The detailed draft is `features/004-ai-chatbox-analysis-and-suggestion/contracts/custom-design-order-intake.openapi.yaml`.
+
 ## Feature-012 — Workshop Ring Design Configuration
 
 Owner: `ringdesignconfiguration`.
 
 | Method | Endpoint | Actor | Contract boundary |
 | --- | --- | --- | --- |
-| GET | `/api/v1/workshop-design-options` | Guest/Member | Package-scoped active options; opaque references only. |
-| POST | `/api/v1/workshop-designs` | Guest/Member | Creates a server-validated design using Guest opaque session or Firebase identity. |
-| GET | `/api/v1/workshop-designs/{designId}` | Guest/Member | Safe projection scoped to session or Member ownership. |
-| POST | `/api/v1/workshop-designs/{designId}/versions` | Guest/Member | Creates a new immutable version using `Idempotency-Key` and `If-Match-Version`. |
-| POST | `/api/v1/workshop-designs/{designId}/evaluate` | Guest/Member | Server/rule-facade evaluation; estimate is advisory. |
-| POST | `/api/v1/workshop-designs/{designId}/archive` | Guest/Member | Soft archive only; versioned and idempotent. |
-| POST | `/api/v1/workshop-designs/{designId}/attach-to-booking` | Booking facade | Synchronous `attachAndLockDesignForBooking(...)`; not a payment API. |
+| GET | `/api/v1/workshop-design-options` | Public read / Member command context | Package-scoped active options; opaque references only. |
+| POST | `/api/v1/workshop-designs` | Member | Creates a server-validated design using Firebase identity. |
+| GET | `/api/v1/workshop-designs/{designId}` | Member owner | Safe projection scoped to Member ownership. |
+| POST | `/api/v1/workshop-designs/{designId}/versions` | Member | Creates a new immutable version using `Idempotency-Key` and `If-Match-Version`. |
+| POST | `/api/v1/workshop-designs/{designId}/evaluate` | Member | Server/rule-facade evaluation; estimate is advisory. |
+| POST | `/api/v1/workshop-designs/{designId}/archive` | Member | Soft archive only; versioned and idempotent. |
+| POST | `/api/v1/workshop-designs/{designId}/attach-to-booking` | Booking facade | Retired Feature-012 endpoint. It must not be called by the current frontend or implemented as part of the saved-design recommendation baseline. |
 
 All write commands use `Idempotency-Key`; versioned commands use
-`If-Match-Version`. Public/safe DTOs do not expose database IDs, raw Guest
-session values, audit data or private Member data. Feature-003 consumes the
+`If-Match-Version`. Public/safe DTOs do not expose database IDs, audit data or
+private Member data. Feature-003 consumes the
 internal facade and never accesses Feature-012 persistence directly.
 
 ## Feature-002 — Product Management: tồn kho theo chi nhánh (US10, 2026-11-09)
@@ -373,3 +407,15 @@ Nguồn chi tiết: `features/002-product-management/contracts/product-managemen
 | `productmanagement` | Protected client REST | `GET /product-imports/template?locationIds=`, `POST /product-imports` (`locationIds`) | Staff (chi nhánh được gán) / Manager | Import Excel với một cột số lượng mỗi chi nhánh. | Implemented |
 | `productmanagement` | Public client REST | `GET /api/v1/products/{productId}` (mỗi size thêm `assignedToBranches`, `branches[{locationId, canBuy, availableQuantity}]`, `availableQuantity` — số khả dụng từ 2026-11-14, FR-052) | Public | Trang sản phẩm cho chọn size còn hàng tại chi nhánh đang chọn, hiện "N sản phẩm có sẵn"; không lộ phần đang giữ. | Implemented 2026-11-09; sửa 2026-11-14 |
 | `productmanagement.facade` | Synchronous facade | `readyringsales` | `CatalogueSalesFacade.readBranchSaleFacts`, `withLockedBranchSaleContext`, `withLockedHistoricalBranchContext`, `recordAcceptedSale(op, variantId, locationId, qty)`; SPI `AvailabilityGuardPort.tracksHoldsPerBranch/readBranchSnapshots/withBranchGuard` (có cài đặt mặc định theo size). | Contract implemented by 002; FE-08 adoption pending (T124) |
+# 2026-11-22 cross-feature superseding notes
+
+- Feature-012 no longer exposes a current booking-attachment API. Its saved
+  design recommendation is an owner-safe read projection resolved through the
+  catalogue boundary.
+- Feature-004 accepts an owner-visible Feature-012 design reference in any
+  readable state and captures an immutable snapshot at request creation.
+- Feature-013 supports authenticated Member contextless or saved-design
+  consultation only. Guest sees the entry point but must sign in before a
+  conversation is created. Staff and Manager remain chat participants under
+  their existing operational scopes.
+- Customer labels are `Yêu cầu chế tác`, `Đơn hàng cá nhân`, and `Phiên bản báo giá`.
