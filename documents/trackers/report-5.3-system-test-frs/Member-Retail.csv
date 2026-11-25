@@ -1,2 +1,4 @@
 Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
 ST-FR-RET-001,Guest cannot buy a ready ring,"Attempt ready-ring checkout without Member account",System prevents checkout and routes to Member access path,Application implementation,Not Run,,,,,,,,,,No execution result recorded
+ST-FR-RET-002,Member completes ready-ring checkout,"Select valid size; pay full quote; choose pickup or handoff",One paid retail order is created and fulfilment begins,Product payment and fulfilment available,Not Run,,,,,,,,,,Full payment
+ST-FR-RET-003,Invalid cart line blocks order,"Use unavailable or changed-price cart line",No partial order is created and user receives correction guidance,Cart and quote validation available,Not Run,,,,,,,,,,Whole-cart validation

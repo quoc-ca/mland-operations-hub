@@ -1,0 +1,6 @@
+Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+ST-FR-RVW-001,Guest reads public reviews,"Open public review list and detail",Only PUBLIC safe projection is visible,Public review data available,Not Run,,,,,,,,,,Feature-011
+ST-FR-RVW-002,Member creates eligible review,"Open eligible source; submit rating and text",Review becomes PUBLIC and aggregate updates,Member eligible source available,Not Run,,,,,,,,,,Feature-011
+ST-FR-RVW-003,Staff and Manager moderation boundary,"Staff hides review; Manager removes/replies",Staff cannot remove/reply; Manager actions succeed,Staff/Manager fixtures available,Not Run,,,,,,,,,,Feature-011
+ST-FR-CHAT-001,Member chats with Staff,"Open contextless or design-context chat and exchange messages",Vietnamese text renders correctly and history is retained,Member/Staff fixtures available,Not Run,,,,,,,,,,Feature-013
+ST-FR-CHAT-002,Member hides closed chat,"Close chat; confirm soft-hide",Chat disappears from Member sidebar but remains operationally retained,Closed conversation available,Not Run,,,,,,,,,,Feature-013

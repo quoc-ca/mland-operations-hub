@@ -2,6 +2,6 @@ Field,Value
 Test level,Unit test
 Project Name,Personalized Product Sales and Workshop Booking System
 Group,SEP490_G22
-Project Code,TBD
-Environment,TBD
-Status,Planning only — no test result recorded
+Project Code,PPSWBS
+Environment,Local backend/frontend baseline pending execution
+Status,Planning baseline — no test result recorded

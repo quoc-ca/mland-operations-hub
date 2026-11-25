@@ -1,2 +1,7 @@
 No,Function Name,Sheet Name,Description,Pre-Condition
-1,Booking payment confirmation,Booking-Payment,Gateway event confirmation integration candidate,Verified provider contract TBD
+1,Account and authorization,Account-Security,Identity and role facade integration,Account and identity services available
+2,Design request and human review,Design-Review,Consent storage quality validation and review integration,Feature-004 services available
+3,Ring design and consultation,Ring-Review-Chat,Feature-012 safe projection and Feature-013 context integration,Feature-012/013 services available
+4,Custom order and payment,Custom-Payment,Quote full payment and callback integration,Payment sandbox or stub available
+5,Booking retail loyalty,Booking-Retail-Loyalty,Booking retail promotion and capacity integration,Feature contracts and database available
+6,Notification fulfilment and migrations,Notification-Flyway,Workflow notification handoff retention and migration integration,Mail stub and clean database available

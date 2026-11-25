@@ -1,2 +1,11 @@
 Test Case ID,Scenario Name,Role / Session,Given,When,Then (Expected),Priority,Status,Defect ID,Notes
-ST-NFR-SEC-001,Admin Technical cannot mutate business invoice,Admin Technical session,An invoice exists,Attempt business-record mutation,System denies the operation and preserves audit boundary,High,Not Run,,Implementation TBD
+ST-NFR-SEC-001,Admin cannot mutate business invoice,Admin session,An invoice exists,Attempt business-record mutation,System denies the operation and preserves audit boundary,High,Not Run,,Implementation TBD
+ST-NFR-SEC-002,Guest protected-action boundary,Guest session,Protected design/review/chat entry is visible,Select protected action,Sign-in prompt appears and no private command is sent,High,Not Run,,Member-only features
+ST-NFR-SEC-003,Member ownership isolation,Member session,Another Member owns a request/design/order,Open or mutate by foreign reference,Safe denial with no protected data,High,Not Run,,IDOR
+ST-NFR-SEC-004,Staff location scope,Staff session,Resource belongs to another Workshop Location,Open or mutate resource,Request is denied,High,Not Run,,Authorization
+ST-NFR-SEC-005,Manager global authority,Manager session,Resource belongs to another Workshop Location,Perform approved business action,Action succeeds within feature policy,High,Not Run,,Authorization
+ST-NFR-SEC-006,PII and secret log protection,Any protected request,Token/image/payment data is submitted,Inspect application/audit logs,No raw token image payment data or unnecessary PII is logged,High,Not Run,,Privacy
+ST-NFR-SEC-007,Vietnamese UTF-8 integrity,Member/Staff/Manager sessions,Vietnamese text is entered and exchanged,Save/read review request or chat,Text is displayed and stored without mojibake,High,Not Run,,UTF-8 regression
+ST-NFR-SEC-008,Idempotency and replay protection,Authenticated Member,Same write command is repeated,Retry with same and changed idempotency key,Same key returns same outcome and changed payload conflicts,High,Not Run,,Command integrity
+ST-NFR-SEC-009,Image upload security,Member session,Invalid MIME/signature or oversized image is selected,Upload image,Input is rejected before storage or human-review request creation,High,Not Run,,Feature-004
+ST-NFR-SEC-010,Audit completeness,Staff/Manager session,Business review/quote/fulfilment command exists,Inspect audit projection,Actor action target result timestamp and correlation evidence are retained,Medium,Not Run,,Auditability

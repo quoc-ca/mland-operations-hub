@@ -1,3 +1,7 @@
 No,Workflow Name,Sheet Name,Description,Pre-Condition
-1,Guest and Member booking,Guest-Member-Booking,Workshop booking and deposit confirmation,Configured capacity and payment implementation
-2,Member ready-ring retail,Member-Retail,Member-only purchase/reservation/handoff,Ready-ring data and payment implementation
+1,Guest and Member booking,Guest-Member-Booking,Public discovery booking deposit lookup and payment result,Configured capacity and payment implementation
+2,Member ready-ring retail,Member-Retail,Member-only purchase reservation and handoff,Ready-ring data and payment implementation
+3,Member design and human review,Design-Review-Custom,Feature-012 to Feature-004 design request review and quote,Feature-004/012 backend and frontend available
+4,Member review and consultation,Ring-Review-Consultation,Review lifecycle and Member-Staff-Manager chat,Feature-011/013 available
+5,Staff Manager Admin operations,Staff-Manager-Admin,Operational scope and business/technical authority,Role fixtures available
+6,Cross-feature journeys,Cross-Feature,End-to-end custom order and consultation journeys,Payment and fulfilment dependencies available

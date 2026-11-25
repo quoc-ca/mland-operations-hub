@@ -1,1 +1,7 @@
 Date,Tester / Business User,Area Explored (BF-ID / Screen),Observation / Feedback,Severity,Defect ID (if any)
+TBD,TBD - QA,UX-UTF8 / all bilingual screens,"Explore Vietnamese/English switching, mojibake, mixed-language labels and error messages",Planned,
+TBD,TBD - QA,BF-DESIGN / Feature-012,"Explore preview restoration, gemstone/engraving limits, image preprocessing and recommendation visibility",Planned,
+TBD,TBD - QA,BF-CUSTOM / Feature-004,"Explore image quality feedback, mandatory consent, clarification loop and no-AI/no-cart/no-deposit messaging",Planned,
+TBD,TBD - QA,BF-CONSULTATION / Feature-013,"Explore sidebar pagination, stable loading width, initial scroll position, polling and closed-chat behavior",Planned,
+TBD,TBD - QA,BF-OPS / Staff-Manager,"Explore queue scope, quote context, conflict recovery and business-action discoverability",Planned,
+TBD,TBD - QA,BF-PAYMENT / VNPay,"Explore redirect, timeout, retry, duplicate callback and payment-result consistency",Planned,

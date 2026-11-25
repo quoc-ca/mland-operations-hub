@@ -1,0 +1,4 @@
+Test Case ID,Test Case Description,Test Case Procedure,Expected Results,Pre-conditions,Round 1,Test date,Tester,Round 2,Test date,Tester,Round 3,Test date,Tester,Defect IDs,Note
+IT-BRL-001,Booking package and capacity are revalidated,Change capacity or package state during booking,Stale command is rejected without overbooking,Booking and capacity services available,Not Run,,,,,,,,,,Booking integrity
+IT-BRL-002,Retail quote applies eligible promotion,Load cart with branch-scoped promotion,Only eligible promotion applies and quote is recalculated,Promotion fixtures available,Not Run,,,,,,,,,,Feature-006
+IT-BRL-003,Member retail payment completes sale,Submit verified full payment for valid cart,One retail order is completed and held quantity is deducted once,Retail and payment services available,Not Run,,,,,,,,,,Feature-008

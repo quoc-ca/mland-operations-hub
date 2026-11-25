@@ -2,5 +2,5 @@ Field,Value
 Test level,Integration test
 Project Name,Personalized Product Sales and Workshop Booking System
 Group,SEP490_G22
-Environment,TBD
-Status,Planning only — no test result recorded
+Environment,Local backend with MySQL/Flyway and provider stubs pending execution
+Status,Planning baseline — no test result recorded
