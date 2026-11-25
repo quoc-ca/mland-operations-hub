@@ -177,6 +177,9 @@
 					     application.properties imports .env; a system property overrides it for every test. -->
 					<systemPropertyVariables>
 						<app.mail.adapter>captured</app.mail.adapter>
+						<!-- Tests must never call real Firebase. .env may name a service account; this path does not
+						     exist, so FirebaseConfiguration does not load it. -->
+						<firebase.admin.credentials-path>disabled-in-tests</firebase.admin.credentials-path>
 						<!-- Full application contexts must not start background jobs while tests own temporary schemas. -->
 						<app.scheduling.enabled>false</app.scheduling.enabled>
 						<spring.modulith.moments.enabled>false</spring.modulith.moments.enabled>
