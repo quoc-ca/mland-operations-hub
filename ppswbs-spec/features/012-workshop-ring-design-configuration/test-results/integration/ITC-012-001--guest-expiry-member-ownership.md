@@ -50,7 +50,7 @@ Xác minh:
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã kiểm chứng qua bộ test `designDomain.test.js` và `WorkshopRingDesignApplicationServiceTest`.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `WorkshopRingDesignIntegrationTest.shouldIsolateMemberOwnershipAndHandleGuestExpiry`. Đã xác minh phiên Guest hết hạn sau 20 phút không hoạt động, truy cập ẩn danh bị chặn 401, và phân lập dữ liệu Member A và Member B triệt để (truy cập hoặc sửa đổi của Member B trên thiết kế của Member A bị từ chối 403 `DESIGN_ACCESS_DENIED`).
 <!-- EXECUTION:END -->

@@ -13,16 +13,16 @@ skinparam ArrowColor #5B5E67
 package "Guest" as guest {
   rectangle "Home / public entry" as guest_home
   rectangle "Ring design preview" as guest_ring
-  rectangle "Custom request entry" as guest_custom
+  rectangle "Custom request entry / sign-in" as guest_custom
   rectangle "Public review list/detail" as guest_reviews
-  rectangle "Consultation entry" as guest_chat
+  rectangle "Consultation entry / sign-in" as guest_chat
   rectangle "Sign in" as guest_signin
 }
 
 guest_home --> guest_ring : browse ring design
-guest_home --> guest_custom : custom request
+guest_home --> guest_custom : public entry only
 guest_home --> guest_reviews : reviews
-guest_home --> guest_chat : consultation
+guest_home --> guest_chat : public entry only
 guest_ring --> guest_signin : protected action
 guest_custom --> guest_signin : protected action
 guest_reviews --> guest_signin : write review

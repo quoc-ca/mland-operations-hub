@@ -45,7 +45,7 @@ Xác minh:
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã kiểm tra tính năng tính giá độc quyền trong `ManagerDesignRuleAdapterTest`.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `WorkshopRingDesignIntegrationTest.shouldValidateBranchCompatibilityAndComputePricingAuthoritatively`. Đã xác minh giá và độ khó do server tính toán độc quyền (bỏ qua giá client can thiệp), và cơ chế xác thực tương thích chi nhánh workshop trả mã lỗi 422 `DESIGN_BRANCH_INCOMPATIBLE` khi chi nhánh không hỗ trợ vật liệu thiết kế.
 <!-- EXECUTION:END -->
