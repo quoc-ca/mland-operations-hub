@@ -151,7 +151,9 @@ public class TicketSettlementCancellationService {
                 continue;
             }
             SettlementFinalBill bill = bills.findByBookingReference(ticketCode).orElse(null);
-            if (bill == null || !SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())) {
+            // FR-041, T157: a paid-up (FINALIZED) ticket may still be cancelled before its session; its folio stays.
+            if (bill == null || !(SettlementFinalBillLifecycleStatus.OPEN.name().equals(bill.getLifecycleStatus())
+                    || SettlementFinalBillLifecycleStatus.FINALIZED.name().equals(bill.getLifecycleStatus()))) {
                 if (isSingleTicketRoute) {
                     throw new WorkshopSettlementConflictException("FINAL_BILL_NOT_OPEN");
                 }
