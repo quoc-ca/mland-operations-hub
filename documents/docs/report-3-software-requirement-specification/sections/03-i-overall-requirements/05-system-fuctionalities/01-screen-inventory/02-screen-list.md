@@ -100,3 +100,4 @@
 | 96 | Carrier Portal | Order Management and Fulfillment | Carrier home that shows today's GHTK work: new shipments, shipments waiting for pickup and shipments on the way. |
 | 97 | Carrier Orders | Order Management and Fulfillment | Allows the Carrier to see GHTK shipments from every Mland branch and record the courier's status steps. |
 | 98 | Carrier Statistics | Order Management and Fulfillment | Displays the Carrier's shipment statistics for a chosen period. |
+| 99 | Custom Order Operations | Custom Manufacturing | Allows Staff and Managers to follow paid custom orders by stage and record production and handover. |

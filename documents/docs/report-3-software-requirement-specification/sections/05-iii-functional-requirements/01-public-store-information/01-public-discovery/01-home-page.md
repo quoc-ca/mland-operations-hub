@@ -21,6 +21,6 @@ The page is public. When the workshop or product lists cannot be loaded, built-i
 | Workshop packages | Up to three published packages with name, description, number of sessions, participant range, price (discounted price and offer badges when an automatic discount or voucher applies) and a link to the package details. |
 | Ready rings | The first page of published products, newest first, as product cards with discounted price, offer badges and the add-to-cart button. |
 | Service hub | Six entry cards: workshop booking, ready rings, custom design request, AI support, booking lookup and retail order tracking (with the order count for a signed-in user). |
-| Internal portals bar | Links to session operations, design review, product management, promotion management and account administration; the link of the viewer's own role is marked with ★. Each target route still checks the role. |
+| Internal portals bar | Links to session operations, design review, product management, promotion management and account administration; the viewer's own role link is highlighted (★ on the staff, design and admin links). Each target route still checks the role. |
 | Customer reviews | Three fixed sample testimonials with a fixed "4.9 / 5.0" rating; they are not read from Public Review List. |
 | Mobile navigation | On small screens, a bottom bar to Home, workshops, products, booking lookup and profile. |

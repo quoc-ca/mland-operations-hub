@@ -31,12 +31,13 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Refund|Process a refund request (UC 90); Staff may only resend the refund-account link|No|No|Restricted|Full|No|
 |OTA channel|Manage mappings, enable partner booking, resolve reconciliation, and reconcile payouts (UC 91 to 94)|No|No|No|Full|No|
 |OTA shop add-on|Record and bill a shop add-on for an OTA booking (UC 95)|No|No|Restricted|Full|No|
-|Product catalogue|Create and update products, images, prices, and publication status|No|No|Full|Restricted|Restricted|
+|Product catalogue|Create and update products, images, stock and proposed prices|No|No|Restricted|Full|No|
+|Product publication|Publish, hide or show again a product (UC 17)|No|No|No|Full|No|
 |AI support|Use basic text support|Full|Full|Full|Full|Restricted|
 |Workshop ring design|Create, evaluate, save, and archive own ring design; Guest may only browse public options and sees a sign-in prompt|No|Full|No|No|Technical/audit only|
 |Independent Design Request|Create and view own request and its human-review result|No (sign-in required)|Full|No|No|Technical/audit only|
 |Independent Design Review|Review an in-scope request under approved authority policy|No|No|Restricted|Restricted|No business decision|
-|Published pricing|Decide the published price of a new workshop package or retail product|No|No|No|Full|Restricted|
+|Published pricing|Decide the published price of a new workshop package or retail product|No|No|No|Full|No|
 |Review Management|Create/edit own eligible review; Staff hide; Manager hide/remove/reply; Admin technical/audit only|Read public reviews only; create/edit requires sign-in|Own eligible sources only|Hide any review|Hide/remove/reply|Technical/audit only|
 |Loyalty|View own points and history|No|Full|No|No|No|
 |Loyalty|Redeem points during eligible checkout|No|Full|No|No|No|

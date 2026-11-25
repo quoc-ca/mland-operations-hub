@@ -7,7 +7,7 @@
 **Processing steps**
 
 1. Remove Gemini text data beyond the maximum 30-day retention.
-2. Identify eligible rejected/withdrawn references or references reaching their approved retention boundary; never remove catalogue media.
+2. Delete all remaining temporary reference images; never remove catalogue media.
 3. Delete eligible data/copies safely, retain minimized cleanup evidence and record failures for retry; unspecified storage controls remain TBD.
 
 **Failure behavior**

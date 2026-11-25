@@ -38,6 +38,10 @@ The status does not change.
 
 The system shows an error and keeps the previous status.
 
+**Step 3 or 5 — Order unpaid, unknown status or skipped stage**
+
+The system rejects the change.
+
 **Any step — Actor is not Staff or Manager**
 
 The system denies the change.

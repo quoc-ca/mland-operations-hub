@@ -31,9 +31,9 @@ This use case (use case 71) records the verified full payment of the active quot
 
 The order is not marked paid.
 
-**Step 2 — Amount does not match**
+**Step 2 — Late, replaced or mismatched payment**
 
-The system does not accept the payment.
+When the quote has expired or been replaced, the order is not waiting for payment, or the amount differs, the system keeps the evidence as needing manual review, acknowledges the notification and does not mark the order paid.
 
 **Deadline passes without payment**
 
@@ -52,5 +52,5 @@ The quote is treated as expired; no final balance is created.
 
 | ID | Rule Definition |
 |---|---|
-| BR-71-01 | Only a verified payment result for the exact quoted amount marks the order paid. |
+| BR-71-01 | Only a verified payment of the exact amount of the latest, approved and unexpired quote for which it was started marks the order paid; other successful evidence is kept for manual review. |
 | BR-71-02 | An expired quote cannot be paid; a new quote version is required. |
