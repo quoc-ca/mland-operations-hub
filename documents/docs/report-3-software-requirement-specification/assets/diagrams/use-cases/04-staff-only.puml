@@ -26,6 +26,7 @@ rectangle "Mland Operations System" {
     usecase "Check In Participant" as UC24
   }
   package "Ticket settlement and changes" {
+    usecase "Respond to Mland Cancellation Offer" as UC88
     usecase "View Ticket Folio" as UC77
     usecase "Add Folio Charge" as UC78
     usecase "Collect Ticket Balance" as UC79
@@ -60,6 +61,7 @@ Staff --> UC18
 Staff --> UC23
 Staff --> UC24
 Staff --> UC77
+Staff --> UC88
 Staff --> UC78
 Staff --> UC79
 Staff --> UC83

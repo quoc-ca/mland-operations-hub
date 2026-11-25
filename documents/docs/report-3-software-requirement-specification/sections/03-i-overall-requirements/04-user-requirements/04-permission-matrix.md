@@ -22,13 +22,13 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Ticket folio|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
 |Ticket folio|Verify transfers, manage handover exceptions and debt, and correct a folio (UC 80, 81, 82)|No|No|No|Full|No|
 |Cash day|Close a branch cash day; only a Manager resolves a difference (UC 83)|No|No|Restricted|Full|No|
-|Ticket cancellation|Cancel unused workshop tickets (UC 84)|Restricted|Restricted|Restricted|No|No|
+|Ticket cancellation|Cancel unused workshop tickets (UC 84)|Restricted|Restricted|Restricted|Full|No|
 |Ticket change|Select replacement sessions for a ticket (UC 85)|Restricted|Restricted|Restricted|Full|No|
 |Ticket change|Approve or reject a queued change request (UC 86)|No|No|Restricted|Full|No|
 |Ticket change|Grant an extra counted change (UC 87)|No|No|No|Full|No|
-|Mland cancellation|Choose a replacement session or refund (UC 88)|Restricted|Restricted|No|No|No|
+|Mland cancellation|Choose a replacement session or refund (UC 88); Staff and Manager only with the buyer proof|Restricted|Restricted|Restricted|Restricted|No|
 |Refund|Submit the receiving refund account (UC 89)|Restricted|Restricted|Restricted|Restricted|No|
-|Refund|Process a refund request (UC 90)|No|No|No|Full|No|
+|Refund|Process a refund request (UC 90); Staff may only resend the refund-account link|No|No|Restricted|Full|No|
 |OTA channel|Manage mappings, enable partner booking, resolve reconciliation, and reconcile payouts (UC 91 to 94)|No|No|No|Full|No|
 |OTA shop add-on|Record and bill a shop add-on for an OTA booking (UC 95)|No|No|Restricted|Full|No|
 |Product catalogue|Create and update products, images, prices, and publication status|No|No|Full|Restricted|Restricted|

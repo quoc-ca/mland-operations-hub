@@ -39,7 +39,7 @@ The Manager returns the request to pending account with a reason; the approval i
 
 **Before Step 1 — Account not yet received**
 
-The Manager may resend the link, or close the request as unreachable after 30 days and reopen it later.
+The Manager (or Staff, for the resend only) may resend the link; the Manager may close the request as unreachable after 30 days and reopen it later.
 
 **Step 4 — Request already refunded**
 
@@ -55,4 +55,4 @@ BR-90-01, BR-90-02, BR-90-03
 |---|---|
 | BR-90-01 | The system never calls VNPay Refund; there is no terminal rejection of a refund. |
 | BR-90-02 | The total refunded or pending for a ticket never exceeds the money collected for it. |
-| BR-90-03 | The spec and current backend also let Staff resend the account link, which the permission matrix does not allow for this use case; to be confirmed. |
+| BR-90-03 | Staff may only resend the refund-account link; every refund decision stays with the Manager. |

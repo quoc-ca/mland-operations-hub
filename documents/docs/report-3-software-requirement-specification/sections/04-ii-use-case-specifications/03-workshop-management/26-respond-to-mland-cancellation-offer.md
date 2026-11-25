@@ -2,7 +2,7 @@
 
 #### Primary Actors
 
-Guest, Member
+Guest, Member, Staff, Manager
 
 #### Secondary Actors
 
@@ -15,7 +15,7 @@ As the Guest or Member buyer of a ticket affected by an Mland cancellation, I wa
 #### Preconditions
 
 1. Mland cancelled a session of the ticket and a replacement offer is awaiting an answer.
-2. The actor is the owning Member, or a Guest with a valid buyer verification.
+2. The actor is the owning Member, or a Guest with a valid buyer verification; Staff or Manager submitting the buyer's choice also needs that verification.
 
 #### Postconditions
 
@@ -55,4 +55,4 @@ BR-88-01, BR-88-02, BR-88-03, BR-88-04
 | BR-88-01 | The answer deadline is 24 hours before the latest offered session. |
 | BR-88-02 | A replacement does not count as the customer change. |
 | BR-88-03 | A ticket with no money collected needs no refund request. |
-| BR-88-04 | Unlike the matrix and spec, the current backend also accepts a Staff or Manager answer with buyer proof and opens no offer for a finalized folio; to be confirmed. |
+| BR-88-04 | The remedy applies to open and finalized folios; a finalized folio is closed only after its refund is completed. |

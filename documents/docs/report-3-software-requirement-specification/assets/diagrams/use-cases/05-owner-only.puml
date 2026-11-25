@@ -31,6 +31,8 @@ rectangle "Mland Operations System" {
     usecase "Configure Workshop Slot Capacity" as UC28
   }
   package "Ticket settlement and changes" {
+    usecase "Respond to Mland Cancellation Offer" as UC88
+    usecase "Cancel Workshop Tickets" as UC84
     usecase "View Ticket Folio" as UC77
     usecase "Add Folio Charge" as UC78
     usecase "Collect Ticket Balance" as UC79
@@ -79,6 +81,8 @@ Manager --> UC26
 Manager --> UC27
 Manager --> UC28
 Manager --> UC77
+Manager --> UC88
+Manager --> UC84
 Manager --> UC78
 Manager --> UC79
 Manager --> UC80
