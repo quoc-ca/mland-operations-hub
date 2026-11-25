@@ -21,7 +21,7 @@
 
 ## Scope V1 theo Report 2 và Report 3
 
-- **Workshop:** Guest và Member xem package/lịch và đặt workshop; Member có thể dùng thiết kế được hệ thống hỗ trợ hoặc gửi ảnh booking-design để phân tích. Mland là nguồn sự thật về capacity. Kênh OTA (Klook và đối tác khác) đã bị loại khỏi V1 ngày 2026-11-25.
+- **Workshop:** Guest và Member xem package/lịch và đặt workshop; Member có thể dùng thiết kế được hệ thống hỗ trợ hoặc gửi ảnh booking-design để phân tích. Mland là nguồn sự thật về capacity.
 - **Design Workspace và AI:** Theo handoff mới, Feature-004 là Design Workspace độc lập với booking. Gemini hỗ trợ chat cơ bản, phân tích Design Request và gợi ý giá cho package/product. Review role, ownership, revision/withdrawal và image retention đang chờ policy của Feature-004; AI không quyết định business state hoặc custom order.
 - **Custom manufacturing:** Chỉ Member tạo custom order, dùng ảnh tham khảo hoặc cấu hình thủ công được hỗ trợ, deadline tùy chọn và phương thức nhận hàng. Yêu cầu được người duyệt và Manager phê duyệt báo giá; Member thanh toán một lần toàn bộ báo giá, không đặt cọc và không có khoản trả sau.
 - **Retail và loyalty:** Member có thể mua retail bằng cart, loyalty points và voucher. Cart được revalidate toàn bộ; checkout không tạo order một phần. Thanh toán đủ được xác minh trước khi trừ số lượng đã hold. Staff duy trì available-to-sell quantity thủ công; đây không phải inventory ledger.

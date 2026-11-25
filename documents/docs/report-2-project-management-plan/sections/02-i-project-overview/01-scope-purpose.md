@@ -18,7 +18,7 @@ Custom manufacturing uses one complete quoted amount. There is no later final-ba
 
 Google Maps Embed and Google Places are not used; they were removed from V1 (confirmed 2026-11-25). Mland shows no Google map, rating or review content and opens no Google review link.
 
-Klook and other online travel agency (OTA) channels are not part of V1; they were removed (Stakeholder statement, Feature-003 owner, 2026-11-25) because no partner account or sandbox is available. Mland is the sole source of truth for workshop sessions and capacity. See [E-07](07-evidences.md).
+Mland is the sole source of truth for workshop sessions and capacity. See [E-07](07-evidences.md).
 
 Mland uses the paid Gemini API for AI support. Mland retains application-level text prompts and responses for at most 30 days, stores no AI image input after processing, and does not use AI to make custom-order decisions. Reference images for custom manufacturing are retained until pickup or GHTK handoff; rejected or withdrawn custom requests and independently classified images are deleted immediately after processing. Recipient and address data for GHTK delivery are deleted or irreversibly obscured 30 days after handoff. VNPay transaction references and business audit evidence are retained for five years; Mland stores no card data. These purposes and retention periods are stated in the general Terms and Privacy Policy rather than through feature-specific image-consent checkboxes. See [AI and retention evidence](07-evidences.md#e-05--gemini-data-terms-and-logging).
 

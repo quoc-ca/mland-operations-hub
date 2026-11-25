@@ -2,7 +2,7 @@
 
 Full = unrestricted  ·  Restricted = conditions apply (see footnotes)  ·  No = denied
 
-The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Klook, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
+The matrix covers the five platform roles defined in the Actors section. External providers such as VNPay, Gemini, the Mail Gateway, SSO, Cloud Storage, and GHTK are integration actors rather than platform roles; their system-to-system boundaries are defined in the External API Inventory. The GHTK partner account (role `CARRIER`, "Đối tác vận chuyển (GHTK)") is a restricted courier-portal account outside the five roles; see footnote 6.
 
 |Entity / Function|Action|Guest|Member|Staff|Manager|Admin|
 |---|---|---|---|---|---|---|
