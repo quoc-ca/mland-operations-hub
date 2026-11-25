@@ -23,7 +23,7 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl enable --now docker
 usermod -aG docker ubuntu
 
-echo "=== [3/4] Enable AWS Systems Manager Agent ==="
+echo "=== [3/5] Enable AWS Systems Manager Agent ==="
 if snap list | grep -q amazon-ssm-agent; then
     snap start amazon-ssm-agent || true
 else
@@ -32,7 +32,15 @@ fi
 systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service || true
 
-echo "=== [4/4] Prepare the single-user staging deploy script ==="
+echo "=== [4/5] Install cloudflared package ==="
+install -m 0755 -d /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
+apt-get update -y
+apt-get install -y cloudflared
+# Install the remotely managed tunnel token separately on EC2, never in user data.
+
+echo "=== [5/5] Prepare the single-user staging deploy script ==="
 install -d -o ubuntu -g ubuntu -m 0750 /opt/mland-staging /opt/mland-staging-runtime
 install -o ubuntu -g ubuntu -m 0600 /dev/null /var/log/mland-deploy.log
 
@@ -80,8 +88,6 @@ source, target = sys.argv[1:]
 with open(source, encoding="utf-8") as stream:
     values = json.load(stream)
 
-values.setdefault("HOST_BE_PORT", "80")
-
 def quote_compose_value(value):
     text = str(value)
     text = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -103,12 +109,15 @@ if [ -f "/opt/mland-staging-runtime/firebase-service-account.json" ]; then
     chmod 0600 "${REPO_DIR}/ppswbs_backend/firebase-service-account.json"
 fi
 
-echo "Cleaning old backend logs for a fresh deployment session..."
-rm -rf "${REPO_DIR}/ppswbs_backend/logs"/* 2>/dev/null || true
-
 echo "Building and starting the MySQL and backend containers..."
 docker compose build --progress=plain backend
 docker compose up -d db backend
+echo "Published backend port: $(docker compose port backend 8080)"
+if systemctl is-active --quiet cloudflared; then
+    echo "Cloudflare Tunnel service is active"
+else
+    echo "[WARN] Cloudflare Tunnel service is not active; configure its token on EC2" >&2
+fi
 echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] STAGING DEPLOY COMPLETE"
 DEPLOY_SCRIPT
 
