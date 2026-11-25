@@ -1,0 +1,20 @@
+@startuml
+title FE-11 Member Creates Eligible Review
+actor Member
+participant ReviewEligibilityController
+participant ReviewController
+participant ReviewService
+participant WorkshopAttendanceReviewPort
+participant RetailFulfilmentReviewPort
+database ReviewRepository
+Member -> ReviewEligibilityController : request own eligible sources
+ReviewEligibilityController -> ReviewService : resolve Member sources
+ReviewService -> WorkshopAttendanceReviewPort : check CHECKED_IN attendance
+ReviewService -> RetailFulfilmentReviewPort : check PICKED_UP/DELIVERED order lines
+ReviewService --> ReviewEligibilityController : safe eligible source list
+Member -> ReviewController : submit rating/text + idempotency key
+ReviewController -> ReviewService : validate source ownership and target
+ReviewService -> ReviewRepository : insert PUBLIC review atomically
+ReviewRepository --> ReviewService : review result or duplicate conflict
+ReviewController --> Member : public review projection
+@enduml

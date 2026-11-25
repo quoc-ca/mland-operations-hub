@@ -1,0 +1,33 @@
+@startuml
+title FE-13 Member Consultation Chat
+left to right direction
+skinparam classAttributeIconSize 0
+class ConsultationController
+class ConsultationApplicationService
+class ConsultationContextService
+class ConsultationConversation
+class ConsultationMessage
+class ConsultationReadState
+class ConsultationClaimEvent
+class ConsultationAuditEvent
+class ConsultationConversationRepository
+class ConsultationMessageRepository
+class ConsultationIdempotencyRecordRepository
+interface WorkshopDesignContextPort
+interface IndependentDesignRequestContextPort
+ConsultationController --> ConsultationApplicationService
+ConsultationApplicationService --> ConsultationContextService
+ConsultationApplicationService --> ConsultationConversationRepository
+ConsultationApplicationService --> ConsultationMessageRepository
+ConsultationApplicationService --> ConsultationIdempotencyRecordRepository
+ConsultationContextService --> WorkshopDesignContextPort
+ConsultationContextService --> IndependentDesignRequestContextPort
+ConsultationConversation "1" o-- "0..*" ConsultationMessage
+ConsultationConversation "1" o-- "0..*" ConsultationClaimEvent
+ConsultationConversation "1" o-- "0..*" ConsultationAuditEvent
+ConsultationConversation "1" o-- "0..1" ConsultationReadState
+note right of ConsultationApplicationService
+Member only on customer side.
+Staff location scope; Manager global.
+end note
+@enduml

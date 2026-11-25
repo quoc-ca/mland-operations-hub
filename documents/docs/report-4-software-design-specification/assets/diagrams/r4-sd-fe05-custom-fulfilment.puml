@@ -1,0 +1,17 @@
+@startuml
+title FE-05 Fulfil Paid Custom Order
+actor Staff
+actor Manager
+actor Member
+participant CustomOrderService
+participant ProductionFulfilmentFacade
+database CustomOrderRepository
+Staff -> CustomOrderService : open PAID order
+CustomOrderService -> ProductionFulfilmentFacade : start production
+ProductionFulfilmentFacade --> CustomOrderService : IN_PRODUCTION
+Staff -> CustomOrderService : record fulfilment handoff
+CustomOrderService -> ProductionFulfilmentFacade : mark fulfilled
+ProductionFulfilmentFacade --> CustomOrderService : FULFILLED
+CustomOrderService --> Member : order status update
+Manager -> CustomOrderService : close completed order
+@enduml

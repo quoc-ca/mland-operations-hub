@@ -1,0 +1,25 @@
+@startuml
+title FE-13 Staff/Manager Close and Member Soft-Hide Conversation
+actor Member
+actor Staff
+actor Manager
+participant ConsultationController
+participant ConsultationApplicationService
+database ConsultationConversationRepository
+database ConsultationAuditEventRepository
+Staff -> ConsultationController : close in-scope conversation
+ConsultationController -> ConsultationApplicationService : verify Staff location scope
+ConsultationApplicationService -> ConsultationConversationRepository : set CLOSED
+ConsultationApplicationService -> ConsultationAuditEventRepository : record close
+Manager -> ConsultationController : close/reopen authorized conversation
+ConsultationController -> ConsultationApplicationService : verify Manager authority
+ConsultationApplicationService -> ConsultationConversationRepository : update status
+Member -> ConsultationController : confirm soft-hide closed conversation
+ConsultationController -> ConsultationApplicationService : verify owner, CLOSED and version
+ConsultationApplicationService -> ConsultationConversationRepository : set member-hidden flag
+ConsultationApplicationService -> ConsultationAuditEventRepository : record member hide
+note over Member,Manager
+Soft-hide removes the chat from Member sidebar only.
+Messages and store history remain retained.
+end note
+@enduml

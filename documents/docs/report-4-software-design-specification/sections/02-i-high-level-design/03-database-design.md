@@ -73,11 +73,11 @@ Each diagram uses orthogonal relationship routing. A relationship must not pass 
 |47|008 Retail Order and Fulfillment|retail_orders|Stores a retail order fulfilled by one branch.|
 |48|008 Retail Order and Fulfillment|retail_order_items|Stores the frozen variant, quantity and price of an order line.|
 |49|008 Retail Order and Fulfillment|retail_shipments|Stores the carrier shipment of a delivery order.|
-|50|011 Review and 013 Consultation Chat|reviews|Stores customer reviews of a workshop or product.|
-|51|011 Review and 013 Consultation Chat|review_replies|Stores the Manager reply to a review.|
-|52|011 Review and 013 Consultation Chat|consultation_conversations|Stores consultation conversations between a Member and Staff.|
-|53|011 Review and 013 Consultation Chat|consultation_messages|Stores the immutable messages of a conversation.|
-|54|012 Workshop Ring Design Configuration|ring_designs|Stores immutable ring design versions created in the configurator.|
+|50|011 Review Management|reviews|Stores customer reviews of a workshop or product.|
+|51|011 Review Management|review_replies|Stores the Manager reply to a review.|
+|52|011 Review Management|review_revisions and review_moderation_events|Stores immutable review revisions and moderation audit history.|
+|53|013 Consultation Chat|consultation_conversations and consultation_messages|Stores Member consultation conversations and immutable messages.|
+|54|012 Workshop Ring Design Configuration|ring_designs|Stores Member design versions; legacy Guest/session/booking columns may remain for compatibility but are not part of the current flow.|
 |55|012 Workshop Ring Design Configuration|ring_materials|Stores the ring material options.|
 |56|012 Workshop Ring Design Configuration|ring_shapes|Stores the ring shape options.|
 |57|012 Workshop Ring Design Configuration|ring_gemstones|Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.|
@@ -831,7 +831,7 @@ Stores bookings received from an OTA provider.
 
 ### 3.32 design_requests
 
-Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record.
+Stores design requests submitted by an active Member and their human-review status. A Guest may see the protected entry point but does not create a private request record. Legacy Guest proof/tracking and AI-analysis columns are retained only as code/database compatibility evidence and must not be used by the current Feature-004 flow.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 
@@ -1343,7 +1343,7 @@ Stores the immutable messages of a conversation.
 
 ### 3.54 ring_designs
 
-Stores immutable ring design versions created in the configurator.
+Stores ring design versions created in the configurator. The current supported path is Member persistence with `DRAFT`, `SAVED` and `ARCHIVED` states; legacy Guest-session, `VALIDATED` and booking-reference fields are retained only for compatibility tracing and do not create a booking or ticket.
 
 ::: {.docx-table width="100%" columns="22%,22%,26%,30%" repeat-header="false"}
 

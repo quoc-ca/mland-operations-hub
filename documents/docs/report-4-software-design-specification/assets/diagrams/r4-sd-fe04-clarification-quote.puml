@@ -1,0 +1,25 @@
+@startuml
+title FE-04 Clarification, Quote Handoff and Full Payment
+actor Member
+actor Staff
+actor Manager
+participant DesignRequestController
+participant HumanReviewService
+participant CustomOrderService
+participant QuoteService
+participant PaymentGatewayCheckoutPort
+Member -> DesignRequestController : submit clarification revision
+DesignRequestController -> HumanReviewService : validate ownership and version
+HumanReviewService --> Member : NEED_REVIEW after revision
+Staff -> HumanReviewService : accept with explanation
+HumanReviewService -> CustomOrderService : hand off accepted snapshot
+CustomOrderService -> QuoteService : prepare quote
+Manager -> QuoteService : approve quote
+Member -> CustomOrderService : open My Custom Orders
+Member -> PaymentGatewayCheckoutPort : pay full quoted amount
+PaymentGatewayCheckoutPort --> CustomOrderService : verified full payment
+CustomOrderService --> Member : PAID order state
+note over Member,Manager
+No deposit, cart line, split payment or indefinite unpaid hold.
+end note
+@enduml
