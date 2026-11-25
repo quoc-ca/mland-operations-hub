@@ -1,0 +1,21 @@
+' Sequence-only visual baseline for the FE-004/005/011/012/013 Report 4 diagrams.
+!include r4-diagram-style.puml
+skinparam sequence {
+  ParticipantBackgroundColor #DAE8FC
+  ParticipantBorderColor #5B9BD5
+  ParticipantFontColor #1C1C1C
+  ActorBackgroundColor #DAE8FC
+  ActorBorderColor #5B9BD5
+  ActorFontColor #1C1C1C
+  LifeLineBorderColor #9AA9B7
+  LifeLineBackgroundColor #F7FAFC
+  ActivationBackgroundColor #DDEBF7
+  ActivationBorderColor #5B9BD5
+  ArrowColor #000000
+  BoxBorderColor #8B98A5
+  BoxBackgroundColor #F7FAFC
+  ParticipantPadding 25
+  BoxPadding 10
+}
+hide footbox
+autoactivate off

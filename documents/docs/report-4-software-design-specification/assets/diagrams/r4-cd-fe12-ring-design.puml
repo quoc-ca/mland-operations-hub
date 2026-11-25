@@ -1,20 +1,21 @@
 @startuml
+!include r4-diagram-style.puml
 title FE-12 Workshop Ring Design Configuration
 left to right direction
 skinparam classAttributeIconSize 0
-class WorkshopRingDesignController
-class WorkshopRingDesignApplicationService
-class RingDesign
-class RingCatalogueModel
-class RingMaterial
-class RingShape
-class RingGemstone
-class RingAttachment
-class RingDesignRepository
-class RingDesignIdempotencyRecordRepository
-interface DesignRuleFacade
-class WorkshopRecommendation
-class LegacyGuestSessionAndBookingAttachment <<LEGACY>>
+class WorkshopRingDesignController <<controller>>
+class WorkshopRingDesignApplicationService <<service>>
+class RingDesign <<entity>>
+class RingCatalogueModel <<entity>>
+class RingMaterial <<entity>>
+class RingShape <<entity>>
+class RingGemstone <<entity>>
+class RingAttachment <<entity>>
+class RingDesignRepository <<repository>>
+class RingDesignIdempotencyRecordRepository <<repository>>
+interface DesignRuleFacade <<facade>>
+class WorkshopRecommendation <<entity>>
+class LegacyGuestSessionAndBookingAttachment <<legacy>>
 WorkshopRingDesignController --> WorkshopRingDesignApplicationService
 WorkshopRingDesignApplicationService --> RingDesignRepository
 WorkshopRingDesignApplicationService --> RingDesignIdempotencyRecordRepository

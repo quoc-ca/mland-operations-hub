@@ -25,3 +25,4 @@ CLAUDE.local.md
 /plantuml.jar
 /report3-rendered-png/
 /report4-rendered-png/
+scripts/render-report4-puml.ps1

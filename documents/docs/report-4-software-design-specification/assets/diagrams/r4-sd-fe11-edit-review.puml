@@ -1,17 +1,30 @@
 @startuml
+!include r4-sequence-style.puml
 title FE-11 Owner Edits Published Review
-actor Member
-participant ReviewController
-participant ReviewService
-database ReviewRepository
-database ReviewRevisionRepository
-Member -> ReviewController : PATCH own review + If-Match-Version
-ReviewController -> ReviewService : verify ownership and version
-ReviewService -> ReviewRepository : update rating/text keeping PUBLIC
-ReviewService -> ReviewRevisionRepository : append revision and audit
-ReviewRepository --> ReviewService : new version
-ReviewController --> Member : updated safe owner projection
-note over Member,ReviewController
+actor "Member" as member
+participant "ReviewController" as reviewController
+participant "ReviewService" as reviewService
+database "ReviewRepository" as reviewRepository
+database "ReviewRevisionRepository" as revisionRepository
+
+member -> reviewController : PATCH own review + If-Match-Version
+activate reviewController
+reviewController -> reviewService : verify ownership and version
+activate reviewService
+reviewService -> reviewRepository : update rating/text keeping PUBLIC
+activate reviewRepository
+reviewRepository --> reviewService : new review version
+deactivate reviewRepository
+reviewService -> revisionRepository : append revision and audit
+activate revisionRepository
+revisionRepository --> reviewService : revision recorded
+deactivate revisionRepository
+reviewService --> reviewController : updated safe owner projection
+deactivate reviewService
+reviewController --> member : updated safe owner projection
+deactivate reviewController
+
+note over member,reviewController
 Another Member receives safe 403/404.
 REMOVED review is not hard-deleted.
 end note

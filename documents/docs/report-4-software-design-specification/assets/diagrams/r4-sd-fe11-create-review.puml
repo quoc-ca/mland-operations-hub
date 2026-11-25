@@ -1,20 +1,40 @@
 @startuml
+!include r4-sequence-style.puml
 title FE-11 Member Creates Eligible Review
-actor Member
-participant ReviewEligibilityController
-participant ReviewController
-participant ReviewService
-participant WorkshopAttendanceReviewPort
-participant RetailFulfilmentReviewPort
-database ReviewRepository
-Member -> ReviewEligibilityController : request own eligible sources
-ReviewEligibilityController -> ReviewService : resolve Member sources
-ReviewService -> WorkshopAttendanceReviewPort : check CHECKED_IN attendance
-ReviewService -> RetailFulfilmentReviewPort : check PICKED_UP/DELIVERED order lines
-ReviewService --> ReviewEligibilityController : safe eligible source list
-Member -> ReviewController : submit rating/text + idempotency key
-ReviewController -> ReviewService : validate source ownership and target
-ReviewService -> ReviewRepository : insert PUBLIC review atomically
-ReviewRepository --> ReviewService : review result or duplicate conflict
-ReviewController --> Member : public review projection
+actor "Member" as member
+participant "ReviewEligibilityController" as eligibilityController
+participant "ReviewController" as reviewController
+participant "ReviewService" as reviewService
+participant "WorkshopAttendanceReviewPort" as workshopPort
+participant "RetailFulfilmentReviewPort" as retailPort
+database "ReviewRepository" as reviewRepository
+
+member -> eligibilityController : request own eligible sources
+activate eligibilityController
+eligibilityController -> reviewService : resolve Member sources
+activate reviewService
+reviewService -> workshopPort : check CHECKED_IN attendance
+activate workshopPort
+workshopPort --> reviewService : eligible workshop sources
+deactivate workshopPort
+reviewService -> retailPort : check PICKED_UP/DELIVERED order lines
+activate retailPort
+retailPort --> reviewService : eligible retail sources
+deactivate retailPort
+reviewService --> eligibilityController : safe eligible source list
+deactivate reviewService
+eligibilityController --> member : eligible source list
+deactivate eligibilityController
+member -> reviewController : submit rating/text + idempotency key
+activate reviewController
+reviewController -> reviewService : validate source ownership and target
+activate reviewService
+reviewService -> reviewRepository : insert PUBLIC review atomically
+activate reviewRepository
+reviewRepository --> reviewService : review result or duplicate conflict
+deactivate reviewRepository
+reviewService --> reviewController : safe public projection
+deactivate reviewService
+reviewController --> member : public review projection
+deactivate reviewController
 @enduml

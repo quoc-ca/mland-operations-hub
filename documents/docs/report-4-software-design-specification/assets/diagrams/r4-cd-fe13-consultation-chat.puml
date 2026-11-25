@@ -1,20 +1,21 @@
 @startuml
+!include r4-diagram-style.puml
 title FE-13 Member Consultation Chat
 left to right direction
 skinparam classAttributeIconSize 0
-class ConsultationController
-class ConsultationApplicationService
-class ConsultationContextService
-class ConsultationConversation
-class ConsultationMessage
-class ConsultationReadState
-class ConsultationClaimEvent
-class ConsultationAuditEvent
-class ConsultationConversationRepository
-class ConsultationMessageRepository
-class ConsultationIdempotencyRecordRepository
-interface WorkshopDesignContextPort
-interface IndependentDesignRequestContextPort
+class ConsultationController <<controller>>
+class ConsultationApplicationService <<service>>
+class ConsultationContextService <<service>>
+class ConsultationConversation <<entity>>
+class ConsultationMessage <<entity>>
+class ConsultationReadState <<entity>>
+class ConsultationClaimEvent <<entity>>
+class ConsultationAuditEvent <<entity>>
+class ConsultationConversationRepository <<repository>>
+class ConsultationMessageRepository <<repository>>
+class ConsultationIdempotencyRecordRepository <<repository>>
+interface WorkshopDesignContextPort <<port>>
+interface IndependentDesignRequestContextPort <<port>>
 ConsultationController --> ConsultationApplicationService
 ConsultationApplicationService --> ConsultationContextService
 ConsultationApplicationService --> ConsultationConversationRepository

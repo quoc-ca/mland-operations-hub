@@ -1,21 +1,22 @@
 @startuml
+!include r4-diagram-style.puml
 title FE-11 Review Management
 left to right direction
 skinparam classAttributeIconSize 0
-class ReviewController
-class ReviewEligibilityController
-class ReviewModerationController
-class ReviewService
-class Review
-class ReviewRevision
-class ReviewReply
-class ReviewModerationEvent
-class ReviewRepository
-class ReviewRevisionRepository
-class ReviewReplyRepository
-class ReviewModerationEventRepository
-interface WorkshopAttendanceReviewPort
-interface RetailFulfilmentReviewPort
+class ReviewController <<controller>>
+class ReviewEligibilityController <<controller>>
+class ReviewModerationController <<controller>>
+class ReviewService <<service>>
+class Review <<entity>>
+class ReviewRevision <<entity>>
+class ReviewReply <<entity>>
+class ReviewModerationEvent <<entity>>
+class ReviewRepository <<repository>>
+class ReviewRevisionRepository <<repository>>
+class ReviewReplyRepository <<repository>>
+class ReviewModerationEventRepository <<repository>>
+interface WorkshopAttendanceReviewPort <<port>>
+interface RetailFulfilmentReviewPort <<port>>
 ReviewController --> ReviewService
 ReviewEligibilityController --> ReviewService
 ReviewModerationController --> ReviewService
