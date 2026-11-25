@@ -128,7 +128,7 @@ export function createOtaConnectivityClient(httpClient) {
 
     /**
      * 7. POST /api/v1/ota-channel-mappings/{mappingId}/booking-enable
-     * Admin-only: Enable bookings for an audited, verified mapping.
+     * Manager: enable bookings for an audited, verified mapping.
      */
     async enableBooking(mappingId, { readinessRecordReference, checks, reason }) {
       if (!mappingId) throw new Error('Mapping ID is required');

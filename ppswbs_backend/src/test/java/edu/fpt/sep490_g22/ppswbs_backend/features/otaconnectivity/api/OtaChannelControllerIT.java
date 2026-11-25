@@ -112,14 +112,13 @@ class OtaChannelControllerIT {
         org.springframework.test.context.transaction.TestTransaction.end();
 
         var manager = new AccountSummary(91L, ActorRole.MANAGER, ActorStatus.ACTIVE, null, null, null);
-        var admin = new AccountSummary(92L, ActorRole.ADMIN, ActorStatus.ACTIVE, null, null, null);
         var requested = reconciliation.resolve(itemId, "RESYNC_REQUESTED", "recover test gap", "durable-resync", manager);
         assertThat(reconciliation.resolve(itemId, "RESYNC_REQUESTED", "recover test gap", "durable-resync", manager))
                 .isEqualTo(requested);
         assertThat(outbound.count()).isEqualTo(3);
         assertThat(decisions.count()).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> reconciliation.resolve(itemId, "ACCEPTED",
-                "confirm recovery", "durable-accept", admin)).isInstanceOf(
+                "confirm recovery", "durable-accept", manager)).isInstanceOf(
                 edu.fpt.sep490_g22.ppswbs_backend.features.otaconnectivity.application.exception.OtaMappingLifecycleException.class);
         assertThat(items.findById(itemId).orElseThrow().getStatus()).isEqualTo("IN_PROGRESS");
         assertThat(decisions.count()).isEqualTo(1);
@@ -127,9 +126,9 @@ class OtaChannelControllerIT {
             delivery.recordDeliveryResult(change.getId(), new OtaDeliveryResult(1, FROM, FROM.plusSeconds(1),
                     OtaDeliveryOutcome.DELIVERED, UUID.randomUUID().toString(), null));
         }
-        var accepted = reconciliation.resolve(itemId, "ACCEPTED", "confirm recovery", "durable-accept", admin);
+        var accepted = reconciliation.resolve(itemId, "ACCEPTED", "confirm recovery", "durable-accept", manager);
         assertThat(accepted.status()).isEqualTo("RESOLVED");
-        assertThat(reconciliation.resolve(itemId, "ACCEPTED", "confirm recovery", "durable-accept", admin))
+        assertThat(reconciliation.resolve(itemId, "ACCEPTED", "confirm recovery", "durable-accept", manager))
                 .isEqualTo(accepted);
         assertThat(mappings.findByPublicReference(reference).orElseThrow().getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);
         assertThat(decisions.count()).isEqualTo(2);
@@ -139,8 +138,8 @@ class OtaChannelControllerIT {
             assertThat(decision.getLocationReference()).isEqualTo("42");
             assertThat(decision.getProviderCode()).isEqualTo("KLOOK");
         }).anySatisfy(decision -> {
-            assertThat(decision.getActorAccountReference()).isEqualTo("92");
-            assertThat(decision.getActionScope()).isEqualTo("RECOVERY");
+            assertThat(decision.getActorAccountReference()).isEqualTo("91");
+            assertThat(decision.getActionScope()).isEqualTo("RECONCILIATION");
             assertThat(decision.getOutcome()).isEqualTo("RESOLVED");
         });
     }
@@ -200,7 +199,8 @@ class OtaChannelControllerIT {
         assertThat(first.path("commercialStatus").asText()).isEqualTo("PENDING_COMMERCIAL_CONFIRMATION");
         assertThat(create()).isEqualTo(first);
         assertThat(mappings.count()).isEqualTo(1);
-        mvc.perform(auth(get("/api/v1/ota-channels"), ActorRole.ADMIN)).andExpect(status().isOk())
+        mvc.perform(auth(get("/api/v1/ota-channels"), ActorRole.ADMIN)).andExpect(status().isForbidden());
+        mvc.perform(auth(get("/api/v1/ota-channels"), ActorRole.MANAGER)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].state").value("DRAFT"))
                 .andExpect(jsonPath("$.items[0].credentialReference").doesNotExist())
                 .andExpect(jsonPath("$.items[0].id").doesNotExist());
@@ -251,8 +251,8 @@ class OtaChannelControllerIT {
                     OtaDeliveryOutcome.DELIVERED, UUID.randomUUID().toString(), null));
         }
         assertThat(mappings.findByPublicReference(id).orElseThrow().getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);
-        call(auth(post(path(id)+"/booking-enable"), ActorRole.MANAGER), readiness(true), 403);
-        JsonNode enabled = call(auth(post(path(id)+"/booking-enable"), ActorRole.ADMIN), readiness(true), 200);
+        call(auth(post(path(id)+"/booking-enable"), ActorRole.ADMIN), readiness(true), 403);
+        JsonNode enabled = call(auth(post(path(id)+"/booking-enable"), ActorRole.MANAGER), readiness(true), 200);
         assertThat(enabled.path("decision").asText()).isEqualTo("APPROVED");
         assertThat(enabled.path("recordedAt").isTextual()).isTrue();
         Map<String,Object> reason = Map.of("reason", "close test sale");
@@ -316,7 +316,7 @@ class OtaChannelControllerIT {
         var mapping = mappings.findByPublicReference(id).orElseThrow();
         mapping.startPreparationSync(); mapping.completePreparationSync(); mappings.flush();
         call(auth(post(path(id)+"/price-terms"), ActorRole.MANAGER), priceBody("500000", FROM, null), 201);
-        JsonNode result = call(auth(post(path(id)+"/booking-enable"), ActorRole.ADMIN), readiness(false), 200);
+        JsonNode result = call(auth(post(path(id)+"/booking-enable"), ActorRole.MANAGER), readiness(false), 200);
         assertThat(result.path("decision").asText()).isEqualTo("REJECTED");
         assertThat(mapping.getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);
         assertThat(assessments.count()).isEqualTo(1);
@@ -393,7 +393,7 @@ class OtaChannelControllerIT {
         mapping.startPreparationSync(); mapping.completePreparationSync(); mappings.flush();
         call(auth(post(path(id)+"/price-terms"),ActorRole.MANAGER),priceBody("500000",FROM,null),201);
         var check=Map.of("check","CONTRACT_ONBOARDING","outcome","VERIFIED","evidenceReference","test");
-        call(auth(post(path(id)+"/booking-enable"),ActorRole.ADMIN),Map.of("readinessRecordReference","test",
+        call(auth(post(path(id)+"/booking-enable"),ActorRole.MANAGER),Map.of("readinessRecordReference","test",
                 "reason","test", "checks",Collections.nCopies(12,check)),400);
         assertThat(assessments.count()).isZero();
         assertThat(mapping.getStatus()).isEqualTo(OtaMappingStatus.SALES_CLOSED);

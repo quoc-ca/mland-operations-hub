@@ -32,7 +32,7 @@ public class OtaReconciliationController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "category", required = false) String category) {
-        var actor = authorizationService.requireManagerOrAdmin(authorization);
+        var actor = authorizationService.requireManager(authorization);
         return new OtaReconciliationWorkItemListResponse(reconciliationService.listWorkItems(status, category, actor));
     }
 
@@ -40,7 +40,7 @@ public class OtaReconciliationController {
     @GetMapping(params = "needsAttention=true")
     public OtaReconciliationWorkItemListResponse listNeedingAttention(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        var actor = authorizationService.requireManagerOrAdmin(authorization);
+        var actor = authorizationService.requireManager(authorization);
         return new OtaReconciliationWorkItemListResponse(reconciliationService.listNeedingAttention(actor));
     }
 
@@ -62,7 +62,7 @@ public class OtaReconciliationController {
         if (idempotencyKey == null || idempotencyKey.trim().length() < 8 || idempotencyKey.trim().length() > 128) {
             throw new IllegalArgumentException("Idempotency-Key must contain 8 to 128 characters");
         }
-        var actor = authorizationService.requireManagerOrAdmin(authorization);
+        var actor = authorizationService.requireManager(authorization);
         OtaReconciliationActionResult result = reconciliationService.resolveByPublicReference(workItemId,
                 request.resolution(), request.reason(), idempotencyKey, actor);
         return ResponseEntity.ok(new OtaReconciliationWorkItemViewResponse(result.workItemId(), result.mappingId(),
