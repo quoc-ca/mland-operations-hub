@@ -1,85 +1,98 @@
 @startuml
-!pragma charset UTF-8
-title Report 3 Screen Flow — Feature-004, 011, 012 and 013 Baseline
+title Report 3 Screen Flow - Feature-004, 011, 012 and 013 Baseline
 left to right direction
 skinparam shadowing false
-skinparam activity {
+skinparam packageStyle rectangle
+skinparam rectangle {
   BackgroundColor #FCF9F8
   BorderColor #807663
-  ArrowColor #5B5E67
+  FontColor #1C1C1C
+}
+skinparam ArrowColor #5B5E67
+
+package "Guest" as guest {
+  rectangle "Home / public entry" as guest_home
+  rectangle "Ring design preview" as guest_ring
+  rectangle "Custom request entry" as guest_custom
+  rectangle "Public review list/detail" as guest_reviews
+  rectangle "Consultation entry" as guest_chat
+  rectangle "Sign in" as guest_signin
 }
 
-|Guest|
-start
-:Home / public entry;
-if (Browse feature?) then (Ring design)
-  :Ring design preview;
-  :Protected action;
-  :Sign-in;
-elseif (Custom request)
-  :Custom design entry;
-  :Protected action;
-  :Sign-in;
-elseif (Reviews)
-  :Public review list/detail;
-  :Write-review action;
-  :Sign-in;
-else (Consultation)
-  :Consultation entry;
-  :Sign-in;
-endif
-stop
+guest_home --> guest_ring : browse ring design
+guest_home --> guest_custom : custom request
+guest_home --> guest_reviews : reviews
+guest_home --> guest_chat : consultation
+guest_ring --> guest_signin : protected action
+guest_custom --> guest_signin : protected action
+guest_reviews --> guest_signin : write review
+guest_chat --> guest_signin : protected action
 
-|Member|
-start
-:Member home;
-if (Ring design) then (yes)
-  :Model/blank selection;
-  :Configuration;
-  :Save/evaluate;
-  :Design evaluation and workshop recommendation;
-  :My Ring Designs;
-  if (Consultation?) then (yes)
-    :Context-linked consultation chat;
-  endif
-elseif (Design request)
-  :Design Request Workspace;
-  :Consent and image quality checks;
-  :Design Request Details;
-  :Read human review status/explanation;
-  if (Clarification required?) then (yes)
-    :Submit clarification;
-  endif
-elseif (Review)
-  :Eligible Review Sources;
-  :Create or edit own review;
-  :Public review projection;
-else (Consultation)
-  :General or context-linked chat;
-  :OPEN/CLOSED conversation;
-endif
-stop
+package "Member" as member {
+  rectangle "Member home" as member_home
+  rectangle "Model / blank selection" as member_model
+  rectangle "Ring configuration" as member_config
+  rectangle "Save / evaluate" as member_evaluate
+  rectangle "Workshop recommendation" as member_recommend
+  rectangle "My ring designs" as member_designs
+  rectangle "Design request workspace" as member_request
+  rectangle "Consent and image quality checks" as member_quality
+  rectangle "Design request details" as member_details
+  rectangle "Human review status and explanation" as member_review
+  rectangle "Clarification submission" as member_clarification
+  rectangle "Eligible review sources" as member_sources
+  rectangle "Create or edit own review" as member_create_review
+  rectangle "General or context-linked chat" as member_chat
+}
 
-|Staff or Manager|
-start
-:Role home;
-if (Design review) then (yes)
-  :Design Review Queue;
-  :Design Review Details;
-  :Accept, reject or request clarification;
-  :Mandatory explanation and audit;
-elseif (Review moderation)
-  :Review Moderation Queue;
-  :Moderation Details;
-  :Staff hide / Manager hide-remove-reply;
-else (Consultation)
-  :Consultation Inbox;
-  :Claim/assign/reply/close;
-endif
-stop
+member_home --> member_model : ring design
+member_model --> member_config
+member_config --> member_evaluate
+member_evaluate --> member_recommend
+member_recommend --> member_designs
+member_designs --> member_chat : consult with design reference
 
-note right
+member_home --> member_request : design request
+member_request --> member_quality
+member_quality --> member_details
+member_details --> member_review
+member_review --> member_clarification : clarification required
+member_clarification --> member_details : resubmit clarification
+
+member_home --> member_sources : review
+member_sources --> member_create_review
+member_home --> member_chat : consultation
+
+package "Staff / Manager" as operations {
+  rectangle "Role home" as role_home
+  rectangle "Design review queue" as design_queue
+  rectangle "Design review details" as design_details
+  rectangle "Accept, reject or clarify" as design_decision
+  rectangle "Mandatory explanation and audit" as design_audit
+  rectangle "Review moderation queue" as moderation_queue
+  rectangle "Moderation details" as moderation_details
+  rectangle "Staff hide / Manager hide-remove-reply" as moderation_action
+  rectangle "Consultation inbox" as consultation_inbox
+  rectangle "Claim, assign, reply and close" as consultation_action
+}
+
+role_home --> design_queue : design review
+design_queue --> design_details
+design_details --> design_decision
+design_decision --> design_audit
+design_audit --> member_review : status and explanation
+
+role_home --> moderation_queue : review moderation
+moderation_queue --> moderation_details
+moderation_details --> moderation_action
+
+role_home --> consultation_inbox : consultation
+consultation_inbox --> consultation_action
+consultation_action --> member_chat : reply or close
+
+note bottom
 Feature-012 design is not attached to booking.
-Feature-004 uses human review only; Feature-011 is public-read/member-write.
+Feature-012 recommends a workshop package or provides an optional reference for Feature-004 custom manufacturing.
+Feature-004 uses human review only. Feature-011 is public-read and member-write.
 end note
 @enduml
