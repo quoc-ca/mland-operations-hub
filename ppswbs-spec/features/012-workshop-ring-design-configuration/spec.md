@@ -296,3 +296,16 @@ state. No unauthenticated retry may create or mutate a design.
 15. A 3.5g Silver 925 design remains valid and shows an advisory excess-material
     amount. Copper/Steel designs remain scoreable without a false workshop
     recommendation; Silver Clay advice for S925 discloses S999.
+
+## 12. Technical Projection for Admin & Audit (C7 Compliance)
+
+> [!IMPORTANT]
+> **Đồng bộ mã nguồn & Kiến trúc cho Agent/Lập trình viên tiếp theo:**
+> - **Endpoint:** `GET /api/v1/workshop-designs/{designId}/technical-projection`
+> - **Quyền truy cập (Authorized Roles):** `ADMIN`, `MANAGER` (Guest, Member, Staff: `403 FORBIDDEN` / `401 UNAUTHORIZED`).
+> - **DTO phía Backend:** `WorkshopRingDesignTechnicalProjectionDto` (`edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.WorkshopRingDesignTechnicalProjectionDto`).
+> - **Nguyên lý Phân tách Trách nhiệm (Separation of Duties):**
+>   - Admin có nhiệm vụ kiểm toán kỹ thuật, giám sát cấu hình nhẫn và đối soát quy tắc (rule version, độ khó difficulty score), nhưng **tuyệt đối không được can thiệp thương mại** hoặc xem thông tin cá nhân khách hàng.
+>   - Do đó, Technical Projection **loại bỏ/mask** toàn bộ: giá ước tính thương mại (`estimatedPrice`, tiền tệ), thông tin người sở hữu (`ownerReference`, `ownerType`), và dữ liệu nhạy cảm khắc laser của khách (base64 hình ảnh hoặc text khắc riêng tư).
+>   - Technical Projection **chỉ cung cấp** các thông số kỹ thuật phục vụ kiểm toán: `designId`, `packageReference`, `designVersion`, `designType`, `status`, `materialReference`, `shapeReference`, `ringSize`, `difficultyScore`, `rulesVersion`, `isLocked`, `createdAt`, `updatedAt`.
+> - **Khi tích hợp Frontend Admin/Audit:** Khi phát triển màn hình kiểm toán mẫu nhẫn cho Admin, frontend gọi trực tiếp endpoint `GET /api/v1/workshop-designs/{designId}/technical-projection`, không gọi endpoint thương mại `/api/v1/workshop-designs/{designId}`.

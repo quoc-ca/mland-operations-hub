@@ -235,7 +235,7 @@ paths:
           $ref: '#/components/responses/NotFound'
   /ready-ring-orders/{orderId}/preparation:
     post:
-      summary: Record authorized Staff preparation
+      summary: Record preparation by authorized Staff or a Manager of the branch (C2, 2026-11-26)
       security:
         - firebaseBearer: []
       parameters:

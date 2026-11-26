@@ -63,10 +63,18 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
     const typed = amount.trim();
     if (!isQuantity(typed)) { setAmountError(t('validation.quantity')); return; }
     setAmountError(null);
-    setValues(current => ({
-      ...current,
-      ...Object.fromEntries(chosen.map(row => [row.variant.id, mode === 'add' ? String(BigInt(remainingOf(row.variant)) + BigInt(typed)) : typed])),
-    }));
+    changeValues(chosen.map(row => [row, mode === 'add' ? String(BigInt(remainingOf(row.variant)) + BigInt(typed)) : typed]));
+  };
+  // Hint of one row's new number; checked while typing (an unchanged row has none) and on save.
+  const rowError = (row, value) => {
+    const typed = String(value).trim();
+    if (typed === String(remainingOf(row.variant))) return undefined;
+    if (!isQuantity(typed)) return t('validation.quantity');
+    return belowHeld(row, typed) ? t('qty.belowHeld', { held: heldShown(row.variant) }) : undefined;
+  };
+  const changeValues = changes => {
+    setValues(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => [row.variant.id, value])) }));
+    setErrors(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => [row.variant.id, rowError(row, value)])) }));
   };
   const close = () => { setOpen(false); setValues({}); setErrors({}); setSelected({}); setAmount(''); setAmountError(null); batch.clear(); };
 
@@ -117,7 +125,11 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
             <option value="set">{t('qty.modeSet')}</option>
           </select>
         </label>
-        <Field label={t('qty.amount')} error={amountError}><QuantityStepper label={t('qty.amount')} value={amount} invalid={Boolean(amountError)} onChange={setAmount} /></Field>
+        <Field label={t('qty.amount')} error={amountError}><QuantityStepper label={t('qty.amount')} value={amount} invalid={Boolean(amountError)} onChange={value => {
+          // Checked while typing; an empty box is only pointed out when applied.
+          setAmount(value);
+          setAmountError(String(value).trim() && !isQuantity(String(value).trim()) ? t('validation.quantity') : null);
+        }} /></Field>
         <button type="button" className="button outline" disabled={!chosen.length || !amount.trim()} onClick={apply}>{t('bulk.applyTo', { count: chosen.length })}</button>
         <button type="button" className="button outline" onClick={() => { setValues({}); setErrors({}); }}>{t('qty.reset')}</button>
       </div>
@@ -137,7 +149,7 @@ export function BatchQuantities({ product, api, reload, setNotice, branch = null
             <span role="cell">{heldShown(row.variant)}</span>
             <span role="cell">
               <QuantityStepper label={t('qty.newFor', { size: row.variant.size })} value={valueOf(row)} invalid={Boolean(errors[row.variant.id])}
-                onChange={value => setValues(current => ({ ...current, [row.variant.id]: value }))} />
+                onChange={value => changeValues([[row, value]])} />
               {errors[row.variant.id] && <span className="field-error">{errors[row.variant.id]}</span>}
             </span>
             <span role="cell"><QuantityGap from={remainingOf(row.variant)} to={valueOf(row).trim()} /></span>

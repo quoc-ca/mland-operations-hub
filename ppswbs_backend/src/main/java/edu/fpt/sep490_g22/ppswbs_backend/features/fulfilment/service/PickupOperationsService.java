@@ -27,10 +27,18 @@ public class PickupOperationsService {
     public record Result(String orderId, String fulfilmentState, String milestone, Instant recordedAt) { }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public Result prepare(CurrentAccountActor actor, String orderId) { return perform(actor, orderId, "PREPARED"); }
+    public Result prepare(CurrentAccountActor actor, String orderId) {
+        // C2 (Thinh, 2026-11-26): a Manager of the branch may pack a pickup order too, like a GHTK parcel; the handover
+        // and the counter cash stay with Staff.
+        requireStaffOrManager(actor);
+        return perform(actor, orderId, "PREPARED");
+    }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public Result handOver(CurrentAccountActor actor, String orderId) { return perform(actor, orderId, "HANDED_OVER"); }
+    public Result handOver(CurrentAccountActor actor, String orderId) {
+        requireStaff(actor);
+        return perform(actor, orderId, "HANDED_OVER");
+    }
 
     /**
      * Cash at the counter in one step (Session 2026-11-20): the customer pays the exact amount, Staff presses
@@ -55,9 +63,15 @@ public class PickupOperationsService {
         if (actor.status() != ActorStatus.ACTIVE || actor.role() != ActorRole.STAFF) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Active Staff access is required");
     }
 
-    private Result perform(CurrentAccountActor actor, String orderId, String milestone) {
+    private static void requireStaffOrManager(CurrentAccountActor actor) {
         if (actor == null || actor.accountId() == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
-        if (actor.status() != ActorStatus.ACTIVE || actor.role() != ActorRole.STAFF) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Active Staff access is required");
+        if (actor.status() != ActorStatus.ACTIVE || (actor.role() != ActorRole.STAFF && actor.role() != ActorRole.MANAGER)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Active Staff or Manager access is required");
+        }
+    }
+
+    /** Records one milestone; the caller has already checked the role. The branch check applies to every role. */
+    private Result perform(CurrentAccountActor actor, String orderId, String milestone) {
         try {
             var order = orders.lock(orderId);
             if (actor.activeLocationIds() == null || !actor.activeLocationIds().contains(order.locationId())) {

@@ -1,80 +1,60 @@
-# Final Revision Review — Feature-012 and FE-09
+# Tóm tắt Đề xuất Review Nhanh — Feature-012 & Feature-009
 
-**Date created**: 2026-11-26
-**Date updated**: 2026-11-26
-**Author**: Phan Sơn
-**Last updated by**: Phan Sơn
+**Ngày tạo**: 2026-11-26
+**Cập nhật**: 2026-11-26
+**Người cập nhật**: Phan Sơn
+**Người review dự kiến**: Ngô Tiến Đạt (Tech Lead)
+**Trạng thái**: `PROPOSED FOR REVIEW` — Chờ Tech Lead duyệt (bản duyệt cũ 2026-11-09 và visual 2026-11-22 không tự động áp dụng cho phần thay đổi mới).
 
-**Status:** PROPOSED FOR REVIEW. No Tech Lead approval is recorded.
-**Intended reviewer:** Ngô Tiến Đạt.
-**Candidate revision fingerprint:** `SHA-256 0fcb4666b9631b5226f42d2eef79f5a2f82f6bcad13775eb6c236865e9cdb246`.
+---
 
-## Decision requested
+## 1. Những điểm đã chốt (Đạt & Sơn thống nhất)
 
-Review the complete Member-only Feature-012 and Admin-only FE-09 revision, not
-only the Admin editor. The requested decision covers requirements, two design
-entry modes, model eligibility, recommendation, customer/Admin contracts,
-physical migration design, concurrency, written FE-09 visual baseline and
-acceptance scenarios. If accepted, record the exact reviewed artifact revision,
-approved scope, date and Tech Lead in each feature's canonical `approval.md`.
-The historical 2026-11-09 Feature-012 implementation approval and 2026-11-22
-customer visual approval do not authorize this revision.
+- **Phạm vi FE-09 (Admin Configuration):**
+  - Chỉ cấu hình **độ khó thiết kế nhẫn** (Workshop Ring Difficulty), **không** làm phần tham số checkout của UC-62 trong đợt này.
+  - Admin **chỉ được publish** sau khi chạy **Preview** thành công trên các mẫu chuẩn không chứa dữ liệu cá nhân (server tạo proof có hiệu lực 15 phút); gọi API publish trực tiếp không qua preview sẽ bị chặn.
+  - Nếu chính sách mới làm bất kỳ **mẫu nhẫn đang publish (active model)** nào bị thiếu điểm hoặc vượt ngưỡng `TOO_RISKY`, toàn bộ bản publish sẽ bị từ chối.
+- **Chất liệu, khối lượng & công thức giá (Feature-012):**
+  - **Định mức 3.00 g & giá vật liệu cơ bản ($\le 3.00\text{ g}$):** Bạc 925 = **900.000 đ**, Đồng = **750.000 đ**, Thép 316L = **750.000 đ** (bỏ mô tả cũ "tối đa 4g").
+  - **Vượt 3.00 g:** Tính phụ phí tham khảo **120.000 đ/g** chung cho **tất cả** chất liệu; **không** từ chối thiết kế và **không** tự động thu thêm tiền tại workshop (vận hành tự xác nhận thực tế).
+- **Quy tắc hiển thị & gợi ý workshop:**
+  - Option mới do Manager thêm nhưng Admin chưa chấm điểm: vẫn hiển thị nhưng **disabled** cho khách hàng (`DIFFICULTY_SCORE_PENDING`).
+  - Mẫu Đồng / Thép 316L: vẫn xuất hiện ở danh mục chung (general discovery), nhưng **không** gán vào gói workshop Bạc và **không** gợi ý gói workshop không tương thích (chuyển sang tư vấn / danh mục chung).
+  - Bạc S925 nếu được gợi ý **Silver Clay** phải hiển thị rõ lưu ý workshop dùng bạc **S999** (bản thiết kế lưu vẫn giữ S925).
+  - **Wax Casting** (> 9 điểm, $\le 11$ điểm): hiển thị lưu ý cần 2 buổi cách nhau ít nhất 2 ngày làm việc của xưởng.
+  - Điểm độ khó có thể vượt quá 10 (VD: `14.1`): UI khách hàng **không** hiển thị `/10`.
+- **Lưu trữ & lịch sử:**
+  - Audit publish chính sách giữ tối thiểu **5 năm**; policy version cũ còn được thiết kế tham chiếu thì giữ lâu hơn.
+  - Thiết kế đã lưu trước đó giữ nguyên điểm, mức độ khó, gợi ý và `rules_version` cũ (không tự động tính lại khi Admin đổi policy).
 
-| Topic | Proposed decision for review |
-| --- | --- |
-| Silver 925 allowance | Signature Silver 925 includes 3g. More than 3g is allowed; the excess is an advisory design estimate. Workshop operations confirm any payable amount. The old catalogue wording “maximum 4g” is corrected. |
-| Published models | Both model-based and blank designs are supported. Every active published model's entire default configuration must remain valid, fully scored and at or below the too-risky cutoff under the effective policy. Customer edits are evaluated separately. Policy or catalogue publication rejects a change that breaks an active model; deliberate model retirement is separate. |
-| General and package discovery | General catalogue includes all eligible active models. A package page shows only materially compatible models. Four Copper/Steel seed models remain published in general discovery; their erroneous Silver package association requires an append-only correction. General designs may have no package reference. |
-| Workshop advice | Copper/Steel have no approved compatible workshop recommendation and retain consultation/general discovery. Silver-family advice may suggest Silver Clay S999 for an S925 design only with explicit S999 disclosure; the saved design remains S925. Wax Casting messaging explains two sessions separated by at least two foundry working dates. Advice never mutates booking or payment. |
-| Admin publication | Only active Admin can publish a complete immutable policy after required standard and optional non-personal preview. Preview lists impact for every active published model. A blocking model yields no publication proof. The 15-minute proof binds Admin, candidate, active policy and catalogue revision; publication rechecks models in one transaction. |
-| History and retention | New saves bind score, level and advice to one policy version. Old design results are not silently recalculated. Audit lasts at least five years; referenced policy versions remain longer. |
+---
 
-## Evidence and remaining approval gates
+## 2. Những gì đã thêm / sửa trong tài liệu (để review nhanh)
 
-- Static review of V142 seed rows and the current additive formula found 12/12
-  model defaults with complete referenced scores and a maximum of 4.7000. This
-  does not prove runtime behavior; current model creation evaluates empty
-  component lists, so fresh implementation tests must cover full defaults.
-- The customer OpenAPI now describes public general/package-filtered reads and
-  Member-only commands. The Admin OpenAPI exposes exhaustive model impact and
-  proof-gated publication. Both are proposed and need Tech Lead contract review.
-- `data-model.md` §8 proposes append-only physical tables, nullable package
-  context, score widening and association correction. The applied database
-  baseline is not verified here; no migration number or executable SQL is
-  approved by this review memo.
-- FE-09 now has a plan and canonical pending approval record. Its written UI
-  baseline reuses the Admin shell without a new Figma frame and needs explicit
-  Tech Lead acceptance.
-- Feature-013 `spec.md` was rebaselined to Member-only on 2026-11-25, after its
-  2026-11-18 approval. Its current consultation context boundary must be
-  revalidated before the Feature-012 handoff is approved.
-- Report 3 ring-design fragments and historical Feature-012 research/version/
-  test evidence include package-first or retired Guest/booking descriptions.
-  They are not implementation authority for this revision. Any Report 3
-  fragment edit requires a separately named document task under
-  `documents/AGENT.md`.
+### A. Feature-009 (`009-administrative-parameter-configuration`) — Bộ tài liệu mới hoàn toàn
+- **`spec.md` & `plan.md` & `tasks.md`**: Quy định màn hình `/admin/ring-difficulty` chỉ dành cho Admin active; tách biệt với quyền Manager (Manager sửa danh mục, Admin sửa điểm độ khó).
+- **`design/architecture.md`, `workflows.md`, `ui-flow.md`**: Luồng Load → Edit → Preview (kèm bảng tác động 100% active models) → Publish (atomic + idempotency + preview proof 15 phút) → Xem/khôi phục lịch sử.
+- **`approval.md`**: Bản ghi chờ Tech Lead duyệt.
 
-## Review package and verification map
+### B. Feature-012 (`012-workshop-ring-design-configuration`) — Bổ sung & đồng bộ
+- **`spec.md`**:
+  - Chốt luồng **Member-only** (Guest chỉ xem & preview local, không gọi API lưu/tính; bỏ luồng gắn booking cũ).
+  - Thêm mục **4.1 Admin-owned difficulty policy** và cập nhật ngưỡng gợi ý (mục 6), acceptance scenarios (mục 11: 12–15).
+  - Giữ mục **12. Technical Projection for Admin & Audit (C7)** (`GET /api/v1/workshop-designs/{designId}/technical-projection`) đã có trên `develop`.
+- **`formula.md`**:
+  - Cập nhật **mục 5.3** theo công thức giá mới trên `develop` (`V204`: 900k/750k cho $\le 3\text{g}$, `120.000 đ/g` vượt mức cho mọi chất liệu) + giữ rõ tính chất advisory.
+  - Cập nhật **mục 7** đúng thứ tự `if/else` trên FE (`>11` TOO_RISKY → `>9` Wax → `>5` đá Silver Clay → Signature).
+  - Thêm **mục 9**: Chính sách độ khó do Admin quản lý (chỉ sửa số liệu/ngưỡng, không sửa biểu thức công thức).
+- **`data-model.md`**:
+  - Bổ sung mô hình dữ liệu cho policy versioning, preview proof, audit, cập nhật rule giá vật liệu mục 3 (#26) và đề xuất migration append-only (mục 8).
+- **`contracts/admin-ring-difficulty.openapi.yaml`** *(mới)* & **`contracts/workshop-ring-design.openapi.yaml`** *(cập nhật)*: Hợp đồng API cho Admin policy và Member configurator.
+- **`plan.md`, `tasks.md`, `research.md`, `frontend-handoff.md`, `design/*`**: Đồng bộ theo các thay đổi trên.
 
-Feature-012: `spec.md`, `plan.md`, `formula.md`, `data-model.md`, both OpenAPI
-contracts, `design/architecture.md`, `design/workflows.md`, `design/ui-flow.md`,
-`frontend-handoff.md`, `tasks.md` and `design/readiness-review.md`.
-FE-09: `spec.md`, `plan.md`, its three `design/` files and `tasks.md`.
-Shared boundaries: Feature-003 workshop catalogue, `ppswbs-spec/APIs.md` and
-`ppswbs-spec/route-access-matrix.md`.
-The fingerprint covers these 21 design/contract/source files (12 Feature-012,
-6 FE-09, 3 shared), excluding this review memo and pending approval records.
-It is SHA-256 over paths sorted by repository-relative POSIX path, with each
-path's UTF-8 bytes, a NUL separator, raw file bytes and a final NUL separator.
-Any edit to a covered file changes the candidate revision and requires a new
-fingerprint before a decision is recorded.
+---
 
-The acceptance set is: all published-model defaults, missing-score and
-too-risky publish rejection, concurrent catalogue change, explicit model
-retirement, edited variants, 3.5g Silver advisory amount, Copper/Steel with no
-false package, S925/S999 disclosure, old snapshot stability, Admin denial,
-proof expiry/bypass, idempotent replay, stale publish, and keyboard/mobile UI.
-Tests are specified for later execution; none are claimed to pass for the new
-revision. `design/readiness-review.md` remains the gate ledger. Until the named
-Tech Lead decision and remaining dependency/physical review evidence exist,
-both features remain DRAFT/PROPOSED.
+## 3. Cần Tech Lead (Đạt) review & chốt
+
+1. Duyệt **Admin OpenAPI** (`admin-ring-difficulty.openapi.yaml`) và **Member OpenAPI** (`workshop-ring-design.openapi.yaml`).
+2. Duyệt thiết kế bảng & migration đề xuất trong **`data-model.md` §8** (kiểm tra khớp với Flyway hiện tại của DB).
+3. Duyệt **UI baseline bằng văn bản** cho màn `/admin/ring-difficulty` trong **`009/design/ui-flow.md`** (tái sử dụng shell Admin, không tạo Figma frame mới).
+4. Kiểm tra lại ranh giới tích hợp **Feature-013** (tư vấn) và ghi quyết định vào **`012/approval.md`** + **`009/approval.md`**.

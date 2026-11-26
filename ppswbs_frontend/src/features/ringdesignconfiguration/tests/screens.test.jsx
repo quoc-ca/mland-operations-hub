@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
+import { signInAs } from '../../loyalty-promotion/tests/fixtures';
 import { ringDesignConfigurationRoutes } from '../routes';
 import { I18nProvider } from '../../../shared/i18n/I18nProvider';
 import RingPreview from '../ui/RingPreview';
@@ -450,7 +451,9 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
     });
 
     it('displays saved designs list when signed in as member', async () => {
+      signInAs('MEMBER');
       mockFetch({
+        'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
         'GET /api/v1/workshop-designs': json(200, [
           {
             designId: 'DSG-DEMO-MEMBER-01',
@@ -481,10 +484,12 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
     });
 
     it('shows confirmation popup with warning when delete button is clicked and soft deletes on confirm', async () => {
+      signInAs('MEMBER');
       const user = userEvent.setup();
       let archivedDesignId = null;
 
       mockFetch({
+        'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
         'GET /api/v1/workshop-designs': json(200, [
           {
             designId: 'DSG-TO-DELETE-01',
@@ -537,6 +542,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
     });
 
     it('paginates workshop designs list with 5 items per page', async () => {
+      signInAs('MEMBER');
       const user = userEvent.setup();
       const mockItems = Array.from({ length: 12 }, (_, i) => ({
         designId: `DSG-PAGE-${i + 1}`,
@@ -555,6 +561,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       }));
 
       mockFetch({
+        'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
         'GET /api/v1/workshop-designs': json(200, mockItems),
       });
 

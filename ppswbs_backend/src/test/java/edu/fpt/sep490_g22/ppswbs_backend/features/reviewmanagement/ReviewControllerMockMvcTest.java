@@ -223,5 +223,46 @@ class ReviewControllerMockMvcTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews/{id}/technical-projection as ADMIN returns 200 without PII")
+    void getTechnicalProjection_AsAdmin_Returns200() throws Exception {
+        CurrentAccountActor adminActor = new CurrentAccountActor(99L, ActorRole.ADMIN, ActorStatus.ACTIVE, true, List.of());
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(adminActor, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        ReviewTechnicalProjectionDto projection = ReviewTechnicalProjectionDto.builder()
+                .id("REV-001")
+                .targetType(TargetType.WORKSHOP_SESSION)
+                .targetReference("SESS-100")
+                .packageId(1L)
+                .rating(5)
+                .status(ReviewStatus.PUBLIC)
+                .imageCount(2)
+                .bodyTextLength(45)
+                .version(1L)
+                .hasReply(false)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(applicationService.getTechnicalProjection("REV-001")).thenReturn(projection);
+
+        mockMvc.perform(get("/api/v1/reviews/REV-001/technical-projection"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("REV-001"))
+                .andExpect(jsonPath("$.targetType").value("WORKSHOP_SESSION"))
+                .andExpect(jsonPath("$.rating").value(5))
+                .andExpect(jsonPath("$.imageCount").value(2))
+                .andExpect(jsonPath("$.bodyTextLength").value(45));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/reviews/{id}/technical-projection as MEMBER returns 403")
+    void getTechnicalProjection_AsMember_Returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/reviews/REV-001/technical-projection"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("REVIEW_NOT_AUTHORIZED"));
+    }
 }
 

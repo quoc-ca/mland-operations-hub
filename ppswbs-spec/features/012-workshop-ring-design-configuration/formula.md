@@ -10,7 +10,7 @@
 Sections 1–8 record the formula currently implemented by Feature-012; Section 9 records the proposed Admin-owned policy and does not claim that code has changed. The executable current source of truth is:
 
 - Backend: `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/ringdesignconfiguration/rules/ManagerDesignRuleAdapter.java`.
-- Catalogue seed data: `V110__workshop_ring_design_configuration.sql` and `V142__ring_design_copper_steel_and_models.sql`.
+- Catalogue seed & pricing data: `V110__workshop_ring_design_configuration.sql`, `V142__ring_design_copper_steel_and_models.sql`, and `V204__update_ring_materials_base_pricing.sql`.
 - Frontend classification: `ppswbs_frontend/src/features/ringdesignconfiguration/domain/designPreview.js`.
 
 The backend owns the evaluation result. The frontend only formats and classifies the server-returned `difficultyScore`; it must not recalculate or override it.
@@ -195,7 +195,29 @@ Current densities:
 
 ### 5.3 Price-related values
 
-The evaluation also adds material base price, shape price adjustment, gemstone cost by quantity, attachment cost by quantity, standard engraving price, and custom-image price. Signature Silver 925 includes `3.00 g`; estimated mass above that amount produces an advisory excess-material surcharge, not a design rejection or an automatic workshop payment. These amounts are not difficulty points.
+The evaluation calculates estimated price and material cost based on authoritative catalogue and physical attributes:
+
+1. **Base material cost ($\le 3.00\text{ g}$)**:
+   - For designs with estimated mass up to $3.00\text{ g}$, the base material price is fixed:
+     - `MAT-SILVER-925`: **900,000 VND** (a 1.0g, 2.5g or 3.0g silver ring all have base price 900,000 VND)
+     - `MAT-COPPER`: **750,000 VND**
+     - `MAT-STAINLESS-STEEL`: **750,000 VND**
+2. **Excess material surcharge ($> 3.00\text{ g}$)**:
+   - When estimated mass exceeds $3.00\text{ g}$, the excess mass is charged at a fixed rate of **120,000 VND** per excess gram across all supported materials:
+     $$\text{excessWeight} = \text{estimatedWeight} - 3.00$$
+     $$\text{excessMaterialCost} = 120,000 \times \text{excessWeight}$$
+     $$\text{materialCost} = \text{baseUnitPrice} + \text{excessMaterialCost} = \text{baseUnitPrice} + 120,000 \times (\text{estimatedWeight} - 3.00)$$
+   - Estimated mass above $3.00\text{ g}$ produces an advisory excess-material surcharge, not a design rejection or an automatic workshop payment.
+3. **Add-on components**:
+   - Shape adjustment (`ring_shapes.price_adjustment`)
+   - Gemstones (`gemstone.unitPrice × quantity`)
+   - Attachments (`attachment.unitPrice × quantity`)
+   - Standard engraving: **80,000 VND** once when enabled
+   - Custom laser images: **100,000 VND** per image
+
+$$\text{estimatedPrice} = \text{materialCost} + \text{shapeAdjustment} + \sum(\text{gemstoneCost}) + \sum(\text{attachmentCost}) + \text{engravingCost}$$
+
+These amounts are advisory, are not difficulty points, and do not alter workshop package deposit or confirmed bookings.
 
 ## 6. Frontend difficulty classification
 

@@ -16,7 +16,7 @@ import '../ui/checkout-bottom.css';
 import '../ui/cart-shopee.css';
 import '../ui/retail-cash.css';
 import '../ui/retail-orders.css';
-import { MaskAdmin, RoleArea } from '../../../shared/auth/RoleArea';
+import { MemberOnly, RoleArea } from '../../../shared/auth/RoleArea';
 
 /** The topbar cart icon: one entry, two carts. `?tab=workshop` opens the workshop cart, anything else the product cart. */
 function CartEntry() {
@@ -27,15 +27,17 @@ function CartEntry() {
 // FE-08 routes live inside AppLayout, like 002 and 006.
 export const readyRingSalesRoutes = [
   { path: '/cart', element: <CartEntry /> },
-  { path: '/member/cart', element: <MaskAdmin><MemberCartPage /></MaskAdmin> },
-  { path: '/member/checkout', element: <MaskAdmin><MemberCheckoutPage /></MaskAdmin> },
-  { path: '/member/orders', element: <MaskAdmin><MemberOrdersPage /></MaskAdmin> },
+  // Only MEMBER (spec 008 route allowlist, R3c): another signed-in role is replaced to /404 before any API call; a guest keeps the page's sign-in prompt.
+  { path: '/member/cart', element: <MemberOnly><MemberCartPage /></MemberOnly> },
+  { path: '/member/checkout', element: <MemberOnly><MemberCheckoutPage /></MemberOnly> },
+  { path: '/member/orders', element: <MemberOnly><MemberOrdersPage /></MemberOnly> },
   { path: '/manager/retail-payment-reconciliations', element: <RoleArea roles={['MANAGER']}><ManagerPaymentReconciliationPage /></RoleArea> },
   { path: '/staff/retail-orders', element: <RoleArea roles={['STAFF', 'MANAGER']}><StaffRetailOrdersPage /></RoleArea> },
   // Former addresses open the matching tab of the Staff retail order page (FR-08-051).
   { path: '/staff/retail-shipments', element: <RoleArea roles={['STAFF', 'MANAGER']}><StaffShipmentPage /></RoleArea> },
   { path: '/staff/retail-pickups', element: <RoleArea roles={['STAFF', 'MANAGER']}><StaffPickupPage /></RoleArea> },
   // Simulated GHTK partner portal, role CARRIER (Session 2026-11-20).
-  { path: '/carrier/orders', element: <CarrierOrdersPage /> },
-  { path: '/carrier/stats', element: <CarrierStatsPage /> },
+  // Only CARRIER (spec 008 route allowlist): another role or a suspended account is replaced to /404 before any API call.
+  { path: '/carrier/orders', element: <RoleArea roles={['CARRIER']}><CarrierOrdersPage /></RoleArea> },
+  { path: '/carrier/stats', element: <RoleArea roles={['CARRIER']}><CarrierStatsPage /></RoleArea> },
 ];

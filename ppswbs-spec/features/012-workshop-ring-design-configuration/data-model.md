@@ -181,7 +181,7 @@ data or unnecessary personal data.
 23. Custom-image `contrast` and `sharpness` are persisted integers in `0..100`, default 50.
 24. Saved previews must be reconstructible from persisted safe image/reference data.
 25. Feature-012 messages and preview labels use one active locale and valid UTF-8 without mojibake.
-26. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Signature Silver 925 includes 3g; mass above 3g produces an advisory excess-material estimate (120.000 ₫/g for Silver), not an automatic payable workshop charge.
+26. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Each supported material includes a base allowance up to 3.00 g (`900,000 VND` for Silver 925, `750,000 VND` for Copper and Stainless Steel 316L); mass above 3.00 g produces an advisory excess-material estimate (`120,000 VND/g` across all supported materials), not a design rejection or an automatic payable workshop charge.
 
 ## 4. Keys, uniqueness and concurrency
 

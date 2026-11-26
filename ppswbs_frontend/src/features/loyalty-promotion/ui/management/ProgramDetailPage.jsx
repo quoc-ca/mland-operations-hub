@@ -6,7 +6,7 @@ import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { DiscountText, ScopeBadge, Terms, useDateTime } from '../display';
 import { sharedMessages } from '../../../../shared/ui/messages';
 import { messages } from '../messages';
-import { checkDiscount, discountBody, effectiveFixedAmount, errorFieldsOf, isAmount, isPositive, LIMITS, toInstant, toLocalInput } from '../../domain/promotionRules';
+import { checkDiscount, discountBody, effectiveFixedAmount, errorFieldsOf, isAmount, isPositive, LIMITS, liveErrorKeys, toInstant, toLocalInput } from '../../domain/promotionRules';
 import { useFieldErrors } from '../../application/useFieldErrors';
 import { PageTop } from './PromotionManagementLayout';
 import { useTargetLabels } from '../../application/useTargetLabels';
@@ -159,6 +159,41 @@ function initialForm(program) {
   };
 }
 
+/** Hints (i18n keys) and the update body of the edit form: only changed values are checked and sent. */
+function checkEdit(form, program, voucher) {
+  const before = initialForm(program);
+  const found = {};
+  const body = { expectedVersion: program.version };
+  if (form.name.trim() !== before.name) {
+    if (!form.name.trim()) found.name = 'validation.required';
+    else if ([...form.name.trim()].length > LIMITS.nameMax) found.name = 'validation.nameTooLong';
+    body.name = form.name.trim();
+  }
+  if (form.startAt !== before.startAt) body.startAt = toInstant(form.startAt);
+  if (form.endAt !== before.endAt) body.endAt = toInstant(form.endAt);
+  if (!form.startAt || !form.endAt || new Date(form.startAt) >= new Date(form.endAt)) found.endAt = 'validation.endAfterStart';
+  const discountChanged = ['discountKind', 'percentage', 'amount', 'maxDiscountAmount'].some(key => form[key] !== before[key]);
+  if (discountChanged) {
+    checkDiscount(form, found);
+    body.discount = discountBody(form);
+  }
+  if (form.minimumEligibleAmount !== before.minimumEligibleAmount) {
+    if (!isAmount(form.minimumEligibleAmount.trim())) found.minimumEligibleAmount = 'validation.amount';
+    body.minimumEligibleAmount = form.minimumEligibleAmount.trim();
+  }
+  if (voucher && form.allowPoints !== before.allowPoints) body.allowPoints = form.allowPoints;
+  if (voucher && form.totalLimit !== before.totalLimit) {
+    if (!isPositive(form.totalLimit.trim())) found.totalLimit = 'validation.positive';
+    body.totalLimit = form.totalLimit.trim();
+  }
+  if (voucher && form.perMemberLimit !== before.perMemberLimit) {
+    if (!isPositive(form.perMemberLimit.trim())) found.perMemberLimit = 'validation.positive';
+    body.perMemberLimit = form.perMemberLimit.trim();
+  }
+  if (Object.keys(body).length === 1) found.body = 'validation.nothingChanged';
+  return { found, body };
+}
+
 /** Only changed fields are sent (PATCH); kind, scope, code and targets are not editable. */
 function EditForm({ program, api, onDone, onCancel, onReload }) {
   const t = useT(messages);
@@ -167,42 +202,18 @@ function EditForm({ program, api, onDone, onCancel, onReload }) {
   const [form, setForm] = useState(() => initialForm(program));
   const command = useCommand();
   const voucher = program.kind === 'VOUCHER';
-  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
-  const setValue = (name, value) => { clear(...errorFieldsOf(name)); setForm(current => ({ ...current, [name]: value })); };
+  const { errorOf, setHints, clear, check } = useFieldErrors(command.error, t);
+  // Validate while typing; start/end are checked together under endAt.
+  const setValue = (name, value) => {
+    clear(...errorFieldsOf(name));
+    check(name === 'startAt' ? ['endAt'] : liveErrorKeys(name), checkEdit({ ...form, [name]: value }, program, voucher).found);
+    setForm(current => ({ ...current, [name]: value }));
+  };
   const set = name => event => setValue(name, event.target.type === 'checkbox' ? event.target.checked : event.target.value);
 
   const save = async event => {
     event.preventDefault();
-    const before = initialForm(program);
-    const found = {};
-    const body = { expectedVersion: program.version };
-    if (form.name.trim() !== before.name) {
-      if (!form.name.trim()) found.name = 'validation.required';
-      else if ([...form.name.trim()].length > LIMITS.nameMax) found.name = 'validation.nameTooLong';
-      body.name = form.name.trim();
-    }
-    if (form.startAt !== before.startAt) body.startAt = toInstant(form.startAt);
-    if (form.endAt !== before.endAt) body.endAt = toInstant(form.endAt);
-    if (!form.startAt || !form.endAt || new Date(form.startAt) >= new Date(form.endAt)) found.endAt = 'validation.endAfterStart';
-    const discountChanged = ['discountKind', 'percentage', 'amount', 'maxDiscountAmount'].some(key => form[key] !== before[key]);
-    if (discountChanged) {
-      checkDiscount(form, found);
-      body.discount = discountBody(form);
-    }
-    if (form.minimumEligibleAmount !== before.minimumEligibleAmount) {
-      if (!isAmount(form.minimumEligibleAmount.trim())) found.minimumEligibleAmount = 'validation.amount';
-      body.minimumEligibleAmount = form.minimumEligibleAmount.trim();
-    }
-    if (voucher && form.allowPoints !== before.allowPoints) body.allowPoints = form.allowPoints;
-    if (voucher && form.totalLimit !== before.totalLimit) {
-      if (!isPositive(form.totalLimit.trim())) found.totalLimit = 'validation.positive';
-      body.totalLimit = form.totalLimit.trim();
-    }
-    if (voucher && form.perMemberLimit !== before.perMemberLimit) {
-      if (!isPositive(form.perMemberLimit.trim())) found.perMemberLimit = 'validation.positive';
-      body.perMemberLimit = form.perMemberLimit.trim();
-    }
-    if (Object.keys(body).length === 1) found.body = 'validation.nothingChanged';
+    const { found, body } = checkEdit(form, program, voucher);
     setHints(found);
     if (Object.keys(found).length) return;
     const outcome = await command.run(key => api.updateProgram(key, program.id, body));

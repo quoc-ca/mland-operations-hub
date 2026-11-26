@@ -47,7 +47,7 @@ class ManagerDesignRuleAdapterTest {
         RingMaterial silver = RingMaterial.builder()
                 .materialCode("MAT-SILVER-925")
                 .materialName("Bạc 925")
-                .unitPrice(new BigDecimal("250000.00"))
+                .unitPrice(new BigDecimal("900000.00"))
                 .currency("VND")
                 .difficultyScore(new BigDecimal("1.0000"))
                 .isActive(true)
@@ -189,7 +189,7 @@ class ManagerDesignRuleAdapterTest {
                 .build();
 
         when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(
-                RingMaterial.builder().unitPrice(new BigDecimal("250000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+                RingMaterial.builder().unitPrice(new BigDecimal("900000.00")).difficultyScore(new BigDecimal("1.0000")).build()
         ));
         when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(
                 RingShape.builder().priceAdjustment(BigDecimal.ZERO).difficultyScore(new BigDecimal("1.2000")).build()
@@ -201,11 +201,11 @@ class ManagerDesignRuleAdapterTest {
                 RingAttachment.builder().unitPrice(new BigDecimal("100000.00")).difficultyScore(new BigDecimal("1.0000")).build()
         ));
 
-        // Expected Price = 250k (base material) + 60k (excess 0.50g silver @ 120k/g) + 0k (shape free) + 100k (2 * 50k CZ) + 100k (attachment) + 80k (engraving) = 590,000 VND
+        // Expected Price = 900k (base material) + 60k (excess 0.50g silver @ 120k/g) + 0k (shape free) + 100k (2 * 50k CZ) + 100k (attachment) + 80k (engraving) = 1,240,000 VND
         // Expected Difficulty = 1.0 + 1.2 + 2*0.8 + 1.0 + 0.5 = 5.3000
         EvaluationResultDto eval = ruleAdapter.evaluate(req);
 
-        assertThat(eval.getEstimatedPrice()).isEqualTo("590000.00");
+        assertThat(eval.getEstimatedPrice()).isEqualTo("1240000.00");
         assertThat(eval.getDifficultyScore()).isEqualTo("5.3000");
         assertThat(eval.isAdvisory()).isTrue();
         assertThat(eval.getCurrency()).isEqualTo("VND");
@@ -234,25 +234,118 @@ class ManagerDesignRuleAdapterTest {
                 .build();
 
         when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(
-                RingMaterial.builder().unitPrice(new BigDecimal("250000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+                RingMaterial.builder().unitPrice(new BigDecimal("900000.00")).difficultyScore(new BigDecimal("1.0000")).build()
         ));
         when(shapeRepository.findByShapeCode("SHP-BALL-PEEN")).thenReturn(Optional.of(
                 RingShape.builder().priceAdjustment(BigDecimal.ZERO).difficultyScore(new BigDecimal("1.8000")).build()
         ));
 
-        // Base material = 250k + excess (0.50g * 120k = 60k) = 310k
+        // Base material = 900k + excess (0.50g * 120k = 60k) = 960,000 VND
         // Shape SHP-BALL-PEEN = 0k (free design shape)
         // Standard engraving once = 80k
         // 1 Custom image = 100k
-        // Total price = 310k + 0k + 80k + 100k = 490,000 VND
+        // Total price = 960,000 + 0k + 80k + 100k = 1,140,000 VND
         // Warnings: OUTER_BAND engraving on SHP-BALL-PEEN must trigger textured surface warning
         EvaluationResultDto eval = ruleAdapter.evaluate(req);
 
-        assertThat(eval.getEstimatedPrice()).isEqualTo("490000.00");
+        assertThat(eval.getEstimatedPrice()).isEqualTo("1140000.00");
         assertThat(eval.getEngravingCost()).isEqualTo("180000.00");
         assertThat(eval.getCustomImageCount()).isEqualTo(1);
         assertThat(eval.getWarnings()).isNotEmpty();
         assertThat(eval.getWarnings().get(0)).contains("bề mặt gồ ghề");
+    }
+
+    @Test
+    @DisplayName("evaluate should fix base price for ring mass <= 3.0g (Silver: 900k, Copper/Steel: 750k)")
+    void evaluate_FixedBasePriceWhenMassUnderOrEqual3Grams() {
+        // Slim ring geometry: size 6, thickness 1.0mm, width 1.8mm -> weight ~0.92g (well under 3.0g)
+        SaveDesignVersionRequest silverReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-COUPLE-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("6")
+                .thicknessMm(new BigDecimal("1.0"))
+                .bandWidthMm(new BigDecimal("1.8"))
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(
+                RingMaterial.builder().unitPrice(new BigDecimal("900000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+        when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(
+                RingShape.builder().priceAdjustment(BigDecimal.ZERO).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+
+        EvaluationResultDto silverEval = ruleAdapter.evaluate(silverReq);
+        assertThat(silverEval.getEstimatedPrice()).isEqualTo("900000.00");
+        assertThat(silverEval.getMaterialCost()).isEqualTo("900000.00");
+        assertThat(silverEval.getExcessMaterialCost()).isEqualTo("0.00");
+        assertThat(new BigDecimal(silverEval.getEstimatedWeightGrams())).isLessThanOrEqualTo(new BigDecimal("3.00"));
+
+        // Copper ring under 3g
+        SaveDesignVersionRequest copperReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-COUPLE-01")
+                .materialReference("MAT-COPPER")
+                .shapeReference("SHP-ROUND")
+                .ringSize("6")
+                .thicknessMm(new BigDecimal("1.0"))
+                .bandWidthMm(new BigDecimal("1.8"))
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-COPPER")).thenReturn(Optional.of(
+                RingMaterial.builder().unitPrice(new BigDecimal("750000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+
+        EvaluationResultDto copperEval = ruleAdapter.evaluate(copperReq);
+        assertThat(copperEval.getEstimatedPrice()).isEqualTo("750000.00");
+        assertThat(copperEval.getMaterialCost()).isEqualTo("750000.00");
+        assertThat(copperEval.getExcessMaterialCost()).isEqualTo("0.00");
+
+        // Stainless steel ring under 3g
+        SaveDesignVersionRequest steelReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-COUPLE-01")
+                .materialReference("MAT-STAINLESS-STEEL")
+                .shapeReference("SHP-ROUND")
+                .ringSize("6")
+                .thicknessMm(new BigDecimal("1.0"))
+                .bandWidthMm(new BigDecimal("1.8"))
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-STAINLESS-STEEL")).thenReturn(Optional.of(
+                RingMaterial.builder().unitPrice(new BigDecimal("750000.00")).difficultyScore(new BigDecimal("1.2000")).build()
+        ));
+
+        EvaluationResultDto steelEval = ruleAdapter.evaluate(steelReq);
+        assertThat(steelEval.getEstimatedPrice()).isEqualTo("750000.00");
+        assertThat(steelEval.getMaterialCost()).isEqualTo("750000.00");
+        assertThat(steelEval.getExcessMaterialCost()).isEqualTo("0.00");
+    }
+
+    @Test
+    @DisplayName("evaluate should calculate excess cost as 120,000 * (totalMass - 3) when mass > 3.0g")
+    void evaluate_ProportionalExcessPriceWhenMassOver3Grams() {
+        // Silver ring with size 8, thickness 1.8mm, width 3.5mm -> weight = 3.50g (excess 0.50g)
+        SaveDesignVersionRequest silverReq = SaveDesignVersionRequest.builder()
+                .packageReference("PKG-COUPLE-01")
+                .materialReference("MAT-SILVER-925")
+                .shapeReference("SHP-ROUND")
+                .ringSize("8")
+                .thicknessMm(new BigDecimal("1.8"))
+                .bandWidthMm(new BigDecimal("3.5"))
+                .build();
+
+        when(materialRepository.findByMaterialCode("MAT-SILVER-925")).thenReturn(Optional.of(
+                RingMaterial.builder().unitPrice(new BigDecimal("900000.00")).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+        when(shapeRepository.findByShapeCode("SHP-ROUND")).thenReturn(Optional.of(
+                RingShape.builder().priceAdjustment(BigDecimal.ZERO).difficultyScore(new BigDecimal("1.0000")).build()
+        ));
+
+        // Excess = 0.50g * 120,000 = 60,000; total = 900,000 + 60,000 = 960,000
+        EvaluationResultDto silverEval = ruleAdapter.evaluate(silverReq);
+        assertThat(silverEval.getEstimatedPrice()).isEqualTo("960000.00");
+        assertThat(silverEval.getMaterialCost()).isEqualTo("960000.00");
+        assertThat(silverEval.getExcessMaterialCost()).isEqualTo("60000.00");
+        assertThat(silverEval.getEstimatedWeightGrams()).isEqualTo("3.50");
     }
 
     @Test

@@ -85,6 +85,27 @@ describe('T028 product list and create', () => {
       branches: [{ locationId: '1', quantities: [{ size: 12, quantity: '0' }] }] });
   });
 
+  it('checks while typing: a wrong value shows its hint at once, only on fields already typed (request 2026-11-26)', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({ ...BRANCHES, [`GET ${M}/categories`]: json(200, categoryPage) });
+    open('/catalogue-management/products/new');
+    const name = await screen.findByLabelText('Tên sản phẩm');
+    await user.type(name, 'N');
+    await user.clear(name);
+    expect(screen.getByText('Bắt buộc nhập.')).toBeInTheDocument(); // the name was typed, then emptied
+    await user.click(screen.getByRole('button', { name: '12' }));
+    const price = screen.getByLabelText('Giá đề xuất size 12');
+    expect(screen.queryByText(/Số tiền là số nguyên dương/)).toBeNull(); // a new size's empty price is not flagged yet
+    await user.type(price, '-5');
+    expect(screen.getByText(/Số tiền là số nguyên dương/)).toBeInTheDocument();
+    await user.clear(price);
+    await user.type(price, '1250000');
+    expect(screen.queryByText(/Số tiền là số nguyên dương/)).toBeNull();
+    await user.type(name, 'Nhẫn mới');
+    expect(screen.queryByText('Bắt buộc nhập.')).toBeNull(); // description and category were never typed
+    expect(calls.some(call => call.method === 'POST')).toBe(false);
+  });
+
   it('warns when other products already have the typed name, without blocking the save', async () => {
     const user = userEvent.setup();
     mockFetch({ ...BRANCHES,
@@ -1017,11 +1038,37 @@ describe('T085 remaining management journeys', () => {
 describe('T072 hand-off to the FE-08 cart', () => {
   const locations = { items: [{ id: '3', name: 'MLAND Quận 1', address: '12 Lê Lợi' }, { id: '9', name: 'MLAND Thủ Đức', address: '' }] };
 
+  it.each(['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'])('%s sees the sizes and branches but no add or buy button (Session 2026-11-26)', async role => {
+    const calls = mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role }),
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    renderRoutes(productManagementRoutes, { path: '/products/42' });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    await waitFor(() => expect(calls.some(call => call.path === '/api/v1/accounts/me/profile')).toBe(true));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Thêm Vào Giỏ Hàng' })).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Mua Ngay' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Size 12' })).toBeInTheDocument();
+  });
+
+  it('a Guest still sees both buttons and is sent to sign-in', async () => {
+    mockFetch({
+      'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+    });
+    renderRoutes(productManagementRoutes, { path: '/products/42', session: fakeSession('signed-out') });
+    await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
+    expect(screen.getByRole('button', { name: 'Thêm Vào Giỏ Hàng' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Mua Ngay' })).toBeEnabled();
+  });
+
   it('a Member adds the chosen size, branch and quantity and goes to /member/cart', async () => {
     const user = userEvent.setup();
     const calls = mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
     });
     // FE-08 owns /member/cart; a stand-in route shows that the page navigates there.
@@ -1049,6 +1096,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     const calls = mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
     });
     open('/products/42');
     await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
@@ -1065,6 +1113,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
     });
     open('/products/42');
     await screen.findByRole('option', { name: /MLAND Thủ Đức/ });
@@ -1085,6 +1134,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     mockFetch({
       'GET /api/v1/products/42': json(200, bothOnSale),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
     });
     open('/products/42');
     // Before a size is chosen no stock figure is shown (a total over sizes read as one size's stock) and the
@@ -1113,6 +1163,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     const calls = mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { version: 3, lines: [
         { id: '70', variantId: 555, locationId: 9, quantity: 1 }, { id: '77', variantId: 101, locationId: 9, quantity: 1 }] }),
     });
@@ -1131,6 +1182,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(409, { code: 'RETAIL_CART_QUANTITY_LIMIT', message: 'Bạn đã có 2 sản phẩm này trong giỏ hàng.' }),
       'GET /api/v1/members/me/ready-ring-cart': json(200, { version: 3, lines: [{ id: '77', variantId: 101, locationId: 9, quantity: 2 }] }),
     });
@@ -1149,6 +1201,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { version: 3, lines: [
         { id: '70', variantId: 555, locationId: 9, quantity: 1 }] }),
     });
@@ -1164,12 +1217,13 @@ describe('T072 hand-off to the FE-08 cart', () => {
     expect(router.state.location.pathname).toBe('/member/cart');
   });
 
-  it('the quick add shows the chosen size price after the automatic discount (FR-059(2), FR-057)', async () => {
+  it('the quick add shows the chosen size price after the automatic discount as its big price (FR-059(2), FR-057; request 2026-11-26)', async () => {
     const user = userEvent.setup();
     mockFetch({
       'GET /api/v1/products': json(200, { items: [publicProduct()], page: 0, pageSize: 20, totalElements: '1' }),
       'GET /api/v1/product-categories': json(200, categoryPage),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'GET /api/v1/promotions': json(200, { items: [
         { id: '1', kind: 'AUTO_DISCOUNT', scope: 'PRODUCT', code: null, name: 'Giảm 11.11', minimumEligibleAmount: '0',
           discount: { kind: 'PERCENT', percentage: '10', maxDiscountAmount: '500000' }, targets: { productIds: ['42'] } },
@@ -1178,9 +1232,37 @@ describe('T072 hand-off to the FE-08 cart', () => {
     open('/products');
     await user.click(await screen.findByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
     const dialog = await screen.findByRole('dialog', { name: 'Thêm vào giỏ: Nhẫn bạc' });
-    expect(dialog.querySelector('.buy-sizes-price')).toBeNull();
+    const head = dialog.querySelector('.quick-add-head');
+    expect(within(head).queryByText('1.125.000 ₫')).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Size 12' }));
-    expect(within(dialog).getByText('1.125.000 ₫', { selector: '.buy-sizes-price *' })).toBeInTheDocument();
+    expect(within(head).getByText('1.125.000 ₫')).toBeInTheDocument();
+    expect(dialog.querySelector('.buy-sizes-price')).toBeNull(); // no second, small price under the sizes
+  });
+
+  it('the quick add prices offers for the chosen branch like the product page (006 FR-048; request 2026-11-26)', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/products': json(200, { items: [publicProduct()], page: 0, pageSize: 20, totalElements: '1' }),
+      'GET /api/v1/product-categories': json(200, categoryPage),
+      'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
+      'GET /api/v1/promotions': json(200, { items: [
+        { id: '5', kind: 'VOUCHER', scope: 'PRODUCT', code: 'Q1100K', name: 'Mã Quận 1', minimumEligibleAmount: '0',
+          discount: { kind: 'FIXED', amount: '100000', maxDiscountAmount: '100000' }, targets: { productIds: ['42'], branchIds: ['3'] } },
+      ], nextCursor: null }),
+    });
+    open('/products');
+    await user.click(await screen.findByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vào giỏ: Nhẫn bạc' });
+    const head = dialog.querySelector('.quick-add-head');
+    await user.click(within(dialog).getByRole('button', { name: 'Size 12' }));
+    // No branch yet: the Quận 1 voucher may still apply, so size 12 shows 1.250.000 − 100.000.
+    expect(within(head).getByText('1.150.000 ₫')).toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText('Chi nhánh'), '9');
+    expect(within(head).queryByText('1.150.000 ₫')).toBeNull();
+    expect(within(head).getByText('1.250.000 ₫')).toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText('Chi nhánh'), '3');
+    expect(within(head).getByText('1.150.000 ₫')).toBeInTheDocument();
   });
 
   it('the cart button of a list card adds without leaving the list', async () => {
@@ -1189,6 +1271,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
       'GET /api/v1/products': json(200, { items: [publicProduct()], page: 0, pageSize: 20, totalElements: '1' }),
       'GET /api/v1/product-categories': json(200, categoryPage),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
     });
     const { router } = open('/products');
@@ -1211,6 +1294,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
       'GET /api/v1/products': json(200, { items: [publicProduct()], page: 0, pageSize: 20, totalElements: '1' }),
       'GET /api/v1/product-categories': json(200, categoryPage),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
     });
     const { router } = open('/products', { session: fakeSession('signed-out') });
     await user.click(await screen.findByRole('button', { name: 'Thêm Nhẫn bạc vào giỏ hàng' }));
@@ -1228,6 +1312,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     const calls = mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
       'GET /api/v1/product-selling-locations': json(200, locations),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
     });
     const { router } = open('/products/42?variantId=101&locationId=3&quantity=4', { session: fakeSession('signed-out') });
     await waitFor(() => expect(screen.getByLabelText('Chi nhánh')).toHaveValue('3'));
@@ -1244,6 +1329,7 @@ describe('T072 hand-off to the FE-08 cart', () => {
     let locationReads = 0;
     mockFetch({
       'GET /api/v1/products/42': json(200, publicProduct()),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
       'GET /api/v1/product-selling-locations': () => (++locationReads === 1
         ? json(503, { code: 'LOCATION_DEPENDENCY_UNAVAILABLE', message: 'Down.' })
         : json(200, locations)),

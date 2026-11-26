@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { RequireSession } from '../../../shared/auth/RequireSession';
 import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, SuccessNotice, useCommand } from '../../../shared/ui/components';
@@ -56,6 +57,8 @@ export default function DesignWorkspacePage() {
   const command = useCommand();
   const { status: authStatus, userId } = useAuth();
   const isAuthenticated = authStatus === 'signed-in' || Boolean(userId);
+  const role = useRole();
+  const isMember = isAuthenticated && role === 'MEMBER';
 
   const fileInputRef = useRef(null);
   const termsScrollRef = useRef(null);
@@ -132,7 +135,7 @@ export default function DesignWorkspacePage() {
   }, [ringDesignRef]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isMember) return;
     setLoadingDesigns(true);
     workshopRingApi
       .listMyDesigns(null, true, true)
@@ -141,7 +144,7 @@ export default function DesignWorkspacePage() {
       })
       .catch(() => { })
       .finally(() => setLoadingDesigns(false));
-  }, [isAuthenticated, workshopRingApi]);
+  }, [isMember, workshopRingApi]);
 
   const charCount = [...description].length;
 

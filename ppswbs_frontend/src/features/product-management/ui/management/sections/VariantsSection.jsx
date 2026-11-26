@@ -11,7 +11,7 @@ import { QuantityStepper } from '../QuantityStepper';
 import { useRole } from '../../../../../shared/auth/useRole';
 import { CollapsibleHead, useCollapsible } from '../Collapsible';
 import { ALL_SIZES } from '../../../application/newSizePrices';
-import { AddSizesPanel, NewSizePicker, checkNewSizes, finishNewSizes } from './AddSizes';
+import { AddSizesPanel, NewSizePicker, finishNewSizes, useNewSizeCheck } from './AddSizes';
 import { ApplyNowToggle } from './BatchPrices';
 
 /**
@@ -162,7 +162,8 @@ function VariantRow({ variant, branch, editable, saleEditable = editable, api, r
             notHere ? <span className="muted small">{t('size.notAtBranch')}</span> : <>{shown}{editable && (!branch || stock) && <button type="button" className="text-button" onClick={() => setQuantity(shown)}>{t('edit')}</button>}</>
           ) : (
             <form className="inline-form" onSubmit={saveQuantity} noValidate>
-              <QuantityStepper label={t('variant.newQuantity', { size: variant.size })} value={quantity} onChange={setQuantity} invalid={Boolean(quantityError)} />
+              <QuantityStepper label={t('variant.newQuantity', { size: variant.size })} value={quantity} invalid={Boolean(quantityError)}
+                onChange={value => { setQuantity(value); setHint(isQuantity(value) ? null : 'validation.quantity'); }} />
               <button type="submit" className="button primary small" disabled={quantityCommand.pending}>{t('save')}</button>
               <button type="button" className="button outline small" onClick={() => { setQuantity(null); setHint(null); quantityCommand.reset(); }}>{t('cancel')}</button>
             </form>
@@ -206,6 +207,7 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
   const command = useProductCommand({ reload, setNotice });
   const sizes = product.variants || [];
   const candidates = ALL_SIZES.filter(size => !sizes.some(variant => variant.size === size)).map(size => ({ size, existing: false }));
+  const newSizeCheck = useNewSizeCheck(candidates);
   const valueOf = variant => values[variant.id] ?? (legacy ? String(variant.remainingUnsold) : '0');
 
   if (!open) {
@@ -218,15 +220,30 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
     );
   }
   const branchName = addable.find(branch => String(branch.id) === locationId)?.name || '';
+  // The form's hint for the given values; the same check runs while typing and on submit (new sizes: see useNewSizeCheck).
+  const checkForm = (nextValues, newSizeResult) => {
+    if (!locationId) return { hint: 'branch.required', errors: {} };
+    const quantityOf = variant => nextValues[variant.id] ?? (legacy ? String(variant.remainingUnsold) : '0');
+    if (sizes.some(variant => !isQuantity(String(quantityOf(variant)).trim()))) return { hint: 'validation.quantity', errors: newSizeResult.errors };
+    return newSizeResult;
+  };
+  const showCheck = checked => { setNewErrors(checked.errors); setHint(checked.hint || null); };
+  const changeValues = (id, value) => {
+    const next = { ...values, [id]: value };
+    showCheck(checkForm(next, newSizeCheck.live(newSizes, newSizes)));
+    setValues(next);
+  };
+  const changeNewSizes = update => {
+    const next = typeof update === 'function' ? update(newSizes) : update;
+    showCheck(checkForm(values, newSizeCheck.live(newSizes, next)));
+    setNewSizes(next);
+  };
   const submit = async event => {
     event.preventDefault();
     setNotice(null);
-    if (!locationId) { setHint('branch.required'); return; }
-    if (sizes.some(variant => !isQuantity(valueOf(variant).trim()))) { setHint('validation.quantity'); return; }
-    const checked = checkNewSizes(candidates, newSizes);
-    setNewErrors(checked.errors);
-    if (checked.hint) { setHint(checked.hint); return; }
-    setHint(null);
+    const checked = checkForm(values, newSizeCheck.submit(newSizes));
+    showCheck(checked);
+    if (checked.hint) return;
     const added = candidates.filter(candidate => newSizes[candidate.size]).map(candidate => candidate.size);
     const quantities = [
       ...sizes.map(variant => ({ size: variant.size, quantity: valueOf(variant).trim() })),
@@ -236,7 +253,7 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
     const outcome = await command.run(key => api.addBranch(key, product.id, product.version, locationId, quantities, prices),
       { key: 'branch.added', params: { branch: branchName }, at: 'branch-add' }, ACTIONS.addBranch);
     if (outcome.ok) {
-      setOpen(false); setValues({}); setNewSizes({});
+      setOpen(false); setValues({}); setNewSizes({}); newSizeCheck.reset();
       await finishNewSizes({ api, product, sizes: added, isManager, applyNow, reload, setNotice, branch: branchName, at: 'branch-add' });
     }
   };
@@ -256,7 +273,7 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
             <span role="cell"><strong>{t('size', { size: variant.size })}</strong></span>
             <span role="cell">
               <QuantityStepper label={t('size.quantityAtFor', { size: variant.size, branch: branchName })} value={valueOf(variant)}
-                onChange={value => setValues(current => ({ ...current, [variant.id]: value }))} />
+                onChange={value => changeValues(variant.id, value)} />
             </span>
           </div>
         ))}
@@ -265,7 +282,7 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
         <>
           <h4>{t('size.addWithBranch')}</h4>
           <p className="muted small">{t(product.firstPublishedAt ? (isManager ? 'size.addHintManager' : 'size.addHintStaff') : 'size.addHintReview')}</p>
-          <NewSizePicker candidates={candidates} value={newSizes} onChange={setNewSizes} branchName={branchName} errors={newErrors} manager={isManager} />
+          <NewSizePicker candidates={candidates} value={newSizes} onChange={changeNewSizes} branchName={branchName} errors={newErrors} manager={isManager} />
           {/* T221 (FR-069): like "Thêm size", a Manager may leave the approved price of a new size to be applied later. */}
           {isManager && product.firstPublishedAt && Object.values(newSizes).some(Boolean) && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
         </>
@@ -274,7 +291,7 @@ function AddBranchPanel({ product, addable, legacy, isManager, api, reload, setN
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
       <div className="actions form-actions">
         <button type="submit" className="button primary" disabled={command.pending}>{command.pending ? t('saving') : t('branch.addSubmit')}</button>
-        <button type="button" className="button outline" disabled={command.pending} onClick={() => { setOpen(false); setValues({}); setNewSizes({}); command.reset(); }}>{t('cancel')}</button>
+        <button type="button" className="button outline" disabled={command.pending} onClick={() => { setOpen(false); setValues({}); setNewSizes({}); setHint(null); setNewErrors({}); newSizeCheck.reset(); command.reset(); }}>{t('cancel')}</button>
       </div>
       <NoticeAt at="branch-add" />
     </form>

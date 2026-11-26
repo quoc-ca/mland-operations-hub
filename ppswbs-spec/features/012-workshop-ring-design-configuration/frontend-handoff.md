@@ -160,6 +160,8 @@ PreviewModel {
   estimatedWeightGrams: number
   excessWeightGrams: number
   excessMaterialCost: number
+  baseMaterialPrice: number
+  totalMaterialCost: number
   gemstones: [] // 1-to-1 component summary
   stones: [{ id, stoneIndex, reference, color, angleDeg, cx, cy }] // individual stone instances
   attachmentReferences[]

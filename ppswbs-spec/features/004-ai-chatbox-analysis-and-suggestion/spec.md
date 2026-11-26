@@ -37,11 +37,11 @@ Without consent, the image cannot be stored or submitted.
 | See feature entry/description | Allow | Allow | Allow | Allow | Allow |
 | Start custom request | Deny; prompt sign-in | Allow for own account | Deny as customer | Deny as customer | Deny |
 | Upload/read request images | Deny | Own request only | Authorized review projection | Authorized review projection | Technical projection only |
-| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Audit projection only |
+| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Full view (Admin oversight) |
 | Submit revision after clarification | Deny | Own request only | Deny | Deny | Deny |
 | Review request | Deny | Deny | Allow | Allow | Deny |
 | Write decision explanation | Deny | Deny | Mandatory explanation | Mandatory explanation | Deny |
-| Prepare/approve quote | Deny | View own quote/payment state | Prepare if assigned | Approve business quote | Deny |
+| Prepare/approve quote | Deny | View own quote/payment state | Prepare quote (all Staff in V1) | Approve business quote | Deny |
 | Pay custom order | Deny | Own order, full payment | Deny | Deny | Deny |
 
 All Member actions require Firebase identity, an active Mland Member account,
@@ -50,12 +50,15 @@ owner, status, quote, or reviewer fields are ignored.
 
 ### 2.1 Access and state rules (2026-11-26)
 
-Approved in session by Hồ Hoàng Quốc on 2026-11-26 for implementation; Feature owner Ngô Tiến Đạt is still to be informed.
+Approved in session by Hồ Hoàng Quốc on 2026-11-26 for implementation; Feature owner Ngô Tiến Đạt is informed.
 
 - **Quote read:** only the request owner, Staff and Manager may read a request's quote. Everyone else, Admin included, receives `404`, whether or not a quote exists. The owner receives `204` while no quote exists. Which Staff are "assigned" stays open.
 - **Feature-012 reference:** submission and clarification revision accept a design reference only when the design belongs to the current Member and its latest version is not `ARCHIVED`. A missing, foreign, legacy Guest or archived design is refused with `422 DESIGN_REFERENCE_INVALID`, the same answer for each case, and nothing is saved.
 - **Quote lock:** once an order is `PAID`, `IN_PRODUCTION`, `READY_FOR_FULFILMENT` or `CLOSED`, preparing, approving or re-requesting a quote is refused with `409 CUSTOM_ORDER_QUOTE_LOCKED` and nothing changes. Approval applies only to the latest quote of that order; an older or foreign quote is refused with `409 QUOTE_ALREADY_DECIDED`. Re-quoting stays allowed in `QUOTE_PENDING`, `FULL_PAYMENT_PENDING` and `QUOTE_EXPIRED`.
 - **Legacy Basic AI Support:** while the legacy route remains, all Guest prompts together are capped per day (default 100, configurable) in addition to the per-session limit; exceeding it returns the existing `429` quota answer. Member limits are unchanged.
+
+> [!NOTE]
+> **Legacy Route Removal (26/11/2026):** Tuyến đường riêng lẻ `/price-proposals/:proposalId/ai-suggestions` là dead route/thử nghiệm prototype cũ không có liên kết từ giao diện người dùng và đã được loại bỏ hoàn toàn. Toàn bộ thao tác soạn và duyệt báo giá được tích hợp trực tiếp trên trang quản lý yêu cầu thiết kế (`/design-review-requests/:id`) và danh sách đơn chế tác (`/staff/custom-orders`, `/manager/custom-orders`).
 
 ## 3. Customer flow
 

@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
+import { clearRoleCache } from '../../../shared/auth/useRole';
 import { productManagementRoutes } from '../routes/productManagementRoutes';
 import ProductReviewSection, { reviewScore } from '../ui/public/ProductReviewSection';
 import { publicProduct } from './fixtures';
@@ -20,7 +21,7 @@ const show = (productId = 101, options) => renderRoutes(
 );
 const scoreCard = () => screen.getByTestId('product-reviews-score');
 
-beforeEach(() => vi.restoreAllMocks());
+beforeEach(() => { vi.restoreAllMocks(); clearRoleCache(); });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('FR-063 score', () => {
@@ -123,6 +124,28 @@ describe('FR-063 customer reviews on the product page', () => {
     expect(within(scoreCard()).getByRole('img', { name: 'No reviews yet' })).toBeInTheDocument();
     expect([...screen.getByLabelText('Sort by:').options].map(option => option.text)).toEqual(['Newest', 'Highest rated', 'Lowest rated']);
     expect(screen.queryByText(/Chưa có|Sắp xếp|Recent reviews/)).toBeNull();
+  });
+
+  it('asks 011 for review sources only for a Member', async () => {
+    const calls = mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MEMBER' }),
+      'GET /api/v1/reviews': () => page(mockReviews),
+      'GET /api/v1/reviews/eligible-sources': json(200, { sources: [] }),
+    });
+    show();
+    await screen.findByText('Sản phẩm tuyệt vời, nhẫn sáng bóng tinh xảo!');
+    await waitFor(() => expect(calls.some(call => call.path === '/api/v1/reviews/eligible-sources')).toBe(true));
+  });
+
+  it.each(['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'])('%s sees the reviews without asking for Member review sources', async role => {
+    const calls = mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role }),
+      'GET /api/v1/reviews': () => page(mockReviews),
+    });
+    show();
+    await screen.findByText('Sản phẩm tuyệt vời, nhẫn sáng bóng tinh xảo!');
+    await waitFor(() => expect(calls.some(call => call.path === '/api/v1/accounts/me/profile')).toBe(true));
+    expect(calls.some(call => call.path === '/api/v1/reviews/eligible-sources')).toBe(false);
   });
 
   it('is shown on the public product page for that product', async () => {

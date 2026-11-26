@@ -5,7 +5,7 @@ import { ErrorNotice, Field, useCommand } from '../../../../shared/ui/components
 import { useLoyaltyApi } from '../../application/useLoyaltyApi';
 import { messages } from '../messages';
 import { useDateTime } from '../display';
-import { checkCreate, createBody, defaultWindow, errorFieldsOf, generateVoucherCode, LIMITS, productBranchIds, productTargets, toInstant } from '../../domain/promotionRules';
+import { checkCreate, createBody, defaultWindow, errorFieldsOf, generateVoucherCode, LIMITS, liveErrorKeys, productBranchIds, productTargets, toInstant } from '../../domain/promotionRules';
 import { useFieldErrors } from '../../application/useFieldErrors';
 import { DateTimeField } from './DateTimeField';
 import { ProductBranchPicker } from './ProductBranchPicker';
@@ -61,21 +61,29 @@ export default function ProgramCreatePage() {
   const command = useCommand();
   const [kept, setKept] = useState(() => pending.read());
   const recovery = useCommand();
-  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
+  const { errorOf, setHints, clear, check } = useFieldErrors(command.error, t);
+  // Validate while typing: the changed field (and every field typed before) is checked against the new value.
+  const change = (name, next) => {
+    clear(...errorFieldsOf(name));
+    check(liveErrorKeys(name), checkCreate(next));
+    setForm(next);
+  };
   const set = name => event => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    clear(...errorFieldsOf(name));
-    setForm(current => {
-      const next = { ...current, [name]: value };
-      // Kind or scope changed: the workshop package choice is single for a voucher and multiple for an automatic
-      // discount (FR-044, packages only), so the picked workshop targets start again.
-      if ((name === 'kind' || name === 'scope') && value !== current[name]) {
-        next.packageIds = ''; next.branchIds = ''; next.sessionIds = '';
-      }
-      return next;
-    });
+    const next = { ...form, [name]: value };
+    // Kind or scope changed: the workshop package choice is single for a voucher and multiple for an automatic
+    // discount (FR-044, packages only), so the picked workshop targets start again.
+    if ((name === 'kind' || name === 'scope') && value !== form[name]) {
+      next.packageIds = ''; next.branchIds = ''; next.sessionIds = '';
+    }
+    change(name, next);
   };
-  const setField = (name, value) => { clear(...errorFieldsOf(name)); setForm(current => ({ ...current, [name]: value })); };
+  // Pickers may set several fields in one event, so the form is updated from its current state.
+  const setField = (name, value) => {
+    clear(...errorFieldsOf(name));
+    check(liveErrorKeys(name), checkCreate({ ...form, [name]: value }));
+    setForm(current => ({ ...current, [name]: value }));
+  };
   const voucher = form.kind === 'VOUCHER';
   const inWords = local => (toInstant(local) ? t('create.timeInWords', { at: dateTime(toInstant(local)) }) : null);
 

@@ -81,13 +81,7 @@ public class DesignRequestConsultationFacadeImpl implements DesignRequestConsult
         String imageUrl = null;
         List<DesignRequestImage> images = designRequestImageRepository.findByDesignRequestId(r.getId());
         if (images != null && !images.isEmpty()) {
-            imageUrl = images.get(0).getStoragePath();
-        } else {
-            imageUrl = imageReferenceRepository.findAllByDesignRequestId(r.getId()).stream()
-                    .filter(img -> !img.isDeleted())
-                    .map(TemporaryImageReference::getStorageObjectKey)
-                    .findFirst()
-                    .orElse(null);
+            imageUrl = "/api/v1/design-requests/images/" + images.get(0).getImageReference();
         }
 
         return new DesignRequestConsultationOption(
