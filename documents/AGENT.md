@@ -2,42 +2,53 @@
 
 ## Purpose
 
-This folder is the Git-first source of truth for Personalized Product Sales and Workshop Booking System documentation. Markdown bundles and CSV trackers are validated locally, generated into DOCX files, and synchronized by GitHub Actions to mapped Google Docs and Google Sheets.
+This folder is the Git-first source of truth for the Personalized Product Sales and Workshop Booking System reports. Markdown and CSV trackers are validated locally, built into DOCX, and synced by GitHub Actions to Google Docs and Sheets.
 
-Act as a controlled documentation editor: make the smallest evidence-based change requested, preserve the source contracts, and surface uncertainty instead of filling gaps with plausible content.
+Act as a controlled documentation editor: make the smallest evidence-based change requested, and flag uncertainty instead of filling gaps.
 
 ## Editing boundaries
 
-- Edit only the report fragment(s) or tracker record(s) explicitly named by the task.
-- Do not change `document.yml`, `manifest.yml`, Drive file IDs, GitHub Actions workflow/configuration, tracker columns, generated `build/` files, or `templates/reference.docx` unless the task explicitly authorizes that exact change.
-- Never edit generated DOCX files. Google Docs and Google Sheets are publishing, review, comment, and suggestion surfaces; they are not source-of-truth editing surfaces.
-- Preserve fragment order and bundle structure. Use the generator and tests after a change when the task permits execution.
+- Edit only the report fragment(s) or tracker record(s) named by the task.
+- Do not change `document.yml`, `manifest.yml`, Drive file IDs, workflows, tracker columns, `build/`, or `templates/reference.docx` unless the task authorizes that exact change.
+- Never edit generated DOCX files. Google Docs and Sheets are review surfaces, not editing surfaces.
+- Keep fragment order and bundle structure. Run the generator and tests after a change when permitted.
 
-## Evidence and content rules
+## Evidence rules
 
-- Preserve the distinction between `Known Mland context`, `Observed`, `Stakeholder statement`, `Group decision`, `Assumption — validate with Mland`, and `TBD — Mland decision required`.
-- Do not invent facts, stakeholder decisions, people, schedules, budgets, architecture, credentials, test results, or production data.
-- Keep personal, customer, employee, and transaction data out of documentation unless the task explicitly needs minimized and authorized data.
-- The project's operational audit log is a product requirement. Do not remove or weaken it when applying the document-history policy below.
+- Keep these labels distinct: `Known Mland context`, `Observed`, `Stakeholder statement`, `Group decision`, `Assumption — validate with Mland`, `TBD — Mland decision required`.
+- Do not invent facts, decisions, people, schedules, budgets, architecture, credentials, test results, or production data.
+- Keep personal, customer, employee, and transaction data out of documents unless the task needs minimized, authorized data.
+- The operational audit log is a product requirement. Never remove or weaken it.
+
+## Writing rules (Reports 2, 3, 4)
+
+**Style — each rule is checkable**
+- Sentence ≤ 25 words. Paragraph ≤ 4 sentences.
+- Define each term once, where it first appears. Reuse the same term afterwards.
+- Prefer tables and numbered lists over prose. Keep the language of the existing report.
+- State the point first, then the detail. Delete sentences that restate the heading.
+
+**Self-contained content (no pointing to Specs)**
+- A report must read correctly without opening `ppswbs-spec/`, `ppswbs-testing/`, or any `spec.md`, `plan.md`, `data-model.md`.
+- Never write "see spec/plan/data-model" or paste a `ppswbs-spec` path. Select the relevant facts and rewrite them in the report.
+- Internal trace IDs (`UC-xx`, `FR-xx`) are allowed only in a Traceability column or table.
+- Copy only what the reader needs. Do not paste whole spec sections.
+
+**Flow descriptions (use cases and detailed design)**
+- Use cases describe actor-visible steps: numbered Main Flow, then Alternative and Exception Flows with the step they branch from.
+- Detailed design (sequence diagrams) describes system interactions: UI → controller → service → data. Do not mix the two levels.
+- One flow per scenario. Do not merge happy path, alternatives, and errors into one list.
+- Before writing a flow, check the source in this order: running code (`ppswbs_backend`, `ppswbs_frontend`) > approved spec in `ppswbs-spec/` > existing report text.
+- If the sources disagree, do not choose silently. Describe the code behaviour, mark the difference as `TBD — Mland decision required`, and tell the requester.
+- Every step in a diagram must appear in the matching text, and the reverse.
 
 ## Change history
 
-Git and GitHub commit history are the authoritative record of document author, date, and change description. Report Change History tables and mapped ChangeLog tracker tabs are generated from scoped Git history during build or synchronization. Do not add or update manual document versions, authors, dates, or ChangeLog records.
+Git history is the authoritative record of document author, date, and change description. Change History tables and ChangeLog tabs are generated at build time. Do not add or edit manual versions, authors, dates, or ChangeLog records.
 
-## Operational work tracking
+## Work tracking
 
-GitHub Issues are the sole operational source of truth for assignable work: implementation, bugs, research, requirement gaps, decisions, tests, documentation, and risk mitigation. CSV trackers remain evidence and generated reporting; never use them as a parallel task queue.
-
-- Only add a managed work-item declaration when the task explicitly authorizes the named report fragment, title, GitHub username assignee, and labels. Its visible Markdown action item must explain the work; the declaration is its hidden machine-readable counterpart.
-- A declaration is scanned only from `documents/docs/` and must use exactly this JSON structure. `source` must equal the fragment's repository-relative path; labels must already exist in GitHub.
-
-```html
-<!-- MOH-WORK-ITEM {"id":"MOH-001","title":"Concise outcome","assignee":"github-username","labels":["type:task","priority:high","domain:platform","source:report"],"source":"documents/docs/report-x/sections/01-example.md"} -->
-```
-
-- Never add a declaration with an invented assignee, label, deadline, fact, or decision. Do not create, close, reopen, or manually alter a managed Issue outside the `develop` synchronization workflow.
-- Manually discovered Issues are allowed through the repository Issue form. They remain unmanaged and are reviewed by the team before assignment.
-- `IssuesOnGithub` is a generated, read-only snapshot published from `develop`; do not edit its CSV rows or Google Sheet tab. GitHub's own history remains the authoritative Issue lifecycle record.
+GitHub Issues are the only source for assignable work. Declaration format (`MOH-WORK-ITEM`) and Issue rules are in [WORK-ITEMS.md](WORK-ITEMS.md). Read it before adding or touching any work item. `IssuesOnGithub` is generated and read-only.
 
 ## Escalation
 
