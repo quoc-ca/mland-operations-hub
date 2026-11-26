@@ -1,33 +1,33 @@
-### 3.16 Add Folio Charge
+### 3.13 Add Ticket Charge
 
-| Use Case ID | UC-78 | Use Case Name | Add Folio Charge |
+| Use Case ID | UC-78 | Use Case Name | Add Ticket Charge |
 | --- | --- | --- | --- |
 | Created By |  | Created Date |  |
 | Primary Actors | Staff, Manager | Secondary Actors | None |
 
 #### Description
 
-As an assigned Staff member or a Manager, I want to add a customer-consented add-on or variable charge to a ticket folio so that extra services are billed to that ticket.
+As an assigned Staff member or a Manager, I want to add a customer-consented add-on or variable charge to a ticket bill so that extra services are billed to that ticket.
 
 #### Trigger
 
-An actor opens an open ticket folio to add a charge.
+An actor opens an open ticket bill to add a charge.
 
 #### Preconditions
 
 1. The actor is a Manager, or Staff with the ticket location in scope and assigned to a session of the ticket.
-2. The folio is OPEN and a session of the ticket has started.
+2. The bill is OPEN and a session of the ticket has started.
 
 #### Postconditions
 
-1. The accepted charge is added to that folio only and the balance is recalculated.
+1. The accepted charge is added to that bill only and the balance is recalculated.
 2. The acting account, time, and consent reference are recorded.
 
 #### Normal Flow
 
-1. Actor opens the ticket folio.
+1. Actor opens the ticket bill.
 2. Actor selects a catalogue add-on and confirms that the customer agreed.
-3. System validates the folio, session, consent, and server-side price.
+3. System validates the bill, session, consent, and server-side price.
 4. System records the charge and displays the new balance.
 
 #### Alternative Flows
@@ -36,7 +36,7 @@ An actor opens an open ticket folio to add a charge.
 
 #### Exception Flows
 
-3a. Session has not started or folio is not open → System refuses the charge; finalized folios allow no add-on changes.
+3a. Session has not started or bill is not open → System refuses the charge; finalized bills allow no add-on changes.
 
 3b. Consent is missing, add-on is unavailable, or amount is below 5,000 VND → System refuses the charge.
 

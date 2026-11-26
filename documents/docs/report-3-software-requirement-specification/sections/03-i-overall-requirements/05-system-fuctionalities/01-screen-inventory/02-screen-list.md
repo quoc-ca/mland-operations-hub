@@ -26,7 +26,7 @@
 | 22 | Workshop Payment Result | Payment | Displays the system-verified payment outcome and the current status of the booking group after the return from VNPay; the browser return alone does not confirm payment. |
 | 23 | Booking Lookup | Workshop Booking | Allows a Member to open their own booking groups, or a Guest to find one by booking code and contact, and manage it. |
 | 24 | Booking Access (Magic Link) | Workshop Booking | Opens a read-only view of a booking group from the link sent by email. |
-| 25 | Customer Folio | Workshop Settlement | Displays the charges, payments and balance of one workshop ticket to its buyer. |
+| 25 | Customer Ticket Bill | Workshop Settlement | Displays the charges, payments and balance of one workshop ticket to its buyer. |
 | 26 | Mland Remedy | Workshop Settlement | Allows the buyer to respond to a session cancelled by Mland by moving to an equivalent session or choosing a refund. |
 | 27 | Refund Account | Workshop Settlement | Allows a refund recipient to enter their bank account through a single-use link sent by email. |
 | 28 | Public Review List | Review Management | Lists public reviews with target and rating filters, masked names and rating aggregates calculated from public reviews only. |

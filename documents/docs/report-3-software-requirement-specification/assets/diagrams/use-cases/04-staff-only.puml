@@ -21,19 +21,17 @@ rectangle "Mland Operations System" {
     usecase "Manage Product Categories" as UC18
   }
   package "Workshop operations" {
-    usecase "Look Up Booking Details" as UC23
     usecase "Check In Participant" as UC24
   }
   package "Ticket settlement and changes" {
     usecase "Respond to Mland Cancellation Offer" as UC88
-    usecase "View Ticket Folio" as UC77
-    usecase "Add Folio Charge" as UC78
-    usecase "Collect Ticket Balance" as UC79
+    usecase "View Ticket Bill" as UC77
+    usecase "Add Ticket Charge" as UC78
+    usecase "Collect Remaining Ticket Payment" as UC79
     usecase "Close Branch Cash Day" as UC83
     usecase "Cancel Workshop Tickets" as UC84
     usecase "Change Ticket Sessions" as UC85
-    usecase "Decide Ticket Change Request" as UC86
-    usecase "Submit Refund Account" as UC89
+    usecase "Process Refund Request" as UC90
   }
   package "Design and consultation" {
     usecase "Chat with Staff Consultant" as UC38
@@ -55,7 +53,6 @@ Staff --> UC12
 Staff --> UC14
 Staff --> UC15
 Staff --> UC18
-Staff --> UC23
 Staff --> UC24
 Staff --> UC77
 Staff --> UC88
@@ -64,8 +61,7 @@ Staff --> UC79
 Staff --> UC83
 Staff --> UC84
 Staff --> UC85
-Staff --> UC86
-Staff --> UC89
+Staff --> UC90
 Staff --> UC38
 Staff --> UC40
 Staff --> UC58

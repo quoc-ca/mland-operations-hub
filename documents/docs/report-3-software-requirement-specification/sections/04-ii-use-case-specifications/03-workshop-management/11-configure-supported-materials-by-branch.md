@@ -1,4 +1,4 @@
-### 3.11 Configure Supported Materials by Branch
+### 3.8 Configure Supported Materials by Branch
 
 > **Retired (confirmed 2026-11-25):** use case 29 is not part of the platform; no specification or implementation exists for it. The text below is kept only as history and must not be implemented.
 

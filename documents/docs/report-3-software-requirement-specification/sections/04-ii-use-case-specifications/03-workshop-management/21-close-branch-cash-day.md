@@ -1,4 +1,4 @@
-### 3.21 Close Branch Cash Day
+### 3.18 Close Branch Cash Day
 
 | Use Case ID | UC-83 | Use Case Name | Close Branch Cash Day |
 | --- | --- | --- | --- |

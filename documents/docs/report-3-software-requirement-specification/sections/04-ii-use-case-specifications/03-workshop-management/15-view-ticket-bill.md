@@ -1,6 +1,6 @@
-### 3.15 View Ticket Folio
+### 3.12 View Ticket Bill
 
-| Use Case ID | UC-77 | Use Case Name | View Ticket Folio |
+| Use Case ID | UC-77 | Use Case Name | View Ticket Bill |
 | --- | --- | --- | --- |
 | Created By |  | Created Date |  |
 | Primary Actors | Guest, Member, Staff, Manager | Secondary Actors | None |
@@ -11,22 +11,22 @@ As a ticket owner, an assigned Staff member, or a Manager, I want to view the bi
 
 #### Trigger
 
-An actor requests the folio of a workshop ticket.
+An actor requests the bill of a workshop ticket.
 
 #### Preconditions
 
-1. The ticket has its own folio.
+1. The ticket has its own bill.
 2. The actor is the owning Member, a Guest with group contact proof, assigned in-scope Staff, or a Manager.
 
 #### Postconditions
 
-1. The folio is shown to the authorized actor.
-2. Viewing changes no folio data and consumes no buyer verification.
+1. The bill is shown to the authorized actor.
+2. Viewing changes no bill data and consumes no buyer verification.
 
 #### Normal Flow
 
 1. Actor opens the ticket.
-2. Actor requests the ticket folio.
+2. Actor requests the ticket bill.
 3. System verifies ownership, assignment, or Manager authority.
 4. System displays the customer view or operator view with charges and balance due.
 
@@ -60,6 +60,6 @@ BR-77-01, BR-77-02, BR-77-03
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-77-01 | Each ticket has its own folio, with the ticket final price as the base line. |
+| BR-77-01 | Each ticket has its own bill, with the ticket final price as the base line. |
 | BR-77-02 | A collection that is pending verification does not reduce the balance. |
 | BR-77-03 | Staff needs both location scope and session assignment; a Manager has global access. |

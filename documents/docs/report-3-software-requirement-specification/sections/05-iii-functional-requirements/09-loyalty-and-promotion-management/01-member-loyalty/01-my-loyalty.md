@@ -9,7 +9,7 @@ This screen allows Members to:
 - Open My Saved Vouchers.
 - Review their point history in the section below (see Point History).
 
-One shared balance is used for both retail products and workshops. Workshop points are earned per ticket, only after the ticket is attended (fully or partly) and its folio is finalized with nothing due; a booking, deposit or check-in alone earns nothing, and no-shows and Guest bookings earn no points.
+One shared balance is used for both retail products and workshops. Workshop points are earned per ticket, only after the ticket is attended (fully or partly) and its bill is finalized with nothing due; a booking, deposit or check-in alone earns nothing, and no-shows and Guest bookings earn no points.
 
 | Field Name | Description |
 | --- | --- |

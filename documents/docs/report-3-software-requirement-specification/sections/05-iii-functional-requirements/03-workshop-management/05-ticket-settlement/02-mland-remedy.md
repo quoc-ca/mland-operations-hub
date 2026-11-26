@@ -10,7 +10,7 @@ This screen allows the buyer of a workshop ticket (Member or Guest), or an in-sc
 - Confirm the answer in a dialog; the answer cannot be changed afterwards.
 - See the final outcome (moved or being refunded) once the ticket has been answered.
 
-The buyer answers. An in-scope Staff member or a Manager may also submit the buyer's chosen answer after verifying the buyer with the booking code; Staff can act only on assigned sessions. Offers also apply to tickets whose folio is already finalized. Without an answer before the deadline the ticket is refunded. The offer carries no payment; a refund is paid to the bank account the buyer enters later through the emailed Refund Account link. A Member's ticket refunded for an Mland cancellation also gets its used points back, and the voucher is restored if still valid.
+The buyer answers. An in-scope Staff member or a Manager may also submit the buyer's chosen answer after verifying the buyer with the booking code; Staff can act only on assigned sessions. Offers also apply to tickets whose bill is already finalized. Without an answer before the deadline the ticket is refunded. The offer carries no payment; a refund is paid to the bank account the buyer enters later through the emailed Refund Account link. A Member's ticket refunded for an Mland cancellation also gets its used points back, and the voucher is restored if still valid.
 
 | Field Name | Description |
 | --- | --- |
