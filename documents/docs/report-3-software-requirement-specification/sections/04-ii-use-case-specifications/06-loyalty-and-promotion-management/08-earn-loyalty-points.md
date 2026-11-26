@@ -1,74 +1,82 @@
 ### 6.8 Earn Loyalty Points
 
-#### Primary Actors
-
-System.
-
-#### Secondary Actors
-
-Order Management and Fulfillment, which reports verified full retail payment or payment of a branch order; Workshop Management, which reports a completed and fully paid booking or ticket; Member, who receives the points.
+| Use Case ID | UC-49 | Use Case Name | Earn Loyalty Points |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | System | Secondary Actors | Order Management and Fulfillment, Workshop Management, Member |
 
 #### Description
 
-This use case awards loyalty points to a Member once per eligible transaction, based on the amount actually paid after discounts and points, using the point policy recorded when the transaction was accepted.
+As the System, I want to award loyalty points once per eligible Member transaction after verified completion and payment so that Members earn accurate rewards.
+
+#### Trigger
+
+Order Management and Fulfillment or Workshop Management reports a verified eligible transaction outcome.
 
 #### Preconditions
 
 1. The transaction belongs to a Member.
-2. The point policy recorded at acceptance is available.
+2. The point policy recorded at transaction acceptance is available.
+
+#### Postconditions
+
+1. The Member's balance and history include the earned points exactly once.
+2. Newly added points become available for future retail and workshop transactions.
 
 #### Normal Flow
 
 **Earn Loyalty Points**
 
-1. The system receives a verified result: full payment of a retail order, or a workshop booking that is both completed and fully paid.
-2. The system checks that the transaction has not already earned points.
-3. The system calculates the earning base: the item amount actually paid after discounts and points, excluding shipping, for a retail order; or the package fee actually paid, once for the whole booking, for a workshop.
-4. The system divides the base by the earning rate and rounds down. With the initial policy of 10,000 VND per point, 9,999 VND earns 0 points and 10,000 to 19,999 VND earns 1 point; remainders are not carried over.
-5. The system adds the points to the Member's balance and records an earned entry linked to the transaction.
+1. System receives a verified full retail payment or a completed, fully paid workshop booking.
+2. System verifies the transaction has not already earned points.
+3. System computes the earning base from the net amount actually paid, excluding shipping.
+4. System divides the base by the recorded earning rate and rounds down.
+5. System adds the earned points to the Member's balance and records an earned entry.
 
 **Earn Points per Ticket or per Branch Order**
 
-1. When a multi-ticket workshop booking or a retail checkout split into branch orders is accepted, the system calculates the points of the whole booking or checkout once, with the policy recorded at acceptance and rounded down, and divides them between the tickets or branch orders by the largest remainder method. For example, three tickets of 466,666, 466,667 and 466,667 VND earn 93 points together, not 92.
-2. When Workshop Management reports that a ticket is completed (checked out) and fully paid, after the group deposit is finalized, the system adds that ticket's share once.
-3. When Order Management reports that a branch order is paid, the system adds that branch order's share once.
-4. A ticket that is cancelled or a no-show, or a branch order that is cancelled or expires before payment, earns nothing.
+1. System calculates group points once at acceptance and divides them across tickets or branch orders.
+2. System adds a ticket's share once upon Workshop Management completion and full-payment report.
+3. System adds a branch order's share once upon Order Management payment report.
 
 #### Alternative Flows
 
-**Step 1 — Workshop booking only booked, deposit paid, checked in or cancelled**
+1a. Transaction is a Guest workshop booking → System closes the earning result with 0 points.
 
-No points are earned. A booking that is fully paid but not completed, or completed but not fully paid, earns nothing until both conditions are met, in either order.
+2a. Verified result is received again → System ignores the duplicate and keeps balance and history unchanged.
 
-**Step 2 — Result received again or response lost**
+#### Exception Flows
 
-The system does not add points a second time; balance and history stay consistent.
+1a. Workshop booking is only booked, deposit-paid, checked in, or cancelled → System awards no points.
 
-**Step 2 — Recorded policy missing or saving fails**
+1b. Browser reports success without verified backend result → System awards no points.
 
-The system does not report success, keeps the transaction available for safe reprocessing, and never substitutes the current policy.
+2a. Recorded policy is missing or save fails → System keeps transaction for reprocessing without substituting current policy.
 
-**Step 1 — Guest workshop booking with an automatic discount**
+Per-Ticket 2a. Ticket is cancelled or no-show → System awards no points for that ticket.
 
-The booking has no Member, so no points are earned and no loyalty account is opened; the earning result is closed with 0 points.
-
-**Step 1 — Browser shows success only**
-
-A browser message is not enough evidence to award points.
-
-#### Postconditions
-
-- The Member's balance and history include the earned points exactly once.
-- New points can be used only after they are added, in both retail and workshop transactions.
+Per-Branch 3a. Branch order is cancelled or expires unpaid → System awards no points for that branch order.
 
 #### Business Rules
 
 BR-49-01, BR-49-02, BR-49-03, BR-49-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-49-01 | Points are earned only for Member transactions: a retail order after verified full payment, or a workshop booking that is both completed and fully paid. |
 | BR-49-02 | The base is the amount actually paid after discounts and points, excluding shipping; points are rounded down per transaction and a workshop earns once on the fee actually paid. |
 | BR-49-03 | Each eligible transaction has exactly one earning result, calculated with the policy recorded at acceptance; retries never add points twice. |

@@ -1,63 +1,70 @@
 ### 7.5 View Purchase Order History
 
-#### Primary Actors
-
-Member.
-
-#### Secondary Actors
-
-None.
+| Use Case ID | UC-56 | Use Case Name | View Purchase Order History |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | None |
 
 #### Description
 
 As a Member, I want to view my own past and ongoing retail orders so that I can understand recorded purchase and shop progress without changing orders.
 
+#### Trigger
+
+A Member opens Purchase Order History.
+
 #### Preconditions
 
 1. The platform is available.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
+2. The Member is authenticated with verified identity, has an active account, and holds current authority.
 3. The Member may have zero or more retail orders; no reference alone authorizes access.
 
 #### Postconditions
 
-- The Member sees own historical/current order summaries or an appropriate empty/error result.
-- No order, payment, hold, quantity or fulfilment state changes. Historical accepted terms and retired personal-data boundaries are preserved.
+1. The Member sees their own historical and current order summaries or an appropriate empty/error result.
+2. No order, payment, hold, quantity, or fulfilment state changes; retired personal-data boundaries remain intact.
 
 #### Normal Flow
 
-**View Purchase Order History**
-
-1. The Member opens Purchase Order History.
-2. The system rechecks current account authority and restricts retrieval to the owning Member.
-3. The system retrieves past and ongoing retail order summaries with recorded order codes, product images, payment/hold facts, internal fulfilment progress and the recorded GHTK shipment step.
-4. The system presents newest-first order history in the tabs Tất cả, Chờ thanh toán, Chờ lấy hàng, Chờ giao hàng, Chờ nhận tại cửa hàng, Đã giao and Đã hủy, restricted to the owning Member. An unpaid VNPay order shows a countdown to its hold deadline; a received order shows its received time.
-5. The Member selects an own order to continue to UC57 View Order Details, or uses an eligible action: Thanh toán (UC55), Hủy đơn for an unpaid order, or Mua lại, which adds the rings to the cart again (UC53). A delivered or picked-up order also offers Đánh giá, which opens one review screen for every product of the order not reviewed yet (UC75), or Xem đánh giá once all of them are reviewed.
+1. Member opens Purchase Order History.
+2. System rechecks account authority and restricts retrieval to the owning Member.
+3. System retrieves past and ongoing retail order summaries, payment facts, and fulfilment steps.
+4. System displays orders newest-first across the approved status tabs with hold countdowns and received times.
+5. Member selects an order to open UC57 View Order Details.
 
 #### Alternative Flows
 
-**Step 2 — Invalid/revoked authority or another Member's reference**
+3a. Member has no retail orders → System displays an empty-history state with purchase guidance without fabricating orders.
 
-Deny without exposing private history. Internal branch reads belong to the scoped UC57/support boundary, not a grant to browse all Member histories.
+3b. Catalogue changed, legacy snapshot, or retired recipient data → System keeps recorded historical facts, leaves missing legacy options unknown, and hides retired recipient data.
 
-**Step 3 — No retail orders**
+5a. Member selects Thanh toán, Hủy đơn, or Mua lại → System routes to UC55 payment, cancels the unpaid order, or adds available rings back to the cart (UC53).
 
-Display an empty-history result with safe purchase guidance; do not fabricate orders or report a retrieval error as empty.
+5b. Member selects Đánh giá or Xem đánh giá on a delivered/picked-up order → System opens the review screen for unreviewed products (UC75) or displays existing reviews.
 
-**Steps 3 and 4 — Retrieval failure or undefined filter/paging option**
+#### Exception Flows
 
-Provide a safe read error/retry result. Retain the newest-first ordering and the approved tabs.
+2a. Invalid/revoked authority or another Member's reference → System denies access without exposing private history.
 
-**Step 5 — Review status cannot be read**
+3c. Retrieval failure or undefined filter/paging option → System displays a safe read error/retry result while retaining newest-first ordering and approved tabs.
 
-The order list still loads; Đánh giá stays available and the review screen rechecks which lines are eligible and already reviewed.
-
-**Steps 3 and 4 — Catalogue changes, legacy snapshots or retired recipient data**
-
-Keep recorded historical facts instead of current catalogue replacements. Do not guess legacy variant options or reveal retired recipient/contact/address data.
+5c. Review status cannot be read → System still loads the order list, keeps Đánh giá available, and rechecks line eligibility upon review submission.
 
 #### Business Rules
 
 BR-56-01, BR-56-02, BR-56-03, BR-56-04, BR-56-05, BR-56-06, BR-56-07
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

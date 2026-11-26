@@ -42,6 +42,17 @@ public class CustomOrderService {
 
     private record Stage(String previous, String productionStatus, String fulfilmentStatus) {}
 
+    /** Order statuses after full payment: no quote command may touch the order any more (spec 004 2.1). */
+    private static final Set<String> QUOTE_LOCKED_STATUSES =
+            Set.of("PAID", "IN_PRODUCTION", "READY_FOR_FULFILMENT", "CLOSED");
+
+    private static void requireQuoteUnlocked(CustomOrder order) {
+        if (QUOTE_LOCKED_STATUSES.contains(order.getStatus())) {
+            throw DesignReviewException.conflict("CUSTOM_ORDER_QUOTE_LOCKED",
+                    "Đơn hàng đã thanh toán, không thể thay đổi báo giá.");
+        }
+    }
+
     private static final Map<String, Stage> STAGES = Map.of(
             "IN_PRODUCTION", new Stage("PAID", "IN_PRODUCTION", null),
             "READY_FOR_FULFILMENT", new Stage("IN_PRODUCTION", "COMPLETED", "READY_FOR_FULFILMENT"),
@@ -106,6 +117,8 @@ public class CustomOrderService {
                     return customOrderRepository.save(newOrder);
                 });
 
+        requireQuoteUnlocked(customOrder);
+
         int nextGen = (int) quoteRepository.countByCustomOrderId(customOrder.getId()) + 1;
         Instant expiry = expiresAt != null ? expiresAt : Instant.now().plus(Duration.ofDays(3));
         String quoteId = UUID.randomUUID().toString();
@@ -160,6 +173,15 @@ public class CustomOrderService {
                         .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá."))
                 : quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
                         .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá nào cho đơn hàng này."));
+
+        requireQuoteUnlocked(order);
+        boolean latest = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
+                .map(newest -> newest.getId().equals(quote.getId()))
+                .orElse(false);
+        if (!latest) {
+            throw DesignReviewException.conflict("QUOTE_ALREADY_DECIDED",
+                    "Chỉ có thể duyệt báo giá mới nhất của đơn hàng này.");
+        }
 
         if (!"QUOTE_PENDING".equalsIgnoreCase(quote.getStatus())) {
             throw DesignReviewException.conflict("QUOTE_ALREADY_DECIDED",
@@ -336,6 +358,7 @@ public class CustomOrderService {
         if (!order.getMemberAccountId().equals(memberAccountId)) {
             throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền yêu cầu báo giá cho đơn hàng này.");
         }
+        requireQuoteUnlocked(order);
 
         Optional<CustomOrderQuote> latestQuoteOpt = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId());
         if (latestQuoteOpt.isPresent()) {

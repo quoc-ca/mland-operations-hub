@@ -1,76 +1,76 @@
 ### 7.8 Fulfill Retail Order
 
-#### Primary Actors
-
-Member.
-
-#### Secondary Actors
-
-None.
+| Use Case ID | UC-59 | Use Case Name | Fulfill Retail Order |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | None |
 
 #### Description
 
 As a Member, I want the pickup or GHTK choice and recipient data I gave at checkout recorded on each paid order and its progress shown so that I know when to collect it or expect delivery.
 
+#### Trigger
+
+A Member completes checkout (UC54) and verified payment (UC55) for a retail order.
+
 #### Preconditions
 
 1. The platform is available and the retail order exists.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The Member owns the verified paid order. Method/data were chosen at checkout (UC54) and cannot change after acceptance.
-4. The processing branch was selected and fixed at checkout; this use case cannot replace it.
+2. The Member is authenticated with verified identity, has an active account, and owns the verified paid order.
+3. Method and recipient data were chosen at checkout (UC54) and cannot change after acceptance.
+4. The processing branch was fixed at checkout and cannot be replaced here.
 
 #### Postconditions
 
-- The paid order carries pickup or GHTK with necessary data without changing frozen purchase/payment/branch facts; a GHTK order carries one shipment with a platform tracking number.
-- Authorized preparation continues along the chosen chain; this use case does not itself assert actual completion.
-- No new shipping fee, GHTK shipment API call or new payment is created after checkout.
+1. The paid order carries pickup or GHTK with required data; a GHTK order carries one shipment with a platform tracking number.
+2. Authorized preparation continues along the chosen chain without repricing or changing branch.
+3. No new shipping fee, GHTK shipment API call, or new payment is created after checkout.
 
 #### Normal Flow
 
-**Fulfill Retail Order**
-
-1. At checkout the owning Member chose pickup or GHTK for each branch and, for GHTK, a saved or new recipient address (UC54).
-2. After verified payment the system records the choice on each paid branch order; for GHTK it records one prepaid shipment with a platform-generated tracking number.
-3. The system shows the fixed processing branch, the chosen method and the current step in Purchase Order History.
-4. Authorized Staff prepares the order (UC58) and marks it ready: Chờ khách nhận for pickup (UC59), Chờ ĐVVC lấy hàng for GHTK (UC61).
-5. Pickup: the Member sees Sẵn sàng nhận hàng and collects the order at the counter (UC60).
-6. GHTK: the Member sees Chờ GHTK lấy hàng, then Đang giao hàng once the courier collects the parcel, then Đã giao once the GHTK partner records the delivery (UC61).
-7. The system records the received time at the counter handover or the GHTK delivery, without repricing or changing branch.
-8. The order moves to the Đã giao tab with its paid and received times.
+1. Member selects store pickup with branch choice at checkout (UC54).
+2. System records the method on the paid branch order.
+3. System displays the fixed branch, chosen method, and current step in Purchase Order History.
+4. Staff prepares the order (UC58) and marks it Chờ khách nhận.
+5. Member sees Sẵn sàng nhận hàng and collects the order at the counter (UC60).
+6. System records the received time while preserving frozen price and branch.
+7. System moves the order to the Đã giao tab with paid and received times.
 
 #### Alternative Flows
 
-**Steps 2 and 6 — Wrong owner, invalid account or unpaid/expired order**
+1a. Member selects GHTK delivery with a saved or new domestic Vietnam address at checkout → System records one prepaid shipment with a platform tracking number after verified payment, Staff marks it Chờ ĐVVC lấy hàng (UC61), GHTK partner records Đã lấy hàng (Đang giao hàng) and Giao thành công (Đã giao), and System records the received time.
 
-Reject without exposing another order, accepting data or changing payment facts. Staff/Manager/Admin cannot make the Member choice through customer impersonation.
+6a. Long wait before actual GHTK handoff → System keeps only required recipient name, phone, and address until original actual handoff, starting the 30-day retirement clock at handoff.
 
-**Step 1 — Invalid method or incomplete GHTK data**
+#### Exception Flows
 
-Identify missing/invalid fields at checkout and permit correction before Đặt hàng. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form.
+1b. Invalid method or incomplete GHTK data → System identifies invalid fields at checkout (name 1–100 chars, address 10–500 chars, optional note ≤ 500 chars, 10-digit 0/+84 mobile) for correction before Đặt hàng.
 
-**Steps 2 to 6 — Member wants a different method after Đặt hàng**
+2a. Wrong owner, invalid account, or unpaid/expired order → System rejects without exposing another order, accepting data, or changing payment facts.
 
-Reject method/recipient changes and retain the existing choice/data. While the order is unpaid the Member may cancel it and order again; after payment there is no reset, backward transition, branch transfer or special override.
+2b. Member wants a different method after Đặt hàng → System rejects changes and retains the existing choice; unpaid orders may be cancelled and reordered, while paid orders allow no reset or branch transfer.
 
-**Steps 3 and 7 — Processing branch became inactive**
+3a. Processing branch became inactive → System preserves the recorded branch, history, and deadlines without silent relocation, allowing currently authorized Staff/delegated Manager to complete paid orders.
 
-Preserve the recorded branch/history and do not silently relocate. An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
+4a. Staff tries to record a courier step → System rejects the attempt; only the GHTK partner account records courier pickup and delivery.
 
-**Step 7 — Save failure**
-
-Report a safe error and preserve previously accepted data/payment facts; do not invent another order/payment.
-
-**Steps 7 and 8 — Long wait before actual GHTK handoff**
-
-Keep only recipient name/phone/address necessary to fulfil the pending handoff. The 30-day retirement clock begins at the original actual handoff, not at entry/editing or preparation.
-
-**Step 6 — Staff tries to record a courier step**
-
-Reject it. Only the GHTK partner account records the courier pickup and the delivery; Staff packs the order and marks it ready. Pickup collects no extra address or separate contact; branch and frozen payment terms remain unchanged.
+6b. Save failure → System reports a safe error and preserves previously accepted data and payment facts.
 
 #### Business Rules
 
 BR-59-01, BR-59-02, BR-59-03, BR-59-04, BR-59-05, BR-59-06, BR-59-07
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

@@ -1,11 +1,13 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
 import { sessionTimeRange } from '../pages/OperationsDashboardPage';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 const SESSIONS = [
   { id: 'aaaaaaaa-1', slotId: 's1', workshopDate: '2026-11-17', locationId: 2, capacity: 8, state: 'PUBLISHED', scheduledStartAt: '2026-11-17T02:30:00Z', scheduledEndAt: '2026-11-17T05:00:00Z' },

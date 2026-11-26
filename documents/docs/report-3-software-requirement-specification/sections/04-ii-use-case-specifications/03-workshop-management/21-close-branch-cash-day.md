@@ -1,16 +1,17 @@
 ### 3.21 Close Branch Cash Day
 
-#### Primary Actors
-
-Staff, Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-83 | Use Case Name | Close Branch Cash Day |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff, Manager | Secondary Actors | None |
 
 #### Description
 
-As a Staff member of the branch or a Manager, I want to submit the daily cash count so that the branch cash book is closed and any difference is resolved.
+As a Staff member of the branch or a Manager, I want to submit the daily cash count so that the branch cash book is closed and differences are resolved.
+
+#### Trigger
+
+An actor opens the cash close screen for a branch working day.
 
 #### Preconditions
 
@@ -19,40 +20,46 @@ As a Staff member of the branch or a Manager, I want to submit the daily cash co
 
 #### Postconditions
 
-- The day is recorded with the expected cash, counted cash, difference, and closer.
-- A day with a difference is closed only after Manager confirmation.
+1. The day is recorded with expected cash, counted cash, difference, and closer.
+2. A day with a difference is closed only after Manager confirmation.
 
 #### Normal Flow
 
-**Close Branch Cash Day**
-
-1. The actor opens the cash close of the branch.
-2. The system shows the expected confirmed cash of the day, net of change returned.
-3. The actor enters the counted amount and submits it.
-4. The system records the close; with no difference the day is closed.
+1. Actor opens the cash close of the branch.
+2. System displays the expected confirmed cash of the day, net of change returned.
+3. Actor enters the counted amount and submits it.
+4. System records the close and closes the day when there is no difference.
 
 #### Alternative Flows
 
-**Step 3 — Counted amount differs**
+3a. Counted amount differs → Reason is required and the close waits until a Manager confirms the difference with a reason.
 
-A reason is required and the close waits until a Manager confirms the difference with a reason.
+4a. Cash is collected after submission → Cash belongs to the next working day, even while a difference awaits confirmation.
 
-**Step 4 — Day already closed or in the future**
+#### Exception Flows
 
-The system refuses the close.
-
-**After Step 4 — Cash collected after submission**
-
-The cash belongs to the next working day, even while a difference awaits confirmation.
+4a. Day is already closed or in the future → System refuses the close.
 
 #### Business Rules
 
 BR-83-01, BR-83-02, BR-83-03, BR-83-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-83-01 | Each branch closes its cash book once per working day. |
 | BR-83-02 | Session assignment is not required because the close is per branch. |
 | BR-83-03 | Bank transfers and VNPay are not part of the cash close. |

@@ -1,9 +1,11 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { operationsRoutes } from '../routes';
 import { clearRoleCache } from '../../shared/auth/useRole';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 describe('Late payment reviews page', () => {
   beforeEach(() => clearRoleCache());

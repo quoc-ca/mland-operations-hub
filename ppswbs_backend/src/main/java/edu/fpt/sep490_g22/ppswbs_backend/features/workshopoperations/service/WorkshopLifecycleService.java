@@ -34,6 +34,19 @@ public class WorkshopLifecycleService {
     private final WorkshopResponsibilityService responsibilityService;
     private final OperationsAuditEventRepository auditEventRepository;
 
+    /**
+     * Who may send this transition, checked before an idempotent replay: publishing and pausing sales are for a Manager,
+     * the rest for a Manager or the Staff assigned to the session. {@link #transitionState} still applies every rule.
+     */
+    public void requireTransitionAuthority(String authHeader, String sessionReference, SessionState targetState) {
+        if (targetState == SessionState.PUBLISHED || targetState == SessionState.SALES_PAUSED) {
+            authorizationService.requireGlobalManager(authHeader);
+            return;
+        }
+        WorkshopSession session = requireSessionEntity(sessionReference);
+        authorizationService.requireManagerOrAssignedStaff(authHeader, session.getId(), session.getLocation().getId());
+    }
+
     @Transactional
     public SessionResponse transitionState(String authHeader, String correlationId, String sessionReference, StateTransitionRequest request) {
         if (request == null || request.getTargetState() == null) {

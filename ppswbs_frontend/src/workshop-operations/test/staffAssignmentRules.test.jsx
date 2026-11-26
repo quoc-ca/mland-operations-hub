@@ -1,10 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 // 003.2 T115 (missingStaff + last-assignment confirmation), T130 (STAFF_NOT_ELIGIBLE reasons) and T129 (no Admin
 // business authority in the Operations UI). The backend decides every permission; these tests cover what the UI shows.
@@ -18,7 +20,7 @@ const profile = role => json(200, { role });
 const session = (extra = {}) => json(200, {
   id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10, assignedStaffAccountIds: [33], missingStaff: false, ...extra,
 });
-const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff', loginEmail: 'test.staff@mland.local' }]);
+const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff' }]);
 
 function openSession(role, handlers) {
   const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/accounts': staffList, ...handlers });

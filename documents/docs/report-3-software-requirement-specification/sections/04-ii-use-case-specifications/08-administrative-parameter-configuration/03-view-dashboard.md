@@ -1,16 +1,17 @@
 ### 8.3 View Dashboard
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-64 | Use Case Name | View Dashboard |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to view consolidated business analytics, workshop utilization, retail revenue, and branch key performance indicators for an authorized reporting period, together with today's operations and recent events on the same page.
+As a Manager, I want to view consolidated business analytics, workshop utilization, retail revenue, and branch KPIs for an authorized period so that I can monitor performance alongside today's operations.
+
+#### Trigger
+
+A Manager opens Dashboard or changes a reporting period or branch filter.
 
 #### Preconditions
 
@@ -20,53 +21,58 @@ Allows the Manager to view consolidated business analytics, workshop utilization
 
 #### Postconditions
 
-- The system displays dashboard metrics for the selected period and scope.
-- No booking, order, payment, or operational master data is changed.
-- Missing or delayed metrics are clearly identified.
+1. The system displays dashboard metrics for the selected period and scope.
+2. No booking, order, payment, or operational master data is changed.
+3. Missing or delayed metrics are clearly identified.
 
 #### Normal Flow
 
-**View Executive Revenue Dashboard**
-
-1. The Manager opens Dashboard, the Manager's home page and the first group of the navigation rail.
-2. The system shows today's operations and recent events, and loads the revenue report for the default reporting period (the current month) and all authorized branches.
-3. The Manager selects a day, week, month or year (Vietnam time) and all branches or one branch with a single click, only among the branches assigned to the Manager. The page reloads only when it opens, a filter changes or the Manager refreshes; it never refreshes on a timer.
-4. The system retrieves and aggregates verified revenue, workshop, order, and branch data in VND: finalized workshop folios, workshop tickets and check-ins, and retail orders. An amount in another currency is not converted or added; the figure becomes incomplete.
-5. The system displays revenue totals, workshop utilization, retail performance, and branch KPIs with the applicable period and scope, with the trend figures compared with the previous period of the same length (the KPI cards and the best sellers are not), and trend charts by hour for a day, by day for a week or month and by month for a year: workshop revenue, registered places, check-ins, no-shows and cancellations; retail orders placed, paid, cancelled and expired, and retail revenue; workshop tickets booked, paid, cancelled and abandoned; and places registered, checked in, no-show and cancelled. When a period has more than 16 points only each series' peak is labelled, count axes use whole numbers and a value that could not be read is a gap, never a zero. The page shows the time of the last successful update in Vietnam time. Each figure keeps one colour, every chart writes its values, and all labels follow the VI/EN switch.
-6. For the same period and branches, the system lists the best sellers: the top 5 products by units in paid retail orders and the top 5 workshop packages by confirmed tickets, each row with its rank, name, count and a bar; hovering or focusing a row shows its amount before discounts and its share of the five.
-7. The Manager reviews the dashboard, changes the filters or switches the language.
+1. Manager opens Dashboard.
+2. System displays today's operations, recent events, and the current-month revenue report for all authorized branches.
+3. Manager selects a reporting period (day, week, month, year) and branch scope.
+4. System retrieves and aggregates verified VND revenue, workshop, order, and branch KPI data.
+5. System displays totals, comparisons, trend charts, and top-5 product and workshop best sellers.
+6. Manager reviews the metrics and updates filters.
 
 #### Alternative Flows
 
-**Step 2 — No data is available**
+2a. No data is available for the selected period → System displays an explicit empty state without inferring transactions; unreadable sources appear as unknown, never zero.
 
-The system displays an explicit empty state with the selected period and does not infer missing transactions; a source that cannot be read is shown as unknown, never as zero.
+6a. Manager switches VI/EN language → System updates all dashboard labels to the selected language without timer-based auto-refresh.
 
-**Step 3 — Invalid period or unauthorized branch scope**
+#### Exception Flows
 
-The system rejects the filter and keeps the last valid dashboard view.
+3a. Invalid period or unauthorized branch scope → System rejects the filter and retains the last valid dashboard view.
 
-**Step 4 — Aggregation fails or data is delayed**
+4a. Non-VND amount encountered → System does not convert or add the amount and marks the affected figure incomplete.
 
-The system displays an error or data-unavailable indicator and allows the Manager to retry.
+4b. Aggregation fails or data is delayed → System displays an error or data-unavailable indicator and allows the Manager to retry.
 
-**Step 5 — Partial data source is unavailable**
+5a. Partial data source is unavailable → System marks the affected KPI as incomplete and does not represent it as fully consolidated.
 
-The system marks the affected KPI as incomplete and does not represent it as fully consolidated.
-
-**Step 6 — Best sellers cannot be loaded or have no data**
-
-The system shows Không tải được danh sách bán chạy with Thử lại and keeps the rest of the dashboard; a list whose source cannot be read shows Tạm thời không đọc được dữ liệu này, and a period with no sale or confirmed ticket shows an empty-list notice.
+5b. Best sellers cannot be loaded or have no data → System displays Không tải được danh sách bán chạy with Thử lại (or Tạm thời không đọc được dữ liệu này / empty-list notice) while keeping the rest of the dashboard.
 
 #### Business Rules
 
 BR-64-01, BR-64-02, BR-64-03, BR-64-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
-| ID       | Rule Definition                                                                                                        |
-| -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| BR-64-01 | Only an authorized Manager may view executive revenue and branch KPI data.                                             |
-| BR-64-02 | Dashboard metrics must be calculated from verified recorded business data for the selected period and scope.           |
+| ID | Rule Definition |
+| --- | --- |
+| BR-64-01 | Only an authorized Manager may view executive revenue and branch KPI data. |
+| BR-64-02 | Dashboard metrics must be calculated from verified recorded business data for the selected period and scope. |
 | BR-64-03 | Missing, delayed, or partial data must be clearly identified and must not be silently presented as complete analytics. |
 | BR-64-04 | Best sellers count products by units in VND branch orders paid in the period, and workshop packages by tickets confirmed, completed or marked no-show in booking groups placed in the period at the branch of the first session; ties go to the higher amount before discounts, then to the lower ID; a package that no longer exists keeps the name recorded on its booking line. |

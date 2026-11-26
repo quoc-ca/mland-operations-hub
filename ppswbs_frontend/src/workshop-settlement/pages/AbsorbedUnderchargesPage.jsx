@@ -19,7 +19,7 @@ export default function AbsorbedUnderchargesPage() {
   const statusLabel = useEnumLabel(messages, 'underStatus');
   const api = createSettlementApi(useHttp());
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const [filters, setFilters] = useUrlFilters({ locationId: '', from: '', to: '' });
   const [result, setResult] = useState(null);
   const [voiding, setVoiding] = useState(null);

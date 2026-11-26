@@ -5,7 +5,7 @@
 This screen allows Staff and Managers to:
 
 - Cancel one ticket, or several tickets of the same booking group all or none, on behalf of the buyer at the counter.
-- Change one ticket, or several tickets of the same group all or none, to new sessions as an advance change or a late arrival.
+- Change one ticket, or several tickets of the same group all or none, to new sessions as an advance change or a late arrival. Late arrival is available only to Staff and Managers; a session that has already started can only be changed this way.
 - Verify the buyer first: a 6-digit code is sent to the booking's stored email and the buyer reads it out; Staff do not need to know the email.
 - See a price increase before it is applied and apply it only after the buyer confirms it.
 - See when a change needs a Manager: the request is queued and the ticket only changes after approval in Change Requests.

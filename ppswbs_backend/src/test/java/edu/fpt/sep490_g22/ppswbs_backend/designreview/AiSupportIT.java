@@ -247,7 +247,7 @@ public class AiSupportIT {
     }
 
     @Test
-    void whenGuestSubmitsDesignRequestWithImage_thenReturns202AndTrackingProjection() throws Exception {
+    void whenGuestSubmitsDesignRequestWithImage_thenRefused() throws Exception {
         MockMultipartFile file = new MockMultipartFile("image", "ring.jpg", "image/jpeg", "image-content".getBytes());
 
         mockMvc.perform(multipart("/api/v1/design-requests")
@@ -255,10 +255,7 @@ public class AiSupportIT {
                         .param("description", "Yêu cầu tư vấn mẫu nhẫn bạc")
                         .param("consentVersion", "v1.0.0")
                         .header("Idempotency-Key", "idemp-001"))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.reviewStatus").value("NEED_REVIEW"))
-                .andExpect(jsonPath("$.nextAction").value("AWAITING_HUMAN_REVIEW"))
-                .andExpect(jsonPath("$.guestTrackingToken").isNotEmpty());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -1,12 +1,14 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { AuthProvider } from '../../../shared/auth/AuthProvider';
 import { I18nProvider, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { designReviewMessages } from '../messages';
 import { designReviewRoutes } from '../routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 function LanguageToggle() {
   const { setLanguage } = useLanguage();

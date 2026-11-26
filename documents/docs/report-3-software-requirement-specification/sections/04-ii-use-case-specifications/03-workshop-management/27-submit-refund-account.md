@@ -1,57 +1,66 @@
 ### 3.27 Submit Refund Account
 
-#### Primary Actors
-
-Guest, Member, Staff, Manager
-
-#### Secondary Actors
-
-Mail Gateway
+| Use Case ID | UC-89 | Use Case Name | Submit Refund Account |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest, Member, Staff, Manager | Secondary Actors | Mail Gateway |
 
 #### Description
 
-As the Guest or Member payer, or as Staff or a Manager at the counter, I want to enter and confirm the receiving bank account so that a refund can be transferred.
+As the Guest or Member payer, or as Staff or Manager at the counter, I want to enter and confirm the receiving bank account so that a refund can be transferred.
+
+#### Trigger
+
+A payer opens a refund-account link, or an operator records the account at the counter.
 
 #### Preconditions
 
 1. A refund request is waiting for an account.
-2. The payer holds a usable single-use link (valid 7 days), or a Manager or Staff assigned to the ticket records the account at the counter. Group-level refunds without a ticket accept the account only through the link.
+2. The payer holds a usable 7-day single-use link, or assigned Staff or Manager acts at the counter (link-only for group-level refunds).
 
 #### Postconditions
 
-- The account number is stored encrypted and the request waits for Manager approval.
+1. The account number is stored encrypted and the request waits for Manager approval.
 
 #### Normal Flow
 
-**Submit Refund Account**
-
-1. The payer opens the account link.
-2. The payer enters the bank, account number, and holder name.
-3. The system shows the details back and requires explicit confirmation.
-4. The system saves the account and moves the request to pending approval.
+1. Actor opens the account link.
+2. Actor enters the bank, account number, and holder name.
+3. System displays the details back and requires explicit confirmation.
+4. System saves the account and moves the request to pending approval.
 
 #### Alternative Flows
 
-**Step 1 — Counter entry**
+1a. Counter entry by assigned Staff or Manager → Operator enters and confirms the payer account; actor, channel, and time are recorded.
 
-Staff assigned to a session of the ticket, or a Manager, enters and confirms the payer's account; the actor, channel, and time are recorded. Staff may resend the account link only for refunds in their assigned-session scope.
+1b. Staff resends account link → Allowed only for refunds in the Staff member's assigned-session scope.
 
-**Step 1 — Link used, revoked, or expired**
+1c. Group-level refund without a ticket → Account is accepted only through the link.
 
-The system refuses it and the customer asks the shop for a new link.
+#### Exception Flows
 
-**Step 1 — Refund has no ticket**
-
-A group-level refund accepts the account only through the link.
+1a. Link is used, revoked, or expired → System refuses it and the customer asks the shop for a new link.
 
 #### Business Rules
 
 BR-89-01, BR-89-02, BR-89-03
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-89-01 | The system performs no bank name lookup and does not compare the holder with the payer. |
 | BR-89-02 | The full account number is shown only to the Manager and transferring actor, and never written to email, logs, or audit. |
 | BR-89-03 | Without a reply, reminders are sent on days 3 and 7. |

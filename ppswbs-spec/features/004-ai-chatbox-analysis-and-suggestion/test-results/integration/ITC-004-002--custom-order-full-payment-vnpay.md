@@ -53,7 +53,7 @@ Xác minh quy tắc cốt lõi:
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã kiểm tra cả 2 chiều: khởi tạo payment URL và tiếp nhận IPN callback an toàn với lock bản ghi chống race condition.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `CustomOrderIntegrationTest.shouldEnforceFullPaymentAndPreventSplitOrCart` và `whenPaymentAmountMismatched_thenRequiresReviewAndOrderNotPaid`. Đã xác minh thanh toán 100% một lần (không giỏ hàng, không đặt cọc), callback IPN chuyển sang `PAID`, replay callback bảo đảm tính idempotent không nhân bản giao dịch, callback sai lệch số tiền chuyển trạng thái `REVIEW_REQUIRED`.
 <!-- EXECUTION:END -->

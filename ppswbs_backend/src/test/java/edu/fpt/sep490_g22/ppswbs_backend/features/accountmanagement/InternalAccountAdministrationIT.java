@@ -107,6 +107,7 @@ class InternalAccountAdministrationIT {
     void whenManagerCreatedWithMultipleLocations_thenSucceeds() throws Exception {
         InternalAccountCreateRequest request = InternalAccountCreateRequest.builder()
             .role(AccountRole.MANAGER)
+            .email("manager.multi@mland.vn")
             .fullName("Manager Multi Location")
             .phone("0981112233")
             .locationIds(List.of(101L, 102L)) // valid for MANAGER
@@ -127,6 +128,7 @@ class InternalAccountAdministrationIT {
     void whenResendingInvitationImmediately_thenFailsCooldown() throws Exception {
         InternalAccountCreateRequest request = InternalAccountCreateRequest.builder()
             .role(AccountRole.STAFF)
+            .email("staff.cooldown@mland.vn")
             .fullName("Staff Cooldown Test")
             .phone("0981112233")
             .locationIds(List.of(101L))

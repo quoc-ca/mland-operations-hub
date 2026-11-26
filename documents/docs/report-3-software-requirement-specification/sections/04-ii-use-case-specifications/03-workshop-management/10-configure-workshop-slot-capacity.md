@@ -1,16 +1,17 @@
 ### 3.10 Configure Workshop Slot Capacity
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-28 | Use Case Name | Configure Workshop Slot Capacity |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to set the seat capacity of an individual workshop session. A time slot itself carries no capacity.
+As a Manager, I want to set the seat capacity of an individual workshop session so that booking limits reflect actual branch capacity.
+
+#### Trigger
+
+A Manager opens a workshop session to update its seat capacity.
 
 #### Preconditions
 
@@ -19,35 +20,45 @@ Allows the Manager to set the seat capacity of an individual workshop session. A
 
 #### Postconditions
 
-- The new capacity applies to that session only.
-- Confirmed tickets and live holds are never reduced.
+1. The new capacity applies to that session only.
+2. Confirmed tickets and live holds are never reduced.
 
 #### Normal Flow
 
-**Configure Workshop Slot Capacity**
-
-1. The Manager opens a session.
-2. The system displays capacity, confirmed seats, and held seats.
-3. The Manager enters the new capacity.
-4. The system validates it and saves it with an audit entry.
+1. Actor opens a workshop session.
+2. System displays capacity, confirmed seats, and held seats.
+3. Actor enters the new capacity.
+4. System validates the value and saves it with an audit entry.
 
 #### Alternative Flows
 
-**Step 4 — Capacity below one**
+None.
 
-The system rejects the value; the Manager pauses sales to stop bookings.
+#### Exception Flows
 
-**Step 4 — Capacity below confirmed seats plus live holds**
+4a. Capacity is below one → System rejects the value; Manager pauses sales to stop bookings.
 
-The system always rejects the change.
+4b. Capacity is below confirmed seats plus live holds → System always rejects the change.
 
 #### Business Rules
 
 BR-24-01, BR-24-02
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-24-01 | Capacity counts participants of eligible tickets and holds. |
 | BR-24-02 | Session capacity is at least one and cannot be reduced below committed seats. Participant limits belong to the package booking line. |

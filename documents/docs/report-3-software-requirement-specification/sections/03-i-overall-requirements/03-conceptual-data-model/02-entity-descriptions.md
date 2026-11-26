@@ -123,7 +123,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 
 | Field | Value |
 | --- | --- |
-| Purpose | One direct booking made by a Member or Guest buyer for one or more participants. |
+| Purpose | One booking made by a Member or Guest buyer for one or more participants. |
 | Key business attributes | Group code, buyer, contact email and phone, payment mode, amount to collect, hold expiry and payment deadline. |
 | Business identity | Group code is unique. |
 | Status / lifecycle | Pending payment → Confirmed; or Expired / Cancelled. |
@@ -187,7 +187,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 | Field | Value |
 | --- | --- |
 | Purpose | A request from a Member to have a custom ring designed from a description, reference images, and optionally a Member-owned Feature-012 design snapshot. |
-| Key business attributes | Owner, description, reference images, analysis result, estimated value and review decision. |
+| Key business attributes | Owner, description, reference images, estimated value and review decision. |
 | Business identity | Request reference is unique. |
 | Status / lifecycle | Active → Completed or Withdrawn. Review: Need review → Accepted, Rejected or Clarification required. |
 
@@ -207,7 +207,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 | Purpose | A ring designed in the configurator from material, shape, gemstones and attachments. |
 | Key business attributes | Owner, material, shape, ring size, selected components, estimated price and difficulty score. |
 | Business identity | Design reference and version together identify one immutable design version. |
-| Status / lifecycle | Draft → Saved → Validated; or Archived. Feature-012 no longer attaches a design to a workshop booking; its saved evaluation only produces an advisory workshop recommendation. |
+| Status / lifecycle | Draft → Saved → Archived. A saved evaluation only produces an advisory workshop recommendation; Feature-012 does not attach a design to a workshop booking. |
 
 **Entity: Loyalty Wallet (loyalty_wallet)**
 

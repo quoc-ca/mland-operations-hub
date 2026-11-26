@@ -31,6 +31,12 @@ public class AiPromptQuotaService {
     @Value("${ai.support.quota.guest-daily:3}")
     private int guestDailyLimit = 3;
 
+    /** All Guest prompts of one day together: a new Guest session must not mean unlimited use. */
+    private static final String GUEST_POOL_SCOPE = "GUEST_ALL";
+
+    @Value("${ai.support.quota.guest-global-daily:100}")
+    private int guestGlobalDailyLimit = 100;
+
     @Value("${ai.support.quota.member-daily:10}")
     private int memberDailyLimit = 10;
 
@@ -65,7 +71,8 @@ public class AiPromptQuotaService {
         String resetAt = nextMidnight.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         long retryAfterSeconds = Math.max(1, Duration.between(ZonedDateTime.now(zone), nextMidnight).toSeconds());
 
-        int limit = "MEMBER".equalsIgnoreCase(actorScope) ? memberDailyLimit : guestDailyLimit;
+        int limit = "MEMBER".equalsIgnoreCase(actorScope) ? memberDailyLimit
+                : GUEST_POOL_SCOPE.equals(actorScope) ? guestGlobalDailyLimit : guestDailyLimit;
         String keyDigest = computeKeyDigest(actorScope, rawIdentifier);
 
         // INSERT IGNORE is safe for concurrent first requests because the
@@ -80,13 +87,22 @@ public class AiPromptQuotaService {
             log.warn("AI daily prompt quota exceeded: actor={}, keyDigestPrefix={}...",
                     actorScope, keyDigest.substring(0, Math.min(10, keyDigest.length())));
             DesignReviewDtos.AiQuotaDto quotaDto = new DesignReviewDtos.AiQuotaDto(
-                    actorScope, usage.getLimitCount(), 0, resetAt);
+                    GUEST_POOL_SCOPE.equals(actorScope) ? "GUEST" : actorScope, usage.getLimitCount(), 0, resetAt);
             throw DesignReviewException.quotaExceeded("Bạn đã sử dụng hết số lượt hỏi AI trong ngày.",
                     retryAfterSeconds, quotaDto, correlationId);
         }
 
         return new QuotaResult(actorScope, usage.getLimitCount(),
                 Math.max(0, usage.getLimitCount() - usage.getUsedCount()), resetAt, retryAfterSeconds);
+    }
+
+    /**
+     * Takes one prompt from the daily pool shared by every Guest. Call after the session quota, so a session that is
+     * already refused cannot drain the pool.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void consumeGuestPoolQuota(String correlationId) {
+        consumeQuota(GUEST_POOL_SCOPE, "all-guests", correlationId);
     }
 
     @Transactional(readOnly = true)

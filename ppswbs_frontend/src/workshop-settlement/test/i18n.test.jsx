@@ -1,9 +1,11 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
 import { PROFILE, asRole, useFreshRole } from './helpers';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 useFreshRole();
 

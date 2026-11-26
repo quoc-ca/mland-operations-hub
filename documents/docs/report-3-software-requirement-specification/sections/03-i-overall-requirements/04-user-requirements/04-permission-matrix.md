@@ -51,10 +51,8 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Retail payment and cash|View daily retail cash and the VNPay checkouts that need manual reconciliation (read-only)|No|No|No|Restricted|No|
 |Retail shipment|Record the courier pickup and the delivery of a GHTK shipment|No|No|No|No|No|
 |Custom manufacturing|Submit and view own custom order|No|Full|No|No|No|
-|Custom manufacturing|Configure queue rules and unavailable deadline dates|Retired|Retired|Retired|Retired|Retired|
 |Custom manufacturing|Prepare a quote (Staff or Manager) and approve it (Manager only)|No|No|Restricted|Full|No|
 |Custom manufacturing|Fulfil by Member pickup or Staff-recorded GHTK handoff|No|No|Full|Restricted|Restricted|
-|Operational parameters|Configure custom-order deadlines and queue values|Retired|Retired|Retired|Retired|Retired|
 |Notification|Manage notification templates, and resend or cancel delivery requests|No|No|No|Restricted|Full|
 |Third-party integrations|Manage approved credentials, endpoints, and activation status|No|No|No|No|Full|
 |Executive dashboard|View consolidated revenue, workshop and retail KPIs, day/week/month/year trends, and the top 5 products and workshop packages for all branches or one branch|No|No|No|Restricted|No|

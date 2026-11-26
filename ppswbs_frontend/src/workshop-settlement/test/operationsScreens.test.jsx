@@ -1,10 +1,13 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
 import { PROFILE, asRole, useFreshRole } from './helpers';
+import { SessionNavigationBoundary } from '../../shared/auth/SessionNavigationBoundary';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 useFreshRole();
 
@@ -249,12 +252,31 @@ describe('Change request queue', () => {
     expect(screen.getByText('Mland TP.HCM')).toBeInTheDocument();
   });
 
-  it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
-    const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
-    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
-    expect(await screen.findByText(/Admin accounts have no part in ticket changes/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(screen.queryByText('CR-1')).not.toBeInTheDocument();
-    expect(calls.filter(call => call.path === '/api/v1/workshop-change-requests')).toHaveLength(0);
+  // BUG-E2E-0024: a decided request may target a session at another branch; Staff then gets 403 on that session read.
+  it('keeps Staff on the queue when a session of another branch answers 403', async () => {
+    mockFetch({
+      [PROFILE]: asRole('STAFF'),
+      'GET /api/v1/workshop-change-requests': json(200, [{ ...request, status: 'REJECTED', fromSessionReferences: ['from-1'], targetSessionReferences: ['other-branch'] }]),
+      'GET /api/v1/workshop-sessions/from-1': json(200, { id: 'from-1', workshopDate: '2026-12-01', scheduledStartAt: '2026-12-01T02:00:00Z', scheduledEndAt: '2026-12-01T04:00:00Z', locationName: 'Mland Hà Nội' }),
+      'GET /api/v1/workshop-sessions/other-branch': json(403, { code: 'LOCATION_SCOPE_DENIED' }),
+    });
+    const routes = [{ element: <SessionNavigationBoundary />, children: [...settlementRoutes, { path: '/', element: <p>HOME</p> }] }];
+    const { router } = renderRoutes(routes, { language: 'en', path: '/settlement/change-requests?status=REJECTED' });
+    expect(await screen.findByText('2026-12-01')).toBeInTheDocument();
+    expect(await screen.findByText(/other-br/)).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/settlement/change-requests');
+    expect(screen.queryByText('HOME')).not.toBeInTheDocument();
   });
+
+  // BUG-E2E-0026: the reject dialog must not describe what approving does.
+  it('describes rejecting, not approving, in the reject dialog', async () => {
+    mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
+    const user = userEvent.setup();
+    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
+    await user.click(await screen.findByRole('button', { name: 'Reject' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Ticket TK-1. Rejecting keeps the ticket on its current schedule.')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Approving applies/)).not.toBeInTheDocument();
+  });
+
 });

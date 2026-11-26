@@ -10,6 +10,9 @@ import MyCustomOrdersPage from './workspace/MyCustomOrdersPage';
 import CustomOrderDetailPage from './workspace/CustomOrderDetailPage';
 import StaffCustomOrdersPage from './workspace/StaffCustomOrdersPage';
 import './designreview.css';
+import { MaskAdmin, RoleArea } from '../../shared/auth/RoleArea';
+
+const INTERNAL = ['STAFF', 'MANAGER'];
 
 // Routes for Feature-004 Design Request and Custom Manufacturing
 export const designReviewRoutes = [
@@ -26,7 +29,7 @@ export const designReviewRoutes = [
     path: '/account/my-custom-orders',
     element: (
       <RequireSession>
-        <MyCustomOrdersPage />
+        <MaskAdmin><MyCustomOrdersPage /></MaskAdmin>
       </RequireSession>
     ),
   },
@@ -34,40 +37,40 @@ export const designReviewRoutes = [
     path: '/account/my-custom-orders/:customOrderId',
     element: (
       <RequireSession>
-        <CustomOrderDetailPage />
+        <MaskAdmin><CustomOrderDetailPage /></MaskAdmin>
       </RequireSession>
     ),
   },
   {
     path: '/staff/custom-orders',
     element: (
-      <RequireSession>
+      <RoleArea roles={INTERNAL}>
         <StaffCustomOrdersPage />
-      </RequireSession>
+      </RoleArea>
     ),
   },
   {
     path: '/manager/custom-orders',
     element: (
-      <RequireSession>
+      <RoleArea roles={INTERNAL}>
         <StaffCustomOrdersPage />
-      </RequireSession>
+      </RoleArea>
     ),
   },
   {
     path: '/design-review-requests',
     element: (
-      <RequireSession>
+      <RoleArea roles={INTERNAL}>
         <ReviewQueuePage />
-      </RequireSession>
+      </RoleArea>
     ),
   },
   {
     path: '/design-review-requests/:reviewRequestId',
     element: (
-      <RequireSession>
+      <RoleArea roles={INTERNAL}>
         <ReviewDetailPage />
-      </RequireSession>
+      </RoleArea>
     ),
   },
   {

@@ -1,63 +1,70 @@
 ### 10.3 Pay Custom Order Quote
 
-#### Primary Actors
-
-- Member
-
-#### Secondary Actors
-
-- Payment Gateway
+| Use Case ID | UC-69 | Use Case Name | Pay Custom Order Quote |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | Payment Gateway |
 
 #### Description
 
-This use case (use case 69) lets the owning Member pay the whole approved quote through VNPay from the custom order, or ask for a new quote after it expires.
+As a Member, I want to pay the whole approved quote through VNPay from my custom order so that production can begin.
+
+#### Trigger
+
+A Member opens their custom order with an approved, unexpired quote and selects full payment.
 
 #### Preconditions
 
 1. The Member is signed in and owns the custom order.
-2. The latest quote is approved, unpaid and not expired.
-
-#### Normal Flow
-
-**Pay Custom Order Quote**
-
-1. The Member opens the custom order.
-2. The system shows the amount, quote version and payment deadline.
-3. The Member selects full payment.
-4. The system checks ownership, quote state and deadline.
-5. The system creates a VNPay payment for the exact quoted amount and sends the Member to VNPay.
-6. The verified result is recorded under use case 71.
-
-#### Alternative Flows
-
-**Step 4 — Quote has expired**
-
-The system marks the quote expired and creates no payment; the Member may request a new quote.
-
-**Step 4 — Quote not approved or order already paid**
-
-The system rejects the payment.
-
-**Step 4 — Actor does not own the order**
-
-The system denies access.
-
-**After expiry — Member requests a new quote**
-
-The order returns to waiting for a quote; earlier quote versions are kept. A request is refused while a quote is still valid.
+2. The latest quote is approved, unpaid, and not expired.
 
 #### Postconditions
 
-- A payment attempt exists for the quoted amount; the browser return alone does not mark the order paid.
+1. A payment attempt exists for the exact quoted amount.
+2. The browser return alone does not mark the order paid; verified outcome follows UC71.
+
+#### Normal Flow
+
+1. Member opens the custom order.
+2. System displays the quoted amount, quote version, and payment deadline.
+3. Member selects full payment.
+4. System checks ownership, quote state, and payment deadline.
+5. System creates a VNPay payment for the exact quoted amount and opens VNPay.
+6. System records the verified payment outcome under UC71.
+
+#### Alternative Flows
+
+4a. Member requests a new quote after expiry → System returns the order to waiting for a quote while keeping earlier quote versions.
+
+#### Exception Flows
+
+4b. Actor does not own the order → System denies access.
+
+4c. Quote not approved or order already paid → System rejects the payment.
+
+4d. Quote has expired → System marks the quote expired and creates no payment; Member may request a new quote.
+
+4e. Member requests a new quote while a quote is still valid → System refuses the request.
 
 #### Business Rules
 
-- BR-69-01
-- BR-69-02
+BR-69-01, BR-69-02
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-69-01 | A custom order is paid in one payment equal to the quote; there is no deposit, partial payment or later balance. |
 | BR-69-02 | Only an approved, unexpired quote of an own order can be paid. |

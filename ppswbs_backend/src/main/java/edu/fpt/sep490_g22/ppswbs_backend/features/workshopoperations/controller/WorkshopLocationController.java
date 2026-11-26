@@ -31,6 +31,7 @@ public class WorkshopLocationController {
 
     private final WorkshopLocationService locationService;
     private final WorkshopSlotService slotService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOperationsAuthorizationService authorizationService;
     private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService restIdempotency;
 
     @GetMapping
@@ -45,7 +46,7 @@ public class WorkshopLocationController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody LocationRequest request) {
-        LocationResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-locations", "location:create", request,
+        LocationResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:POST:/api/v1/workshop-locations", "location:create", request,
                 LocationResponse.class, () -> locationService.createLocation(authHeader, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -56,7 +57,7 @@ public class WorkshopLocationController {
             @PathVariable("locationId") Long locationId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @RequestBody LocationUpdateRequest request) {
-        LocationResponse response = restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-locations/{locationId}",
+        LocationResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:PATCH:/api/v1/workshop-locations/{locationId}",
                 "location:update:" + locationId, request, LocationResponse.class,
                 () -> locationService.updateLocation(authHeader, locationId, request));
         return ResponseEntity.ok(response);
@@ -76,8 +77,13 @@ public class WorkshopLocationController {
             @PathVariable("locationId") Long locationId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody SlotRequest request) {
-        SlotResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-locations/{locationId}/slots", "slot:create:" + locationId,
+        SlotResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:POST:/api/v1/workshop-locations/{locationId}/slots", "slot:create:" + locationId,
                 request, SlotResponse.class, () -> slotService.createSlot(authHeader, locationId, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /** Checked before an idempotent replay; the service checks again when it runs the command. */
+    private Runnable managerOnly(String authHeader) {
+        return () -> authorizationService.requireGlobalManager(authHeader);
     }
 }

@@ -14,7 +14,41 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - `BUG-E2E-0016`: **CLOSED** (Kỳ vọng kịch bản kiểm thử tính thiếu thành phần add-on; Logic hệ thống chuẩn xác 100%). Qua rà soát công thức kỹ thuật tại `ManagerDesignRuleAdapter.java`: Nhẫn size 16, dày 1.8mm, rộng 3.5mm cho khối lượng 4.02g (vượt định mức 1.02g x 120.000 đ = 122.400 đ phụ phí; tổng vật liệu 372.400 đ). Kịch bản cũ kỳ vọng 372.400 đ và độ khó 2.0 là do người viết kịch bản chỉ tính phần vật liệu cơ bản mà quên cộng 1 viên đá CZ Lam 2mm (+50.000 đ, độ khó +0.8) và khắc chữ (+80.000 đ, độ khó +0.5). Tổng chi phí thực tế 372.400 + 50.000 + 80.000 = **502.400 đ** và độ khó 1.0 + 1.0 + 0.8 + 0.5 = **3.3/10** (Trung bình) là kết quả hoàn toàn chính xác.
 - `BUG-E2E-0017`: **CLOSED**. Đã thay thế lời gọi native `window.confirm()` tại `DesignEvaluationPage.jsx` bằng hộp thoại modal xác nhận in-page (`archive-confirm-dialog`) với hai nút "Xác nhận lưu trữ" và "Hủy". Khi người dùng xác nhận, `executeArchive` được kích hoạt, trạng thái thiết kế lập tức chuyển sang `ARCHIVED` (badge "Đã lưu trữ" hiển thị tức thì, các nút chỉnh sửa/lưu trữ ẩn đi) và cơ sở dữ liệu MySQL cập nhật trạng thái `ARCHIVED` cho phiên bản thiết kế thành công.
 
-## BUG-E2E-0019 — MITIGATED (Vercel Edge DNS Glitch Workaround)
+## BUG-E2E-0019 — CLOSED
+
+- Ngày phát hiện: 2026-11-25
+- Phát hiện bởi: Kiểm thử NFR 5.4 (ST-NFR-SEC-008), chạy trên `localhost:5173` / backend `8080`, tài khoản Member `customer.test@mland.vn`
+- Feature: 004 AI Chatbox Analysis & Suggestion — `POST /api/v1/design-requests`
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend 004 (`designreview`)
+- Mô tả lỗi: Gửi lại cùng `Idempotency-Key` nhưng thay đổi payload (mô tả khác) không bị báo xung đột. Backend trả `202` kèm kết quả cũ thay vì `409/422`. Không tạo bản ghi trùng và không ghi đè dữ liệu, nhưng client không biết payload mới bị bỏ qua.
+- Các bước tái hiện:
+  1. Đăng nhập Member, gửi `POST /api/v1/design-requests` (multipart: description, consentVersion, consentPurpose, 1 ảnh rõ nét) với header `Idempotency-Key: K`.
+  2. Gửi lại đúng payload với `K` → `202`, cùng `DR-EA4B875C` (đúng kỳ vọng).
+  3. Gửi payload có description khác với cùng `K`.
+- Kết quả mong đợi: `409` hoặc `422` (xung đột idempotency), payload mới không được chấp nhận âm thầm.
+- Kết quả thực tế: `202`, trả nguyên `DR-EA4B875C`; description trong DB vẫn là bản đầu.
+- Dữ liệu test tạo ra: `DR-3D824F40`, `DR-EA4B875C` (mô tả bắt đầu bằng `[QA-5.4`).
+- Sửa: commit c2c6c030 (DatNT) — DesignAnalysisService, DesignReviewExceptionHandler.
+- Kiểm lại 2026-11-26 01:18: `DesignRequestIT` 13/13 passed, gồm `whenDuplicateIdempotencyKeyWithDifferentPayload_thenReturns409Conflict`. Trạng thái: CLOSED.
+
+## BUG-E2E-0020 — CLOSED
+
+- Ngày phát hiện: 2026-11-25
+- Phát hiện bởi: Kiểm thử responsive (viewport mobile) trên `localhost:5173`, vai trò Guest
+- Feature: 011 Review Management — trang công khai `/reviews`
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 011
+- Mô tả lỗi: Ở viewport 375px và 360px, trang `/reviews` tràn ngang: `document.scrollWidth = 385px` lớn hơn chiều rộng khung nhìn, phần tử gây tràn là `.review-container.review-theme` (rộng 385px). Các trang công khai khác (`/`, `/products`, `/workshops`, `/promotions`, `/design-requests/new`, configurator, `/login`, `/workshop-booking/lookup`, `/ai-support`) không bị tràn ở 360px.
+- Các bước tái hiện: mở `/reviews` ở viewport 360×780 hoặc 375×812, cuộn ngang.
+- Kết quả mong đợi: không có cuộn ngang; nội dung co theo chiều rộng khung nhìn.
+- Kết quả thực tế: có cuộn ngang khoảng 13–25px.
+- Sửa: commit c2c6c030 (DatNT) — reviewmanagement.css.
+- Kiểm lại 2026-11-26 trên `localhost:5173/reviews`: 360×780 và 375×812 đều có `scrollWidth = clientWidth` (360/375), không còn cuộn ngang. Trạng thái: CLOSED.
+
+## BUG-E2E-0023 — MITIGATED (Vercel Edge DNS Glitch Workaround)
+
+- Ghi chú đánh số: mục này ban đầu được ghi là BUG-E2E-0019 trên develop; đổi sang 0023 khi gộp vì 0019/0020 đã dùng cho lỗi idempotency 004 và tràn ngang /reviews 011 (tracker 5.4 và danh sách lỗi), còn 0021/0022 là lỗi check-in và folio đổi vé của QuocHH.
 
 - Ngày phát hiện: 2026-11-25
 - Phát hiện bởi: Senior QA & System Verification Engineer
@@ -155,7 +189,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Trạng thái xử lý: **CLOSED**
 - Ngày đóng: 2026-11-26
 - Sửa tại: commit `3c11be2b` (2026-11-23); `VnpayPaymentSimulatorControllerTest` 5/5 Passed ngày 2026-11-25.
-- Kiểm lại chạy thật (2026-11-26, frontend 5173, backend 8080, Member): đặt vé `GRP-BCEC60CB1D7C4422B48F`, xác nhận ở bộ giả lập → "Thanh toán thành công", booking sang "Đã xác nhận"; đổi phiên lần 1 áp dụng ngay (27/11 16:00 → 28/11 09:30); lần 2 vào hàng chờ duyệt `CHG-REQ-5a60a32d-688e-4a1f-937a-83c340f76881` (`PENDING`, `CHANGE_ALLOWANCE_EXHAUSTED`).
+
 
 ## BUG-E2E-0018 — CLOSED
 
@@ -750,7 +784,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Kết quả mong đợi: báo vé đã check-in kèm giờ check-in (spec 003.2, "Staff scans an already checked-in ticket").
 - Thực tế quan sát: hai request đều 200, thông báo "Đã ghi nhận check-in."; danh sách vẫn 1/8 và giờ 00:10 (backend không ghi check-in lần hai, trả `ALREADY_CHECKED_IN` theo `CheckInService`; `OperationsSessionPage.jsx` không phân biệt).
 - Ngày đóng: 2026-11-26
-- Sửa tại: `OperationsSessionPage.jsx` phân biệt `ALREADY_CHECKED_IN` và báo "Vé đã check-in trước đó lúc …" (chưa commit).
+- Sửa tại: `OperationsSessionPage.jsx` phân biệt `ALREADY_CHECKED_IN` và báo "Vé đã check-in trước đó lúc …" (commit `c2c8746c`, đã merge vào develop).
 - Kiểm lại: `npm test -- src/workshop-operations` 155/155 Passed; quét lại vé `GRP-960A60B3C5EF45148D37-L0-T1` trên trình duyệt hiện "Vé đã check-in trước đó lúc 00:10 26 thg 11, 2026."
 
 ## BUG-E2E-0022 — CLOSED
@@ -770,5 +804,64 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: tổng 650.000 ₫, đã thanh toán 175.000 ₫, còn nợ 475.000 ₫; dòng "Thanh toán lúc đặt chỗ" vẫn 200.000 ₫.
 - Nguyên nhân (đọc code): `TicketChangeService.recordAppliedChange` chỉ cộng mức tăng vào `remainingAmountVnd`; `TicketFolioApiService.toDto` (dòng 516–519) tính `totalAmount` không gồm mức tăng rồi suy `paidAmount = totalAmount − balanceDue`.
 - Ngày đóng: 2026-11-26
-- Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (chưa commit). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
+- Sửa tại: `SettlementFinalBill.ticketPriceVnd()` (giá đóng băng + mức tăng đã xác nhận), dùng ở `TicketFolioApiService`, `TicketBalanceAdapter`, `AbsorbedUnderchargeService` (commit `58493f21`, đã merge vào develop). Cách hiểu: mức tăng đã xác nhận (FR-045) là khoản được duyệt trong `totalAmount` của FR-005.
 - Kiểm lại: folio `…9FBC…-L0-T1` hiện Tổng 675.000, đã thanh toán 200.000, còn nợ 475.000; thẻ vé hiện đã thanh toán 200.000 ("Giá vé" 650.000 là giá lúc đặt). Test `workshopsettlement`: 576 ca, 5 ca lỗi về quyền yêu cầu hoàn tiền (`RefundRequestControllerTest`, `ManagerHomeWaitingCountsIT`, `WorkshopSettlementStatusContractIT`), không thuộc code vừa sửa.
+
+## BUG-E2E-0024 — CLOSED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S05c / P2-S05d nhánh 2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Frontend 003.3 (hàng chờ yêu cầu đổi vé)
+- Mô tả lỗi: Staff chi nhánh 1 chọn bộ lọc "Đã duyệt" hoặc "Đã từ chối" ở `/settlement/change-requests` thì bị đẩy về trang chủ với thông báo "Bạn không có quyền truy cập chức năng này."; Staff không xem được lịch sử yêu cầu đã quyết.
+- Các bước tái hiện:
+  1. Đăng nhập `staff.test@mland.vn` (chi nhánh 1).
+  2. Mở `/settlement/change-requests`, đổi ô "Trạng thái" sang "Đã từ chối" (hoặc mở thẳng `?status=REJECTED` / `?status=APPROVED`).
+- Kết quả mong đợi: bảng hiện các yêu cầu đã quyết thuộc chi nhánh của Staff, không còn nút Duyệt/Từ chối (P2-S05d nhánh 2).
+- Thực tế quan sát: `GET /api/v1/workshop-change-requests?status=REJECTED` trả 200, sau đó trang chuyển về `/` kèm thông báo không có quyền. Danh sách có yêu cầu của chi nhánh 1 mà buổi đích ở chi nhánh 2 (`CHG-REQ-1cd04f59…` đích `7095a16d…`, `CHG-REQ-c91c7a90…` đích `70959ef0…`); trang gọi `GET /api/v1/workshop-sessions/{id}` cho buổi đó và nhận `403 LOCATION_SCOPE_DENIED`, rồi xử lý như cấm vào cả trang.
+- Bằng chứng:
+  - Screenshot: ![Bị đẩy về trang chủ](master-e2e/screenshots/P2-C6-03--loc-da-tu-choi-bi-day-ve-trang-chu.jpg)
+  - Network: list 200; `workshop-sessions/7095a16d-e1ad-11f1-989a-98bd80539bba` 403 `location-scope-denied`.
+- Sửa tại: `ChangeRequestsPage.jsx` đọc buổi bằng `getSession(reference, { suppressAccessDenied: true })` (`operationsApi.getSession` nhận thêm tùy chọn); 403 khi tra buổi chi nhánh khác chỉ làm ô buổi hiện mã rút gọn, không đẩy về trang chủ.
+- Kiểm lại: test mới `operationsScreens.test.jsx` › "keeps Staff on the queue when a session of another branch answers 403" đạt, trượt khi bỏ bản sửa; `npx vitest run src/workshops src/workshop-settlement src/workshop-operations src/shared` 492/492 đạt (commit `5e3aa9c8`). Trình duyệt, Staff `staff.test@mland.vn`: `?status=REJECTED` hiện 3 yêu cầu, `?status=APPROVED` hiện 7 yêu cầu, ở lại trang, không có nút Duyệt/Từ chối; ô buổi chi nhánh khác hiện "Ca 7095a16d…". Ảnh: ![Đã từ chối](master-e2e/screenshots/P2-C6-04--sau-sua-0024-staff-loc-da-tu-choi.jpg), ![Đã duyệt](master-e2e/screenshots/P2-C6-05--sau-sua-0024-staff-loc-da-duyet.jpg)
+- Ngày đóng: 2026-11-26
+
+## BUG-E2E-0025 — CLOSED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-booking
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S01(b)](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.2 (trang chi tiết gói)
+- Mô tả lỗi: Ở khung nhìn rộng 580px, khối ảnh gói (`.ring-visual`, cha `position: sticky`) đè lên danh sách ca; bấm vào thẻ ca không chọn được (đếm vẫn "đã chọn 0/1").
+- Các bước tái hiện:
+  1. Mở `/workshops/146?focus=schedule&locationId=1` ở cửa sổ rộng khoảng 580px.
+  2. Cuộn tới "Chọn 1 ca workshop", bấm một thẻ ca.
+- Kết quả mong đợi: thẻ ca được chọn; ảnh không che danh sách.
+- Thực tế quan sát: `document.elementFromPoint` tại giữa thẻ ca trả `DIV.ring-visual gold`; ở 1280px thì chọn được bình thường.
+- Bằng chứng:
+  - Screenshot: ![Ảnh gói che danh sách ca](master-e2e/screenshots/P2-W1-00--viewport-580-anh-goi-che-danh-sach-ca.jpg)
+- Sửa tại: `WorkshopDetailPage.jsx` cột trái dùng lớp `.workshop-detail-aside` (`figmaPublicShell.css`): sticky khi hai cột, `position: static` khi `max-width: 600px` (lúc `.detail-grid` thành một cột).
+- Kiểm lại: trên trình duyệt ở bề rộng 280px, cột trái `static`, điểm giữa thẻ ca trả đúng nút ca; ở 1280px vẫn `sticky` (commit `5e3aa9c8`). Ảnh: ![Sau sửa](master-e2e/screenshots/P2-W1-04--sau-sua-0025-danh-sach-ca-khong-bi-che.jpg)
+- Ngày đóng: 2026-11-26
+
+## BUG-E2E-0026 — FIXED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: [JOURNEY-PHASE-2 P2-S05c nhánh 2](master-e2e/JOURNEY-PHASE-2--workshop-booking-and-fulfillment.md)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3 (hàng chờ yêu cầu đổi vé)
+- Mô tả lỗi: Hộp thoại "Từ chối thay đổi này" vẫn ghi "Duyệt sẽ áp dụng thay đổi ngay; máy chủ vẫn kiểm tra sức chứa và hạn mức.", là câu của hộp thoại Duyệt.
+- Các bước tái hiện:
+  1. Staff mở `/settlement/change-requests`, bấm "Từ chối" ở một yêu cầu đang chờ.
+- Kết quả mong đợi: câu mô tả nói rõ từ chối giữ nguyên lịch cũ của vé.
+- Thực tế quan sát: câu mô tả giống hộp thoại Duyệt.
+- Bằng chứng:
+  - Screenshot: ![Hộp thoại từ chối](master-e2e/screenshots/P2-C6-01--hop-thoai-tu-choi.jpg)
+- Sửa tại: thêm khóa `cr.rejectBody` (vi: "Vé {code}. Từ chối sẽ giữ nguyên lịch hiện tại của vé.", en tương ứng) trong `messages.ticket.js`; hộp thoại dùng khóa này khi từ chối.
+- Kiểm lại: test mới "describes rejecting, not approving, in the reject dialog" đạt; `i18n.test.jsx` đạt (commit `5e3aa9c8`). Chưa xem hộp thoại trên trình duyệt vì hàng chờ không còn yêu cầu PENDING.

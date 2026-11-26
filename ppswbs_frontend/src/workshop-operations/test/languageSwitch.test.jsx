@@ -1,11 +1,13 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { operationsRoutes } from '../routes';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { enumLabel } from '../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 // The Staff/Manager workshop screens follow the language of the shared I18nProvider, and a backend enum code shows
 // its label instead of the raw code (a code without a label falls back to the code).

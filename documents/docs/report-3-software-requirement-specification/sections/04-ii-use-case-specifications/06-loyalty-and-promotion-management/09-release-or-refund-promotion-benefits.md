@@ -1,96 +1,91 @@
 ### 6.9 Release or Refund Promotion Benefits
 
-#### Primary Actors
-
-System.
-
-#### Secondary Actors
-
-Order Management and Fulfillment, which reports expiry or cancellation before payment of an order or branch order; Workshop Management, which reports expiry, a confirmed valid cancellation or a cancellation by Mland of a booking or ticket; Member, whose points and voucher uses are returned.
+| Use Case ID | UC-50 | Use Case Name | Release or Refund Promotion Benefits |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | System | Secondary Actors | Order Management and Fulfillment, Workshop Management, Member |
 
 #### Description
 
-This use case returns a Member's points and voucher uses when a transaction does not complete. Held benefits are released when an order or booking expires or a retail order is cancelled before payment; benefits already finalized are refunded when a workshop booking or ticket is validly cancelled before completion or cancelled by Mland. Each benefit is returned exactly once.
+As the System, I want to release held benefits or refund finalized workshop benefits once when transactions fail or cancel validly so that Members keep their unused entitlements.
 
-This use case includes the following sub-flows:
+#### Trigger
 
-- Release Held Benefits
-- Release Benefits of a Branch Order
-- Refund Finalized Workshop Benefits
-- Refund Benefits of a Workshop Ticket
+Order Management and Fulfillment or Workshop Management confirms an expiry or eligible cancellation.
 
 #### Preconditions
 
-1. The order or booking held or used points or a voucher.
-2. Order Management or Workshop Management has confirmed the outcome.
+1. The order or booking held or used loyalty points or a voucher.
+2. Order Management or Workshop Management confirmed the transaction outcome.
+
+#### Postconditions
+
+1. Held or used benefits are returned at most once with linked history entries.
+2. Any subsequent order or booking evaluates current promotion conditions anew.
 
 #### Normal Flow
 
 **Release Held Benefits**
 
-1. The system receives a confirmed result that a retail order or workshop booking expired without accepted payment, or that a retail order was cancelled before payment.
-2. The system returns the held points to the available balance and the held voucher use to the Member and the program. For a voucher that must be saved, the use returns to the Member's saved voucher in My Saved Vouchers, so the Member can use it again.
-3. The system records a released entry linked to the transaction. Nothing is recorded as used and no extra points are added.
+1. System receives confirmation of an expired order or booking, or a pre-payment retail cancellation.
+2. System returns held points to the available balance and returns the held voucher use.
+3. System records a released entry linked to the transaction.
 
 **Release Benefits of a Branch Order**
 
-1. The system receives a confirmed result that a branch order of a split retail checkout was cancelled or expired before payment.
-2. The system returns the points held for that branch order to the available balance and closes that branch order's earning share. Other branch orders are not affected; a paid branch order cannot be released.
-3. The system releases the voucher use only when every branch order with a share of the voucher discount has ended unpaid and the use is still held, even if a branch order without a share has been paid. A voucher use already finalized is not returned when another branch order is cancelled.
+1. System receives confirmation that a split-checkout branch order expired or was cancelled unpaid.
+2. System returns that branch order's held points and closes its earning share.
+3. System releases the voucher use after all discounted branch orders end unpaid.
 
 **Refund Finalized Workshop Benefits**
 
-1. The system receives a confirmed valid cancellation of a workshop booking before completion.
-2. If the benefits were only held, the system releases them as above.
-3. If points were deducted, the system returns exactly the same number of points, even if the point value has changed, linked to the original deduction.
-4. If a voucher use was finalized, the system returns one use to the Member and one to the program, even if no points were used, but only if the voucher has not expired at the time the cancellation is decided. For a voucher that must be saved, the returned use goes back to the Member's saved voucher. If it has expired, the use stays counted as used, while the points used are still returned in full. An expired or paused voucher is not extended or reactivated.
-5. The program's used count and total discount no longer include the cancelled booking; history is kept.
+1. System receives confirmation of a valid workshop booking cancellation before completion.
+2. System releases held benefits, or refunds exact deducted points linked to the original deduction.
+3. System returns one unexpired voucher use at cancellation decision.
+4. System excludes the cancelled booking from program usage counts while preserving history.
 
 **Refund Benefits of a Workshop Ticket**
 
-1. The system receives a confirmed result for one ticket of a multi-ticket booking: a valid cancellation (at least 24 hours before the first session) or a cancellation by Mland.
-2. The system returns exactly the points used by that ticket, linked to the original deduction; other tickets are not affected.
-3. The system returns the group's voucher use once: as soon as any ticket is cancelled by Mland, or when every ticket has ended in a valid cancellation or a cancellation by Mland. As for a whole booking, the use is returned only if the voucher has not expired at the time the cancellation is decided.
+1. System receives confirmation of a valid ticket cancellation or Mland cancellation.
+2. System refunds exact points used by that ticket without affecting other tickets.
+3. System returns the group's unexpired voucher use once upon Mland cancellation or full ticket cancellation.
 
 #### Alternative Flows
 
-**Any step — Guest workshop booking**
+1a. Transaction is a Guest workshop booking → System releases or cancels it with no points or voucher use.
 
-A Guest booking that received a workshop automatic discount is released or cancelled in the same way, but it has no points or voucher use to return.
+1b. Outcome arrives twice or was partly processed → System completes only the missing part without duplicating returns.
 
-**Any step — Result received again or previously only partly completed**
+1c. Payment and cancellation occur close together → System follows the confirmed owning-feature outcome without creating new deadlines.
 
-The system completes only the missing part. It never returns a benefit twice, never both releases and refunds the same benefit, and never refunds a benefit that was not used.
+#### Exception Flows
 
-**Step 1 — No-show, unconfirmed or invalid cancellation**
+1a. Outcome is a no-show, unconfirmed, or invalid cancellation → System returns no benefits and awaits confirmation.
 
-No benefit is returned and no points are earned. If the result is unclear, the system waits for a confirmed result. A ticket that is a no-show or cancelled late returns no points and prevents the group's voucher use from being returned through valid cancellations.
+1b. Whole-transaction result conflicts with per-ticket or per-branch results → System rejects the conflicting path.
 
-**Step 1 — Whole-booking or whole-checkout result after per-ticket or per-branch-order results**
-
-Once a ticket or branch order has its own result, a result for the whole booking or checkout is rejected, and the reverse; one transaction follows only one of the two paths.
-
-**Step 1 — Payment and expiry or cancellation happen close together**
-
-The system follows the confirmed result from Order Management or Workshop Management; it never both finalizes and releases the same benefit and never creates a new transaction or deadline because of a lost response.
-
-**Step 1 — Completed workshop or retail return**
-
-This version has no cancellation of completed workshops, no retail returns or refunds, no recovery of earned points and no negative balance.
-
-#### Postconditions
-
-- Held or used benefits are returned exactly once with linked history entries.
-- A new order or booking after a release checks the current conditions again.
+1c. Workshop is completed or retail order is returned → System performs no benefit refund or point recovery.
 
 #### Business Rules
 
 BR-50-01, BR-50-02, BR-50-03, BR-50-04, BR-50-05
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-50-01 | Expiry, or cancellation of a retail order before payment, without accepted payment releases held points and voucher uses exactly once, without recording them as used. A released or refunded use of a voucher that must be saved returns to the Member's saved voucher. |
 | BR-50-02 | A confirmed valid workshop cancellation before completion, or a cancellation by Mland, refunds exactly the points deducted and, only if the voucher has not expired when the cancellation is decided, one voucher use to the Member and the program; held benefits are always released. It does not convert points to money or extend or reactivate vouchers. |
 | BR-50-03 | Release and refund results are tracked per benefit so that retries complete only the missing part and never return a benefit twice. |

@@ -1,68 +1,71 @@
 ### 7.1 Add Product to Cart
 
-#### Primary Actors
-
-Member.
-
-#### Secondary Actors
-
-None.
+| Use Case ID | UC-52 | Use Case Name | Add Product to Cart |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | None |
 
 #### Description
 
 As a Member, I want to add an existing configured retail variant and quantity to my own cart so that I can prepare a purchase without reserving stock or freezing a price.
 
+#### Trigger
+
+A Member selects a configured product variant in the public catalogue and submits Add to Cart.
+
 #### Preconditions
 
 1. The platform is available.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The actor can select a configured product variant; current eligibility and quantity are checked during submission.
+2. The Member is authenticated with verified identity, has an active account, and holds current authority.
+3. The Member can select a configured product variant; eligibility and quantity are checked on submission.
 
 #### Postconditions
 
-- The accepted selection appears in the Member's own cart, or the rejected/failed attempt receives safe guidance.
-- No order, payment, hold, stock deduction or frozen purchase price is created.
+1. The accepted selection appears in the Member's own cart, or the rejected attempt receives safe guidance.
+2. No order, payment, hold, stock deduction, or frozen purchase price is created.
 
 #### Normal Flow
 
-**Add Product to Cart**
-
-1. The Member opens the public product catalogue and selects a configured size/engraving variant.
-2. The system displays the selected variant's identity/options, current applied approved whole-VND price and logical availability.
-3. The Member enters a positive integer quantity and submits Add to Cart.
-4. The system rechecks current account/ownership authority, the configured variant, publication/active-category/public-content eligibility, applied price and requested quantity.
-5. The system saves the selection to the Member's cart, retaining distinct variant/term identities and applying only permitted same-variant merging.
-6. The system records safe attempt evidence and displays the updated cart with current indicative prices. When the Member chose Mua Ngay instead of Add to Cart, the system adds the line and opens UC54 Checkout Retail Order for that one line, with the best eligible voucher preselected.
+1. Member opens the public product catalogue and selects a configured size/engraving variant.
+2. System displays the variant's identity, options, current approved whole-VND price, and logical availability.
+3. Member enters a positive integer quantity and submits Add to Cart.
+4. System rechecks account authority, variant eligibility, applied price, and requested quantity.
+5. System saves the selection to the Member's cart, merging only matching variant/term identities.
+6. System records attempt evidence and displays the updated cart with indicative prices.
 
 #### Alternative Flows
 
-**Steps 2 and 4 — Unknown variant or stale/ineligible catalogue selection**
+3a. Member chooses Mua Ngay instead of Add to Cart → System adds the line and opens UC54 Checkout Retail Order for that one line with the best eligible voucher preselected.
 
-The system rejects unknown combinations, free-text retail engraving, unpublished/ineligible products or unapplied/unapproved prices. It provides safe reselection guidance; no variant or purchase record is invented. Resume at Step 1.
+5a. Variant or price/term identity differs from existing cart lines → System keeps the lines distinct; cart terms remain indicative until checkout.
 
-**Step 4 — Missing ownership/account authority or invalid quantity**
+6a. Member chooses Mua Ngay and the add is refused only because the cart already holds that branch's stock → System opens UC54 Checkout Retail Order with the existing cart line; if unreadable, System shows the stock-limit popup.
 
-The system denies unauthorized access and rejects nonpositive/fractional or unavailable requested quantities. Allow at most 50 cart lines and quantity 1–99 per variant across all lines, subject to logical availability. The Member may correct quantity at Step 3 when authorized.
+#### Exception Flows
 
-**Step 4 — Requested quantity exceeds the branch stock**
+2a. Unknown variant, free-text retail engraving, or ineligible/unpublished product → System rejects the selection with safe reselection guidance and creates no variant or purchase record; resume at step 1.
 
-The system counts the same variant already in the Member's cart at that branch. When that count plus the requested quantity exceeds the branch's available quantity, the system refuses the add, leaves the cart unchanged and shows the reason in a centred popup with one Đồng ý button: "Bạn đã có {n} sản phẩm này trong giỏ hàng. Không thể thêm số lượng đã chọn vào giỏ hàng vì sẽ vượt quá số lượng còn tại chi nhánh ({available})." or, when the cart holds none, "Chi nhánh chỉ còn {available} sản phẩm này." When the chosen quantity already equals the most the Member can choose, the buy panel shows "Số lượng bạn chọn đã đạt mức tối đa của sản phẩm này" under the quantity. Resume at Step 3.
+4a. Unauthorized access or nonpositive, fractional, or unavailable quantity → System denies unauthorized access or rejects invalid quantities (limit 50 cart lines and 1–99 per variant across all lines); Member corrects quantity at step 3.
 
-**Step 6 — Mua Ngay when the cart already holds the branch stock**
+4b. Cart quantity plus requested quantity exceeds branch stock → System refuses the add, leaves the cart unchanged, and shows a centred popup with one Đồng ý button ("Bạn đã có {n} sản phẩm này trong giỏ hàng. Không thể thêm số lượng đã chọn vào giỏ hàng vì sẽ vượt quá số lượng còn tại chi nhánh ({available})." or "Chi nhánh chỉ còn {available} sản phẩm này."); at max selectable quantity, the buy panel shows "Số lượng bạn chọn đã đạt mức tối đa của sản phẩm này". Resume at step 3.
 
-When the Member chose Mua Ngay and the add is refused only because the cart already holds that variant at that branch, the system opens UC54 Checkout Retail Order with the existing cart line instead of showing the popup. If that line cannot be read, the system shows the popup of the previous flow.
-
-**Step 5 — Different variant or different price/term identity**
-
-Keep the lines distinct. Only the same configured variant with matching price/snapshot terms may merge; cart terms remain indicative and will be revalidated at checkout.
-
-**Step 5 — Save fails or concurrent cart edit conflicts**
-
-Report a safe failure without false success or partial purchase effects. Reject stale conflicting edits and reload current values for review. Preserve the accepted cart and provide retry/review guidance.
+5b. Save fails or concurrent cart edit conflicts → System reports a safe failure, rejects stale conflicting edits, reloads current cart values for review, and creates no partial purchase effects.
 
 #### Business Rules
 
 BR-52-01, BR-52-02, BR-52-03, BR-52-04, BR-52-05, BR-52-06, BR-52-07, BR-52-08
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

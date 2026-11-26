@@ -1,16 +1,17 @@
 ### 8.2 Manage Third-Party API Credentials
 
-#### Primary Actors
-
-Admin
-
-#### Secondary Actors
-
-Payment Gateway, AI API, Mail Gateway, Cloud Storage Service
+| Use Case ID | UC-63 | Use Case Name | Manage Third-Party API Credentials |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Admin | Secondary Actors | Payment Gateway; AI API; Mail Gateway; Cloud Storage Service |
 
 #### Description
 
-Allows the Admin to maintain approved credentials, endpoints, and activation status for the system's third-party integrations, including VNPay, Gemini, Mland SMTP, and cloud storage. Google Maps/Places is not a configured integration in V1.
+As an Admin, I want to maintain approved credentials, endpoints, and activation status for third-party integrations so that VNPay, Gemini, Mland SMTP, and cloud storage operate securely.
+
+#### Trigger
+
+An Admin opens third-party integration configuration.
 
 #### Preconditions
 
@@ -18,51 +19,54 @@ Allows the Admin to maintain approved credentials, endpoints, and activation sta
 2. The target integration type is supported by the platform.
 3. The Admin has received valid credentials and endpoint information through an approved operational channel.
 
-
 #### Postconditions
 
-- Valid credentials and endpoints are stored securely for the selected integration.
-- Secrets are masked and excluded from logs.
-- The integration is enabled only after validation succeeds.
+1. Valid credentials and endpoints are stored securely for the selected integration.
+2. Secrets are masked and excluded from logs.
+3. The integration is enabled only after validation succeeds.
 
 #### Normal Flow
 
-**Manage Third-Party API Credentials**
-
-1. The Admin opens third-party integration configuration.
-2. The system displays supported integrations and masked current configuration.
-3. The Admin selects an integration and enters or updates its endpoint, credentials, and active state.
-4. The system validates the required fields and integration-specific format.
-5. The system performs a safe connection or credential test when supported, without creating a business transaction.
-6. The Admin confirms the change.
-7. The system encrypts/stores the credentials, records the change, and displays the updated masked status.
+1. Admin opens third-party integration configuration.
+2. System displays supported integrations and masked current configuration.
+3. Admin selects an integration and enters its endpoint, credentials, and active state.
+4. System validates required fields and integration-specific format.
+5. System performs a safe connection/credential test without creating a business transaction.
+6. Admin confirms the change.
+7. System encrypts and stores credentials, records the change, and displays updated masked status.
 
 #### Alternative Flows
 
-**Step 3 — Unsupported integration or missing required field**
+6a. Admin cancels → System discards the pending changes and preserves the existing configuration.
 
-**
+#### Exception Flows
 
-**Step 5 — Credential or endpoint test fails**
+3a. Unsupported integration or missing required field → System rejects the input with validation guidance and does not save.
 
-**
+5a. Credential or endpoint test fails → System blocks activation and displays the test failure without exposing secrets.
 
-**Step 6 — Admin cancels**
-
-**
-
-**Step 7 — Secure storage fails**
-
-**
+7a. Secure storage fails → System displays an error without logging secrets and preserves the previous configuration.
 
 #### Business Rules
 
 BR-63-01, BR-63-02, BR-63-03
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-63-01 | Only an authorized Admin may create, update, activate, deactivate, or rotate third-party integration credentials. |
 | BR-63-02 | Credentials must be stored securely, masked from ordinary display, and excluded from application logs and error messages. |
 | BR-63-03 | An integration must not be activated when its required credentials or endpoint validation fails. |

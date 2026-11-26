@@ -277,6 +277,8 @@ public class DesignRequestController {
         public ResponseEntity<QuoteProjectionDto> getQuote(
                         @PathVariable("designRequestId") String designRequestId,
                         Authentication authentication) {
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+                designAnalysisService.requireQuoteViewer(designRequestId, callerUid, authentication.getAuthorities());
                 QuoteProjectionDto quote = customOrderService.findLatestQuoteByDesignRequestId(designRequestId)
                                 .orElse(null);
                 if (quote == null) {

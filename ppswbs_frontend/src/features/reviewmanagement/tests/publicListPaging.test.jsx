@@ -1,10 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { reviewManagementRoutes } from '../routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 const review = (id, text, rating = 5) => ({
   id, targetType: 'WORKSHOP_SESSION', targetReference: 'S-1', rating, bodyText: text, status: 'PUBLIC',

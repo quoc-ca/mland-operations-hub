@@ -1,16 +1,17 @@
 ### 3.20 Correct Ticket Folio
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-82 | Use Case Name | Correct Ticket Folio |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-As a Manager, I want to void a wrong folio line or collection, or correct a finalized overcharge, so that the folio is corrected without deleting history.
+As a Manager, I want to void a wrong folio line or collection, or correct a finalized overcharge, so that the folio is fixed without deleting history.
+
+#### Trigger
+
+A Manager opens a ticket folio to void an erroneous entry or correct an overcharge.
 
 #### Preconditions
 
@@ -19,44 +20,48 @@ As a Manager, I want to void a wrong folio line or collection, or correct a fina
 
 #### Postconditions
 
-- The original records are kept and the correction is audited with its reason.
-- An overcharge on a finalized folio is returned through a bank refund request.
+1. The original records are kept and the correction is audited with its reason.
+2. An overcharge on a finalized folio is returned through a bank refund request.
 
 #### Normal Flow
 
-**Correct Ticket Folio**
-
-1. The Manager opens the ticket folio.
-2. The Manager selects the wrong line or collection and enters a reason.
-3. The system checks the folio state and the cash day of the collection.
-4. The system voids the record and recalculates the balance.
+1. Actor opens the ticket folio.
+2. Actor selects the wrong line or collection and enters a reason.
+3. System checks the folio state and the cash day of the collection.
+4. System voids the record and recalculates the balance.
 
 #### Alternative Flows
 
-**Step 2 — Overcharge found after finalization**
+2a. Overcharge found after finalization → Manager records a correction up to unrefunded collected money and requests a bank refund without reopening the folio.
 
-The Manager records a correction up to the unrefunded collected money; the folio is not changed or reopened and a bank refund request follows.
+#### Exception Flows
 
-**Step 3 — Cash belongs to a closed day**
+2a. Selected collection is the booking-time allocation → System does not offer it for voiding; Manager uses an eligible collection or refund flow.
 
-The void is refused; on an OPEN folio with no refund of that money, the Manager records a negative reversal entry on the current day.
+3a. Cash belongs to a closed day → Void is refused; on an OPEN unrefunded folio, Manager records a negative reversal on the current day.
 
-**Step 2 — The selected collection is the booking-time allocation**
-
-The booking-time allocation is immutable and is not offered for voiding. The Manager selects an eligible ticket-level collection or uses the applicable refund or correction flow.
-
-**Step 3 — Folio is closed**
-
-The system refuses the correction.
+3b. Folio is closed → System refuses the correction.
 
 #### Business Rules
 
 BR-82-01, BR-82-02, BR-82-03, BR-82-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-82-01 | A wrongly recorded line is voided whole; this is not a customer right to cancel a used service. |
 | BR-82-02 | An undercharge found after finalization is absorbed by Mland and never collected. |
 | BR-82-03 | Confirmed cash of a closed day is never edited or deleted; an allowed reversal is a separate negative entry on the current day. |

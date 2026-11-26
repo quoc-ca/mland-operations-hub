@@ -1,7 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.designreview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.GuestDesignRequestQuotaService;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.web.DesignReviewDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
@@ -16,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,7 +25,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -60,8 +57,20 @@ public class HumanReviewFeatureIT {
     private final String managerUid = "uid-manager-001";
     private final Long managerAccountId = 3001L;
 
+    private final String memberToken = "token-member-human-review";
+    private final String memberUid = "uid-member-001";
+    private final Long memberAccountId = 1001L;
+
     @BeforeEach
     void setUp() {
+        // Member
+        when(tokenVerificationService.verify(memberToken)).thenReturn(
+                new VerifiedIdentity(memberUid, "member@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor(memberUid, true)).thenReturn(Optional.of(
+                new CurrentAccountActor(memberAccountId, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount(memberUid)).thenReturn(Optional.of(
+                new AccountSummary(memberAccountId, ActorRole.MEMBER, ActorStatus.ACTIVE, "member@mland.vn", Instant.now(), Instant.now())));
+
         // Staff
         when(tokenVerificationService.verify(staffToken)).thenReturn(
                 new VerifiedIdentity(staffUid, "staff@mland.vn", true, Instant.now()));
@@ -80,66 +89,12 @@ public class HumanReviewFeatureIT {
     }
 
     @Test
-    void guestCanSubmitUpToFiveImages_andTrackWithToken() throws Exception {
-        MockMultipartFile img1 = new MockMultipartFile("images", "ring1.jpg", "image/jpeg", "image1-bytes".getBytes());
-        MockMultipartFile img2 = new MockMultipartFile("images", "ring2.jpg", "image/png", "image2-bytes".getBytes());
-
-        String guestSession = "guest-session-test-01";
-
-        MvcResult createResult = mockMvc.perform(multipart("/api/v1/design-requests")
-                        .file(img1)
-                        .file(img2)
+    void guestSubmissionIsRefused() throws Exception {
+        mockMvc.perform(multipart("/api/v1/design-requests")
                         .param("description", "Nhẫn đôi bạc khắc họa tiết hoa sen")
                         .header("Idempotency-Key", "idemp-guest-01")
-                        .header("X-Guest-Design-Session", guestSession))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.id").isNotEmpty())
-                .andExpect(jsonPath("$.requestReference").isNotEmpty())
-                .andExpect(jsonPath("$.status").value("NEED_REVIEW"))
-                .andExpect(jsonPath("$.reviewStatus").value("NEED_REVIEW"))
-                .andExpect(jsonPath("$.guestTrackingToken").isNotEmpty())
-                .andExpect(jsonPath("$.trackingLink").isNotEmpty())
-                .andExpect(jsonPath("$.images").isArray())
-                .andReturn();
-
-        String responseJson = createResult.getResponse().getContentAsString();
-        String requestId = objectMapper.readTree(responseJson).get("id").asText();
-        String token = objectMapper.readTree(responseJson).get("guestTrackingToken").asText();
-
-        // Guest tracks using token
-        mockMvc.perform(get("/api/v1/design-requests/" + requestId)
-                        .header("X-Guest-Tracking-Token", token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(requestId))
-                .andExpect(jsonPath("$.status").value("NEED_REVIEW"))
-                .andExpect(jsonPath("$.description").value("Nhẫn đôi bạc khắc họa tiết hoa sen"));
-
-        // Tracking endpoint also works
-        mockMvc.perform(get("/api/v1/design-requests/" + requestId + "/tracking")
-                        .param("token", token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(requestId));
-    }
-
-    @Test
-    void guestRateLimit_fivePerDayMax_sixthAttemptReturns429() throws Exception {
-        String guestSession = "guest-rate-limited-session-" + System.currentTimeMillis();
-
-        for (int i = 1; i <= 5; i++) {
-            mockMvc.perform(multipart("/api/v1/design-requests")
-                            .param("description", "Mô tả mẫu nhẫn số " + i)
-                            .header("Idempotency-Key", "idemp-rate-limit-" + i)
-                            .header("X-Guest-Design-Session", guestSession))
-                    .andExpect(status().isAccepted());
-        }
-
-        // 6th attempt
-        mockMvc.perform(multipart("/api/v1/design-requests")
-                        .param("description", "Mô tả mẫu nhẫn thứ 6")
-                        .header("Idempotency-Key", "idemp-rate-limit-6")
-                        .header("X-Guest-Design-Session", guestSession))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("DESIGN_REQUEST_GUEST_DAILY_LIMIT_EXCEEDED"));
+                        .header("X-Guest-Design-Session", "guest-session-test-01"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -148,7 +103,7 @@ public class HumanReviewFeatureIT {
         MvcResult createResult = mockMvc.perform(multipart("/api/v1/design-requests")
                         .param("description", "Mẫu nhẫn hoa văn cổ điển")
                         .header("Idempotency-Key", "idemp-staff-review-01")
-                        .header("X-Guest-Design-Session", "guest-sess-review-01"))
+                        .header("Authorization", "Bearer " + memberToken))
                 .andExpect(status().isAccepted())
                 .andReturn();
 
@@ -201,7 +156,7 @@ public class HumanReviewFeatureIT {
         MvcResult createResult = mockMvc.perform(multipart("/api/v1/design-requests")
                         .param("description", "Mẫu nhẫn đính đá siêu mỏng 0.2mm")
                         .header("Idempotency-Key", "idemp-mgr-review-01")
-                        .header("X-Guest-Design-Session", "guest-sess-review-02"))
+                        .header("Authorization", "Bearer " + memberToken))
                 .andExpect(status().isAccepted())
                 .andReturn();
 

@@ -26,6 +26,7 @@ The allowlist is exact and role groups are not inherited: `ADMIN` is not a Manag
 | `/admin/accounts`, `/admin/roles` | ADMIN | 001 | Account lifecycle and role catalogue only. |
 | `/admin/notifications/*` | ADMIN, MANAGER | 007 | Explicit shared notification-management capability; the `/admin` prefix is historical and is not an inference rule. A later route rename requires its own approved compatibility plan. |
 | `/carrier`, `/carrier/orders`, `/carrier/stats` | CARRIER | 008 | CARRIER may also use public routes and the explicitly allowed password self-service route. It has no Member commerce/history capability. |
+| `/staff/home` | STAFF | 014 | Staff home; the Manager home is `/manager/home` (owner decision 2026-11-26). |
 | `/staff/retail-*` | STAFF, MANAGER | 008 | FE-008 rule C2 (2026-11-26): a Manager opens the branch retail work of delegated branches and packs GHTK parcels and pickup orders; counter cash and customer handover stay Staff only (buttons hidden, backend 403). Not inherited from Manager's global Workshop authority. |
 | `/manager/retail-payment-reconciliations`, `/manager/home`, `/manager/dashboard` | MANAGER | 008, 013, 010 | Admin parameter access never grants these Manager routes. |
 | `/catalogue-management/*` | STAFF, MANAGER | 002 | Shared catalogue-work capability; each write is still action-authorized by FE-002. |

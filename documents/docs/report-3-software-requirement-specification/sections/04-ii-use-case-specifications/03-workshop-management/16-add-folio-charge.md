@@ -1,16 +1,17 @@
 ### 3.16 Add Folio Charge
 
-#### Primary Actors
-
-Staff, Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-78 | Use Case Name | Add Folio Charge |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff, Manager | Secondary Actors | None |
 
 #### Description
 
 As an assigned Staff member or a Manager, I want to add a customer-consented add-on or variable charge to a ticket folio so that extra services are billed to that ticket.
+
+#### Trigger
+
+An actor opens an open ticket folio to add a charge.
 
 #### Preconditions
 
@@ -19,40 +20,46 @@ As an assigned Staff member or a Manager, I want to add a customer-consented add
 
 #### Postconditions
 
-- The accepted charge is added to that folio only and the balance is recalculated.
-- The acting account, time, and consent reference are recorded.
+1. The accepted charge is added to that folio only and the balance is recalculated.
+2. The acting account, time, and consent reference are recorded.
 
 #### Normal Flow
 
-**Add Folio Charge**
-
-1. The actor opens the ticket folio.
-2. The actor selects a catalogue add-on and confirms that the customer agreed.
-3. The system validates the folio, the session, the consent, and the server-side price.
-4. The system records the charge and shows the new balance.
+1. Actor opens the ticket folio.
+2. Actor selects a catalogue add-on and confirms that the customer agreed.
+3. System validates the folio, session, consent, and server-side price.
+4. System records the charge and displays the new balance.
 
 #### Alternative Flows
 
-**Step 2 — Variable charge**
+2a. Actor adds a variable charge → Actor enters a description, amount, and reason instead of a catalogue add-on.
 
-The actor enters a description, amount, and reason instead of selecting a catalogue add-on.
+#### Exception Flows
 
-**Step 3 — Session not started or folio not open**
+3a. Session has not started or folio is not open → System refuses the charge; finalized folios allow no add-on changes.
 
-The system refuses the charge; after finalization no add-on may be added, changed, or removed.
-
-**Step 3 — Missing consent, unavailable add-on, or amount below 5,000 VND**
-
-The system refuses the charge.
+3b. Consent is missing, add-on is unavailable, or amount is below 5,000 VND → System refuses the charge.
 
 #### Business Rules
 
 BR-78-01, BR-78-02, BR-78-03, BR-78-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-78-01 | Catalogue add-on prices are derived by the system; the actor cannot enter them. |
 | BR-78-02 | Every add-on or variable charge is at least 5,000 VND. |
 | BR-78-03 | The consent record evidences the operator confirmation, not the customer's own consent. |
