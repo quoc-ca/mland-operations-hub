@@ -10,6 +10,7 @@ import SavedVouchersPage from '../ui/member/SavedVouchersPage';
 import PromotionDetailPage from '../ui/public/PromotionDetailPage';
 import PromotionListPage from '../ui/public/PromotionListPage';
 import '../ui/loyalty-promotion.css';
+import { MaskAdmin } from '../../../shared/auth/RoleArea';
 
 // Routes of 006 (rendered inside the app layout by src/app/router.jsx).
 // /promotion-management/* is a MANAGER-only route family: any other role is replaced to /404 before the page renders
@@ -17,8 +18,8 @@ import '../ui/loyalty-promotion.css';
 export const loyaltyPromotionRoutes = [
   { path: '/promotions', element: <PromotionListPage /> },
   { path: '/promotions/:promotionId', element: <PromotionDetailPage /> },
-  { path: '/me/loyalty', element: <MyLoyaltyPage /> },
-  { path: '/me/saved-vouchers', element: <SavedVouchersPage /> },
+  { path: '/me/loyalty', element: <MaskAdmin><MyLoyaltyPage /></MaskAdmin> },
+  { path: '/me/saved-vouchers', element: <MaskAdmin><SavedVouchersPage /></MaskAdmin> },
   {
     path: '/promotion-management',
     element: <RouteAccessGuard allowedRoles={['MANAGER']}><PromotionManagementLayout /></RouteAccessGuard>,

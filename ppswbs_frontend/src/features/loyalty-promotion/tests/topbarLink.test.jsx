@@ -29,9 +29,10 @@ describe('T119 promotion management link in the top bar', () => {
     expect(await screen.findByRole('menuitem', { name: /Quản lý Ưu đãi/ })).toHaveAttribute('href', '/promotion-management/programs');
   });
 
-  it('is not shown to an Admin, who still sees product management', async () => {
+  it('is not shown to an Admin, nor is product management (002 route masking: STAFF/MANAGER only)', async () => {
     await openMenuAs('ADMIN');
-    expect(await screen.findByRole('menuitem', { name: /Quản trị Sản phẩm/ })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: /Tài khoản|tài khoản/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Quản trị Sản phẩm/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /Quản lý Ưu đãi/ })).toBeNull();
   });
 });

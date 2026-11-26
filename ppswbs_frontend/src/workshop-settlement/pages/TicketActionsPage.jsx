@@ -60,7 +60,7 @@ export default function TicketActionsPage() {
   const [proof, setProof] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const [allowanceTicket, setAllowanceTicket] = useState('');
   const [granting, setGranting] = useState(false);
   const [result, setResult] = useState(null);

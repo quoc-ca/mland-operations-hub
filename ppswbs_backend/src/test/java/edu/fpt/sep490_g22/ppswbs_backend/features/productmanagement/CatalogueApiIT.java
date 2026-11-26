@@ -83,11 +83,15 @@ class CatalogueApiIT {
     @Test
     void managementNeedsABearerAndOnlyActiveStaffOrManager() throws Exception {
         mvc.perform(get("/api/v1/catalogue-management/products")).andExpect(status().isUnauthorized());
-        for (String role : List.of("admin", "member", "pending")) {
+        for (String role : List.of("admin", "member")) {
             mvc.perform(as(role, get("/api/v1/catalogue-management/products")))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("CATALOGUE_ACCESS_DENIED"));
         }
+        // 001 FR-053: the shared identity gate refuses a pending account before catalogue authorization.
+        mvc.perform(as("pending", get("/api/v1/catalogue-management/products")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_PENDING_SETUP"));
         long draft = fixture.draftProduct("9101");
         mvc.perform(as("staff", get("/api/v1/catalogue-management/products"))
                         .param("categoryId", Long.toString(fixture.categoryOf(draft))))

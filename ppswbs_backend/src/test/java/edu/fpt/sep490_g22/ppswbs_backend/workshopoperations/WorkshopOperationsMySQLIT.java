@@ -103,6 +103,9 @@ class WorkshopOperationsMySQLIT {
     @Autowired
     private SessionStaffAssignmentRepository staffAssignmentRepository;
 
+    @Autowired
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageLocationAvailabilityRepository availabilityRepository;
+
     private WorkshopLocation testLocation;
     private WorkshopSlot testSlot;
     private WorkshopSession testSession;
@@ -132,12 +135,9 @@ class WorkshopOperationsMySQLIT {
         staffAssignmentRepository.deleteAll();
         handoffRepository.deleteAll();
         auditEventRepository.deleteAll();
-        sessionRepository.deleteAll();
-        slotRepository.deleteAll();
-        locationRepository.deleteAll();
 
         testLocation = locationRepository.save(WorkshopLocation.builder()
-                .code("LOC-MYSQL-01")
+                .code("LOC-MYSQL-" + UUID.randomUUID().toString().substring(0, 8))
                 .displayName("MySQL Verification Location")
                 .addressSnapshot("456 Nguyen Hue, District 1, HCMC")
                 .active(true)
@@ -166,7 +166,7 @@ class WorkshopOperationsMySQLIT {
                 .build());
 
         WorkshopPackage testPackage = packageRepository.save(WorkshopPackage.builder()
-                .name("MySQL Idempotency Package")
+                .name("MySQL Idempotency Package " + UUID.randomUUID())
                 .description("Package fixture for idempotency integration tests")
                 .publicPrice(100_000L)
                 .minParticipants(1)
@@ -176,6 +176,9 @@ class WorkshopOperationsMySQLIT {
                 .minimumSameDaySlotGap(0)
                 .state(WorkshopPackageState.PUBLISHED)
                 .build());
+        // 003.2 FR-037: a Package is sold at a location only with an active availability row.
+        availabilityRepository.save(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageLocationAvailability.builder()
+                .packageId(testPackage.getId()).locationId(testLocation.getId()).active(true).build());
         testPackageReference = testPackage.getId().toString();
     }
 

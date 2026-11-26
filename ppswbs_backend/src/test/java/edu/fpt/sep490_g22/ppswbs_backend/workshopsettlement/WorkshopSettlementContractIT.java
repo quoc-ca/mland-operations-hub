@@ -189,6 +189,7 @@ class WorkshopSettlementContractIT {
             }
         }
         assertThat(contract).contains("PACKAGE_NOT_AVAILABLE_AT_LOCATION").contains("LATE_ARRIVAL_WINDOW_EXPIRED")
+                .contains("LATE_ARRIVAL_STAFF_ONLY")
                 .contains("TICKET_LOCATION_CHANGED");
     }
 }

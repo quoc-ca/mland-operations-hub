@@ -16,7 +16,7 @@ export default function CashClosePage() {
   const closeStatus = useEnumLabel(messages, 'closeStatus');
   const api = createSettlementApi(useHttp());
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const [locationId, setLocationId] = useState('');
   const [workingDate, setWorkingDate] = useState('');
   const [expected, setExpected] = useState(null);

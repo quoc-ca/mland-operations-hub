@@ -223,7 +223,7 @@ export function WorkshopPaymentReturnPage({ groupCode }) {
             <p style={{ margin: '8px 0 12px' }}>
               {t('return.operator.step1')} <strong>{t('return.operator.invoice')}</strong>{t('return.operator.step2')} <strong>{t('return.operator.loadFolio')}</strong>{t('return.operator.step3')}
             </p>
-            <Link className="button primary" to="/settlement">{t('return.operator.back')}</Link>
+            {operatorRole !== 'ADMIN' && <Link className="button primary" to="/settlement">{t('return.operator.back')}</Link>}
           </div>
         ) : !group ? (
           <form className="payment-form" onSubmit={readGroup}>

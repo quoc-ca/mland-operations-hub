@@ -28,6 +28,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -174,6 +175,20 @@ public class IdentityGateFilter extends OncePerRequestFilter {
     }
 
     /**
+     * FR-053: all a pending Account may do is bootstrap, read its own Account/Profile and finish its invitation.
+     */
+    private boolean isPendingSetupRoute(HttpServletRequest request) {
+        String path = normalizedRequestPath(request);
+        String method = request.getMethod().toUpperCase(Locale.ROOT);
+        return switch (path) {
+            case "/api/v1/accounts/me" -> "PUT".equals(method) || "GET".equals(method);
+            case "/api/v1/accounts/me/profile" -> "GET".equals(method);
+            case "/api/v1/internal-account-invitations/completions" -> "POST".equals(method);
+            default -> false;
+        };
+    }
+
+    /**
      * Produces an application-relative path for route policy checks. A filter
      * sees the context path and may also see a trailing slash, whereas Spring
      * MVC maps both shapes to the same public discovery controller method.
@@ -246,6 +261,12 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             if (actor.status() == ActorStatus.SUSPENDED) {
                 writeError(response, HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "Account has been suspended",
                         correlationId);
+                return;
+            }
+
+            if (actor.status() == ActorStatus.PENDING_SETUP && !isPendingSetupRoute(request)) {
+                writeError(response, HttpStatus.FORBIDDEN, "ACCOUNT_PENDING_SETUP",
+                        "Account setup has not been completed", correlationId);
                 return;
             }
 

@@ -5,6 +5,8 @@ import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { reviewManagementRoutes } from '../routes';
 
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
+
 const open = (path, options) => renderRoutes(reviewManagementRoutes, { path, ...options });
 
 describe('F11-PUBLIC-REVIEW-LIST Screen (/reviews)', () => {

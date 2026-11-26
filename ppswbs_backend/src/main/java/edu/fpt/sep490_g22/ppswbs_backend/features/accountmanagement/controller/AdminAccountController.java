@@ -51,13 +51,18 @@ public class AdminAccountController {
         @RequestParam(value = "page", defaultValue = "0") int page,
         @RequestParam(value = "size", defaultValue = "20") int size
     ) {
-        verifyAdminOrManager();
+        // FR-054: a Manager only picks Workshop Staff, so only that exact list, without search or contact data.
+        boolean staffPicker = verifyAdminOrManager().role() == ActorRole.MANAGER;
+        if (staffPicker && (role != AccountRole.STAFF || status != AccountStatus.ACTIVE)) {
+            throw new RoleAssignmentForbiddenException("Manager may only list active Staff accounts");
+        }
+        String search = staffPicker ? null : q;
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
-        Page<Account> accountPage = accountRepository.searchAccounts(q, role, status, pageRequest);
+        Page<Account> accountPage = accountRepository.searchAccounts(search, role, status, pageRequest);
 
         List<AccountSummaryResponse> data = accountPage.getContent().stream()
-            .map(this::toSummaryResponse)
+            .map(account -> toSummaryResponse(account, !staffPicker))
             .toList();
 
         PagedResponse.PageMeta meta = PagedResponse.PageMeta.builder()
@@ -380,6 +385,10 @@ public class AdminAccountController {
     }
 
     private AccountSummaryResponse toSummaryResponse(Account account) {
+        return toSummaryResponse(account, true);
+    }
+
+    private AccountSummaryResponse toSummaryResponse(Account account, boolean includePrivateFields) {
         AccountProfile profile = profileRepository.findByAccountId(account.getId()).orElse(null);
         String fullName = profile != null && profile.getFullName() != null && !profile.getFullName().isBlank()
                 ? profile.getFullName().trim() : null;
@@ -387,9 +396,9 @@ public class AdminAccountController {
             .accountId(account.getId())
             .role(account.getRole())
             .status(account.getStatus())
-            .loginEmail(account.getLoginEmail())
+            .loginEmail(includePrivateFields ? account.getLoginEmail() : null)
             .fullName(fullName)
-            .revocationStatus(toRevocationStatus(account))
+            .revocationStatus(includePrivateFields ? toRevocationStatus(account) : null)
             .createdAt(account.getCreatedAt())
             .updatedAt(account.getUpdatedAt())
             .build();

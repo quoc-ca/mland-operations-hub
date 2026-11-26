@@ -1,11 +1,13 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { settlementRoutes } from '../routes';
 import { PROFILE, asRole, useFreshRole } from './helpers';
 import { SessionNavigationBoundary } from '../../shared/auth/SessionNavigationBoundary';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 useFreshRole();
 
@@ -277,12 +279,4 @@ describe('Change request queue', () => {
     expect(within(dialog).queryByText(/Approving applies/)).not.toBeInTheDocument();
   });
 
-  it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
-    const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
-    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
-    expect(await screen.findByText(/Admin accounts have no part in ticket changes/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(screen.queryByText('CR-1')).not.toBeInTheDocument();
-    expect(calls.filter(call => call.path === '/api/v1/workshop-change-requests')).toHaveLength(0);
-  });
 });

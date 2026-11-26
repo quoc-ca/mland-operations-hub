@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -597,6 +597,12 @@ restoration code is touched, not here.
 | 003.1 task: `getTicketFolioContext` derives location from the current session | Open, in the 003.1 session (number not yet given) | T186 and SC-022 cannot pass for real before it. |
 | 003.2 FR-042 and `approval.md` amended (no Manager for another location) | Open | Blocks T184 until 003.2 is amended. |
 | 003.2 `approval.md` excludes 003.3 | Closed 2026-11-17 | Approved for 003.3 by Hồ Hoàng Quốc; the 003.2 row B3 is updated to match. |
+
+## Change types by actor (Phase 17, spec FR-044b, decided 2026-11-26)
+
+- **Backend (003.3 only):** `TicketChangeService` owns one guard: `LATE_ARRIVAL` with an actor that is not Staff or Manager throws `403 LATE_ARRIVAL_STAFF_ONLY`; `GroupTicketChangeService` and `TicketChangeOptionsApiService` (member/staff and Guest reads) call the same guard before any proof or contact check. The Staff scope and assignment check is unchanged. An `ADVANCE` change whose session being changed has started is refused with `409 ADVANCE_CHANGE_WINDOW_EXPIRED` instead of being queued. A replay of a stored change or request is answered before the guards. Approval of queued requests is untouched.
+- **Frontend:** `GroupTicketList` drops the type field, sends `ADVANCE` and shows the contact-the-shop message for a started session; `TicketActionsPage` keeps its field.
+- **No change** to 003.2 rules, facades (`workshop-interfeature-facades.md` reviewed: `TicketReplacementType` and refusal reasons are unchanged), schema or migrations.
 
 ## Design Challenge Review
 

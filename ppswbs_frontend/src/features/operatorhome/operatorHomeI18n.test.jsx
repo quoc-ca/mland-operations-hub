@@ -1,11 +1,13 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { translate } from '../../shared/i18n/I18nProvider';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { operatorHomeMessages } from './messages';
 import { operatorSections } from './operatorSections';
 import { operatorHomeRoutes } from './routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 import { workshopTasks } from './staffWork';
 
 const tIn = language => (key, params) => translate(operatorHomeMessages, language, key, params);

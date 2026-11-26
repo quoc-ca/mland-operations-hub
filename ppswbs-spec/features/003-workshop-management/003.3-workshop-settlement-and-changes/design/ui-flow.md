@@ -3,7 +3,7 @@
 > *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -161,6 +161,13 @@ T138's QA list gains these five rows.
 **Open questions for the approver** (each has the default above if not answered):
 (1) change-request queue without a location column (default) or a backend field first; (2) add-on block with location
 ids (default) or a backend field with names first; (3) customer wording of the two messages above.
+
+## Who may change which way (FR-044b, approved 2026-11-26 by Hồ Hoàng Quốc)
+
+| Screen (route) | Actor | Change | Failure and recovery |
+| --- | --- | --- | --- |
+| Customer ticket card, "Đổi lịch" (`GroupTicketList`) | Member, Guest | No "Loại đổi lịch" field; the page always sends `ADVANCE`. A ticket whose chosen session has started shows "Buổi <số> đã bắt đầu nên không đổi lịch trực tuyến được. Vui lòng liên hệ cửa hàng <tên chi nhánh> để được hỗ trợ." (name only when the data has it; the group data has no phone number). When every session has started there is no change button, picker or submit; when only one of two has started the other can still be changed. Under 24 hours and not started: the existing waiting-for-approval notice. | `403 LATE_ARRIVAL_STAFF_ONLY` is not expected from this screen; `409 ADVANCE_CHANGE_WINDOW_EXPIRED` (the session started meanwhile) shows the contact-the-shop message; the ticket is unchanged. |
+| Staff ticket actions, tab `change` (`TicketActionsPage`) | Staff in scope and assigned; Manager | The change-type field stays (`ADVANCE`, `LATE_ARRIVAL`). | Existing `ProblemNotice`. |
 
 ## Session, data handling, and accessibility
 

@@ -428,4 +428,113 @@ public class CustomOrderIntegrationTest {
         CustomOrderPaymentContext updatedContext = paymentContextRepository.findById(context.getId()).orElseThrow();
         org.junit.jupiter.api.Assertions.assertEquals("REVIEW_REQUIRED", updatedContext.getStatus());
     }
+
+    @Test
+    void quoteCommandsAreLockedOnceTheOrderIsPaid() throws Exception {
+        DesignRequest request = designRequestRepository.findById(testOrder.getDesignRequestId()).orElseThrow();
+        request.setReviewStatus(edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus.ACCEPTED);
+        designRequestRepository.save(request);
+        CustomOrderQuote paid = customOrderQuoteRepository
+                .findTopByCustomOrderIdOrderByQuoteGenerationDesc(testOrder.getId()).orElseThrow();
+        // Past its expiry: before the lock, this let the Member send a paid order back to QUOTE_PENDING.
+        paid.setExpiresAt(Instant.now().minus(1, ChronoUnit.DAYS));
+        customOrderQuoteRepository.save(paid);
+        long quotes = customOrderQuoteRepository.countByCustomOrderId(testOrder.getId());
+
+        for (String state : List.of("PAID", "IN_PRODUCTION", "READY_FOR_FULFILMENT", "CLOSED")) {
+            testOrder.setStatus(state);
+            customOrderRepository.save(testOrder);
+
+            for (String token : List.of(staffToken, managerToken)) {
+                prepareQuote(request.getId(), token)
+                        .andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.code").value("CUSTOM_ORDER_QUOTE_LOCKED"));
+            }
+            mockMvc.perform(post("/api/v1/members/me/custom-orders/" + testOrder.getId() + "/request-new-quote")
+                            .header("Authorization", "Bearer " + memberToken))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CUSTOM_ORDER_QUOTE_LOCKED"));
+            approve(testOrder.getId(), paid.getId())
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CUSTOM_ORDER_QUOTE_LOCKED"));
+
+            org.junit.jupiter.api.Assertions.assertEquals(state,
+                    customOrderRepository.findById(testOrder.getId()).orElseThrow().getStatus());
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(quotes,
+                customOrderQuoteRepository.countByCustomOrderId(testOrder.getId()));
+        org.junit.jupiter.api.Assertions.assertEquals("APPROVED",
+                customOrderQuoteRepository.findById(paid.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void onlyTheLatestQuoteOfTheOrderCanBeApproved() throws Exception {
+        testOrder.setStatus("QUOTE_PENDING");
+        customOrderRepository.save(testOrder);
+        CustomOrderQuote first = customOrderQuoteRepository
+                .findTopByCustomOrderIdOrderByQuoteGenerationDesc(testOrder.getId()).orElseThrow();
+        first.setStatus("QUOTE_PENDING");
+        customOrderQuoteRepository.save(first);
+        CustomOrderQuote second = customOrderQuoteRepository.save(pendingQuote(testOrder.getId(), 2));
+        CustomOrderQuote foreign = customOrderQuoteRepository.save(pendingQuote("CO-OTHER-ORDER", 9));
+
+        for (CustomOrderQuote refused : List.of(first, foreign)) {
+            approve(testOrder.getId(), refused.getId())
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("QUOTE_ALREADY_DECIDED"));
+        }
+        approve(testOrder.getId(), second.getId()).andExpect(status().isOk());
+    }
+
+    @Test
+    void anUnpaidOrderCanStillBeQuotedAgain() throws Exception {
+        DesignRequest request = designRequestRepository.findById(testOrder.getDesignRequestId()).orElseThrow();
+        request.setReviewStatus(edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus.ACCEPTED);
+        designRequestRepository.save(request);
+
+        for (String state : List.of("QUOTE_PENDING", "FULL_PAYMENT_PENDING", "QUOTE_EXPIRED")) {
+            testOrder.setStatus(state);
+            customOrderRepository.save(testOrder);
+
+            prepareQuote(request.getId(), staffToken).andExpect(status().isOk());
+        }
+    }
+
+    private org.springframework.test.web.servlet.ResultActions prepareQuote(String designRequestId, String token)
+            throws Exception {
+        return mockMvc.perform(post("/api/v1/design-requests/" + designRequestId + "/quote")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "totalAmount", "7000000",
+                        "currency", "VND",
+                        "quoteExpiresAt", Instant.now().plus(7, ChronoUnit.DAYS).toString(),
+                        "managerReason", "Re-quote"))));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions approve(String orderId, String quoteId)
+            throws Exception {
+        return mockMvc.perform(post("/api/v1/custom-orders/" + orderId + "/quotes/" + quoteId + "/approve")
+                .header("Authorization", "Bearer " + managerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"managerReason\":\"Approve\"}"));
+    }
+
+    private CustomOrderQuote pendingQuote(String orderId, int generation) {
+        return CustomOrderQuote.builder()
+                .id("QT-GEN-" + UUID.randomUUID().toString().substring(0, 8))
+                .customOrderId(orderId)
+                .quoteReference("QREF-" + UUID.randomUUID().toString().substring(0, 8))
+                .quoteGeneration(generation)
+                .totalAmount(6_000_000L)
+                .currency("VND")
+                .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                .status("QUOTE_PENDING")
+                .approvedByManager(false)
+                .paymentStatus("UNPAID")
+                .paymentMode("FULL_CUSTOM_ORDER_PAYMENT")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+    }
 }

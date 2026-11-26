@@ -3,7 +3,7 @@
 > **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
 
 **Date created**: 2026-11-22 (decisions); split out of `013-manager-home` on 2026-11-25
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -62,6 +62,10 @@ and Manager Home is merged with the Manager Dashboard (010). Approved on the pro
 ### Session 2026-11-25 (split)
 
 - Split out of `013-manager-home` and renumbered 014, so that two folders no longer share number 013. The shell requirements below are the 2026-11-22 decisions, regrouped; no behavior was changed by the split.
+
+### Session 2026-11-26 (browser access)
+
+- Q: Which roles may open the Staff home `/staff/home`? → A: STAFF only. A signed-in MEMBER, MANAGER, ADMIN or CARRIER is replaced to `/404` before any request; a Guest is asked to sign in (owner decision Hồ Hoàng Quốc).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -124,6 +128,8 @@ A user collapses the rail to icons only to gain room, and the choice is remember
 ### Route masking synchronization (2026-11-20)
 
 `/manager/home` has the exact browser-route allowlist `MANAGER`. Direct navigation by `MEMBER`, `STAFF`, `ADMIN`, or `CARRIER` is replaced to `/404` before any request. For a Manager, `/manager/home` redirects to `/manager/dashboard` (Session 2026-11-22). This does not infer that an authorized Manager has every linked operational action; every destination and API remains feature-authorized.
+
+`/staff/home` has the exact browser-route allowlist `STAFF` (Session 2026-11-26). Direct navigation by `MEMBER`, `MANAGER`, `ADMIN`, or `CARRIER` is replaced to `/404` before any request; a Guest is asked to sign in.
 
 ### Functional Requirements
 

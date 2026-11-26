@@ -65,7 +65,7 @@ public class WorkshopPackageController {
             @Valid @RequestBody PackageRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-packages", "package:create:" + actorId,
+                .body(restIdempotency.execute(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER, idempotencyKey, "REST:POST:/api/v1/workshop-packages", "package:create:" + actorId,
                         request, PackageResponse.class, () -> packageService.createDraft(request, actorId, correlationReference)));
     }
 
@@ -82,7 +82,7 @@ public class WorkshopPackageController {
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody PackageRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
-        return restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-packages/{packageId}", "package:update:" + packageId,
+        return restIdempotency.execute(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER, idempotencyKey, "REST:PATCH:/api/v1/workshop-packages/{packageId}", "package:update:" + packageId,
                 request, PackageResponse.class, () -> packageService.updateProspectively(packageId, request, actorId, correlationReference));
     }
 
@@ -94,7 +94,7 @@ public class WorkshopPackageController {
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody PackageLifecycleTransitionRequest request) {
         Long actorId = packageAuthorization.requireActiveManager(authorization);
-        return restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-packages/{packageId}/lifecycle-transitions", "package:transition:" + packageId,
+        return restIdempotency.execute(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER, idempotencyKey, "REST:POST:/api/v1/workshop-packages/{packageId}/lifecycle-transitions", "package:transition:" + packageId,
                 request, PackageResponse.class, () -> packageService.transition(packageId, request.getTargetState(), actorId, correlationReference));
     }
 

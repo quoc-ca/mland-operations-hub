@@ -1,9 +1,9 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-26
 **Author**: Phan Sơn
-**Last updated by**: Phan Sơn
+**Last updated by**: Hồ Hoàng Quốc
 
 **Input**: Design documents from `ppswbs-spec/features/001-account-management/`
 
@@ -529,3 +529,10 @@ After Phase 2 completes:
 - [ ] T117 [US3] **Deferred live MEMBER replacement:** After FE-08/FE-003.1 owners publish authoritative Account-ID-scoped providers, decide terminal obligations and agree on an acceptance/retirement fence, replace demo-only dependency for this path; implement staged old-MEMBER revocation, Firebase deletion, de-identification, email release, version/race checks, reconciliation and history preservation. Obtain scoped approval and fresh source/race/integration evidence before enabling this command. Local demo records can never satisfy this task.
 
 **Order:** FE-001/FE-007 scoped approval → T106–T108 preview/collision gates and T109–T113 independent invitation/ADMIN work → T114–T116 scoped verification. FE-007 T038–T043 depend on T110/T115. T117 is a separate future gate requiring live FE-08/FE-003.1 providers, an agreed acceptance fence and new approval. Shared service/schema edits must be serialized; local mock code is not proof that T107 or T117 is complete.
+
+## Phase 16: R-ACL access correction (2026-11-26)
+
+Source: spec "R-ACL access correction", approved in session by Hồ Hoàng Quốc.
+
+- [x] T118 [US4] Refuse `PENDING_SETUP` in the shared identity gate with `403 ACCOUNT_PENDING_SETUP`, keeping the four allowed routes; add gate tests. (FR-053)
+- [x] T119 [US3] Limit the Manager Account list to `ACTIVE` `STAFF` without email or revocation status, update the Workshop Staff picker labels, and add API and UI tests. (FR-054)

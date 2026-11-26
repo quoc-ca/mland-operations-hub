@@ -15,6 +15,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -422,6 +424,24 @@ class TicketMlandRemedyServiceTest {
         assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", strangerMember))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                 .hasMessageContaining("NOT_GROUP_OWNER");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ActorRole.class, names = {"ADMIN", "CARRIER"})
+    @DisplayName("Admin or Carrier may neither read nor answer a remedy offer, even with a buyer proof")
+    void adminOrCarrierIsRefusedForReadAndAnswer(ActorRole role) {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        CurrentAccountActor admin = new CurrentAccountActor(77L, role, ActorStatus.ACTIVE, false, List.of());
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.REFUND, "bvr-" + "a".repeat(20));
+
+        assertThatThrownBy(() -> service.getOffer(TICKET_CODE, admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("STAFF_OR_MANAGER_REQUIRED");
     }
 
     @Test

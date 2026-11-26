@@ -20,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -329,6 +331,24 @@ class TicketSettlementCancellationServiceTest {
             assertThatThrownBy(() -> service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-5", stranger))
                     .isInstanceOf(WorkshopSettlementAuthorizationException.class)
                     .hasMessage("NOT_GROUP_OWNER");
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ActorRole.class, names = {"ADMIN", "CARRIER"})
+        @DisplayName("Admin or Carrier holding a buyer proof is refused and never treated as a Guest")
+        void adminOrCarrierWithProofThrowsForbidden(ActorRole role) {
+            TicketFolioContext context = createContext(TICKET_1, OPS_REF_1, Instant.now().plus(48, ChronoUnit.HOURS), 0L, "L0-T1");
+            when(booking.getTicketFolioContext(TICKET_1)).thenReturn(Optional.of(context));
+            when(cancellationRepository.existsByTicketCode(TICKET_1)).thenReturn(false);
+            when(bills.findByBookingReference(TICKET_1)).thenReturn(Optional.of(createOpenBill(TICKET_1)));
+            CurrentAccountActor admin = new CurrentAccountActor(77L, role, ActorStatus.ACTIVE, false, List.of());
+
+            CancellationRequestDto request = new CancellationRequestDto("Admin cancel", "OTP-REF-123");
+
+            assertThatThrownBy(() -> service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-admin", admin))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                    .hasMessage("STAFF_OR_MANAGER_REQUIRED");
+            verify(booking, never()).consumeBuyerProof(any());
         }
 
         @Test

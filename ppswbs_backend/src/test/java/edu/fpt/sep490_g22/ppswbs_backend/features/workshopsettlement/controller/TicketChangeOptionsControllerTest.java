@@ -36,7 +36,7 @@ class TicketChangeOptionsControllerTest {
     @Test
     @DisplayName("GET change-options passes the bearer actor, type and from, and is Cache-Control no-store")
     void actorRoute() {
-        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of());
+        CurrentAccountActor actor = new CurrentAccountActor(1L, ActorRole.MANAGER, ActorStatus.ACTIVE, false, List.of());
         UUID from = UUID.randomUUID();
         when(options.forActor("T1", TicketChangeType.LATE_ARRIVAL, List.of(from), actor)).thenReturn(body);
 

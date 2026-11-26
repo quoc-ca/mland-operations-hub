@@ -39,7 +39,7 @@ public class WorkshopAddOnController {
         if (restIdempotency == null) {
             return operation.get();
         }
-        return restIdempotency.execute(key, action, scope, command, responseType, operation);
+        return restIdempotency.execute(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER, key, action, scope, command, responseType, operation);
     }
 
     @GetMapping

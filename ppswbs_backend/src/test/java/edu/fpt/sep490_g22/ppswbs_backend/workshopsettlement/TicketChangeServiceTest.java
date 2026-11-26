@@ -38,6 +38,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.Wor
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -129,6 +131,24 @@ class TicketChangeServiceTest {
         CurrentAccountActor inactive = new CurrentAccountActor(STAFF_ACCOUNT_ID, ActorRole.STAFF, ActorStatus.SUSPENDED, false, List.of(10L));
         assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-T116b", inactive))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ActorRole.class, names = {"ADMIN", "CARRIER"})
+    void adminOrCarrierWithABuyerProofIsRefusedAndNeverTreatedAsGuest(ActorRole role) {
+        TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
+                null, "bvr-proof-1234567890", "Admin request");
+        CurrentAccountActor admin = new CurrentAccountActor(77L, role, ActorStatus.ACTIVE, false, List.of());
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-ADMIN", admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("STAFF_OR_MANAGER_REQUIRED");
 
         verify(booking, never()).consumeBuyerProof(any());
         verify(operations, never()).replaceTicketSessions(any());
@@ -294,12 +314,11 @@ class TicketChangeServiceTest {
     }
 
     @Test
-    @DisplayName("changeTicketSessions: window closed and the old session already started -> nothing to wait for, refused 409")
+    @DisplayName("changeTicketSessions: the old session already started -> refused 409, never queued")
     void advanceChange_oldSessionStarted_refused() {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().minus(1, ChronoUnit.HOURS));
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
-        when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
         TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null);
 
@@ -357,18 +376,55 @@ class TicketChangeServiceTest {
         when(operations.replaceTicketSessions(any()))
                 .thenReturn(TicketSessionReplacementOutcome.rejected(RejectionReason.LATE_ARRIVAL_WINDOW_EXPIRED, List.of(0)));
 
-        CurrentAccountActor memberActor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        CurrentAccountActor manager = new CurrentAccountActor(MANAGER_ACCOUNT_ID, ActorRole.MANAGER, ActorStatus.ACTIVE, false, List.of());
         TicketChangeRequestDto request = new TicketChangeRequestDto(
                 TicketChangeType.LATE_ARRIVAL,
                 List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null,
-                null,
-                null
+                "bvr-" + "a".repeat(20),
+                "Buyer arrived late"
         );
 
-        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-06", memberActor))
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-06", manager))
                 .isInstanceOf(WorkshopSettlementConflictException.class)
                 .hasMessageContaining("LATE_ARRIVAL_WINDOW_EXPIRED");
+    }
+
+    @Test
+    @DisplayName("FR-044b: a Member or Guest LATE_ARRIVAL change is 403 before the ticket or the buyer proof is touched")
+    void lateArrivalByBuyer_refused403() {
+        TicketChangeRequestDto request = new TicketChangeRequestDto(TicketChangeType.LATE_ARRIVAL,
+                List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, "bvr-" + "a".repeat(20), null);
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        for (CurrentAccountActor actor : java.util.Arrays.asList(null, member)) {
+            assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR-044b", actor))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                    .hasMessageContaining("LATE_ARRIVAL_STAFF_ONLY");
+        }
+        verify(booking, never()).getTicketFolioContext(any());
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    @Test
+    @DisplayName("FR-044b: an ADVANCE change of a started session is 409 and is not queued, even with a future target")
+    void advanceOfStartedSession_refusedNotQueued() {
+        Instant now = Instant.now();
+        TicketFolioContext ctx = createDefaultContext(0L, now.minus(1, ChronoUnit.HOURS));
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
+        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+
+        assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(
+                TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1), null, null, null),
+                IDEMPOTENCY_KEY, "CORR-044c", member))
+                .isInstanceOf(WorkshopSettlementConflictException.class)
+                .hasMessageContaining("ADVANCE_CHANGE_WINDOW_EXPIRED");
+
+        verify(requestRepository, never()).save(any(SettlementTicketChangeRequest.class));
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(operations, never()).replaceTicketSessions(any());
     }
 
     @Test
@@ -769,9 +825,17 @@ class TicketChangeServiceTest {
         when(folioBalanceService.balanceOf(any())).thenReturn(new FolioBalanceService.FolioBalance(100_000L, 0L, 100_000L));
         // The allowance is spent, so the request waits in the Manager queue and its expiry can be read.
         when(changeRepository.countByTicketCodeAndCountedTrueAndAppliedTrue(TICKET_CODE)).thenReturn(1L);
-        CurrentAccountActor member = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
-        return service.changeTicketSessions(TICKET_CODE, new TicketChangeRequestDto(type, List.of(target), List.of(from),
-                null, null, null), key, "CORR-T130", member);
+        TicketChangeRequestDto request = new TicketChangeRequestDto(type, List.of(target), List.of(from),
+                null, null, null);
+        CurrentAccountActor actor = new CurrentAccountActor(BUYER_ACCOUNT_ID, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of(10L));
+        if (type == TicketChangeType.LATE_ARRIVAL) {
+            // FR-044b: late arrival is entered at the shop, here by a Manager with the buyer's proof.
+            lenient().when(booking.consumeBuyerProof(any())).thenReturn(ConsumeBuyerProofResult.accepted());
+            actor = new CurrentAccountActor(MANAGER_ACCOUNT_ID, ActorRole.MANAGER, ActorStatus.ACTIVE, false, List.of());
+            request = new TicketChangeRequestDto(type, List.of(target), List.of(from), null,
+                    "bvr-" + "a".repeat(20), "Buyer arrived late");
+        }
+        return service.changeTicketSessions(TICKET_CODE, request, key, "CORR-T130", actor);
     }
 
     private Instant savedExpiry() {

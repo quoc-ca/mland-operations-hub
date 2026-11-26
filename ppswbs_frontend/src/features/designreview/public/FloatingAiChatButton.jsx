@@ -8,10 +8,10 @@ export default function FloatingAiChatButton() {
   const { userRole: authRole } = useAuth();
   const { account } = useCurrentAccount?.() || {};
   const userRole = account?.role || authRole;
-  const isStaffOrAdmin = userRole === 'STAFF' || userRole === 'ADMIN' || userRole === 'MANAGER';
+  const isNonCustomer = ['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'].includes(userRole);
 
-  // Do not display if user is internal staff/admin or already on the AI chat page
-  if (isStaffOrAdmin || location.pathname === '/ai-support') {
+  // Do not display if user is Staff, Manager, Admin, Carrier or already on the AI chat page
+  if (isNonCustomer || location.pathname === '/ai-support') {
     return null;
   }
 

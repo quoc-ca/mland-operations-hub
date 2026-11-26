@@ -50,7 +50,7 @@ public class WorkshopPackageAvailabilityController {
             @Valid @RequestBody PackageAvailabilityDtos.Write request) {
         Long actorId = deniedAttemptRecorder.guard(AUDIT_DENIED_ACTION, null, authorization, correlationReference,
                 () -> packageAuthorization.requireActiveManager(authorization));
-        return restIdempotency.execute(idempotencyKey,
+        return restIdempotency.execute(OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER, idempotencyKey,
                 "REST:PUT:/api/v1/workshop-packages/{packageId}/locations/{locationId}/availability",
                 "package-availability:" + packageId + ":" + locationId, request, PackageAvailabilityDtos.Cell.class,
                 () -> availabilityService.setAvailability(actorId, packageId, locationId, request.state(),
