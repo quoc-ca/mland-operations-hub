@@ -1,30 +1,39 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-11 Owner Edits Published Review
-actor "Member" as member
-participant "ReviewController" as reviewController
-participant "ReviewService" as reviewService
-database "ReviewRepository" as reviewRepository
-database "ReviewRevisionRepository" as revisionRepository
+actor "Member" as Actor
+participant "<<view>>\n:ReviewPages" as Pages
+participant "<<controller>>\n:ReviewController" as Controller
+participant "<<service>>\n:ReviewService" as Service
+participant "<<repository>>\n:ReviewRepository" as Repo
+participant "<<repository>>\n:ReviewRevisionRepository" as RevisionRepo
+participant "<<database>>\n:MySQL Database" as DB
 
-member -> reviewController : PATCH own review + If-Match-Version
-activate reviewController
-reviewController -> reviewService : verify ownership and version
-activate reviewService
-reviewService -> reviewRepository : update rating/text keeping PUBLIC
-activate reviewRepository
-reviewRepository --> reviewService : new review version
-deactivate reviewRepository
-reviewService -> revisionRepository : append revision and audit
-activate revisionRepository
-revisionRepository --> reviewService : revision recorded
-deactivate revisionRepository
-reviewService --> reviewController : updated safe owner projection
-deactivate reviewService
-reviewController --> member : updated safe owner projection
-deactivate reviewController
-
-note over member,reviewController
+Actor -> Pages : Edit own review
+activate Pages
+Pages -> Controller : PATCH review + If-Match-Version
+activate Controller
+Controller -> Service : verify ownership and version
+activate Service
+Service -> Repo : update rating/text keeping PUBLIC
+activate Repo
+Repo -> DB : UPDATE review
+DB --> Repo : new review version
+Repo --> Service : new review version
+deactivate Repo
+Service -> RevisionRepo : append revision and audit
+activate RevisionRepo
+RevisionRepo -> DB : INSERT review revision
+DB --> RevisionRepo : revision recorded
+RevisionRepo --> Service : revision recorded
+deactivate RevisionRepo
+Service --> Controller : updated safe owner projection
+deactivate Service
+Controller --> Pages : HTTP 200 or HTTP 409
+deactivate Controller
+Pages --> Actor : Display updated review or conflict
+deactivate Pages
+note over Actor,Pages
 Another Member receives safe 403/404.
 REMOVED review is not hard-deleted.
 end note

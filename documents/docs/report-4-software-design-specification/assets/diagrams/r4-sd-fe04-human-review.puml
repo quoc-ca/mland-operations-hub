@@ -1,44 +1,71 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-04 Staff or Manager Human Review
-actor "Reviewer" as reviewer
-participant "DesignReviewController" as reviewController
-participant "HumanReviewService" as reviewService
-database "DesignRequestRepository" as requestRepository
-database "HumanReviewDecisionRepository" as decisionRepository
 
-reviewer -> reviewController : open NEED_REVIEW request
-activate reviewController
-reviewController -> reviewService : load scoped request
-activate reviewService
-reviewService -> requestRepository : find current version
-activate requestRepository
-requestRepository --> reviewService : request and snapshot
-deactivate requestRepository
-reviewService --> reviewController : safe review projection
-deactivate reviewService
-reviewer -> reviewController : decision + mandatory explanation + version
-reviewController -> reviewService : record decision
-activate reviewService
-reviewService -> requestRepository : check version and state
-activate requestRepository
-requestRepository --> reviewService : current state
-deactivate requestRepository
-reviewService -> decisionRepository : append decision and audit
-activate decisionRepository
-decisionRepository --> reviewService : decision recorded
-deactivate decisionRepository
-reviewService -> requestRepository : update status
-activate requestRepository
-requestRepository --> reviewService : updated status
-deactivate requestRepository
-reviewService --> reviewController : decision result or 409 conflict
-deactivate reviewService
-reviewController --> reviewer : decision result or 409 conflict
-deactivate reviewController
+actor "Reviewer\n(Staff or Manager)" as Actor
+participant "<<view>>\n:ReviewQueuePages" as Pages
+participant "<<controller>>\n:DesignReviewController" as Controller
+participant "<<service>>\n:HumanReviewService" as Service
+participant "<<repository>>\n:DesignRequestRepository" as RequestRepo
+participant "<<repository>>\n:HumanReviewDecisionRepository" as DecisionRepo
+participant "<<database>>\n:MySQL Database" as DB
 
-note over reviewer
-Staff and Manager may review within authority.
-An explanation is mandatory; Admin cannot decide.
+Actor -> Pages : Open NEED_REVIEW request
+activate Pages
+Pages -> Controller : GET /api/v1/design-review-requests/{id}
+activate Controller
+Controller -> Service : loadScopedRequest(Actor, id)
+activate Service
+Service -> RequestRepo : find current version
+activate RequestRepo
+RequestRepo -> DB : SELECT request and snapshot
+activate DB
+DB --> RequestRepo : request and snapshot
+deactivate DB
+RequestRepo --> Service : request and snapshot
+deactivate RequestRepo
+alt Request outside reviewer authority
+    Service --> Controller : Access denied
+    Controller --> Pages : HTTP 403
+    Pages --> Actor : Display access denied
+else Request within reviewer authority
+    Service --> Controller : Safe review projection
+    Controller --> Pages : HTTP 200
+    Pages --> Actor : Display request details
+    Actor -> Pages : Submit decision and mandatory explanation
+    Pages -> Controller : POST decision + designVersion
+    Controller -> Service : recordDecision(command)
+    Service -> RequestRepo : check version and state
+    activate RequestRepo
+    RequestRepo -> DB : SELECT FOR UPDATE request
+    DB --> RequestRepo : current state
+    RequestRepo --> Service : current state
+    deactivate RequestRepo
+    alt Stale version or terminal decision
+        Service --> Controller : Conflict
+        Controller --> Pages : HTTP 409
+        Pages --> Actor : Ask to reload request
+    else Valid decision
+        Service -> DecisionRepo : append decision and audit
+        activate DecisionRepo
+        DecisionRepo -> DB : INSERT decision and audit
+        DB --> DecisionRepo : decision recorded
+        DecisionRepo --> Service : decision recorded
+        deactivate DecisionRepo
+        Service -> RequestRepo : update request status
+        RequestRepo -> DB : UPDATE review status
+        DB --> RequestRepo : updated status
+        RequestRepo --> Service : updated request
+        deactivate RequestRepo
+        Service --> Controller : decision result
+        Controller --> Pages : HTTP 200
+        Pages --> Actor : Display updated status
+    end
+end
+deactivate Service
+deactivate Controller
+deactivate Pages
+note over Actor,Pages
+An explanation is mandatory. Admin cannot decide.
 end note
 @enduml
