@@ -866,7 +866,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Sửa tại: thêm khóa `cr.rejectBody` (vi: "Vé {code}. Từ chối sẽ giữ nguyên lịch hiện tại của vé.", en tương ứng) trong `messages.ticket.js`; hộp thoại dùng khóa này khi từ chối.
 - Kiểm lại: test mới "describes rejecting, not approving, in the reject dialog" đạt; `i18n.test.jsx` đạt (commit `5e3aa9c8`). Chưa xem hộp thoại trên trình duyệt vì hàng chờ không còn yêu cầu PENDING.
 
-## BUG-E2E-0027 — OPEN
+## BUG-E2E-0027 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -883,8 +883,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chưa sửa: cần owner 003.3 chốt folio khách có hiện dòng add-on (đổi dữ liệu API).
+- Sửa tại: Folio khách hiện các khoản thêm chưa huỷ (tên, số tiền). Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
-## BUG-E2E-0028 — OPEN
+## BUG-E2E-0028 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -901,6 +902,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chưa sửa: cần chốt cách trình bày trần giảm và giá voucher.
+- Sửa tại: Trang gói ghi trần giảm tự động "cho cả đơn"; khách chưa đăng nhập thấy "Dành cho thành viên" cạnh giá sau voucher. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
 ## BUG-E2E-0029 — FIXED
 
@@ -917,7 +919,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Hiện "Chưa đọc được nhóm đặt chỗ" kèm "Booking not found" (API 404).
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Trang kết quả thanh toán dùng câu `lookup.notFound` cho lỗi 404. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Trang kết quả thanh toán dùng câu `lookup.notFound` cho lỗi 404. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0030 — FIXED
 
@@ -934,7 +936,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Banner tràn phải, xuất hiện thanh cuộn ngang.
 - Bằng chứng:
   - Screenshot: ![S1-0030--banner-cho-thanh-toan-tran-ngang.jpg](master-e2e/screenshots/S1-0030--banner-cho-thanh-toan-tran-ngang.jpg)
-- Sửa tại: `.main-topbar-wrapper` xếp dọc để banner nằm dưới header. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt; chưa xem lại banner trên trình duyệt. Chưa commit, chưa deploy.
+- Sửa tại: `.main-topbar-wrapper` xếp dọc để banner nằm dưới header. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt; chưa xem lại banner trên trình duyệt. Chưa deploy.
 
 ## BUG-E2E-0031 — FIXED
 
@@ -951,7 +953,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Chữ liên kết xanh trên nền xanh đậm.
 - Bằng chứng:
   - Screenshot: ![S0-0031--dang-ky-ngay-tuong-phan-thap.jpg](master-e2e/screenshots/S0-0031--dang-ky-ngay-tuong-phan-thap.jpg)
-- Sửa tại: Chân form đăng nhập đổi từ `<footer>` sang `<div>` (style `footer` toàn cục tô nền xanh đậm). Đã xem lại trên trình duyệt local. File thuộc 001, cần báo owner. Chưa commit, chưa deploy.
+- Sửa tại: Chân form đăng nhập đổi từ `<footer>` sang `<div>` (style `footer` toàn cục tô nền xanh đậm). Đã xem lại trên trình duyệt local. File thuộc 001, cần báo owner. Chưa deploy.
 
 ## BUG-E2E-0032 — FIXED
 
@@ -968,7 +970,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Placeholder `e.g. WG-20261113-ABCD`.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Placeholder đổi thành `GRP-…`. Đã xem lại trên trình duyệt local. Chưa commit, chưa deploy.
+- Sửa tại: Placeholder đổi thành `GRP-…`. Đã xem lại trên trình duyệt local. Chưa deploy.
 
 ## BUG-E2E-0033 — FIXED
 
@@ -985,7 +987,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Không có nút quay lại; ô "Mã điều chỉnh" đứng trơ.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Thêm liên kết quay lại ở folio Member và câu giải thích ô mã điều chỉnh. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Thêm liên kết quay lại ở folio Member và câu giải thích ô mã điều chỉnh. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0034 — CLOSED
 
@@ -1004,7 +1006,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Screenshot: ![S2-0034--o-email-nguoi-nhan.jpg](master-e2e/screenshots/S2-0034--o-email-nguoi-nhan.jpg)
 - Ghi chú xử lý: Không phải lỗi theo code: các input nằm trong `<label>` nên có accessible name; cây truy cập của công cụ test không hiện tên.
 
-## BUG-E2E-0035 — OPEN
+## BUG-E2E-0035 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1020,6 +1022,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Sửa một phần (2026-11-26): cột "Ca" chỉ còn 8 ký tự đầu của mã, mã đầy đủ ở tooltip. Hiện tên khung giờ cần API trả nhãn.
+- Sửa tại: cột "Ca" hiện nhãn khung giờ đọc từ `GET /workshop-locations/{id}/slots`; không đọc được thì hiện mã rút gọn. Có test trong `sessionBoardLocations.test.jsx`. Ngày 2026-11-26, chưa deploy; chưa xem trên trình duyệt với phiên Staff.
 
 ## BUG-E2E-0036 — FIXED
 
@@ -1036,7 +1039,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Chỉ có giờ, nên hai dòng "Buổi 09:30" trông như trùng.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Việc của ca không phải hôm nay ghi thêm ngày; có test `staffWork.test.js`. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. File thuộc 014/013, cần báo owner. Chưa commit, chưa deploy.
+- Sửa tại: Việc của ca không phải hôm nay ghi thêm ngày; có test `staffWork.test.js`. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. File thuộc 014/013, cần báo owner. Chưa deploy.
 
 ## BUG-E2E-0037 — FIXED
 
@@ -1053,7 +1056,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Thông báo ghi "chuyển ca sang IN PROGRESS".
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Thông báo dùng "Đang diễn ra" / "In progress". Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Thông báo dùng "Đang diễn ra" / "In progress". Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0038 — FIXED
 
@@ -1070,7 +1073,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: `disabled = false` (không bấm thử).
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Nút "Chốt folio" bị vô hiệu khi folio FINALIZED hoặc CLOSED. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Nút "Chốt folio" bị vô hiệu khi folio FINALIZED hoặc CLOSED. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0039 — FIXED
 
@@ -1087,9 +1090,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: `CONFIRMED`, `SETTLE-CHARGE-…`, mô tả xuống dòng từng từ.
 - Bằng chứng:
   - Screenshot: ![S3-0039--bang-addon-confirmed.jpg](master-e2e/screenshots/S3-0039--bang-addon-confirmed.jpg)
-- Sửa tại: Thêm nhãn `lineStatus.CONFIRMED`, bảng có bề rộng tối thiểu và cuộn ngang. Mã dòng vẫn hiện dạng rút gọn. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt; chưa xem lại trên trình duyệt. Chưa commit, chưa deploy.
+- Sửa tại: Thêm nhãn `lineStatus.CONFIRMED`, bảng có bề rộng tối thiểu và cuộn ngang. Mã dòng vẫn hiện dạng rút gọn. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt; chưa xem lại trên trình duyệt. Chưa deploy.
 
-## BUG-E2E-0040 — OPEN
+## BUG-E2E-0040 — CLOSED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1105,8 +1108,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chờ quyết định của owner 003.
+- Quyết định: Giữ nguyên theo quyết định 2026-11-26: Guest chỉ huỷ/đổi vé khi có mã xác minh người mua. Đã ghi vào spec 003.3.
 
-## BUG-E2E-0041 — OPEN
+## BUG-E2E-0041 — CLOSED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1122,8 +1126,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chờ quyết định của owner 003.2.
+- Quyết định: Giữ nguyên theo spec 003.2: chốt điểm danh thủ công, giờ kết thúc chỉ để tham khảo. Đã ghi vào spec 003.3.
 
-## BUG-E2E-0042 — OPEN
+## BUG-E2E-0042 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1140,6 +1145,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chờ quyết định của owner 003.3.
+- Sửa tại: Mỗi khoản add-on/phụ phí ghi audit `CHARGE_ADDED`. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
 ## BUG-E2E-0043 — FIXED
 
@@ -1157,9 +1163,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Hiện `2`, `8`; các dòng `FOLIO_CASH_COLLECTED` thì hiện đủ tên kèm id.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Đổi lịch, duyệt yêu cầu đổi và điều chỉnh folio ghi `account:<id>`; 151 test backend liên quan đạt ngày 2026-11-26. Các dòng audit cũ vẫn là số trần. Chưa commit, chưa deploy.
+- Sửa tại: Đổi lịch, duyệt yêu cầu đổi và điều chỉnh folio ghi `account:<id>`; 151 test backend liên quan đạt ngày 2026-11-26. Các dòng audit cũ vẫn là số trần. Chưa deploy.
 
-## BUG-E2E-0044 — OPEN
+## BUG-E2E-0044 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1175,8 +1181,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chờ quyết định: có thêm hộp xác nhận không, nội dung gì.
+- Sửa tại: Thêm hộp xác nhận trước khi chốt điểm danh. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
-## BUG-E2E-0045 — OPEN
+## BUG-E2E-0045 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1194,8 +1201,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chưa sửa: vé đã huỷ không còn entitlement nên 003.1 lấy buổi lúc đặt; cần 003.2 cung cấp buổi đã nhả qua facade (đổi contract, cần chốt).
+- Sửa tại: Thêm `getCancelledTicketSessions` ở 003.2; 003.1 hiện đúng buổi của vé đã huỷ. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
-## BUG-E2E-0046 — OPEN
+## BUG-E2E-0046 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1212,6 +1220,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
 - Ghi chú xử lý: Chờ quyết định: ẩn, hiện 0 hay ghi "không phải thu".
+- Sửa tại: Vé đã huỷ và folio `CLOSED` hiện "Không phải thu". Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
 ## BUG-E2E-0047 — FIXED
 
@@ -1229,7 +1238,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: HTTP 409, giao diện hiện "Ticket is CANCELLED, check-in rejected".
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Frontend dịch mã `TICKET_CONFLICT` (một câu chung cho các lý do cùng mã). Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Frontend dịch mã `TICKET_CONFLICT` (một câu chung cho các lý do cùng mã). Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0048 — FIXED
 
@@ -1246,7 +1255,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: API trả 403 (không lộ dữ liệu), trình duyệt chuyển về `/` không có thông báo.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
-- Sửa tại: Folio của Member đọc với `suppressAccessDenied`, nên 403 hiện câu "không tìm thấy vé" thay vì chuyển về trang chủ. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Folio của Member đọc với `suppressAccessDenied`, nên 403 hiện câu "không tìm thấy vé" thay vì chuyển về trang chủ. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
 ## BUG-E2E-0049 — FIXED
 
@@ -1272,7 +1281,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Sửa tại: thêm `partRef` vào `RestoreVoucherCommand` (006), 003.3 truyền `ctx.partRef()`, cập nhật contract facade (BE-DESIGN-0014, phương án A).
 - Kiểm lại: test tái hiện `restoreVoucherFindsTheTicketByItsPartReferenceNotItsTicketCode` đỏ trước khi sửa (cùng thông báo như staging), sau sửa đạt; 95 test của các lớp liên quan và 18 test Modulith đạt ngày 2026-11-26. Chưa commit, chưa deploy, chưa chạy lại S7 trên staging.
 
-## BUG-E2E-0050 — OPEN
+## BUG-E2E-0050 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1288,6 +1297,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
 - Ghi chú xử lý: Chờ quyết định thiết kế trang chọn buổi thay thế.
+- Sửa tại: Hoàn tiền lên đầu; chỉ liệt kê ca chọn được; lọc theo chi nhánh và ngày. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
 
 ## BUG-E2E-0051 — FIXED
 
@@ -1304,9 +1314,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Thực tế quan sát: Mỗi mục có tiền tố như `INSTRUCTOR_UNAVAILABLE —`.
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
-- Sửa tại: Ba danh sách lý do (check-in, khôi phục, huỷ ca) chỉ hiện mô tả. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa commit, chưa deploy.
+- Sửa tại: Ba danh sách lý do (check-in, khôi phục, huỷ ca) chỉ hiện mô tả. Ngày 2026-11-26: toàn bộ test frontend 1396/1396 đạt, build đạt. Chưa deploy.
 
-## BUG-E2E-0052 — OPEN
+## BUG-E2E-0052 — FIXED
 
 - Ngày: 2026-11-26
 - Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
@@ -1322,3 +1332,4 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 - Bằng chứng:
   - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
 - Ghi chú xử lý: Chờ quyết định cùng BUG-E2E-0044.
+- Sửa tại: Thêm hộp xác nhận trước khi huỷ ca. Ngày 2026-11-26, chưa deploy; test và build ở mục ghi chú cuối đợt.
