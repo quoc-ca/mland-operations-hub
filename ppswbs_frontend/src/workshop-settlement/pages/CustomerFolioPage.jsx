@@ -18,6 +18,7 @@ function FolioView({ folio }) {
   const folioStatus = useEnumLabel(messages, 'folioStatus');
   const collectionStatus = useEnumLabel(messages, 'collectionStatus');
   const methodLabel = useEnumLabel(messages, 'method');
+  const charges = (folio.charges || []).filter(line => line.status !== 'VOIDED');
   return (
     <section className="wsp-panel" aria-label={t('cf.folioAria')}>
       <div className="wsp-panel-head"><h2>{folio.ticketCode}</h2><span className="ops-status">{folioStatus(folio.status)}</span></div>
@@ -25,9 +26,17 @@ function FolioView({ folio }) {
         <div><dt>{t('cf.total')}</dt><dd>{fmt.money(folio.totalAmount)}</dd></div>
         <div><dt>{t('cf.paid')}</dt><dd>{fmt.money(folio.paidAmount)}</dd></div>
         {folio.pendingAmount !== undefined && <div><dt>{t('cf.awaiting')}</dt><dd>{fmt.money(folio.pendingAmount)}</dd></div>}
-        <div><dt>{t('cf.balanceDue')}</dt><dd>{fmt.money(folio.balanceDue)}</dd></div>
+        <div><dt>{t('cf.balanceDue')}</dt><dd>{folio.status === 'CLOSED' ? t('cf.notCollected') : fmt.money(folio.balanceDue)}</dd></div>
       </dl>
       <VoucherNotRestoredNotice voucherRestoration={folio.voucherRestoration} />
+      {charges.length > 0 && (
+        <table className="ops-table" aria-label={t('cf.charges')}>
+          <thead><tr><th>{t('cf.col.charge')}</th><th>{t('cf.col.amount')}</th></tr></thead>
+          <tbody>
+            {charges.map(line => <tr key={line.chargeReference}><td style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{line.description}</td><td>{fmt.money(line.amount)}</td></tr>)}
+          </tbody>
+        </table>
+      )}
       {(folio.collections || []).length > 0 && (
         <table className="ops-table">
           <thead><tr><th>{t('cf.col.method')}</th><th>{t('cf.col.amount')}</th><th>{t('cf.col.status')}</th></tr></thead>

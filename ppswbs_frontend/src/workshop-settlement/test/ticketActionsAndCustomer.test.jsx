@@ -302,9 +302,10 @@ describe('Customer Mland remedy page', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/remedy', session: fakeSession('signed-out') });
     const radios = await screen.findAllByRole('radio');
-    expect(radios[1]).toBeDisabled(); // not selectable
+    expect(radios).toHaveLength(2); // the refund first; the session that cannot be chosen is not listed
+    expect(radios[0]).toHaveAttribute('value', 'REFUND');
     const send = screen.getByRole('button', { name: 'Send my answer' });
-    await user.click(radios[0]);
+    await user.click(radios[1]);
     expect(send).toBeDisabled(); // a Guest still needs the buyer proof
     await verifyBuyer(user, { guest: true });
     await user.click(send);

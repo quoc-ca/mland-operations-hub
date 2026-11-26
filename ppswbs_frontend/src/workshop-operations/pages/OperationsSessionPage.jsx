@@ -7,7 +7,7 @@ import { useHttp } from '../../shared/api/useHttp';
 import { enumLabel, formatDateTime, translate, useEnumLabel, useFormat, useLanguage, useT } from '../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../shared/ui/messages';
 import { messages } from '../messages';
-import { ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { ConfirmDialog, ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { sessionTimeRange } from './OperationsDashboardPage';
@@ -202,6 +202,7 @@ export default function OperationsSessionPage() {
   const [customAccountId, setCustomAccountId] = useState(false);
   // T115: the Staff whose removal needs the Manager's confirmation (the last assignment after check-in opened).
   const [pendingLastRemoval, setPendingLastRemoval] = useState(null);
+  const [confirming, setConfirming] = useState(null); // 'finalize' | 'cancel'
   // T130: why the chosen Staff cannot be assigned (STAFF_NOT_ELIGIBLE reason), shown next to the form.
   const [assignmentError, setAssignmentError] = useState('');
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -380,6 +381,16 @@ export default function OperationsSessionPage() {
       <span className={`ops-status large session-state session-state-${String(session.state).toLowerCase()}`}>{stateLabel(session.state)}</span>
     </header>
     <SuccessNotice>{message}</SuccessNotice><ErrorNotice error={command.error} onRetry={command.retry} onReload={resource.reload} />
+    <ConfirmDialog open={confirming === 'finalize'} title={t('ses.confirm.finalizeTitle')} confirmLabel={t('ses.confirm.finalize')}
+      onCancel={() => setConfirming(null)}
+      onConfirm={() => { setConfirming(null); run(key => api.finalizeAttendance(sessionId, key), t('ses.ok.finalized')); }}>
+      <p>{t('ses.confirm.finalizeBody', { checked: checkedInCount, total: rosterRows.length, rest: rosterRows.length - checkedInCount })}</p>
+    </ConfirmDialog>
+    <ConfirmDialog open={confirming === 'cancel'} danger title={t('ses.confirm.cancelTitle')} confirmLabel={t('ses.confirm.cancel')}
+      onCancel={() => setConfirming(null)}
+      onConfirm={() => { setConfirming(null); run(key => api.cancelSession(sessionId, { reasonCode: cancelReasonCode, reasonNote: cancelReasonNote.trim() }, key), t('ses.ok.cancelRequested')); }}>
+      <p>{t('ses.confirm.cancelBody', { total: rosterRows.length })}</p>
+    </ConfirmDialog>
     {isManager && session.missingStaff && <div className="notice error" role="alert">{t('ses.missingStaff')}</div>}
     <section className="ops-detail-grid">
       <article className="wsp-panel">
@@ -492,7 +503,7 @@ export default function OperationsSessionPage() {
           )}
         </div>
       </article>
-      <article className="wsp-panel"><div className="wsp-panel-head"><h2>{t('ses.facts')}</h2></div><dl className="ops-facts"><div><dt>{t('ses.capacity')}</dt><dd>{session.capacity}</dd></div><div><dt>{t('ses.checkInOpens')}</dt><dd>{session.checkInOpensAt ? fmt.dateTime(session.checkInOpensAt) : '—'}</dd></div><div><dt>{t('ses.assignedStaff')}</dt><dd>{assignedStaffLabel}</dd></div></dl>{transitionError && (<div className="notice error" role="alert"><p>{transitionError.text}</p>{transitionError.error.code && <p className="muted small">{t('ses.codeLine', { code: transitionError.error.code })}</p>}{transitionError.error.correlationId && <p className="muted small">{t('ses.correlation', { id: transitionError.error.correlationId })}</p>}<div className="notice-actions"><button type="button" className="button outline" onClick={() => { setTransitionError(null); resource.reload(); }}>{t('ses.reloadState')}</button></div></div>)}<div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state, t)) || command.pending} title={transitionBlockedReason(session.state, state, t)} onClick={() => runTransition(state)}>{stateLabel(state)}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? t('ses.finalizeTitle') : undefined} onClick={() => run(key => api.finalizeAttendance(sessionId, key), t('ses.ok.finalized'))}>{t('ses.finalize')}</button></div></article>
+      <article className="wsp-panel"><div className="wsp-panel-head"><h2>{t('ses.facts')}</h2></div><dl className="ops-facts"><div><dt>{t('ses.capacity')}</dt><dd>{session.capacity}</dd></div><div><dt>{t('ses.checkInOpens')}</dt><dd>{session.checkInOpensAt ? fmt.dateTime(session.checkInOpensAt) : '—'}</dd></div><div><dt>{t('ses.assignedStaff')}</dt><dd>{assignedStaffLabel}</dd></div></dl>{transitionError && (<div className="notice error" role="alert"><p>{transitionError.text}</p>{transitionError.error.code && <p className="muted small">{t('ses.codeLine', { code: transitionError.error.code })}</p>}{transitionError.error.correlationId && <p className="muted small">{t('ses.correlation', { id: transitionError.error.correlationId })}</p>}<div className="notice-actions"><button type="button" className="button outline" onClick={() => { setTransitionError(null); resource.reload(); }}>{t('ses.reloadState')}</button></div></div>)}<div className="ops-actions">{/* ATTENDANCE_FINALIZED is not a plain state change: only "Finalize attendance" marks no-shows and records the finalization time. */SALES_STATES.map(state => <button key={state} className="button outline" disabled={Boolean(transitionBlockedReason(session.state, state, t)) || command.pending} title={transitionBlockedReason(session.state, state, t)} onClick={() => runTransition(state)}>{stateLabel(state)}</button>)}<button className="button primary" disabled={command.pending || session.state !== 'IN_PROGRESS'} title={session.state !== 'IN_PROGRESS' ? t('ses.finalizeTitle') : undefined} onClick={() => setConfirming('finalize')}>{t('ses.finalize')}</button></div></article>
       <article className="wsp-panel roster-panel" aria-label={t('ses.roster')}>
         <div className="wsp-panel-head">
           <h2>{t('ses.roster')}</h2>
@@ -783,7 +794,7 @@ export default function OperationsSessionPage() {
         <button
           className="button danger"
           disabled={command.pending || !cancelReasonNote.trim()}
-          onClick={() => run(key => api.cancelSession(sessionId, { reasonCode: cancelReasonCode, reasonNote: cancelReasonNote.trim() }, key), t('ses.ok.cancelRequested'))}
+          onClick={() => setConfirming('cancel')}
         >
           {t('ses.cancel.request')}
         </button>

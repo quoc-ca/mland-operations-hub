@@ -30,6 +30,7 @@ function useValue() {
 /** "Giá sau voucher {mã}", with "· tại {chi nhánh}" for a voucher limited to branches (Session 2026-11-23). */
 function WorkshopVoucherTag({ program }) {
   const t = useT(messages);
+  const { status } = useAuth();
   const api = useLoyaltyApi();
   const ids = (program.targets?.branchIds || []).map(String);
   const names = usePublicBranchNames(api, ids);
@@ -38,7 +39,12 @@ function WorkshopVoucherTag({ program }) {
   const text = !ids.length ? t('wsOffer.afterVoucher', { code })
     : known.length === ids.length ? t('offer.afterVoucherAt', { code, branches: known.join(', ') })
       : t('offer.afterVoucherAtCount', { code, count: ids.length });
-  return <span className="offer-voucher-tag" title={program.name}>{text}</span>;
+  return (
+    <>
+      <span className="offer-voucher-tag" title={program.name}>{text}</span>
+      {status !== 'signed-in' && <span className="offer-applies">{t('wsOffer.membersOnly')}</span>}
+    </>
+  );
 }
 
 /**
@@ -115,7 +121,8 @@ export function WorkshopOfferList({ offers }) {
             {offers.auto && (
               <li className="ws-offer-card">
                 <span className="offer-badge auto">{t('offer.auto', { value: value(offers.auto.discount) })}</span>
-                <span className="ws-offer-body"><strong>{keepMoneyTogether(offers.auto.name)}</strong><small>{t('wsOffer.autoDetail')}</small></span>
+                <span className="ws-offer-body"><strong>{keepMoneyTogether(offers.auto.name)}</strong><small>{t('wsOffer.autoDetail')}{offers.auto.discount?.maxDiscountAmount
+                  ? ` · ${t('wsOffer.autoCap', { max: format.money(offers.auto.discount.maxDiscountAmount) })}` : ''}</small></span>
               </li>
             )}
             {offers.autoForBiggerOrder.map(program => (
