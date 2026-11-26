@@ -62,6 +62,15 @@ Rules for flows:
 - A long rule, list, or policy goes to Business Rules or the appendix, not into a flow line.
 - Keep the actor in the header consistent with who performs step 1.
 
+## Screen specification template (Report 3, section 5.III)
+
+Keep screen specifications as concise UI references. Do not duplicate Section 4.II use-case flows or backend internals (idempotency, SMTP retries, audit logs).
+
+1. Heading `#### n.m.k Screen Name`.
+2. Image placeholder(s): `{{r3-<nn>-<screen-name> width=100% align=center}}` (where `<nn>` is the section number, e.g., `02`). For tall screens, split into sequential screenshots (`{{r3-<nn>-<screen-name>-1 ...}}`, `{{r3-<nn>-<screen-name>-2 ...}}`).
+3. Brief description (1–2 sentences): start with `**Description:**` and state what the screen **displays** and **who can do what** on it.
+4. Field table wrapped in `::: {.docx-table width="100%" columns="50%,50%"}` with two columns: `Field Name` and `Description`. List only visible UI fields, key input rules, and navigation actions concisely.
+
 ## Change history
 
 Git and GitHub commit history are the authoritative record of document author, date, and change description. Change History tables and ChangeLog tabs are generated at build time. Do not add or edit manual document versions or ChangeLog records. Exception: the `Created By` and `Created Date` cells of a use case header may be filled by hand. Leave blank when unknown; never guess.

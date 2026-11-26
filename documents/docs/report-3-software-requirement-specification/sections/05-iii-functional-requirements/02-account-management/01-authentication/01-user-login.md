@@ -1,24 +1,21 @@
 #### 2.1.1 User Login
 
-![](assets/screens/02-user-login.png)
+{{r3-02-user-login width=100% align=center}}
 
-This screen allows users of every role to:
+**Description:** Displays the sign-in form and allows Visitors of any role to authenticate with email and password or Google, then redirect to their role home or `returnTo` path.
 
-- Sign in with email and password, or with Google, through Firebase Authentication.
-- Have their Mland account resolved (or created on first Google sign-in) by the server after the identity sign-in.
-- Reach their destination: a Carrier always goes to Carrier Portal; others go to the `returnTo` page if one is given, otherwise a Member goes to Home Page, Staff to Staff Home, a Manager to Manager Dashboard and an Admin to User Account List.
-- Open User Register or Forgot Password.
-
-Only a `returnTo` path on this site is followed.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Sign in with Google | Shown when Firebase is configured. Redirects to Google and processes the returned sign-in result. An email already registered with a password is refused with guidance to use that method. |
-| Email address | Required; must be a valid email format. |
+| Sign in with Google | Authenticates via Google when Firebase is configured. |
+| Email address | Required valid email address. |
 | Password | Required, masked, at least 6 characters. |
 | Forgot password? | Link to Forgot Password. |
-| Sign in | Submits the form; shows "Processing…" and disables the inputs while working. |
-| Error message | Wrong email or password shows "Incorrect email or password."; a suspended or ineligible account shows "Your account is suspended or not eligible."; other messages cover too many attempts, network errors and blocked pop-ups. |
-| Retry connection | Shown when the account service is temporarily unavailable; retries the account lookup without signing in again. |
+| Sign in | Submits credentials; disables inputs while processing. |
+| Error message | Displays invalid credentials, suspended account, or network errors. |
+| Retry connection | Retries account lookup if the server is temporarily unavailable. |
 | Register now | Link to User Register. |
 | ← Back | Returns to Home Page. |
+
+:::
