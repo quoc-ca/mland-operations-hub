@@ -109,7 +109,7 @@ public class WorkshopRingDesignIntegrationTest {
             ringMaterialRepository.save(RingMaterial.builder()
                     .materialCode("MAT-SILVER-925")
                     .materialName("Bạc Ý 925")
-                    .unitPrice(new BigDecimal("250000.00"))
+                    .unitPrice(new BigDecimal("900000.00"))
                     .currency("VND")
                     .difficultyScore(new BigDecimal("1.0000"))
                     .isActive(true)

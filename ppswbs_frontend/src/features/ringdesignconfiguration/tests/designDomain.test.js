@@ -8,6 +8,9 @@ import {
   derivePreviewModel,
   findNextAvailableAngle,
   getDifficultyMeta,
+  getBaseMaterialPrice,
+  estimateExcessMaterialCost,
+  estimateTotalMaterialCost,
   MATERIAL_PALETTES,
   SHAPE_STROKES,
 } from '../domain/designPreview';
@@ -449,6 +452,48 @@ describe('Gemstone Non-overlapping Angle Distribution', () => {
     const angles = preview.stones.map((g) => g.angleDeg);
     const uniqueAngles = new Set(angles);
     expect(uniqueAngles.size).toBe(3);
+  });
+
+  describe('Ring Material Pricing and Excess Weight Formula', () => {
+    it('fixes base price for ring mass <= 3.0g (Silver: 900k, Copper/Steel: 750k)', () => {
+      // Silver: 900k
+      expect(getBaseMaterialPrice('MAT-SILVER-925')).toBe(900000);
+      expect(estimateExcessMaterialCost(1.0, 'MAT-SILVER-925')).toBe(0);
+      expect(estimateExcessMaterialCost(2.5, 'MAT-SILVER-925')).toBe(0);
+      expect(estimateExcessMaterialCost(3.0, 'MAT-SILVER-925')).toBe(0);
+      expect(estimateTotalMaterialCost(1.0, 'MAT-SILVER-925')).toBe(900000);
+      expect(estimateTotalMaterialCost(3.0, 'MAT-SILVER-925')).toBe(900000);
+
+      // Copper: 750k
+      expect(getBaseMaterialPrice('MAT-COPPER')).toBe(750000);
+      expect(estimateExcessMaterialCost(2.0, 'MAT-COPPER')).toBe(0);
+      expect(estimateExcessMaterialCost(3.0, 'MAT-COPPER')).toBe(0);
+      expect(estimateTotalMaterialCost(2.0, 'MAT-COPPER')).toBe(750000);
+      expect(estimateTotalMaterialCost(3.0, 'MAT-COPPER')).toBe(750000);
+
+      // Steel: 750k
+      expect(getBaseMaterialPrice('MAT-STAINLESS-STEEL')).toBe(750000);
+      expect(estimateExcessMaterialCost(3.0, 'MAT-STAINLESS-STEEL')).toBe(0);
+      expect(estimateTotalMaterialCost(3.0, 'MAT-STAINLESS-STEEL')).toBe(750000);
+    });
+
+    it('calculates excess cost as 120,000 * (totalMass - 3) when mass > 3.0g', () => {
+      // Silver: 4.0g -> excess 1.0g -> +120k -> total 1,020,000 VND
+      expect(estimateExcessMaterialCost(4.0, 'MAT-SILVER-925')).toBe(120000);
+      expect(estimateTotalMaterialCost(4.0, 'MAT-SILVER-925')).toBe(1020000);
+
+      // Silver: 3.5g -> excess 0.5g -> +60k -> total 960,000 VND
+      expect(estimateExcessMaterialCost(3.5, 'MAT-SILVER-925')).toBe(60000);
+      expect(estimateTotalMaterialCost(3.5, 'MAT-SILVER-925')).toBe(960000);
+
+      // Copper: 4.0g -> excess 1.0g -> +120k -> total 870,000 VND
+      expect(estimateExcessMaterialCost(4.0, 'MAT-COPPER')).toBe(120000);
+      expect(estimateTotalMaterialCost(4.0, 'MAT-COPPER')).toBe(870000);
+
+      // Steel: 3.5g -> excess 0.5g -> +60k -> total 810,000 VND
+      expect(estimateExcessMaterialCost(3.5, 'MAT-STAINLESS-STEEL')).toBe(60000);
+      expect(estimateTotalMaterialCost(3.5, 'MAT-STAINLESS-STEEL')).toBe(810000);
+    });
   });
 });
 
