@@ -7,14 +7,22 @@
 
 ## Status
 
-**Current approval status:** `VISUAL BASELINE APPROVED — SUPERSEDING BUSINESS/IMPLEMENTATION GATES REMAIN`
+**Current approval status:** `APPROVED — 2026-11-26 FULL-SCOPE REBASELINE APPROVED`
 
-> The approval below is historical for the former booking-attachment baseline.
-> The 2026-11-22 change request is not approved for implementation until the
-> saved-design recommendation, consultation handoff and retired booking flow
-> have been reviewed again.
+> Tech Lead Ngô Tiến Đạt approved the 2026-11-26 full-scope rebaseline via
+> `review-for-approval.md` (covering Member-only flow, retired Guest/booking
+> attachment, updated `V204` base pricing & `120,000 VND/g` excess formula,
+> Admin-owned difficulty policy, FE-09 editor, `data-model.md` §7–8,
+> customer/Admin OpenAPI contracts, and C7 Technical Projection).
 
-## Proposed 2026-11-26 full-scope rebaseline — not approved
+## Approved 2026-11-26 full-scope rebaseline
+
+| Field | Approved value |
+| --- | --- |
+| Decision | APPROVED |
+| Approved scope | `spec.md`, `plan.md`, `formula.md`, `data-model.md`, `contracts/{workshop-ring-design,admin-ring-difficulty}.openapi.yaml`, `design/{architecture,workflows,ui-flow}.md`, `frontend-handoff.md`, `tasks.md`, and `review-for-approval.md` |
+| Date approved | 2026-11-26 |
+| Tech Lead | Ngô Tiến Đạt |
 
 The Member-only general/package-filtered design flow, retired Guest/booking
 commands, saved-design recommendation/consultation boundary, new Admin-only
@@ -109,7 +117,7 @@ and Frontend React + Vite configurator using Figma frames (457:1553, 457:1554, 4
 1. [x] Approve physical mapping of configured-design versions and P2.9 snapshot persistence. (Row-per-version `ring_designs`, `source_design_id` lineage, JSON snapshot).
 2. [x] Retire the Feature-012-owned Guest session table and cleanup/replay rules. Guest preview is local-only and no Guest design state is persisted.
 3. [x] Approve the Manager-owned option/rule facade and its versioned evaluation input/output contract. (`DesignOptionRulesPort`, advisory estimate, difficulty score, `DesignOptionsResponse`).
-4. [ ] Approve the superseding removal of Workshop Booking attachment. The former `attachAndLockDesignForBooking(...)` and REST attachment endpoint are retired and must not be implemented in the current baseline.
+4. [x] Approve the superseding removal of Workshop Booking attachment. The former `attachAndLockDesignForBooking(...)` and REST attachment endpoint are retired and must not be implemented in the current baseline.
 5. [x] Verify Flyway version/history; repository baseline verified at `V109__catalogue_variant_branch_stock.sql`. Next append-only migration is confirmed as `V110__workshop_ring_design_configuration.sql`.
 6. [x] Approve Frontend visual baseline and Figma node IDs (`457:1553`, `457:1554`, `457:1655`, `457:1698`, `457:1749`, `457:1795`), local-only Guest preview state, and 2D SVG Live Preview.
 

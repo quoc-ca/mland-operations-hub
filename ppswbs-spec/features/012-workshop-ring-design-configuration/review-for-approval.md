@@ -3,8 +3,8 @@
 **Ngày tạo**: 2026-11-26
 **Cập nhật**: 2026-11-26
 **Người cập nhật**: Phan Sơn
-**Người review dự kiến**: Ngô Tiến Đạt (Tech Lead)
-**Trạng thái**: `PROPOSED FOR REVIEW` — Chờ Tech Lead duyệt (bản duyệt cũ 2026-11-09 và visual 2026-11-22 không tự động áp dụng cho phần thay đổi mới).
+**Người review**: Ngô Tiến Đạt (Tech Lead)
+**Trạng thái**: `APPROVED` — Tech Lead Ngô Tiến Đạt đã duyệt chốt ngày **2026-11-26**.
 
 ---
 
@@ -52,9 +52,11 @@
 
 ---
 
-## 3. Cần Tech Lead (Đạt) review & chốt
+## 3. Quyết định của Tech Lead (Ngô Tiến Đạt — 2026-11-26)
 
-1. Duyệt **Admin OpenAPI** (`admin-ring-difficulty.openapi.yaml`) và **Member OpenAPI** (`workshop-ring-design.openapi.yaml`).
-2. Duyệt thiết kế bảng & migration đề xuất trong **`data-model.md` §8** (kiểm tra khớp với Flyway hiện tại của DB).
-3. Duyệt **UI baseline bằng văn bản** cho màn `/admin/ring-difficulty` trong **`009/design/ui-flow.md`** (tái sử dụng shell Admin, không tạo Figma frame mới).
-4. Kiểm tra lại ranh giới tích hợp **Feature-013** (tư vấn) và ghi quyết định vào **`012/approval.md`** + **`009/approval.md`**.
+- **Đã duyệt (APPROVED):**
+  1. **Admin OpenAPI** (`admin-ring-difficulty.openapi.yaml`) và **Member OpenAPI** (`workshop-ring-design.openapi.yaml`).
+  2. Thiết kế bảng & migration đề xuất trong **`data-model.md` §8** (đối chiếu Flyway hiện tại của DB khi triển khai).
+  3. **UI baseline bằng văn bản** cho màn `/admin/ring-difficulty` trong **`009/design/ui-flow.md`** (tái sử dụng shell Admin, không tạo Figma frame mới).
+  4. Toàn bộ nội dung đã chốt ở mục 1 & 2 cho **Feature-009** và **Feature-012** (đã ghi nhận vào `012/approval.md` và `009/approval.md`).
+- **Lưu ý khi triển khai:** Kiểm tra lại ranh giới tích hợp **Feature-013** (tư vấn) khi kết nối handoff.

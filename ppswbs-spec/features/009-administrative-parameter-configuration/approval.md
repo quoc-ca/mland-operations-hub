@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Status:** DRAFT/PROPOSED — no approval of this revision is recorded.
+**Status:** APPROVED — Tech Lead (Ngô Tiến Đạt) approved on 2026-11-26 via Feature-012 `review-for-approval.md`.
 
 ## Candidate for Tech Lead review
 
@@ -27,10 +27,10 @@ its method and covered paths are in Feature-012 `review-for-approval.md`.
 
 ## Decision record
 
-| Field | Pending value |
+| Field | Approved value |
 | --- | --- |
-| Decision | PENDING TECH LEAD REVIEW |
-| Approved artifact revision/path | Not recorded |
-| Approved requirements/workflows/UI/API scope | Not recorded |
-| Date approved | Not recorded |
-| Tech Lead decision | Not recorded |
+| Decision | APPROVED |
+| Approved artifact revision/path | `ppswbs-spec/features/009-administrative-parameter-configuration/{spec.md,plan.md,tasks.md,design/architecture.md,design/workflows.md,design/ui-flow.md}` and `ppswbs-spec/features/012-workshop-ring-design-configuration/contracts/admin-ring-difficulty.openapi.yaml` (via `012/review-for-approval.md`) |
+| Approved requirements/workflows/UI/API scope | Active-Admin-only `/admin/ring-difficulty` ring-difficulty policy editor, written Admin shell UI baseline, preview-proof-gated publication, exhaustive active-model impact, history inspection/restore |
+| Date approved | 2026-11-26 |
+| Tech Lead decision | Approved — Ngô Tiến Đạt |

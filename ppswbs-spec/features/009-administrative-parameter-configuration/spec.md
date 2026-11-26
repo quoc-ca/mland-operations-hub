@@ -5,7 +5,7 @@
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
-**Status:** DRAFT/PROPOSED — Feature-012 contract and Tech Lead approval pending.
+**Status:** APPROVED — Tech Lead (Ngô Tiến Đạt) approved on 2026-11-26 via Feature-012 `review-for-approval.md`.
 
 ## Purpose and boundary
 
