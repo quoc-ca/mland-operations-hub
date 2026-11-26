@@ -29,7 +29,7 @@ describe('Manager-only panels on the session page', () => {
     expect(screen.getByText('Ticket delivery')).toBeInTheDocument();
     // Give the profile time to arrive, then confirm nothing of the Manager's appeared.
     await new Promise(resolve => setTimeout(resolve, 50));
-    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancellation handoff', 'Manager folio correction']) {
+    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancellation handoff', 'Manager bill correction']) {
       expect(screen.queryByText(hidden)).not.toBeInTheDocument();
     }
   });
@@ -38,7 +38,7 @@ describe('Manager-only panels on the session page', () => {
     open('MANAGER');
 
     expect(await screen.findByText('Staff assignment')).toBeInTheDocument();
-    for (const shown of ['Manager booking recovery', 'Cancellation handoff', 'Manager folio correction']) {
+    for (const shown of ['Manager booking recovery', 'Cancellation handoff', 'Manager bill correction']) {
       expect(screen.getByText(shown)).toBeInTheDocument();
     }
   });

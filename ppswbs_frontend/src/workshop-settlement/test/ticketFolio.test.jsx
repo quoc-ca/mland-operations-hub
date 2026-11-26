@@ -28,7 +28,7 @@ const amountField = async () => within(await screen.findByRole('form', { name: '
 
 async function openFolio(user, code = 'TK-1') {
   await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), code);
-  await user.click(screen.getByRole('button', { name: 'Open folio' }));
+  await user.click(screen.getByRole('button', { name: 'Open bill' }));
 }
 
 describe('Ticket folio opened from a link', () => {
@@ -167,7 +167,7 @@ describe('Ticket folio (Staff/Manager)', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
-    await user.click(await screen.findByRole('button', { name: 'Finalize folio' }));
+    await user.click(await screen.findByRole('button', { name: 'Finalize bill' }));
     expect(await screen.findByText(/the customer still owes money/)).toBeInTheDocument();
     expect(screen.getByText(/Record a collection/, { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('Code: OUTSTANDING_BALANCE')).toBeInTheDocument();

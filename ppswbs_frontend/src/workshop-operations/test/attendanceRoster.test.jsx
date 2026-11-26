@@ -40,7 +40,7 @@ describe('Attendance roster on the session page', () => {
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     const panel = within(await screen.findByRole('article', { name: 'Attendance roster' }));
-    const link = await panel.findByRole('link', { name: 'Folio / Add-on' });
+    const link = await panel.findByRole('link', { name: 'Bill / Add-on' });
     expect(link).toHaveAttribute('href', '/settlement?ticket=GRP-5E849940018F442D8C9C-L1-T1');
     expect(panel.getByText('GRP-5E849940018F442D8C9C-L1-T1')).toBeInTheDocument();
   });

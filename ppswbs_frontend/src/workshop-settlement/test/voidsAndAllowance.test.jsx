@@ -22,7 +22,7 @@ const folio = (status = 'OPEN') => json(200, {
 
 async function openFolio(user) {
   await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
-  await user.click(screen.getByRole('button', { name: 'Open folio' }));
+  await user.click(screen.getByRole('button', { name: 'Open bill' }));
 }
 
 describe('Manager void of a folio line or collection (FR-053)', () => {
@@ -34,7 +34,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
-    const lines = await screen.findByRole('table', { name: 'Folio lines' });
+    const lines = await screen.findByRole('table', { name: 'Bill lines' });
     expect(within(lines).getAllByRole('button', { name: 'Void line' })).toHaveLength(1); // the VOIDED line has none
     await user.click(within(lines).getByRole('button', { name: 'Void line' }));
     const dialog = screen.getByRole('dialog');
@@ -71,7 +71,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
     const user = userEvent.setup();
     const { unmount } = renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(user);
-    await screen.findByRole('table', { name: 'Folio lines' });
+    await screen.findByRole('table', { name: 'Bill lines' });
     expect(screen.queryByRole('button', { name: 'Void line' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Void' })).not.toBeInTheDocument();
     unmount();
@@ -79,7 +79,7 @@ describe('Manager void of a folio line or collection (FR-053)', () => {
     mockFetch({ [PROFILE]: asRole('MANAGER'), [`GET ${FOLIO}`]: folio('FINALIZED') });
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement' });
     await openFolio(userEvent.setup());
-    await screen.findByRole('table', { name: 'Folio lines' });
+    await screen.findByRole('table', { name: 'Bill lines' });
     expect(screen.queryByRole('button', { name: 'Void line' })).not.toBeInTheDocument();
   });
 });

@@ -92,7 +92,7 @@ export const GROUPS = [
   {
     id: 'collect', icon: 'cash', vi: 'Thu tiền', en: 'Collections',
     tabs: [
-      { id: 'folio', vi: 'Folio vé', en: 'Ticket folio', to: '/settlement', match: ['/settlement'], visible: staffOrManager },
+      { id: 'folio', vi: 'Hóa đơn vé', en: 'Ticket bill', to: '/settlement', match: ['/settlement'], visible: staffOrManager },
       { id: 'cash-close', vi: 'Chốt sổ tiền mặt', en: 'Cash close', to: '/settlement/cash-close?view=confirmation', match: ['/settlement/cash-close*'], visible: staffOrManager },
       { id: 'late-payments', vi: 'Thanh toán về trễ', en: 'Late payments', to: '/operations/late-payments', match: ['/operations/late-payments*'], visible: manager },
       { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Reconciliation list', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
