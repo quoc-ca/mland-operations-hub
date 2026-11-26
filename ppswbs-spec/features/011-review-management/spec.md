@@ -132,3 +132,17 @@ is allowed.
 8. Admin cannot make business moderation or reply decisions.
 9. Public list and aggregates exclude `HIDDEN` and `REMOVED` reviews.
 10. Public output never exposes private identity or transaction references.
+
+## 9. Technical Projection for Admin & Audit (C7 Compliance)
+
+> [!IMPORTANT]
+> **Đồng bộ mã nguồn & Kiến trúc cho Agent/Lập trình viên tiếp theo:**
+> - **Endpoint:** `GET /api/v1/reviews/{reviewId}/technical-projection`
+> - **Quyền truy cập (Authorized Roles):** `ADMIN`, `MANAGER` (Guest, Member, Staff: `403 FORBIDDEN` / `401 UNAUTHORIZED`).
+> - **DTO phía Backend:** `ReviewTechnicalProjectionDto` (`edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewTechnicalProjectionDto`).
+> - **Nguyên lý Phân tách Trách nhiệm (Separation of Duties):**
+>   - Admin có nhiệm vụ kiểm toán kỹ thuật, giám sát hệ thống và an ninh dữ liệu, nhưng **tuyệt đối không được xem** thông tin cá nhân (PII) của khách hàng hay nội dung bài đánh giá nhạy cảm.
+>   - Do đó, Technical Projection **loại bỏ/mask** toàn bộ: mã tài khoản khách (`accountId`), tên thật, email, số điện thoại, và nội dung đánh giá (`bodyText`).
+>   - Technical Projection **chỉ cung cấp** các thuộc tính kỹ thuật phục vụ kiểm toán: `id`, `targetType`, `targetReference`, `packageId`, `rating`, `status`, `imageCount`, `bodyTextLength`, `version`, `hasReply`, `createdAt`, `updatedAt`.
+> - **Khi tích hợp Frontend Admin/Audit:** Khi phát triển màn hình kiểm toán đánh giá cho Admin, frontend gọi trực tiếp endpoint `GET /api/v1/reviews/{reviewId}/technical-projection`, không gọi endpoint thương mại `/api/v1/reviews/{reviewId}`.
+

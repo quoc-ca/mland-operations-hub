@@ -19,6 +19,6 @@ Both save buttons stay disabled while the configuration fails validation. Price 
 | 3. Đá quý đính kèm | Gemstone cards with per-stone price and quantity controls; at most 10 stones in total, positioned by dragging on the top view. |
 | 4. Họa tiết trang trí | Optional attachment cards such as milgrain edges or brushed finishing, each with its added price. |
 | 5. Khắc chữ & Hình ảnh cá nhân hóa | Text and symbol engraving for a one-time fee of 80,000 VND (at most 2 placements, 50 characters each, inner or outer band) and up to 2 laser images at 100,000 VND each, cropped to a 160 × 160 px black-and-white frame. A warning recommends inner-band engraving on textured bands. |
-| Preview and summary | Ring preview, "Bản nháp" status, "Giá tham khảo" badge, an unsaved-changes notice and a summary of material, shape, size, dimensions, estimated weight (standard 3.0 g; each extra gram adds 120,000 VND), stones and engraving. |
+| Preview and summary | Ring preview, "Bản nháp" status, "Giá tham khảo" badge, an unsaved-changes notice and a summary of material (Bạc: 900.000 đ, Đồng/Thép: 750.000 đ), shape, size, dimensions, estimated weight (standard ≤ 3.0 g; excess mass > 3.0 g adds 120.000 đ/g), stones and engraving. |
 | **Lưu & Thẩm định** | Saves and evaluates the design, then opens Design Evaluation; shows "Đang lưu & thẩm định..." while saving and the server error message if saving fails. |
 | **Lưu & Xem danh sách đã lưu** | Saves the design in the same way, then opens My Ring Designs. |

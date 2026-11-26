@@ -195,7 +195,28 @@ Current densities:
 
 ### 5.3 Price-related values
 
-The evaluation also adds material base price, shape price adjustment, gemstone cost by quantity, attachment cost by quantity, standard engraving price, and custom-image price. If estimated mass exceeds `3.00 g`, an excess-material surcharge is calculated. These amounts are not difficulty points.
+The evaluation calculates estimated price and material cost based on authoritative catalogue and physical attributes:
+
+1. **Base material cost ($\le 3.00\text{ g}$)**:
+   - For designs with estimated mass up to $3.00\text{ g}$, the base material price is fixed:
+     - `MAT-SILVER-925`: **900,000 VND** (a 1.0g, 2.5g or 3.0g silver ring all have base price 900,000 VND)
+     - `MAT-COPPER`: **750,000 VND**
+     - `MAT-STAINLESS-STEEL`: **750,000 VND**
+2. **Excess material surcharge ($> 3.00\text{ g}$)**:
+   - When estimated mass exceeds $3.00\text{ g}$, the excess mass is charged at a fixed rate of **120,000 VND** per excess gram:
+     $$\text{excessWeight} = \text{estimatedWeight} - 3.00$$
+     $$\text{excessMaterialCost} = 120,000 \times \text{excessWeight}$$
+     $$\text{materialCost} = \text{baseUnitPrice} + \text{excessMaterialCost} = \text{baseUnitPrice} + 120,000 \times (\text{estimatedWeight} - 3.00)$$
+3. **Add-on components**:
+   - Shape adjustment (`ring_shapes.price_adjustment`)
+   - Gemstones (`gemstone.unitPrice × quantity`)
+   - Attachments (`attachment.unitPrice × quantity`)
+   - Standard engraving: **80,000 VND** once when enabled
+   - Custom laser images: **100,000 VND** per image
+
+$$\text{estimatedPrice} = \text{materialCost} + \text{shapeAdjustment} + \sum(\text{gemstoneCost}) + \sum(\text{attachmentCost}) + \text{engravingCost}$$
+
+These amounts are advisory and do not alter workshop package deposit or confirmed bookings.
 
 ## 6. Frontend difficulty classification
 

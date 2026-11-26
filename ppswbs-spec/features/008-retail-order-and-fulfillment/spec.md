@@ -328,7 +328,7 @@ configuration, accounting, or executive reporting in FE-10.
 | --- | --- |
 | Member | Select an active processing branch before browsing products, add eligible configured variants to the Member's own cart, edit the cart, choose fulfilment, review shipping fees, checkout, pay, and view only the Member's own orders and permitted shipment status. |
 | Staff | Review and process paid retail orders within the assigned branch, prepare orders, confirm a counter cash collection for a pickup order of the assigned branch, record customer pickup, and complete the physical GHTK handoff when authorized. |
-| Manager | Perform retail operational actions within an explicitly delegated branch/action scope, review retail payments that need manual reconciliation, and view daily confirmed retail cash per permitted branch; a Manager does not automatically receive unrestricted cross-branch access. |
+| Manager | Perform retail operational actions within an explicitly delegated branch/action scope, review retail payments that need manual reconciliation, and view daily confirmed retail cash per permitted branch; a Manager does not automatically receive unrestricted cross-branch access. Counter cash and customer handover stay with Staff (C2, 2026-11-26). |
 | Guest | Browse public products only; cannot create a retail cart checkout or retail order. |
 | Admin | May manage technical/account configuration but cannot use administrative authority as a retail-order business override. |
 | VNPay | Receive payment initiation requests and return provider payment evidence for server-side verification. |
@@ -482,6 +482,17 @@ configuration, accounting, or executive reporting in FE-10.
 - Q: How far does a Manager reach in retail? → A: (Thinh, 2026-11-25) Only the branches
   delegated to the Manager; the counter handover stays with Staff (T089). The global
   Manager scope of the cross-feature permission matrix does not apply to retail.
+- Q: Does a Manager open the branch retail work, and which actions stay with Staff? → A:
+  (Thinh, 2026-11-26, C2) Yes: `/staff/retail-orders`, `/staff/retail-shipments` and
+  `/staff/retail-pickups` allow STAFF and MANAGER. A Manager of a delegated branch may
+  pack orders like Staff: a GHTK parcel (Đang chuẩn bị hàng → Chờ ĐVVC lấy hàng,
+  `StaffRetailShipmentService`) and a pickup order (Đang chuẩn bị hàng → Chờ khách nhận,
+  `PickupOperationsService.prepare`); this extends the owner decision of 2026-10-30 in
+  US4, which named Staff only. Confirming counter cash (FR-08-045) and handing an order
+  to the customer stay with Staff, so the person who reconciles the cash does not also
+  collect it; these buttons are hidden from a Manager, whose request gets 403
+  (`RetailCashCollectionService`, `PickupOperationsService.handOver`). "Retail operational
+  actions" in the Manager row of the actor table means the order list and this packing (T090).
 - Q: Does V1 have a delivery note and the FR-08-013 length limits? → A: No. The code
   has no delivery note, and the checkout takes the recipient from the saved address
   (FE-01), which accepts a name and an address of up to 255 characters. The note and
@@ -1290,4 +1301,4 @@ not be inferred from a browser redirect.
 
 # Route masking synchronization (2026-11-20)
 
-The browser route allowlists are: `/member/cart`, `/member/checkout`, and `/member/orders` = `MEMBER`; `/staff/retail-orders`, `/staff/retail-shipments`, and `/staff/retail-pickups` = `STAFF`; `/manager/retail-payment-reconciliations` = `MANAGER`; `/carrier` and `/carrier/stats` = `CARRIER`. A signed-in role outside a route's allowlist is replaced to `/404` before that screen requests data. `CARRIER` has no Member commerce/history route; `ADMIN` has no implicit Staff/Manager/Carrier route. This does not alter FE-008's server-side order ownership, branch, payment, or fulfilment authorization.
+The browser route allowlists are: `/member/cart`, `/member/checkout`, and `/member/orders` = `MEMBER`; `/staff/retail-orders`, `/staff/retail-shipments`, and `/staff/retail-pickups` = `STAFF`, `MANAGER` (C2, 2026-11-26; counter cash and handover stay Staff only); `/manager/retail-payment-reconciliations` = `MANAGER`; `/carrier`, `/carrier/orders` and `/carrier/stats` = `CARRIER`. A signed-in role outside a route's allowlist is replaced to `/404` before that screen requests data. `CARRIER` has no Member commerce/history route; `ADMIN` has no implicit Staff/Manager/Carrier route. This does not alter FE-008's server-side order ownership, branch, payment, or fulfilment authorization.

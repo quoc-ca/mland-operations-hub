@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useWorkshopRingDesignApi, getStoredGuestSession } from '../api/useWorkshopRingDesignApi';
 import { useWorkshopDesignCommand } from '../application/useWorkshopDesignCommand';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { RequireSession } from '../../../shared/auth/RequireSession';
 import { useLanguage, useT, useFormat, useEnumLabel } from '../../../shared/i18n/I18nProvider';
 import { wholeMoney } from '../domain/designFormat';
@@ -18,6 +19,8 @@ export default function DesignEvaluationPage() {
   const navigate = useNavigate();
   const { status, userId } = useAuth();
   const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  const role = useRole();
+  const canConsult = !role || role === 'MEMBER';
   const api = useWorkshopRingDesignApi();
 
   const [design, setDesign] = useState(null);
@@ -509,14 +512,16 @@ export default function DesignEvaluationPage() {
               </button>
             )}
 
-            <button
-              type="button"
-              className="ring-btn-secondary"
-              onClick={handleConsultation}
-              data-testid="consult-design-btn"
-            >
-              {lang === 'en' ? 'Design Consultation' : 'Tư vấn thiết kế'}
-            </button>
+            {canConsult && (
+              <button
+                type="button"
+                className="ring-btn-secondary"
+                onClick={handleConsultation}
+                data-testid="consult-design-btn"
+              >
+                {lang === 'en' ? 'Design Consultation' : 'Tư vấn thiết kế'}
+              </button>
+            )}
 
             {design?.status !== 'ARCHIVED' && design?.status !== 'LOCKED' && design?.status !== 'ATTACHED_TO_BOOKING' && (
               <button

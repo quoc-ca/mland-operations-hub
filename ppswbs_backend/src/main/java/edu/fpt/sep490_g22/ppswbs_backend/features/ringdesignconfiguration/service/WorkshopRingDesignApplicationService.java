@@ -201,6 +201,27 @@ public class WorkshopRingDesignApplicationService {
         return mapToResponse(latest, val, eval, snapshot);
     }
 
+    @Transactional(readOnly = true)
+    public WorkshopRingDesignTechnicalProjectionDto getTechnicalProjection(String designId) {
+        RingDesign latest = designRepository.findLatestByDesignReference(designId)
+                .orElseThrow(() -> RingDesignException.notFound("Không tìm thấy thiết kế nhẫn: " + designId));
+        return WorkshopRingDesignTechnicalProjectionDto.builder()
+                .designId(latest.getDesignReference())
+                .packageReference(latest.getPackageReference())
+                .designVersion(latest.getDesignVersion())
+                .designType(latest.getDesignType() != null ? latest.getDesignType().name() : null)
+                .status(latest.getStatus() != null ? latest.getStatus().name() : null)
+                .materialReference(latest.getMaterialReference())
+                .shapeReference(latest.getShapeReference())
+                .ringSize(latest.getRingSize())
+                .difficultyScore(latest.getDifficultyScore())
+                .rulesVersion(latest.getRulesVersion())
+                .isLocked(latest.getBookingReference() != null && !latest.getBookingReference().isBlank())
+                .createdAt(latest.getCreatedAt())
+                .updatedAt(latest.getUpdatedAt())
+                .build();
+    }
+
     @Transactional
     public DesignResponseDto saveVersion(
             String designId,

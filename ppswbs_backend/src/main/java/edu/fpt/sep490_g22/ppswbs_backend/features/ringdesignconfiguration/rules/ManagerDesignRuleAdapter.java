@@ -33,9 +33,10 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
     public static final List<String> ALLOWED_ATTACHMENT_PLACEMENTS = List.of("OUTER_SURFACE", "EDGES", "PRONGS");
 
     public static final BigDecimal BASE_WEIGHT_LIMIT_GRAMS = new BigDecimal("3.00");
+    public static final BigDecimal EXCESS_MATERIAL_PRICE_PER_GRAM = new BigDecimal("120000.00");
     public static final BigDecimal EXCESS_PRICE_PER_GRAM_SILVER = new BigDecimal("120000.00");
-    public static final BigDecimal EXCESS_PRICE_PER_GRAM_COPPER = new BigDecimal("40000.00");
-    public static final BigDecimal EXCESS_PRICE_PER_GRAM_STEEL = new BigDecimal("50000.00");
+    public static final BigDecimal EXCESS_PRICE_PER_GRAM_COPPER = new BigDecimal("120000.00");
+    public static final BigDecimal EXCESS_PRICE_PER_GRAM_STEEL = new BigDecimal("120000.00");
 
     public static final Map<String, BigDecimal> MATERIAL_DENSITIES = Map.of(
             "MAT-SILVER-925", new BigDecimal("10.36"),
@@ -379,16 +380,10 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 BigDecimal baseUnitPrice = matOpt.get().getUnitPrice();
                 totalDifficulty = totalDifficulty.add(matOpt.get().getDifficultyScore());
 
-                // If mass exceeds 3.0 grams, add excess surcharge
+                // If mass exceeds 3.0 grams, add excess surcharge: 120,000 * (totalMass - 3)
                 if (estimatedWeight.compareTo(BASE_WEIGHT_LIMIT_GRAMS) > 0) {
                     BigDecimal excessWeight = estimatedWeight.subtract(BASE_WEIGHT_LIMIT_GRAMS);
-                    BigDecimal excessRate = EXCESS_PRICE_PER_GRAM_SILVER;
-                    if ("MAT-COPPER".equalsIgnoreCase(matRef)) {
-                        excessRate = EXCESS_PRICE_PER_GRAM_COPPER;
-                    } else if ("MAT-STAINLESS-STEEL".equalsIgnoreCase(matRef)) {
-                        excessRate = EXCESS_PRICE_PER_GRAM_STEEL;
-                    }
-                    excessMaterialCost = excessWeight.multiply(excessRate).setScale(2, RoundingMode.HALF_UP);
+                    excessMaterialCost = EXCESS_MATERIAL_PRICE_PER_GRAM.multiply(excessWeight).setScale(2, RoundingMode.HALF_UP);
                 }
                 materialCost = baseUnitPrice.add(excessMaterialCost);
                 totalEstimate = totalEstimate.add(materialCost);
