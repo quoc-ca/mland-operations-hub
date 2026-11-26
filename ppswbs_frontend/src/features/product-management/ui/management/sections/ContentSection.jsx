@@ -6,6 +6,7 @@ import { messages } from '../../messages';
 import { checkProductContent, LIMITS, serverFieldErrors } from '../../../domain/productRules';
 import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPage';
 import { NoticeAt } from '../notices';
+import { useLiveHints } from '../../../application/useLiveHints';
 
 /** T050: name, description and category only (PUT products/{id}); sizes and SKUs stay read-only. */
 export function ContentSection({ product, api, reload, setNotice, deleted, outOfScope = false, missing = {} }) {
@@ -14,7 +15,7 @@ export function ContentSection({ product, api, reload, setNotice, deleted, outOf
   const initial = () => ({ name: product.name, description: product.description || '', categoryId: product.category?.id || '' });
   const [form, setForm] = useState(initial);
   const [editing, setEditing] = useState(false);
-  const [hints, setHints] = useState({});
+  const { hints, submit: showHints, change: checkLive, reset: resetHints } = useLiveHints();
   const command = useProductCommand({ reload, setNotice });
 
   // Outside editing the form follows the latest product; while editing it keeps what was typed.
@@ -22,19 +23,23 @@ export function ContentSection({ product, api, reload, setNotice, deleted, outOf
 
   const serverErrors = serverFieldErrors(command.error);
   const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
-  const set = name => event => setForm(current => ({ ...current, [name]: event.target.value }));
+  const set = name => event => {
+    const next = { ...form, [name]: event.target.value };
+    checkLive(name, checkProductContent(next));
+    setForm(next);
+  };
 
   const save = async event => {
     event.preventDefault();
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = checkProductContent(form);
-    setHints(found);
+    showHints(found);
     if (Object.keys(found).length) return;
     const body = { expectedVersion: product.version, name: form.name.trim(), description: form.description.trim(), categoryId: form.categoryId };
     const outcome = await command.run(key => api.updateProduct(key, product.id, body), { key: 'content.saved', at: 'content' }, ACTIONS.editProduct);
     if (outcome.ok) setEditing(false);
   };
-  const cancel = () => { setEditing(false); setHints({}); command.reset(); };
+  const cancel = () => { setEditing(false); resetHints(); command.reset(); };
 
   const options = (categories.data?.items || []).filter(category => category.active || category.id === product.category?.id);
 
@@ -42,7 +47,7 @@ export function ContentSection({ product, api, reload, setNotice, deleted, outOf
     <section className={sectionClass(missing.content)} aria-labelledby="content-title">
       <div className="card-head">
         <h2 id="content-title">{t('section.content')}</h2>
-        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => setEditing(true)}>{t('edit')}</button>}
+        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => { resetHints(); setEditing(true); }}>{t('edit')}</button>}
       </div>
       <MissingNote messageKey={missing.content} />
       {!editing ? (

@@ -14,6 +14,7 @@ import { PageTop } from './ManagementLayout';
 import { SizePicker } from './SizePicker';
 import { SameNameWarning } from './SameNameWarning';
 import { useSameNameProducts } from '../../application/sameNameProducts';
+import { changedRowKeys, useLiveHints } from '../../application/useLiveHints';
 
 /**
  * T028 create: sizes are chosen only here (the size list is immutable afterwards), as chips 5–29 with one price and
@@ -47,7 +48,7 @@ export default function ProductCreatePage() {
   const sameName = useSameNameProducts(api, form.name);
   const [variants, setVariants] = useState([]);
   const [images, setImages] = useState([]);
-  const [hints, setHints] = useState({});
+  const { hints, submit: showHints, change: checkLive } = useLiveHints();
   const command = useCatalogueCommand();
   const [recovery, setRecovery] = useState(null);
   // A Manager needs no review round: the product is applied as soon as it is created, and published if chosen.
@@ -97,16 +98,41 @@ export default function ProductCreatePage() {
 
   const serverErrors = serverFieldErrors(command.error);
   const errorOf = field => serverErrors[field] || (hints[field] && t(hints[field]));
-  const set = name => event => setForm(current => ({ ...current, [name]: event.target.value }));
+  // Every hint of the form for the given values; the same check runs while typing and on submit.
+  const checkAll = (values = {}) => {
+    const next = { form, variants, images, branchIds, ...values };
+    const found = { ...checkProductContent(next.form), ...checkVariants(next.variants), ...checkImages(next.images), ...checkBranchQuantities(next.variants, next.branchIds) };
+    if (imagesPending(next.images)) found.images = 'image.notReady';
+    // Applying right away needs what a review would need: at least one image.
+    else if (isManager && !next.images.length) found.images = 'require.images';
+    return found;
+  };
+  const set = name => event => {
+    const nextForm = { ...form, [name]: event.target.value };
+    checkLive(name, checkAll({ form: nextForm }));
+    setForm(nextForm);
+  };
+  const changeBranch = id => {
+    const next = branchIds.includes(id) ? branchIds.filter(value => value !== id) : [...branchIds, id];
+    checkLive('branches', checkAll({ branchIds: next }));
+    toggleBranch(id);
+  };
+  // The size table hands an updater so quick clicks add up; the check reads the list it leads to.
+  const changeVariants = update => {
+    const next = typeof update === 'function' ? update(variants) : update;
+    checkLive(changedRowKeys('variants', variants, next, variant => variant.size), checkAll({ variants: next }));
+    setVariants(update);
+  };
+  const changeImages = next => {
+    checkLive(changedRowKeys('images', images, next, image => image.localId), checkAll({ images: next }));
+    setImages(next);
+  };
 
   const submit = async event => {
     event.preventDefault();
     const orderedBranchIds = chosenBranches.map(branch => String(branch.id));
-    const found = { ...checkProductContent(form), ...checkVariants(variants), ...checkImages(images), ...checkBranchQuantities(variants, orderedBranchIds) };
-    if (imagesPending(images)) found.images = 'image.notReady';
-    // Applying right away needs what a review would need: at least one image.
-    else if (isManager && !images.length) found.images = 'require.images';
-    setHints(found);
+    const found = checkAll();
+    showHints(found);
     if (Object.keys(found).length) return;
     const body = {
       name: form.name.trim(),
@@ -163,7 +189,7 @@ export default function ProductCreatePage() {
             {availableBranches.map(branch => (
               <label key={branch.id} className={branchIds.includes(String(branch.id)) ? 'branch-option on' : 'branch-option'}>
                 <input type="checkbox" checked={branchIds.includes(String(branch.id))} disabled={busy}
-                  onChange={() => { toggleBranch(String(branch.id)); setHints(current => ({ ...current, branches: undefined })); }} />
+                  onChange={() => changeBranch(String(branch.id))} />
                 <span><strong>{branch.name}</strong>{branch.address && <span className="muted small"> · {branch.address}</span>}</span>
               </label>
             ))}
@@ -174,11 +200,11 @@ export default function ProductCreatePage() {
         <h2 className="section-title">{t('create.sizes')}</h2>
         <p className="muted small">{t(isManager ? 'create.sizesHintManager' : 'create.sizesHint')}</p>
         {errorOf('variants') && <p className="field-error">{errorOf('variants')}</p>}
-        <SizePicker variants={variants} onChange={update => { setVariants(update); setHints(current => ({ ...current, variants: undefined })); }} errorOf={errorOf} disabled={busy}
+        <SizePicker variants={variants} onChange={changeVariants} errorOf={errorOf} disabled={busy}
           priceLabel={isManager ? t('field.sellingPrice') : undefined} branches={chosenBranches} />
 
         <h2 className="section-title">{t('section.images')}</h2>
-        <ImageEditor images={images} onChange={setImages} errors={{ ...Object.fromEntries(Object.keys(hints).filter(key => key.startsWith('images')).map(key => [key, t(hints[key])])), ...Object.fromEntries(Object.entries(serverErrors).filter(([key]) => key.startsWith('images'))) }} disabled={busy} />
+        <ImageEditor images={images} onChange={changeImages} errors={{ ...Object.fromEntries(Object.keys(hints).filter(key => key.startsWith('images')).map(key => [key, t(hints[key])])), ...Object.fromEntries(Object.entries(serverErrors).filter(([key]) => key.startsWith('images'))) }} disabled={busy} />
 
         {isManager && (
           <fieldset className="publish-choice">

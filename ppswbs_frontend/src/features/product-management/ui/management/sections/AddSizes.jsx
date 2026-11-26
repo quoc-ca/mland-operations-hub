@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useT } from '../../../../../shared/i18n/I18nProvider';
 import { ErrorNotice } from '../../../../../shared/ui/components';
 import { ACTIONS } from '../../../application/useCatalogueCommand';
@@ -121,9 +121,36 @@ export function checkNewSizes(candidates, value) {
     if (!isQuantity(String(entry.quantity).trim())) errors[`${candidate.size}.quantity`] = true;
     if (!candidate.existing && !isAmount(String(entry.price).trim())) errors[`${candidate.size}.price`] = true;
   }
+  return { errors, hint: hintOf(errors) };
+}
+
+function hintOf(errors) {
   const keys = Object.keys(errors);
-  const hint = keys.some(key => key.endsWith('.price')) ? 'validation.amount' : keys.length ? 'validation.quantity' : null;
-  return { errors, hint };
+  return keys.some(key => key.endsWith('.price')) ? 'validation.amount' : keys.length ? 'validation.quantity' : null;
+}
+
+/**
+ * checkNewSizes while typing: before the first submit only a quantity or price already typed shows its mark, so
+ * ticking a size does not flag its empty price at once. `live(before, after)` checks a change; `submit(value)` checks
+ * all and from then on every change checks all; `reset()` starts again.
+ */
+export function useNewSizeCheck(candidates) {
+  const touched = useRef(new Set());
+  const submitted = useRef(false);
+  const live = (before, after) => {
+    Object.entries(after).forEach(([size, entry]) => {
+      const previous = before[size];
+      if (!previous || !entry) return;
+      ['quantity', 'price'].forEach(field => { if (entry[field] !== previous[field]) touched.current.add(`${size}.${field}`); });
+    });
+    const result = checkNewSizes(candidates, after);
+    if (submitted.current) return result;
+    const errors = Object.fromEntries(Object.entries(result.errors).filter(([key]) => touched.current.has(key)));
+    return { errors, hint: hintOf(errors) };
+  };
+  const submit = value => { submitted.current = true; return checkNewSizes(candidates, value); };
+  const reset = () => { touched.current = new Set(); submitted.current = false; };
+  return { live, submit, reset };
 }
 
 /**
@@ -160,8 +187,15 @@ export function AddSizesPanel({ product, branch, branchName, isManager, api, rel
   const sold = new Set(sizes.filter(variant => (variant.branchStocks || []).some(stock => stock.locationId === branch)).map(variant => variant.size));
   const onProduct = new Set(sizes.map(variant => variant.size));
   const candidates = ALL_SIZES.filter(size => !sold.has(size)).map(size => ({ size, existing: onProduct.has(size) }));
+  const newSizeCheck = useNewSizeCheck(candidates);
   if (!candidates.length) return null;
-  const close = () => { setOpen(false); setValue({}); setCheck({ errors: {}, hint: null }); command.reset(); };
+  const close = () => { setOpen(false); setValue({}); setCheck({ errors: {}, hint: null }); newSizeCheck.reset(); command.reset(); };
+  // The picker hands an updater; the check reads the value it leads to.
+  const change = update => {
+    const next = typeof update === 'function' ? update(value) : update;
+    setCheck(newSizeCheck.live(value, next));
+    setValue(next);
+  };
 
   if (!open) {
     return (
@@ -177,7 +211,7 @@ export function AddSizesPanel({ product, branch, branchName, isManager, api, rel
     event.preventDefault();
     setNotice(null);
     if (!chosen.length) { setCheck({ errors: {}, hint: 'size.addNone' }); return; }
-    const result = checkNewSizes(candidates, value);
+    const result = newSizeCheck.submit(value);
     setCheck(result);
     if (result.hint) return;
     const lines = chosen.map(candidate => candidate.existing
@@ -195,7 +229,7 @@ export function AddSizesPanel({ product, branch, branchName, isManager, api, rel
     <form className="batch-prices review-decision" onSubmit={submit} noValidate aria-label={t('size.addAt', { branch: branchName })}>
       <h3>{t('size.addAt', { branch: branchName })}</h3>
       <p className="muted small">{t(product.firstPublishedAt ? (isManager ? 'size.addHintManager' : 'size.addHintStaff') : 'size.addHintReview')}</p>
-      <NewSizePicker candidates={candidates} value={value} onChange={setValue} branchName={branchName} errors={check.errors} manager={isManager} />
+      <NewSizePicker candidates={candidates} value={value} onChange={change} branchName={branchName} errors={check.errors} manager={isManager} />
       {isManager && anyNew && product.firstPublishedAt && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
       {check.hint && <p className="field-error">{t(check.hint)}</p>}
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />

@@ -90,6 +90,7 @@ describe('US10 FR-046/FR-052 branches on the public product page', () => {
       'GET /api/v1/products/42': json(200, product),
       'GET /api/v1/product-selling-locations': json(200, { items: [
         { id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }, { id: '3', name: 'Đà Nẵng', address: '' }] }),
+      [PROFILE]: json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
     });
     renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });
@@ -132,6 +133,7 @@ describe('US10 FR-046/FR-052 branches on the public product page', () => {
       'GET /api/v1/products/42': json(200, product),
       'GET /api/v1/product-selling-locations': json(200, { items: [
         { id: '1', name: 'Hoàn Kiếm', address: '' }, { id: '2', name: 'Tây Hồ', address: '' }, { id: '3', name: 'Đà Nẵng', address: '' }] }),
+      [PROFILE]: json(200, { role: 'MEMBER' }),
       'POST /api/v1/members/me/ready-ring-cart/lines': json(201, { id: 'cart' }),
     });
     renderRoutes([...productManagementRoutes, { path: '/member/cart', element: <p>FE-08 cart</p> }], { path: '/products/42' });

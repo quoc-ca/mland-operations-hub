@@ -80,7 +80,12 @@ function CategoryForm({ api, category, onStart = () => {}, onDone, onCancel, rel
   const [hint, setHint] = useState(null);
   const command = useCatalogueCommand();
   const serverErrors = serverFieldErrors(command.error);
-  const set = name => event => setForm(current => ({ ...current, [name]: event.target.value }));
+  const set = name => event => {
+    const { value } = event.target;
+    // The name is checked while typing; the description has no client rule (the backend checks it).
+    if (name === 'name') setHint(value.trim() ? null : 'validation.required');
+    setForm(current => ({ ...current, [name]: value }));
+  };
 
   const submit = async event => {
     event.preventDefault();

@@ -424,7 +424,6 @@
 /* Chosen size: red triangle in the bottom-right corner with a white tick. */
 .add-to-cart .buy-size.active::after{content:"";position:absolute;right:0;bottom:0;border-style:solid;border-width:0 0 15px 15px;border-color:transparent transparent var(--pm-buy-red) transparent}
 .add-to-cart .buy-size.active::before{content:"";position:absolute;z-index:1;right:2px;bottom:3px;width:3px;height:6px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
-.add-to-cart .buy-sizes-price{font-size:15px}
 .add-to-cart .size-guide-link{padding:0;border:0;background:none;color:#05a;font:inherit;font-size:14px;cursor:pointer}
 .add-to-cart .size-guide-link span{margin-left:4px}
 .add-to-cart .size-guide-link:hover{text-decoration:underline}

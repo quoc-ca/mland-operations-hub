@@ -169,6 +169,16 @@ export function errorFieldsOf(name) {
   return [name, 'body'];
 }
 
+/** Error key a typed form value is checked under while typing (none for selects and pickers). */
+const LIVE_KEYS = {
+  name: 'name', startAt: 'startAt', endAt: 'endAt',
+  percentage: 'discount.percentage', maxDiscountAmount: 'discount.maxDiscountAmount', amount: 'discount.amount',
+  minimumEligibleAmount: 'minimumEligibleAmount', totalLimit: 'totalLimit', perMemberLimit: 'perMemberLimit',
+};
+export function liveErrorKeys(name) {
+  return LIVE_KEYS[name] ? [LIVE_KEYS[name]] : [];
+}
+
 /** Hints (i18n keys) for the create form. */
 export function checkCreate(form) {
   const errors = {};

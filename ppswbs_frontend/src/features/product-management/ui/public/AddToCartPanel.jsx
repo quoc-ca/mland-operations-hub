@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../../../shared/auth/AuthProvider';
+import { useRole } from '../../../../shared/auth/useRole';
 import { signInPath } from '../../../../shared/auth/SignInLink';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, useErrorText, useResource } from '../../../../shared/ui/components';
@@ -46,18 +47,17 @@ export function stockOf(variant, locationId) {
  * @param returnPath where a Guest comes back after sign-in (default: this page); the list's quick add uses the
  *                   product page, which restores the choice from the query
  * @param onAdded    called after a successful add instead of opening the cart (the list's quick add)
- * @param sizePrice  optional render of the chosen size's price under the size boxes; only the list's quick add passes
- *                   it (FR-059(2), Session 2026-11-20): the detail page shows that price as its big price instead
- * @param onSizeChange optional, called with the chosen size (or null) whenever it changes; the detail page shows that
- *                   size's price as its big price
+ * @param onSizeChange optional, called with the chosen size (or null) whenever it changes; the detail page and the
+ *                   list's quick add show that size's price as their big price
  * @param onBranchChange optional, called with the chosen branch ID (or '') whenever it changes; the detail page prices
  *                   the offers for that branch (006 FR-048, Session 2026-11-23)
  */
-export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSizeChange, onBranchChange }) {
+export function AddToCartPanel({ product, returnPath, onAdded, onSizeChange, onBranchChange }) {
   const t = useT(messages);
   const errorText = useErrorText(messages);
   const api = useCatalogueApi();
   const { status } = useAuth();
+  const role = useRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -145,7 +145,6 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
             );
           })}
         </div>
-        {chosenVariant && sizePrice && <div className="buy-sizes-price">{sizePrice(chosenVariant)}</div>}
         <button type="button" className="size-guide-link" onClick={() => setGuideOpen(true)}>
           {t('sizeGuide.open')} <span aria-hidden="true">›</span>
         </button>
@@ -189,7 +188,12 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
       setPending(false);
     }
   };
-  const blocked = pending || !locations.data;
+  // The cart is FE-08's and Member-only (route-access-matrix): a signed-in Staff, Manager, Admin or Carrier would get a
+  // 403 that leaves the page, so the two buttons are hidden for them (Session 2026-11-26). While a signed-in account's
+  // role is still being read the buttons stay disabled; a Guest keeps the sign-in flow.
+  const signedIn = status === 'signed-in';
+  const notMember = signedIn && Boolean(role) && role !== 'MEMBER';
+  const blocked = pending || !locations.data || (signedIn && !role);
 
   return (
     <div className="add-to-cart">
@@ -224,12 +228,14 @@ export function AddToCartPanel({ product, returnPath, onAdded, sizePrice, onSize
       {locations.data && locations.data.items.length === 0 && <p className="status">{t('cart.noBranch')}</p>}
       {prompt && <p className="buy-prompt" role="alert">{prompt}</p>}
       {error && <CartRefusalDialog text={error.message || errorText(error)} t={t} onClose={() => setError(null)} />}
-      <div className="buy-actions">
-        <button type="button" className="buy-add" disabled={blocked} onClick={() => go(false)}>
-          <CartIcon />{pending ? t('cart.adding') : t('cart.add')}
-        </button>
-        <button type="button" className="buy-now" disabled={blocked} onClick={() => go(true)}>{t('cart.buyNow')}</button>
-      </div>
+      {!notMember && (
+        <div className="buy-actions">
+          <button type="button" className="buy-add" disabled={blocked} onClick={() => go(false)}>
+            <CartIcon />{pending ? t('cart.adding') : t('cart.add')}
+          </button>
+          <button type="button" className="buy-now" disabled={blocked} onClick={() => go(true)}>{t('cart.buyNow')}</button>
+        </div>
+      )}
     </div>
   );
 }

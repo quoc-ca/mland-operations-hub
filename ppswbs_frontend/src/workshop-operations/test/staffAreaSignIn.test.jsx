@@ -78,7 +78,7 @@ describe('Staff/Manager pages for a signed-in actor (003.2 and 003.3 browser all
 describe('Member routes are masked from Admin', () => {
   const notFound = { path: '/404', element: <p>not found page</p> };
 
-  afterEach(() => clearRoleCache());
+  afterEach(() => { clearRoleCache(); vi.restoreAllMocks(); });
 
   it.each([
     [readyRingSalesRoutes, '/member/orders'],
@@ -87,6 +87,8 @@ describe('Member routes are masked from Admin', () => {
     [designReviewRoutes, '/account/my-custom-orders'],
     [consultationRoutes, '/member/consultations'],
   ])('replaces ADMIN to /404 (%#)', async (routes, path) => {
+    // MemberOnly (006 /me/*) reads the role from the 001 Account bootstrap; MaskAdmin reads it from the profile.
+    signInAs('ADMIN');
     mockFetch({ 'GET /api/v1/accounts/me/profile': json(200, { role: 'ADMIN' }) });
     renderRoutes([...routes, notFound], { language: 'en', path, session: fakeSession() });
 

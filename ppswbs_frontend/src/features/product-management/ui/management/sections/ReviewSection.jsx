@@ -109,6 +109,17 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
   const chosen = rows.filter(({ variant }) => selected[variant.id] !== false);
   const changedSinceSubmit = review.contentVersion !== product.contentVersion;
 
+  // Hint of one approved amount; checked while typing and on submit.
+  const priceError = (proposal, value) => {
+    if (!proposal || proposal.state !== 'PENDING') return t('review.noPendingProposal');
+    return isAmount(value) ? undefined : t('validation.amount');
+  };
+  const changePrices = changes => {
+    setPrices(current => ({ ...current, ...changes }));
+    const proposalOf = id => rows.find(({ variant }) => String(variant.id) === String(id))?.proposal;
+    setErrors(current => ({ ...current, ...Object.fromEntries(Object.entries(changes).map(([id, value]) => [id, priceError(proposalOf(id), value)])) }));
+  };
+
   const decide = async event => {
     event.preventDefault();
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
@@ -116,8 +127,8 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
     const found = {};
     if (mode === 'APPROVE') {
       rows.forEach(({ variant, proposal }) => {
-        if (!proposal || proposal.state !== 'PENDING') found[variant.id] = t('review.noPendingProposal');
-        else if (!isAmount(prices[variant.id])) found[variant.id] = t('validation.amount');
+        const problem = priceError(proposal, prices[variant.id]);
+        if (problem) found[variant.id] = problem;
       });
       body = {
         reviewId: review.id, reviewRevision: review.revision, contentVersion: review.contentVersion, decision: 'APPROVE',
@@ -168,7 +179,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
             <>
               {rows.length > 1 && (
                 <BulkPriceBar count={chosen.length}
-                  onApply={amount => setPrices(current => ({ ...current, ...Object.fromEntries(chosen.map(({ variant }) => [variant.id, amount])) }))}
+                  onApply={amount => changePrices(Object.fromEntries(chosen.map(({ variant }) => [variant.id, amount])))}
                   onReset={() => setPrices(proposedPrices())} />
               )}
               <div className="data-table" role="table" aria-label={t('review.decisionTitle')}>
@@ -187,7 +198,7 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
                   <span role="cell">
                     <input aria-label={t('review.approvedFor', { size: variant.size })} inputMode="numeric" value={prices[variant.id]}
                       aria-invalid={errors[variant.id] ? true : undefined}
-                      onChange={event => setPrices(current => ({ ...current, [variant.id]: event.target.value }))} />
+                      onChange={event => changePrices({ [variant.id]: event.target.value })} />
                     {(errors[variant.id] || serverErrors[`prices[${index}].approvedPrice`]) && <span className="field-error">{errors[variant.id] || serverErrors[`prices[${index}].approvedPrice`]}</span>}
                   </span>
                   <span role="cell"><PriceGap proposed={proposal?.proposedPrice} approved={prices[variant.id]} /></span>
@@ -197,11 +208,12 @@ function ReviewDecision({ product, review, api, reload, setNotice }) {
             </>
           ) : (
             <Field label={t('decision.reason')} error={errors.reason || serverErrors.reason}>
-              {/* The error goes away as soon as the reason is valid (Session 2026-11-04: marks clear once fixed). */}
+              {/* Checked while typing: the hint shows as soon as the reason is wrong and goes once it is fixed. */}
               <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => {
                 const next = event.target.value;
                 setReason(next);
-                if (!checkReason(next)) setErrors(current => (current.reason ? { ...current, reason: undefined } : current));
+                const problem = checkReason(next);
+                setErrors(current => ({ ...current, reason: problem ? t(problem) : undefined }));
               }} />
             </Field>
           )}

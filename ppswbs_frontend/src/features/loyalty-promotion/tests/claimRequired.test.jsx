@@ -66,6 +66,7 @@ describe('Kho Voucher with vouchers that must be saved', () => {
 
 describe('"Voucher của tôi" scope filter (Session 2026-11-23)', () => {
   it('filters saved vouchers by products or workshops, like Kho Voucher', async () => {
+    signInAs('MEMBER');
     const user = userEvent.setup();
     mockFetch({
       ...MEMBER_PROFILE,
