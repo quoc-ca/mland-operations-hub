@@ -222,7 +222,7 @@ public class FolioCorrectionService {
                     .aggregateType("SETTLEMENT_FOLIO_CORRECTION")
                     .aggregateReference(correctionReference)
                     .actionCode("FOLIO_CORRECTION_OPENED")
-                    .actorReference(String.valueOf(manager.accountId()))
+                    .actorReference("account:" + manager.accountId())
                     .correlationReference(correlation)
                     .reasonReference(reason.trim())
                     .evidenceReference(caseReference)
