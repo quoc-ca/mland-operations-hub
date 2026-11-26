@@ -54,3 +54,5 @@ scripts/render-report4-owned-puml.ps1
 report4-owned-rendered-png/r4-sd-fe13-create-conversation.png
 report4-owned-rendered-png/r4-sd-fe13-send-message.png
 documents/docs/report-4-software-design-specification/UML_REBASELINE_GUIDE.md
+# DatNT Report 4 PlantUML diagrams (tracked separately on branch dat)
+documents/docs/report-4-software-design-specification/assets/diagrams/r4-*.puml
