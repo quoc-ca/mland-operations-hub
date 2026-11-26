@@ -1,7 +1,7 @@
 # Feature-004 Data Model — Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-21
+Date updated: 2026-11-26
 Author: Ngô Tiến Đạt
 Last updated by: Ngô Tiến Đạt
 
@@ -94,6 +94,16 @@ physical model defines `custom_design_reference_snapshots`, `custom_design_reque
 - `payment_reference`, `custom_order_reference`, `quote_reference`, `amount`.
 - `payment_owner_kind`: `CUSTOM_ORDER_FULL_PAYMENT`.
 - `status`: `INITIATED`, `VERIFIED`, `FAILED`, `EXPIRED`.
+- `expires_at`: Payment attempt expiration, capped at 10 minutes (`now + 10m`) matching VNPay gateway timeout policy, decoupled from the 24–72h quote validity.
+
+### `custom_order_shipments` (Method 1B — Independent Mock GHTK Entity)
+- `id`: VARCHAR(36) UUID primary key.
+- `custom_order_id`: Foreign key to `custom_orders(id)`.
+- `custom_order_reference`: Human-readable reference (e.g. `CO-xxxx`).
+- `mock_tracking_number`: Unique tracking identifier with prefix `S` + 10 digits (e.g. `S1450382716`).
+- `carrier_status`: `PREPARING`, `READY_FOR_CARRIER`, `HANDED_TO_CARRIER`, `DELIVERED`.
+- Recipient fields: `recipient_name`, `recipient_phone`, `recipient_address`, `province_name`, `district_name`, `ward_name`.
+- Metadata: `created_at`, `updated_at`, `version`.
 
 - A reference snapshot is immutable and created from a Feature-012 `DRAFT` or
   `VALIDATED` version through a public facade.
@@ -101,12 +111,13 @@ physical model defines `custom_design_reference_snapshots`, `custom_design_reque
   `NEED_REVIEW`; the previous decision remains audit history.
 - `ACCEPTED` creates a custom-order quote handoff but no cart line. The order is
   payable only as one complete quoted amount (100% full payment).
-- `quote_expires_at` is Manager-policy controlled. The payment context and any
-  temporary queue hold expire together at the configured deadline.
+- `quote_expires_at` is Manager-policy controlled (24 to 72 hours). The payment
+  attempt window is 10 minutes; expiring an attempt leaves the quote in
+  `FULL_PAYMENT_PENDING` and allows re-initiating payment as long as `now < quote_expires_at`.
 - A custom order retains the immutable quoted total, currency, quote generation,
   payment deadline, payment status and expiry/cancellation reason.
 - There is no deposit amount, remaining balance, final-balance proposal or
   partial-payment state in the custom-order model.
-- Feature-004 does not own production, fulfilment rows or payment settlement;
-  Custom Manufacturing owns the full-payment handoff through the payment
-  facade.
+- Feature-004 does not own retail checkout or workshop settlement; Custom
+  Manufacturing owns production, dedicated fulfillment (`custom_order_shipments`),
+  and courier handoff via `CarrierFacade`.

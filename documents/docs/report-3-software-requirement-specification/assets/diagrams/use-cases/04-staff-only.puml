@@ -16,9 +16,8 @@ actor "Payment Gateway" as PaymentGateway
 rectangle "Mland Operations System" {
   package "Product" {
     usecase "Manage Products" as UC12
-    usecase "Import Products from Excel" as UC13
     usecase "Submit Product or Price Proposal" as UC14
-    usecase "Apply Approved Price" as UC16
+    usecase "Approve and Publish Product" as UC15
     usecase "Manage Product Categories" as UC18
   }
   package "Workshop operations" {
@@ -53,9 +52,8 @@ rectangle "Mland Operations System" {
 }
 
 Staff --> UC12
-Staff --> UC13
 Staff --> UC14
-Staff --> UC16
+Staff --> UC15
 Staff --> UC18
 Staff --> UC23
 Staff --> UC24

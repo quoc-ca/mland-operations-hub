@@ -16,11 +16,8 @@ actor "Payment Gateway" as PaymentGateway
 rectangle "Mland Operations System" {
   package "Product" {
     usecase "Manage Products" as UC12
-    usecase "Import Products from Excel" as UC13
     usecase "Submit Product or Price Proposal" as UC14
-    usecase "Approve Product and Price" as UC15
-    usecase "Apply Approved Price" as UC16
-    usecase "Publish or Unpublish Product" as UC17
+    usecase "Approve and Publish Product" as UC15
     usecase "Manage Product Categories" as UC18
   }
   package "Workshop operations" {
@@ -50,8 +47,7 @@ rectangle "Mland Operations System" {
     usecase "Review Custom Design Request" as UC40
   }
   package "Loyalty and promotion" {
-    usecase "Manage Automatic Discounts" as UC45
-    usecase "Manage Voucher Code" as UC46
+    usecase "Manage Promotions" as UC45
     usecase "Manage Loyalty Point Policy" as UC51
   }
   package "Dashboard, queue and reviews" {
@@ -61,11 +57,8 @@ rectangle "Mland Operations System" {
 }
 
 Manager --> UC12
-Manager --> UC13
 Manager --> UC14
 Manager --> UC15
-Manager --> UC16
-Manager --> UC17
 Manager --> UC18
 Manager --> UC25
 Manager --> UC26
@@ -88,7 +81,6 @@ Manager --> UC90
 Manager --> UC38
 Manager --> UC40
 Manager --> UC45
-Manager --> UC46
 Manager --> UC51
 Manager --> UC64
 Manager --> UC76

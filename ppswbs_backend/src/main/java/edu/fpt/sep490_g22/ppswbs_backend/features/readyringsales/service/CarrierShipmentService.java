@@ -3,12 +3,13 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.service.CustomOrderShipmentService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailShipmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CarrierShipmentDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipmentStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipmentStatusHistory;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,9 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * The simulated GHTK partner portal (Session 2026-11-20). An active account with role CARRIER (added by FE-01) sees
@@ -23,12 +27,25 @@ import java.time.Instant;
  * READY_FOR_CARRIER) and delivered ("Giao thành công", from HANDED_TO_CARRIER). Packing stays with Staff.
  */
 @Service
-@RequiredArgsConstructor
 public class CarrierShipmentService {
 
     private static final int MAX_PAGE_SIZE = 200;
 
     private final RetailShipmentRepository shipments;
+    private final CustomOrderShipmentService customOrderShipmentService;
+
+    public CarrierShipmentService(RetailShipmentRepository shipments) {
+        this(shipments, null);
+    }
+
+    @Autowired
+    public CarrierShipmentService(
+            RetailShipmentRepository shipments,
+            @Autowired(required = false) CustomOrderShipmentService customOrderShipmentService
+    ) {
+        this.shipments = shipments;
+        this.customOrderShipmentService = customOrderShipmentService;
+    }
 
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
     public CarrierShipmentDtos.Page list(CurrentAccountActor actor, RetailShipmentStatus status, int page, int size) {
@@ -36,14 +53,34 @@ public class CarrierShipmentService {
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
             Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.ASC, "id")));
         var result = shipments.findCarrierShipments(status, pageable);
-        return new CarrierShipmentDtos.Page(result.getContent().stream().map(CarrierShipmentService::view).toList(),
-            result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+        List<CarrierShipmentDtos.Shipment> items = new ArrayList<>(result.getContent().stream().map(CarrierShipmentService::view).toList());
+        long totalElements = result.getTotalElements();
+        int totalPages = result.getTotalPages();
+
+        if (customOrderShipmentService != null) {
+            List<CarrierShipmentDtos.Shipment> customShipments = customOrderShipmentService.listForCarrier();
+            if (status != null) {
+                String filter = status.name();
+                customShipments = customShipments.stream()
+                        .filter(s -> filter.equalsIgnoreCase(s.status()))
+                        .toList();
+            }
+            items.addAll(customShipments);
+            items.sort(Comparator.comparing(CarrierShipmentDtos.Shipment::createdAt, Comparator.nullsLast(Comparator.reverseOrder())));
+            totalElements += customShipments.size();
+            totalPages = (int) Math.ceil((double) totalElements / Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
+        }
+
+        return new CarrierShipmentDtos.Page(items, result.getNumber(), result.getSize(), totalElements, Math.max(totalPages, 1));
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CarrierShipmentDtos.TransitionResult transition(CurrentAccountActor actor, String shipmentId, String action,
                                                            Integer expectedVersion) {
         requireCarrier(actor);
+        if (customOrderShipmentService != null && customOrderShipmentService.isCustomShipment(shipmentId)) {
+            return customOrderShipmentService.transitionCustomShipment(shipmentId, action, expectedVersion);
+        }
         return record(shipmentId, action, expectedVersion, actor.accountId(), "GHTK#" + actor.accountId());
     }
 

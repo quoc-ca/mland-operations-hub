@@ -27,3 +27,8 @@ CLAUDE.local.md
 /report4-rendered-png/
 scripts/render-report4-puml.ps1
 test_flow_DatNT.md
+# Generated E2E screenshots and test artifacts
+/e2e-screenshots/
+ppswbs_frontend/e2e-screenshots/
+ppswbs_frontend/e2e-summary.json
+ppswbs_frontend/scripts/e2e_staging_comprehensive_report.mjs
