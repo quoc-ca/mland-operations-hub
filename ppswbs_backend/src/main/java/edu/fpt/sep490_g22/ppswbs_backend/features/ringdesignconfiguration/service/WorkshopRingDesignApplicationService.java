@@ -73,13 +73,28 @@ public class WorkshopRingDesignApplicationService {
             }
         }
 
+        List<ComponentSelectionDto> initialComponents = Collections.emptyList();
+        List<AttachmentSelectionDto> initialAttachments = Collections.emptyList();
+        if (snapshotMap.get("components") instanceof List<?> list) {
+            try {
+                initialComponents = objectMapper.convertValue(list, new TypeReference<>() {});
+            } catch (Exception ignored) {
+            }
+        }
+        if (snapshotMap.get("attachments") instanceof List<?> list) {
+            try {
+                initialAttachments = objectMapper.convertValue(list, new TypeReference<>() {});
+            } catch (Exception ignored) {
+            }
+        }
+
         SaveDesignVersionRequest dummyValidationReq = SaveDesignVersionRequest.builder()
                 .packageReference(request.getPackageReference())
                 .materialReference(materialRef)
                 .shapeReference(shapeRef)
                 .ringSize(ringSize)
-                .components(Collections.emptyList())
-                .attachments(Collections.emptyList())
+                .components(initialComponents)
+                .attachments(initialAttachments)
                 .engraving(EngravingInputDto.builder().enabled(false).build())
                 .build();
 
@@ -107,6 +122,12 @@ public class WorkshopRingDesignApplicationService {
                 .difficultyScore(
                         eval.getDifficultyScore() != null ? new BigDecimal(eval.getDifficultyScore()) : BigDecimal.ONE)
                 .rulesVersion(eval.getRulesVersion())
+                .policyVersionId(eval.getPolicyVersionId())
+                .difficultyLevel(eval.getDifficultyLevel() != null ? eval.getDifficultyLevel().name() : null)
+                .recommendationCode(eval.getRecommendationCode() != null ? eval.getRecommendationCode().name() : null)
+                .recommendedPackageReference(eval.getRecommendedPackageReference())
+                .materialDisclosure(eval.getMaterialDisclosure())
+                .evaluatedAt(java.time.Instant.now())
                 .status(RingDesignStatus.DRAFT)
                 .build();
 
@@ -164,13 +185,7 @@ public class WorkshopRingDesignApplicationService {
 
         return latestList.stream().map(d -> {
             Map<String, Object> snapshot = deserializeSnapshot(d.getComponentSnapshot());
-            EvaluationResultDto eval = EvaluationResultDto.builder()
-                    .estimatedPrice(d.getEstimatedPrice() != null ? d.getEstimatedPrice().toPlainString() : "0.00")
-                    .difficultyScore(d.getDifficultyScore() != null ? d.getDifficultyScore().toPlainString() : "1.0000")
-                    .rulesVersion(d.getRulesVersion() != null ? d.getRulesVersion() : "2026.11-v1.0")
-                    .currency(d.getCurrency() != null ? d.getCurrency() : "VND")
-                    .advisory(true)
-                    .build();
+            EvaluationResultDto eval = buildPersistedEvaluation(d);
             ValidationResultDto val = ValidationResultDto.builder().valid(true).reasons(Collections.emptyList())
                     .build();
             return mapToResponse(d, val, eval, snapshot);
@@ -187,18 +202,38 @@ public class WorkshopRingDesignApplicationService {
         Map<String, Object> snapshot = deserializeSnapshot(latest.getComponentSnapshot());
         SaveDesignVersionRequest mockReq = buildRequestFromDesign(latest, snapshot);
         ValidationResultDto val = rulesPort.validateCompatibility(mockReq, null);
-        EvaluationResultDto eval = rulesPort.evaluate(mockReq);
-
-        // Preserve actual persisted estimated price and difficulty from record to
-        // prevent arbitrary fallback
-        if (latest.getEstimatedPrice() != null && latest.getEstimatedPrice().compareTo(BigDecimal.ZERO) > 0) {
-            eval.setEstimatedPrice(latest.getEstimatedPrice().toPlainString());
-        }
-        if (latest.getDifficultyScore() != null && latest.getDifficultyScore().compareTo(BigDecimal.ZERO) > 0) {
-            eval.setDifficultyScore(latest.getDifficultyScore().toPlainString());
-        }
+        EvaluationResultDto eval = buildPersistedEvaluation(latest);
 
         return mapToResponse(latest, val, eval, snapshot);
+    }
+
+    private EvaluationResultDto buildPersistedEvaluation(RingDesign d) {
+        DifficultyLevel level = null;
+        if (d.getDifficultyLevel() != null) {
+            try {
+                level = DifficultyLevel.valueOf(d.getDifficultyLevel());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        RecommendationCode recCode = null;
+        if (d.getRecommendationCode() != null) {
+            try {
+                recCode = RecommendationCode.valueOf(d.getRecommendationCode());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return EvaluationResultDto.builder()
+                .policyVersionId(d.getPolicyVersionId())
+                .estimatedPrice(d.getEstimatedPrice() != null ? d.getEstimatedPrice().toPlainString() : "0.00")
+                .difficultyScore(d.getDifficultyScore() != null ? d.getDifficultyScore().toPlainString() : "1.0000")
+                .difficultyLevel(level)
+                .recommendationCode(recCode)
+                .recommendedPackageReference(d.getRecommendedPackageReference())
+                .materialDisclosure(d.getMaterialDisclosure())
+                .rulesVersion(d.getRulesVersion() != null ? d.getRulesVersion() : "2026.11-v1.0")
+                .currency(d.getCurrency() != null ? d.getCurrency() : "VND")
+                .advisory(true)
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -296,6 +331,12 @@ public class WorkshopRingDesignApplicationService {
             latest.setCurrency(eval.getCurrency());
             latest.setDifficultyScore(new BigDecimal(eval.getDifficultyScore()));
             latest.setRulesVersion(eval.getRulesVersion());
+            latest.setPolicyVersionId(eval.getPolicyVersionId());
+            latest.setDifficultyLevel(eval.getDifficultyLevel() != null ? eval.getDifficultyLevel().name() : null);
+            latest.setRecommendationCode(eval.getRecommendationCode() != null ? eval.getRecommendationCode().name() : null);
+            latest.setRecommendedPackageReference(eval.getRecommendedPackageReference());
+            latest.setMaterialDisclosure(eval.getMaterialDisclosure());
+            latest.setEvaluatedAt(java.time.Instant.now());
             latest.setStatus(RingDesignStatus.SAVED);
             targetToSave = latest;
         } else {
@@ -317,6 +358,12 @@ public class WorkshopRingDesignApplicationService {
                     .currency(eval.getCurrency())
                     .difficultyScore(new BigDecimal(eval.getDifficultyScore()))
                     .rulesVersion(eval.getRulesVersion())
+                    .policyVersionId(eval.getPolicyVersionId())
+                    .difficultyLevel(eval.getDifficultyLevel() != null ? eval.getDifficultyLevel().name() : null)
+                    .recommendationCode(eval.getRecommendationCode() != null ? eval.getRecommendationCode().name() : null)
+                    .recommendedPackageReference(eval.getRecommendedPackageReference())
+                    .materialDisclosure(eval.getMaterialDisclosure())
+                    .evaluatedAt(java.time.Instant.now())
                     .status(RingDesignStatus.SAVED)
                     .build();
         }

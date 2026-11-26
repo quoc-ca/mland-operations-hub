@@ -16,6 +16,7 @@ import { operatorHomeRoutes } from '../features/operatorhome/routes';
 import { managerHomeRoutes } from '../features/manager-dashboard/operations/routes';
 import { managerDashboardRoutes } from '../features/manager-dashboard';
 import { notificationRoutes } from '../features/notification-management';
+import { adminRingDifficultyRoutes } from '../features/admin-ring-difficulty';
 import HomePage from '../features/landing/HomePage';
 import AppLayout from './AppLayout';
 import NotImplementedPage from './NotImplementedPage';
@@ -45,6 +46,7 @@ export const routes = [
           ...productManagementRoutes,
           ...loyaltyPromotionRoutes,
           ...notificationRoutes,
+          ...adminRingDifficultyRoutes,
           { path: '/404', element: <NotFoundPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],

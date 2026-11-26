@@ -18,8 +18,7 @@ import java.util.List;
 @Builder
 public class SaveDesignVersionRequest {
 
-    @NotBlank
-    @Size(min = 1, max = 128)
+    @Size(max = 128)
     private String packageReference;
 
     @NotBlank

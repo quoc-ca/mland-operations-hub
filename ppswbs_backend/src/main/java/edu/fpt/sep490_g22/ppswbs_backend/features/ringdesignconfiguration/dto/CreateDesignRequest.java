@@ -11,8 +11,7 @@ import lombok.*;
 @Builder
 public class CreateDesignRequest {
 
-    @NotBlank
-    @Size(min = 1, max = 128)
+    @Size(max = 128)
     private String packageReference;
 
     @Size(min = 1, max = 128)

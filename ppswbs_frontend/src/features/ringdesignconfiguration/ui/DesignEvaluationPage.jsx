@@ -68,6 +68,51 @@ export default function DesignEvaluationPage() {
 
   const recommendation = useMemo(() => {
     const evalData = design?.evaluation || {};
+    const materialRef = design?.componentSnapshot?.materialReference || previewModel.material?.reference;
+
+    // Prefer server-returned recommendation metadata when available
+    if (evalData.recommendationCode) {
+      const code = evalData.recommendationCode;
+      if (code === 'TOO_RISKY') {
+        return {
+          packageId: null,
+          packageName: null,
+          isTooRisky: true,
+          reason: evalData.recommendationReason || 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo',
+          note: evalData.materialDisclosure || 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu Chế tác riêng (Custom) để nghệ nhân Mland gia công chuyên nghiệp.',
+        };
+      }
+      if (code === 'NO_COMPATIBLE_PACKAGE') {
+        return {
+          packageId: null,
+          packageName: null,
+          isTooRisky: false,
+          noCompatiblePackage: true,
+          reason: evalData.recommendationReason || 'Chất liệu hiện chưa có gói workshop tự làm tương thích.',
+          note: evalData.materialDisclosure || null,
+        };
+      }
+      const waxPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('wax')) || { packageId: '10', name: 'Gói Wax Casting' };
+      const silverClayPkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('silver clay')) || { packageId: '8', name: 'Gói Silver Clay' };
+      const signaturePkg = publishedPackages.find((p) => p.name?.toLowerCase().includes('signature')) || { packageId: '6', name: 'Gói Signature Workshop' };
+      const pkgMap = {
+        WAX_CASTING: waxPkg,
+        SILVER_CLAY: silverClayPkg,
+        SIGNATURE_SILVER: signaturePkg,
+        SIGNATURE_BRASS: signaturePkg,
+      };
+      const matched = pkgMap[code];
+      const s999Disclosure = code === 'SILVER_CLAY' && materialRef === 'MAT-SILVER-925'
+        ? 'Lưu ý: Gói Silver Clay sử dụng bạc S999; bản thiết kế đã lưu của bạn vẫn giữ chất liệu Bạc 925.'
+        : null;
+      return {
+        packageId: matched?.packageId || null,
+        packageName: matched?.name || code,
+        reason: evalData.recommendationReason || '',
+        note: evalData.materialDisclosure || s999Disclosure || (code === 'WAX_CASTING' ? 'Workshop Wax Casting cần 2 buổi cách nhau ít nhất 2 ngày làm việc của xưởng.' : null),
+      };
+    }
+
     const gemCount = previewModel.stones?.length || (previewModel.gemstones || []).reduce((sum, g) => sum + (Number(g.quantity) || 1), 0);
     const rawDiff = evalData.difficultyScore ?? previewModel.difficultyScore ?? 1;
     const diffScore = typeof rawDiff === 'number' ? rawDiff : (parseFloat(rawDiff) || 1);
@@ -98,7 +143,7 @@ export default function DesignEvaluationPage() {
         packageId: silverClayPkg.packageId,
         packageName: silverClayPkg.name || 'Gói Silver Clay',
         reason: 'Những viên đá quý của bạn sẽ tỏa sáng như những vì sao khi bạn chọn gói silverclay',
-        note: null,
+        note: materialRef === 'MAT-SILVER-925' ? 'Lưu ý: Gói Silver Clay sử dụng bạc S999; bản thiết kế đã lưu vẫn giữ Bạc 925.' : null,
       };
     }
     return {
@@ -249,6 +294,7 @@ export default function DesignEvaluationPage() {
 
               {(() => {
                 const diffMeta = getDifficultyMeta(evalData.difficultyScore, t);
+                const levelLabel = evalData.difficultyLevel ? (t(`difficulty.${evalData.difficultyLevel}`) || diffMeta.label) : diffMeta.label;
                 return (
                   <div
                     style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
@@ -259,7 +305,7 @@ export default function DesignEvaluationPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                       <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
-                        {diffMeta.score} / 10
+                        {diffMeta.score}
                       </span>
                       <span
                         style={{
@@ -272,7 +318,7 @@ export default function DesignEvaluationPage() {
                         }}
                         data-testid="difficulty-badge"
                       >
-                        {diffMeta.label}
+                        {levelLabel}
                       </span>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.35rem', lineHeight: 1.4 }} data-testid="difficulty-note">
@@ -284,9 +330,11 @@ export default function DesignEvaluationPage() {
                         <span>Ghi chú: {diffMeta.note}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                      Thang đo: 1-3: Dễ · &gt;3-6: Trung bình · &gt;6-9: Khó · &gt;9: Rất khó
-                    </div>
+                    {evalData.rulesVersion && (
+                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                        Quy tắc: {evalData.rulesVersion}
+                      </div>
+                    )}
                     {diffMeta.isVeryHard && (
                       <div
                         style={{

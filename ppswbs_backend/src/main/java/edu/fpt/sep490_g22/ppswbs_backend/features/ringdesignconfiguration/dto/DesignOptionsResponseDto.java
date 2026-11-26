@@ -53,6 +53,9 @@ public class DesignOptionsResponseDto {
         private String currency;
         private String difficultyScore;
         private String imageUrl;
+        @Builder.Default
+        private boolean selectable = true;
+        private String unavailableReason;
     }
 
     @Data
@@ -67,6 +70,9 @@ public class DesignOptionsResponseDto {
         private String currency;
         private String difficultyScore;
         private String imageUrl;
+        @Builder.Default
+        private boolean selectable = true;
+        private String unavailableReason;
     }
 
     @Data
@@ -86,6 +92,9 @@ public class DesignOptionsResponseDto {
         private String imageUrl;
         private Integer maxQuantity;
         private List<String> allowedPlacements;
+        @Builder.Default
+        private boolean selectable = true;
+        private String unavailableReason;
     }
 
     @Data
@@ -103,6 +112,9 @@ public class DesignOptionsResponseDto {
         private String imageUrl;
         private Integer maxQuantity;
         private List<String> allowedPlacements;
+        @Builder.Default
+        private boolean selectable = true;
+        private String unavailableReason;
     }
 
     @Data
@@ -150,6 +162,14 @@ public class DesignOptionsResponseDto {
         private String imageUrl;
         private String materialReference;
         private String shapeReference;
+        @Builder.Default
+        private List<ComponentSelectionDto> defaultComponents = new ArrayList<>();
+        @Builder.Default
+        private List<AttachmentSelectionDto> defaultAttachments = new ArrayList<>();
+        private String difficultyScore;
+        private String difficultyLevel;
+        @Builder.Default
+        private boolean selectable = true;
     }
 }
 
