@@ -1,4 +1,4 @@
-﻿### 1.4 Change Password
+### 1.4 Change Password
 
 | Use Case ID | UC-04 | Use Case Name | Change Password |
 | --- | --- | --- | --- |

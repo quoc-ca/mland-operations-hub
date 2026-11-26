@@ -1,4 +1,4 @@
-﻿### 1.3 Reset Password
+### 1.3 Reset Password
 
 | Use Case ID | UC-03 | Use Case Name | Reset Password |
 | --- | --- | --- | --- |

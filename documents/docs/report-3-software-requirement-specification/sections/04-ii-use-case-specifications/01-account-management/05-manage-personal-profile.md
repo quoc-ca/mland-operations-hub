@@ -1,4 +1,4 @@
-﻿### 1.5 Manage Personal Profile
+### 1.5 Manage Personal Profile
 
 | Use Case ID | UC-05 | Use Case Name | Manage Personal Profile |
 | --- | --- | --- | --- |
