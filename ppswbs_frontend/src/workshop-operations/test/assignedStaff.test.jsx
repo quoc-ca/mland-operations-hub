@@ -14,8 +14,8 @@ beforeEach(() => clearRoleCache());
 
 const session = assigned => json(200, { id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10, assignedStaffAccountIds: assigned });
 const staffList = json(200, [
-  { accountId: 33, fullName: 'Local Test Staff', loginEmail: 'test.staff@mland.local' },
-  { accountId: 41, fullName: 'Second Staff', loginEmail: 'second@mland.local' },
+  { accountId: 33, fullName: 'Local Test Staff' },
+  { accountId: 41, fullName: 'Second Staff' },
 ]);
 
 describe('Assigned Staff on the session page', () => {
@@ -32,6 +32,8 @@ describe('Assigned Staff on the session page', () => {
     expect(list.getByText(/Local Test Staff/)).toBeInTheDocument();
     expect(list.getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
     expect(screen.queryByText('Operational lead')).not.toBeInTheDocument();
+    // The Manager list carries no email: the picker shows the name and Account ID.
+    expect(screen.getByRole('option', { name: /^Second Staff — .*41/ })).toBeInTheDocument();
   });
 
   it('removes one Staff from the list without touching the others', async () => {

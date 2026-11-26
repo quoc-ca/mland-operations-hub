@@ -162,8 +162,11 @@ paths:
 
   /api/v1/accounts:
     get:
-      summary: List accounts (Admin search/filter)
-      description: Paginated search and filtering of accounts. Excludes credentials and provider UIDs.
+      summary: List accounts (Admin search/filter; Manager Staff picker)
+      description: >-
+        Paginated search and filtering of accounts. Excludes credentials and provider UIDs.
+        FR-054: a Manager must send role=STAFF and status=ACTIVE (otherwise 403); q is ignored
+        and loginEmail and revocationStatus are omitted from the Manager response.
       operationId: listAccounts
       security:
         - bearerAuth: []
@@ -1067,12 +1070,11 @@ components:
 
     AccountSummaryResponse:
       type: object
+      description: loginEmail and revocationStatus are always present for Admin and omitted for Manager (FR-054).
       required:
         - accountId
         - role
         - status
-        - loginEmail
-        - revocationStatus
         - createdAt
         - updatedAt
       properties:

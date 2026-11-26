@@ -105,6 +105,9 @@ public class AiSupportService {
         AiPromptQuotaService.QuotaResult quotaResult;
         try {
             quotaResult = aiPromptQuotaService.consumeQuota(actorScope, quotaIdentifier, effectiveCorrelationId);
+            if (memberId == null) {
+                aiPromptQuotaService.consumeGuestPoolQuota(effectiveCorrelationId);
+            }
         } catch (DesignReviewException ex) {
             throw ex.withGuestSessionToken(responseGuestSessionToken);
         }

@@ -1,9 +1,9 @@
 # Feature-004 — Custom Design Request and Human Review
 
 Date created: 2026-11-20
-Date updated: 2026-11-24
+Date updated: 2026-11-26
 Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+Last updated by: Hồ Hoàng Quốc
 
 Status: `MEMBER-ONLY REBASELINE — IMPLEMENTATION PLAN REQUIRED`
 
@@ -47,6 +47,15 @@ Without consent, the image cannot be stored or submitted.
 All Member actions require Firebase identity, an active Mland Member account,
 resource ownership and current request/version state. Client-supplied role,
 owner, status, quote, or reviewer fields are ignored.
+
+### 2.1 Access and state rules (2026-11-26)
+
+Approved in session by Hồ Hoàng Quốc on 2026-11-26 for implementation; Feature owner Ngô Tiến Đạt is still to be informed.
+
+- **Quote read:** only the request owner, Staff and Manager may read a request's quote. Everyone else, Admin included, receives `404`, whether or not a quote exists. The owner receives `204` while no quote exists. Which Staff are "assigned" stays open.
+- **Feature-012 reference:** submission and clarification revision accept a design reference only when the design belongs to the current Member and its latest version is not `ARCHIVED`. A missing, foreign, legacy Guest or archived design is refused with `422 DESIGN_REFERENCE_INVALID`, the same answer for each case, and nothing is saved.
+- **Quote lock:** once an order is `PAID`, `IN_PRODUCTION`, `READY_FOR_FULFILMENT` or `CLOSED`, preparing, approving or re-requesting a quote is refused with `409 CUSTOM_ORDER_QUOTE_LOCKED` and nothing changes. Approval applies only to the latest quote of that order; an older or foreign quote is refused with `409 QUOTE_ALREADY_DECIDED`. Re-quoting stays allowed in `QUOTE_PENDING`, `FULL_PAYMENT_PENDING` and `QUOTE_EXPIRED`.
+- **Legacy Basic AI Support:** while the legacy route remains, all Guest prompts together are capped per day (default 100, configurable) in addition to the per-session limit; exceeding it returns the existing `429` quota answer. Member limits are unchanged.
 
 ## 3. Customer flow
 

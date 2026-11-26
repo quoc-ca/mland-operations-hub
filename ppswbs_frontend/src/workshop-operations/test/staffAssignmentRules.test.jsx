@@ -20,7 +20,7 @@ const profile = role => json(200, { role });
 const session = (extra = {}) => json(200, {
   id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10, assignedStaffAccountIds: [33], missingStaff: false, ...extra,
 });
-const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff', loginEmail: 'test.staff@mland.local' }]);
+const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff' }]);
 
 function openSession(role, handlers) {
   const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/accounts': staffList, ...handlers });

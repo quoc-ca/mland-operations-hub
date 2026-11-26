@@ -1,9 +1,9 @@
 # Tasks — Feature-004 Design Request and Human Review & Custom Manufacturing Integration
 
 Date created: 2026-11-20
-Date updated: 2026-11-22
+Date updated: 2026-11-26
 Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+Last updated by: Hồ Hoàng Quốc
 
 ## Phase A — Documentation rebasing
 - [x] Rename logical feature to `004-design-request-and-human-review`.
@@ -83,3 +83,12 @@ Last updated by: Ngô Tiến Đạt
 - [x] Remove deposit, remaining-balance and final-balance actions from the custom-order UI.
 - [x] Show quote/payment expiry and cancellation, including request-new-quote where permitted.
 - [x] Test ownership isolation, duplicate payment commands, stale quote, expired quote and late payment evidence.
+
+## Access and state correction — 2026-11-26
+
+Source: spec section 2.1, approved in session by Hồ Hoàng Quốc.
+
+- [x] T004-070 Restrict quote reads to the owner, Staff and Manager (`404` otherwise) with API tests.
+- [x] T004-071 Accept only an owned, non-archived Feature-012 reference on submit and revision (`422 DESIGN_REFERENCE_INVALID`) with tests.
+- [x] T004-072 Add the daily cap for all Guest AI Support prompts with tests.
+- [x] T004-073 Lock quote commands after payment and approve only the latest quote (`409 CUSTOM_ORDER_QUOTE_LOCKED`) with tests.

@@ -218,6 +218,11 @@ public class DesignAnalysisService {
             return mapToViewDto(existingReq);
         }
 
+        // A Feature-012 attachment is checked before anything is saved (spec 004 2.1).
+        BookingDesignSnapshotDto designSnapshot = hasSnapshot
+                ? requireAttachableDesign(member.accountId(), sanitizedDesignRef)
+                : null;
+
         // 3. Validation
         if (!hasDescription && !hasImages && !hasSnapshot) {
             throw DesignReviewException.badRequest("AI_INPUT_INVALID",
@@ -341,24 +346,9 @@ public class DesignAnalysisService {
                 .build();
         requestRepository.save(designRequest);
 
-        // Feature-012 snapshot capture through facade
-        if (hasSnapshot && workshopRingDesignFacade.isPresent()) {
-            workshopRingDesignFacade.get().getDesignSnapshot(designReference.trim()).ifPresent(snapshotDto -> {
-                try {
-                    String json = objectMapper.writeValueAsString(snapshotDto.getSnapshot());
-                    CustomDesignReferenceSnapshot cdrs = CustomDesignReferenceSnapshot.builder()
-                            .requestId(requestId)
-                            .designReference(designReference.trim())
-                            .designVersion(snapshotDto.getDesignVersion() != null ? snapshotDto.getDesignVersion() : 1)
-                            .packageReference(snapshotDto.getPackageReference())
-                            .snapshotJson(json)
-                            .createdAt(Instant.now())
-                            .build();
-                    snapshotRepository.save(cdrs);
-                } catch (Exception e) {
-                    log.warn("Failed to serialize snapshot for request {}: {}", requestId, e.getMessage());
-                }
-            });
+        // Feature-012 snapshot capture
+        if (designSnapshot != null) {
+            saveDesignSnapshot(requestId, sanitizedDesignRef, designSnapshot);
         }
 
         // 7. Store Images in Storage & Database
@@ -524,6 +514,50 @@ public class DesignAnalysisService {
             throw DesignReviewException.notFound("IMAGE_NOT_FOUND", "Không tìm thấy hình ảnh.");
         }
         return image;
+    }
+
+    /**
+     * Spec 004 2.1: a request's quote is readable by its owner, Staff or a Manager. Everyone else, Admin included, gets
+     * the same not-found answer whether or not a quote exists.
+     */
+    @Transactional(readOnly = true)
+    public void requireQuoteViewer(String designRequestId, String callerUid,
+            Collection<? extends GrantedAuthority> authorities) {
+        if (DesignReviewPermissions.isInternalReviewer(authorities)) {
+            return;
+        }
+        boolean owner = accountFacade.resolveAccount(callerUid)
+                .flatMap(account -> requestRepository.findById(designRequestId)
+                        .or(() -> requestRepository.findByRequestReference(designRequestId))
+                        .map(request -> account.accountId().equals(request.getOwnerAccountId())))
+                .orElse(false);
+        if (!owner) {
+            throw DesignReviewException.notFound("NOT_FOUND",
+                    "Không tìm thấy yêu cầu thiết kế với mã đã cung cấp.");
+        }
+    }
+
+    private BookingDesignSnapshotDto requireAttachableDesign(Long memberAccountId, String designReference) {
+        return workshopRingDesignFacade
+                .flatMap(facade -> facade.getOwnedActiveDesignSnapshot(memberAccountId, designReference))
+                .orElseThrow(() -> DesignReviewException.unprocessable("DESIGN_REFERENCE_INVALID",
+                        "Mẫu thiết kế đính kèm không hợp lệ hoặc không còn sử dụng được."));
+    }
+
+    private void saveDesignSnapshot(String requestId, String designReference, BookingDesignSnapshotDto snapshotDto) {
+        try {
+            String json = objectMapper.writeValueAsString(snapshotDto.getSnapshot());
+            snapshotRepository.save(CustomDesignReferenceSnapshot.builder()
+                    .requestId(requestId)
+                    .designReference(designReference)
+                    .designVersion(snapshotDto.getDesignVersion() != null ? snapshotDto.getDesignVersion() : 1)
+                    .packageReference(snapshotDto.getPackageReference())
+                    .snapshotJson(json)
+                    .createdAt(Instant.now())
+                    .build());
+        } catch (Exception e) {
+            log.warn("Failed to serialize snapshot for request {}: {}", requestId, e.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -696,6 +730,10 @@ public class DesignAnalysisService {
                     "Phiên bản yêu cầu đã thay đổi, vui lòng tải lại trang.");
         }
 
+        BookingDesignSnapshotDto designSnapshot = (designReference != null && !designReference.isBlank())
+                ? requireAttachableDesign(member.accountId(), designReference.trim())
+                : null;
+
         // Save revision record
         int newVersion = request.getRequestVersion() + 1;
         CustomDesignRequestRevision revision = CustomDesignRequestRevision.builder()
@@ -715,24 +753,7 @@ public class DesignAnalysisService {
         if (designReference != null && !designReference.isBlank()) {
             request.setDesignReference(designReference.trim());
             request.setDesignVersion(designRingVersion != null ? designRingVersion : 1);
-            if (workshopRingDesignFacade.isPresent()) {
-                workshopRingDesignFacade.get().getDesignSnapshot(designReference.trim()).ifPresent(snapshotDto -> {
-                    try {
-                        String json = objectMapper.writeValueAsString(snapshotDto.getSnapshot());
-                        CustomDesignReferenceSnapshot cdrs = CustomDesignReferenceSnapshot.builder()
-                                .requestId(request.getId())
-                                .designReference(designReference.trim())
-                                .designVersion(snapshotDto.getDesignVersion() != null ? snapshotDto.getDesignVersion() : 1)
-                                .packageReference(snapshotDto.getPackageReference())
-                                .snapshotJson(json)
-                                .createdAt(Instant.now())
-                                .build();
-                        snapshotRepository.save(cdrs);
-                    } catch (Exception e) {
-                        log.warn("Failed to serialize snapshot for request revision {}: {}", request.getId(), e.getMessage());
-                    }
-                });
-            }
+            saveDesignSnapshot(request.getId(), designReference.trim(), designSnapshot);
         }
 
         request.setRequestVersion(newVersion);

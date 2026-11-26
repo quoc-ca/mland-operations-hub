@@ -1,9 +1,9 @@
 # Feature Specification: Account Management
 
 **Date created**: 2026-10-19
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-26
 **Author**: Phan Sơn
-**Last updated by**: Phan Sơn
+**Last updated by**: Hồ Hoàng Quốc
 
 **Feature Branch**: `son`
 
@@ -373,6 +373,15 @@ A signed-in Member can view, add, edit, physically delete, and set a default shi
 - Existing `plan.md`, `tasks.md`, `data-model.md`, and `contracts/member-profile.openapi.yaml` describe the superseded Member Profile design. Current execution artifacts are replaced directly from this specification before implementation; Git history preserves prior versions, and old task markers must not be treated as current instructions.
 
 ## Supersession note
+
+### R-ACL access correction (2026-11-26)
+
+Approved in session by Hồ Hoàng Quốc on 2026-11-26 for implementation; Feature owner Phan Sơn is still to be informed, and this is not a Tech Lead entry in `approval.md`. These rules replace conflicting text in FR-016, FR-027 and FR-029.
+
+- **FR-053 — Pending setup admission:** The shared identity gate (FR-027) MUST refuse a `PENDING_SETUP` Account with `403 ACCOUNT_PENDING_SETUP` on every route where it verifies that Account's bearer, except: `PUT /api/v1/accounts/me`, `GET /api/v1/accounts/me`, `GET /api/v1/accounts/me/profile` and `POST /api/v1/internal-account-invitations/completions`. Public routes keep their own rules.
+- **FR-054 — Manager Staff picker:** On the Account list (`/api/v1/accounts` and its Admin alias) an active Manager MAY read only `ACTIVE` `STAFF` Accounts, and MUST request exactly `role=STAFF` and `status=ACTIVE`; any other filter combination is refused with `403`. The search term is ignored for a Manager. Each returned record carries account ID, role, status, full name and record timestamps, and MUST NOT carry login email or revocation status. Account detail and every mutation stay Admin-only. This is the only HTTP exception to FR-029; the Admin list under FR-016 is unchanged.
+
+**R-ACL acceptance:** a pending Staff/Manager can read its own Account/Profile and finish setup but receives `403 ACCOUNT_PENDING_SETUP` elsewhere; a Manager can pick a Staff member by name and Account ID without seeing any email; a Manager asking for Members, Admins or an unfiltered list receives `403`.
 
 ### R-INV scoped correction approved (2026-11-25)
 
