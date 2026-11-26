@@ -30,6 +30,9 @@ describe('Retail routes for a signed-in actor', () => {
     ['MEMBER', '/staff/retail-orders'],
     ['CARRIER', '/manager/retail-payment-reconciliations'],
     ['STAFF', '/manager/retail-payment-reconciliations'],
+    // R3c: Member commerce and history routes are MEMBER only.
+    ...['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'].flatMap(role =>
+      ['/member/cart', '/member/checkout', '/member/orders'].map(path => [role, path])),
   ])('replaces %s on %s to /404 without calling the page API', async (role, path) => {
     signInAs(role);
     const calls = mockFetch({});
@@ -55,6 +58,9 @@ describe('Retail routes for a signed-in actor', () => {
     // C2 (Thinh, 2026-11-26): a Manager opens the branch retail work; the counter buttons stay Staff only.
     ['MANAGER', '/staff/retail-orders'],
     ['MANAGER', '/staff/retail-pickups'],
+    ['MEMBER', '/member/cart'],
+    ['MEMBER', '/member/checkout'],
+    ['MEMBER', '/member/orders'],
   ])('lets %s open %s', async (role, path) => {
     signInAs(role);
     const calls = mockFetch({});
@@ -63,5 +69,17 @@ describe('Retail routes for a signed-in actor', () => {
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     expect(router.state.location.pathname).toBe(path);
     expect(screen.queryByText('not found page')).toBeNull();
+  });
+});
+
+describe('Member retail routes for a guest', () => {
+  it.each(['/member/cart', '/member/checkout', '/member/orders'])('keeps %s on its own page without calling any API', async path => {
+    const calls = mockFetch({});
+    const { router } = renderRoutes([...readyRingSalesRoutes, notFound], { language: 'en', path, session: fakeSession('signed-out') });
+
+    expect(await screen.findByRole('link', { name: /sign in/i })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(path);
+    expect(screen.queryByText('not found page')).toBeNull();
+    expect(calls).toHaveLength(0);
   });
 });
