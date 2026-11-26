@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
@@ -8,6 +8,8 @@ import { messages } from '../messages';
 import { settlementRoutes } from '../routes';
 import { orderedCollections, vnpayWarning } from '../pages/SettlementWorkspacePage';
 import { PROFILE, asRole, useFreshRole } from './helpers';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 useFreshRole();
 

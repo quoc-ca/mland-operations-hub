@@ -28,7 +28,7 @@ export default function RefundQueuePage() {
   const sourceLabel = useEnumLabel(messages, 'refundSource');
   const api = createSettlementApi(useHttp());
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const isStaff = role === 'STAFF';
   const [{ status }, setUrlFilters] = useUrlFilters({ status: '' });
   const setStatus = value => setUrlFilters({ status: value });

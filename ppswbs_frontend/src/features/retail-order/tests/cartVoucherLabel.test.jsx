@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { readyRingSalesRoutes } from '../routes/routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 // BUG-INT-0002 (2026-11-23): with an automatic discount stacked on a voucher, the "Voucher MLAND" row of the cart must
 // name only the voucher's part, like checkout does, not the total of both.

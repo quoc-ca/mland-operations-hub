@@ -1,11 +1,13 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
 import { transitionProblemText } from '../pages/OperationsSessionPage';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 function open(state) {
   mockFetch({

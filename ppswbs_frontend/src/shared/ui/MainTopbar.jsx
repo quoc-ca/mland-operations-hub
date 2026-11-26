@@ -287,9 +287,11 @@ export default function MainTopbar() {
                       <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
                         <span>👤</span> {t('menu.profile')}
                       </Link>
-                      <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>💍</span> {t('menu.savedDesigns')}
-                      </Link>
+                      {userRole !== 'ADMIN' && (
+                        <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>💍</span> {t('menu.savedDesigns')}
+                        </Link>
+                      )}
                       {userRole === 'MEMBER' && (
                         <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💬</span> {t('menu.designConsult')}
@@ -300,15 +302,21 @@ export default function MainTopbar() {
                           <span>🔨</span> {t('menu.customOrders')}
                         </Link>
                       )}
-                      <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>📦</span> {t('menu.myOrders')}
-                      </Link>
-                      <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>💎</span> {t('menu.loyalty')}
-                      </Link>
-                      <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
-                        <span>🎟️</span> {t('menu.myVouchers')}
-                      </Link>
+                      {userRole !== 'ADMIN' && (
+                        <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>📦</span> {t('menu.myOrders')}
+                        </Link>
+                      )}
+                      {userRole !== 'ADMIN' && (
+                        <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>💎</span> {t('menu.loyalty')}
+                        </Link>
+                      )}
+                      {userRole !== 'ADMIN' && (
+                        <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
+                          <span>🎟️</span> {t('menu.myVouchers')}
+                        </Link>
+                      )}
                       <Link
                         to="/workshop-booking/lookup"
                         className="main-topbar-dropdown-item"
@@ -342,7 +350,7 @@ export default function MainTopbar() {
                               </Link>
                             </>
                           )}
-                          {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                          {userRole === 'MANAGER' && (
                             <>
                               <Link
                                 to="/catalogue-management/products"
@@ -371,7 +379,7 @@ export default function MainTopbar() {
                               )}
                             </>
                           )}
-                          {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                          {(userRole === 'STAFF' || userRole === 'MANAGER') && (
                             <>
                               <Link
                                 to="/design-review-requests"
@@ -389,7 +397,7 @@ export default function MainTopbar() {
                               </Link>
                             </>
                           )}
-                          {(userRole === 'STAFF' || userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                          {(userRole === 'STAFF' || userRole === 'MANAGER') && (
                             <Link
                               to="/review-moderation"
                               className="main-topbar-dropdown-item"

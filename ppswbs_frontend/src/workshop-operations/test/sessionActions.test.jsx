@@ -1,8 +1,10 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { operationsRoutes } from '../routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 const session = state => json(200, { id: 'session-1', state, locationId: 4, capacity: 10 });
 

@@ -26,7 +26,7 @@ export default function ReconciliationPage() {
   const stateLabel = useEnumLabel(messages, 'collectionStatus');
   const api = createSettlementApi(useHttp());
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   const [filters, setFilters] = useUrlFilters({ locationId: '', workingDate: '', method: '', state: '' });
   const [rows, setRows] = useState(null);
   const command = useCommand();

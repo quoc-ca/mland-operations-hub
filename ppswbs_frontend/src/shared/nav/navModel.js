@@ -4,9 +4,9 @@
 // waiting-work badge links to the list filtered to exactly the counted set (spec 014 FR-005).
 
 // CARRIER (GHTK partner, Session 2026-11-23) sees only its own three pages, never the Mland operations groups.
-const any = role => role !== 'CARRIER';
 const manager = role => role === 'MANAGER';
 const staffOrManager = role => role === 'MANAGER' || role === 'STAFF';
+const managerOrAdmin = role => role === 'MANAGER' || role === 'ADMIN';
 const notAdmin = role => role !== 'ADMIN' && role !== 'CARRIER';
 const carrier = role => role === 'CARRIER';
 const admin = role => role === 'ADMIN';
@@ -67,7 +67,7 @@ export const GROUPS = [
   {
     id: 'retail', icon: 'shop', vi: 'Bán lẻ', en: 'Retail',
     tabs: [
-      { id: 'orders', vi: 'Đơn bán lẻ chi nhánh', en: 'Branch retail orders', to: '/staff/retail-orders', match: ['/staff/retail-*'], visible: any },
+      { id: 'orders', vi: 'Đơn bán lẻ chi nhánh', en: 'Branch retail orders', to: '/staff/retail-orders', match: ['/staff/retail-*'], visible: staffOrManager },
       { id: 'reconciliation', vi: 'Đối soát thanh toán bán lẻ', en: 'Retail payment reconciliation', to: '/manager/retail-payment-reconciliations', match: ['/manager/retail-payment-reconciliations*'], visible: manager },
     ],
   },
@@ -92,8 +92,8 @@ export const GROUPS = [
   {
     id: 'collect', icon: 'cash', vi: 'Thu tiền', en: 'Collections',
     tabs: [
-      { id: 'folio', vi: 'Folio vé', en: 'Ticket folio', to: '/settlement', match: ['/settlement'], visible: any },
-      { id: 'cash-close', vi: 'Chốt sổ tiền mặt', en: 'Cash close', to: '/settlement/cash-close?view=confirmation', match: ['/settlement/cash-close*'], visible: any },
+      { id: 'folio', vi: 'Folio vé', en: 'Ticket folio', to: '/settlement', match: ['/settlement'], visible: staffOrManager },
+      { id: 'cash-close', vi: 'Chốt sổ tiền mặt', en: 'Cash close', to: '/settlement/cash-close?view=confirmation', match: ['/settlement/cash-close*'], visible: staffOrManager },
       { id: 'late-payments', vi: 'Thanh toán về trễ', en: 'Late payments', to: '/operations/late-payments', match: ['/operations/late-payments*'], visible: manager },
       { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Reconciliation list', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
       { id: 'absorbed', vi: 'Khoản thiếu Mland chịu', en: 'Absorbed undercharges', to: '/settlement/absorbed-undercharges', match: ['/settlement/absorbed-undercharges*'], visible: manager },
@@ -102,7 +102,7 @@ export const GROUPS = [
   {
     id: 'tickets', icon: 'ticket', vi: 'Vé và hoàn tiền', en: 'Tickets & refunds',
     tabs: [
-      { id: 'ticket-actions', vi: 'Hủy và đổi vé', en: 'Cancel & change tickets', to: '/settlement/ticket-actions', match: ['/settlement/ticket-actions*'], visible: any },
+      { id: 'ticket-actions', vi: 'Hủy và đổi vé', en: 'Cancel & change tickets', to: '/settlement/ticket-actions', match: ['/settlement/ticket-actions*'], visible: staffOrManager },
       { id: 'change-requests', vi: 'Yêu cầu đổi vé', en: 'Change requests', to: '/settlement/change-requests?status=PENDING', match: ['/settlement/change-requests*'], visible: notAdmin },
       { id: 'refunds', vi: 'Hàng đợi hoàn tiền', en: 'Refund queue', to: '/settlement/refunds?status=WAITING', match: ['/settlement/refunds*'], visible: manager },
       { id: 'cases', vi: 'Sự vụ và bồi hoàn', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
@@ -112,8 +112,8 @@ export const GROUPS = [
   {
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
-      { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: manager },
-      { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: manager },
+      { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: managerOrAdmin },
+      { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: managerOrAdmin },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
     ],
   },

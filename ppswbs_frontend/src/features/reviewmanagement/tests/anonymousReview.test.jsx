@@ -1,9 +1,11 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { reviewManagementRoutes } from '../routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 const source = {
   sourceType: 'WORKSHOP_ATTENDANCE', sourceReference: 'TICK-101', targetType: 'WORKSHOP_SESSION',

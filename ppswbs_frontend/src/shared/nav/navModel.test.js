@@ -66,6 +66,10 @@ describe('navigation model', () => {
     expect(shown).not.toContain('/home');
     expect(shown).not.toContain('/operations/sessions');
     expect(shown).not.toContain('/settlement/change-requests');
+    ['/settlement', '/settlement/cash-close?view=confirmation', '/settlement/ticket-actions', '/staff/retail-orders', '/operations/audit']
+      .forEach(link => expect(shown).not.toContain(link));
+    expect(shown).toContain('/admin/notifications/templates');
+    expect(shown).toContain('/admin/notifications/requests');
   });
 
   it('shows only the role-free entries while the role is unknown', () => {
