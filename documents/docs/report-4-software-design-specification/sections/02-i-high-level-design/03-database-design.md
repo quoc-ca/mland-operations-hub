@@ -2,7 +2,7 @@
 
 {{r4-db width=100% align=center}}
 
-The diagram shows the database tables, their primary and foreign keys and the relationships between them. The table inventory and the column descriptions follow.
+The diagram shows the baseline database relationships. The inventory and column descriptions below include the current ring-difficulty policy tables. The diagram image still needs a matching update before publication.
 
 ### Table Inventory
 
@@ -65,6 +65,12 @@ The diagram shows the database tables, their primary and foreign keys and the re
 |53|012 Workshop Ring Design Configuration|ring_shapes|Stores the ring shape options.|
 |54|012 Workshop Ring Design Configuration|ring_gemstones|Stores the gemstone options; selected gemstones are kept in ring_designs.component_snapshot.|
 |55|012 Workshop Ring Design Configuration|ring_attachments|Stores the attachment options; selected attachments are kept in ring_designs.component_snapshot.|
+|56|012 Workshop Ring Design Configuration|ring_difficulty_policy_versions|Stores immutable difficulty coefficients, cutoffs and publication metadata.|
+|57|012 Workshop Ring Design Configuration|ring_difficulty_option_scores|Stores option scores belonging to one immutable policy version.|
+|58|012 Workshop Ring Design Configuration|ring_difficulty_effective_policy|Points to the effective policy version.|
+|59|012 Workshop Ring Design Configuration|ring_difficulty_catalogue_revision|Tracks catalogue changes that invalidate a preview proof.|
+|60|012 Workshop Ring Design Configuration|ring_difficulty_preview_proofs|Stores short-lived, Admin-bound proof metadata without sample contents.|
+|61|012 Workshop Ring Design Configuration|ring_difficulty_publication_audit|Stores attributable old and new publication values.|
 
 :::
 
@@ -1265,7 +1271,7 @@ Stores ring design versions created in the configurator. The current supported p
 |design_type|VARCHAR(30)|NOT NULL, DEFAULT configured_design||
 |owner_type|VARCHAR(30)|NOT NULL||
 |owner_reference|VARCHAR(128)|NOT NULL||
-|package_reference|VARCHAR(128)|NOT NULL||
+|package_reference|VARCHAR(128)||Null for a general-catalogue design without a selected package.|
 |source_model_reference|VARCHAR(128)|||
 |source_design_id|BIGINT UNSIGNED|FK → ring_designs(id)|References ring_designs(id).|
 |material_reference|VARCHAR(64)|FK → ring_materials(material_code) (logical)|Logical reference to ring_materials(material_code); no database constraint.|
@@ -1274,8 +1280,14 @@ Stores ring design versions created in the configurator. The current supported p
 |component_snapshot|JSON|||
 |estimated_price|DECIMAL(15,2)|||
 |currency|VARCHAR(3)|||
-|difficulty_score|DECIMAL(10,4)|||
+|difficulty_score|DECIMAL(18,4)||Stored evaluation outcome.|
 |rules_version|VARCHAR(64)|||
+|policy_version_id|BIGINT UNSIGNED|FK → ring_difficulty_policy_versions(id)|Policy used for this saved evaluation.|
+|difficulty_level|VARCHAR(32)||Stored classification.|
+|recommendation_code|VARCHAR(64)||Stored advisory outcome.|
+|recommended_package_reference|VARCHAR(128)||Stored advisory package reference.|
+|material_disclosure|VARCHAR(500)||Stored material-compatibility explanation.|
+|evaluated_at|DATETIME(6)||Evaluation time.|
 |status|ENUM('DRAFT','SAVED','VALIDATED','ARCHIVED')|NOT NULL, DEFAULT DRAFT|Customer-facing lifecycle for a persisted Member design. Feature-012 no longer attaches designs to workshop bookings; recommendation is informational only.|
 |booking_reference|VARCHAR(128)|||
 |created_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)||
@@ -1377,3 +1389,83 @@ Stores the attachment options; selected attachments are kept in ring_designs.com
 |updated_at|DATETIME(6)|NOT NULL, DEFAULT CURRENT_TIMESTAMP(6)||
 
 :::
+
+### 3.56 ring_difficulty_policy_versions
+
+Stores immutable coefficients and cutoffs. An Admin publication creates a new row; it does not edit an earlier version.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| id | BIGINT UNSIGNED | Primary key | Policy identifier. |
+| rules_version | VARCHAR(64) | Not null, unique | Public evaluation version. |
+| engraving_bonus | DECIMAL(18,4) | Not null | One-time standard engraving contribution. |
+| custom_image_bonus_per_image | DECIMAL(18,4) | Not null | Contribution per custom image. |
+| easy_max, medium_max, hard_max, very_hard_max | DECIMAL(18,4) | Not null | Ordered difficulty boundaries. |
+| wax_above | DECIMAL(18,4) | Not null | Wax Casting recommendation boundary. |
+| silver_clay_gemstones_above | INT | Not null | Silver Clay gemstone-count boundary. |
+| published_by | VARCHAR(128) | Not null | Admin account reference. |
+| published_at | DATETIME(6) | Not null | Publication time. |
+
+### 3.57 ring_difficulty_option_scores
+
+Stores one option contribution per policy version, option kind and reference.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| id | BIGINT UNSIGNED | Primary key | Score-row identifier. |
+| policy_version_id | BIGINT UNSIGNED | Not null, FK → ring_difficulty_policy_versions(id) | Owning immutable version. |
+| option_kind | VARCHAR(32) | Not null | Material, shape, gemstone or attachment. |
+| option_reference | VARCHAR(128) | Not null | Catalogue option reference. |
+| score | DECIMAL(18,4) | Not null | Difficulty contribution. |
+
+The combination of policy version, option kind and option reference is unique.
+
+### 3.58 ring_difficulty_effective_policy
+
+Stores one effective-version pointer per policy scope.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| policy_scope | VARCHAR(64) | Primary key | Identifies the difficulty-policy scope. |
+| policy_version_id | BIGINT UNSIGNED | Not null, FK → ring_difficulty_policy_versions(id) | Currently effective version. |
+| updated_at | DATETIME(6) | Not null | Pointer-change time. |
+
+### 3.59 ring_difficulty_catalogue_revision
+
+Tracks catalogue changes that must invalidate a preview proof before publication.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| revision_scope | VARCHAR(64) | Primary key | Identifies the ring catalogue. |
+| revision_number | BIGINT UNSIGNED | Not null | Current catalogue revision. |
+| updated_at | DATETIME(6) | Not null | Last revision change. |
+
+### 3.60 ring_difficulty_preview_proofs
+
+Stores metadata for an eligible preview. Proof expires after 15 minutes and contains no example contents or Member design.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| id | BIGINT UNSIGNED | Primary key | Proof-row identifier. |
+| proof_reference_hash | VARCHAR(128) | Not null, unique | Hash of the opaque reference returned to Admin. |
+| admin_account_reference | VARCHAR(128) | Not null | Admin allowed to publish this candidate. |
+| candidate_digest | VARCHAR(128) | Not null | Digest of complete candidate values. |
+| expected_policy_version_id | BIGINT UNSIGNED | Not null, FK → ring_difficulty_policy_versions(id) | Version observed during preview. |
+| expected_catalogue_revision | BIGINT UNSIGNED | Not null | Catalogue revision observed during preview. |
+| created_at, expires_at | DATETIME(6) | Not null | Proof lifetime. |
+
+### 3.61 ring_difficulty_publication_audit
+
+Stores attributable old and new values for each successful publication. The operational audit retention requirement remains at least five years.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| id | BIGINT UNSIGNED | Primary key | Audit-row identifier. |
+| actor_reference | VARCHAR(128) | Not null | Publishing Admin reference. |
+| previous_policy_version_id | BIGINT UNSIGNED | FK → ring_difficulty_policy_versions(id) | Superseded version. |
+| new_policy_version_id | BIGINT UNSIGNED | Not null, FK → ring_difficulty_policy_versions(id) | Newly effective version. |
+| correlation_id | VARCHAR(128) | Nullable | Request correlation. |
+| reason | VARCHAR(500) | Nullable | Publication reason. |
+| old_values_snapshot | JSON | Nullable | Previous complete values. |
+| new_values_snapshot | JSON | Not null | Published complete values. |
+| published_at | DATETIME(6) | Not null | Publication time. |
