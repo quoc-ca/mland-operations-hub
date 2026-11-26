@@ -1,4 +1,4 @@
-### 3.26 Respond to Mland Cancellation Offer
+### 3.21 Respond to Mland Cancellation Offer
 
 | Use Case ID | UC-88 | Use Case Name | Respond to Mland Cancellation Offer |
 | --- | --- | --- | --- |
@@ -62,4 +62,4 @@ BR-88-01, BR-88-02, BR-88-03, BR-88-04
 | BR-88-01 | The answer deadline is 24 hours before the latest offered session. |
 | BR-88-02 | A replacement does not count as the customer change. |
 | BR-88-03 | A ticket with no money collected needs no refund request. |
-| BR-88-04 | The remedy applies to open and finalized folios; a finalized folio is closed only after its refund is completed. |
+| BR-88-04 | The remedy applies to open and finalized bills; a finalized bill is closed only after its refund is completed. |

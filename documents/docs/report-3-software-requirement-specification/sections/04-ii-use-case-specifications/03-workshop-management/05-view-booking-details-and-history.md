@@ -1,13 +1,13 @@
-### 3.5 Look Up Booking Details
+### 3.5 View Booking Details and History
 
-| Use Case ID | UC-23 | Use Case Name | Look Up Booking Details |
+| Use Case ID | UC-23 | Use Case Name | View Booking Details and History |
 | --- | --- | --- | --- |
 | Created By |  | Created Date |  |
 | Primary Actors | Guest, Member | Secondary Actors | Mail Gateway |
 
 #### Description
 
-As a Guest or Member, I want to open my booking group so that I can see its tickets, their status and money, and the check-in QR codes.
+As a Guest or Member, I want to view my booking history and details so that I can follow tickets, payments, and check-in QR codes.
 
 #### Trigger
 

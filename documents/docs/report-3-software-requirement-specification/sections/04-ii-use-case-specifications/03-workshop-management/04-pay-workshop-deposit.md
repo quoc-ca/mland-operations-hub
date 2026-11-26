@@ -23,7 +23,7 @@ An actor starts payment for a held booking group with an amount due of at least 
 #### Postconditions
 
 1. Verified evidence confirms the group, commits every hold, and issues each ticket QR code and the group Magic Link.
-2. Each ticket opens its own folio with the collected amount and remaining balance.
+2. Each ticket opens its own ticket bill with the collected amount and remaining balance.
 3. A failed, pending, or expired payment leaves the group unconfirmed.
 
 #### Normal Flow
@@ -51,7 +51,7 @@ None.
 
 6b. Browser returns without server-side evidence → System never confirms payment from a Return URL redirect alone.
 
-6c. Verified payment arrives after hold expiry → System auto-confirms only if all late-payment rules pass; otherwise Manager confirms or refunds.
+6c. Verified payment arrives after hold expiry → System auto-confirms only if all late-payment rules pass; otherwise Manager confirms or refunds in UC-92.
 
 7a. Confirmation cannot complete yet → System retries while the hold allows, then routes to late-payment review.
 
@@ -77,7 +77,7 @@ BR-41-01, BR-41-02, BR-41-03, BR-41-04
 
 | ID | Rule Definition |
 | --- | --- |
-| BR-41-01 | One VNPay payment covers the whole group collection; a collection of 0 VND needs no VNPay. |
+| BR-41-01 | One VNPay payment covers the whole group collection; a collection below 5,000 VND needs no VNPay. |
 | BR-41-02 | The group is confirmed only by one valid, signed, non-duplicate payment result with the expected reference and amount. |
 | BR-41-03 | A browser Return URL alone never confirms payment. |
 | BR-41-04 | The VNPay link expires at minute 10 and the group hold lasts 12 minutes. |

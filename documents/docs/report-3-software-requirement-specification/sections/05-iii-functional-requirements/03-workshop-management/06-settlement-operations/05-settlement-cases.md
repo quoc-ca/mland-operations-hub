@@ -9,7 +9,7 @@ This screen allows Managers to:
 - Reload the list.
 - Follow the links to the Refund Queue for refunds and to Change Requests for ticket changes.
 
-The list is read-only and shows filtered, safe data; payment and provider evidence stays behind the backend. Per-ticket work (folio, refunds, cancellations, changes) is done on the Settlement Workspace, Refund Queue, Ticket Actions and Change Requests screens, not here. Access is decided by the backend.
+The list is read-only and shows filtered, safe data; payment and provider evidence stays behind the backend. Per-ticket work (bill, refunds, cancellations, changes) is done on the Settlement Workspace, Refund Queue, Ticket Actions and Change Requests screens, not here. Access is decided by the backend.
 
 | Field Name | Description |
 | --- | --- |

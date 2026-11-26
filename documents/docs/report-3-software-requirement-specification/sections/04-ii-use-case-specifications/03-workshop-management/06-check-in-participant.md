@@ -3,7 +3,7 @@
 | Use Case ID | UC-24 | Use Case Name | Check In Participant |
 | --- | --- | --- | --- |
 | Created By |  | Created Date |  |
-| Primary Actors | Staff, Manager | Secondary Actors | None |
+| Primary Actors | Staff, Manager | Secondary Actors | Mail Gateway |
 
 #### Description
 
@@ -35,6 +35,8 @@ An actor opens a session to check in a participant.
 
 2a. Only a booking code is entered → System lists the session tickets for selection without checking anyone in.
 
+1a. Customer asks for the booking confirmation again → Staff or Manager requests a resend; System emails the stored contact only.
+
 #### Exception Flows
 
 3a. Check-in has not opened → System refuses the check-in.
@@ -45,9 +47,11 @@ An actor opens a session to check in a participant.
 
 4a. Recorded check-in is wrong → Only a Manager may reverse it with a reason.
 
+1b. Booking group is not confirmed, or the resend limit is reached → System sends nothing.
+
 #### Business Rules
 
-BR-20-01, BR-20-02, BR-20-03
+BR-20-01, BR-20-02, BR-20-03, BR-20-04
 
 #### Non-Functional Requirements
 
@@ -68,3 +72,4 @@ BR-20-01, BR-20-02, BR-20-03
 | BR-20-01 | Attendance is recorded per ticket and per session. |
 | BR-20-02 | Staff needs both location scope and session assignment; a Manager has global access. |
 | BR-20-03 | Check-in works only online and only after the session check-in opening time; overrides require a reason. |
+| BR-20-04 | A resend reuses the active booking link and is audited; Staff needs location scope and assignment to a session of the group. |

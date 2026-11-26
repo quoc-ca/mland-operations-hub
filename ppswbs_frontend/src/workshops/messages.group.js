@@ -331,7 +331,7 @@ export const messagesGroup = {
     'ticket.err.RESCHEDULE_QUOTA_EXHAUSTED': 'The session you chose has no reschedule quota left.',
     'ticket.err.INSUFFICIENT_CAPACITY': 'The session you chose just ran out of seats. Please choose another session.',
     'ticket.err.INVALID_REPLACEMENT': 'The new sessions do not fit the package rules. Please choose again.',
-    'ticket.err.TICKET_FOLIO_NOT_OPEN': 'The ticket folio is closed, so the schedule cannot be changed.',
+    'ticket.err.TICKET_FOLIO_NOT_OPEN': 'The ticket bill is closed, so the schedule cannot be changed.',
     'ticket.err.FROM_SESSION_NOT_OF_TICKET': 'The session to change does not belong to this ticket.',
     'ticket.err.PACKAGE_NOT_AVAILABLE_AT_LOCATION': 'This package is no longer sold at the branch you chose. Your ticket is unchanged and no change was used up. Please choose a session at another branch.',
     'ticket.err.LATE_ARRIVAL_WINDOW_EXPIRED': 'The deadline to change the schedule has passed: you can only change until the end of the 7th day after the session ended (Vietnam time). Your ticket is unchanged.',
@@ -421,6 +421,6 @@ export const messagesGroup = {
     'ticket.qr': 'Check-in QR code',
     'ticket.remedyNote': 'Mland cancelled or moved a session of this ticket and offers a replacement session.',
     'ticket.remedyLink': 'Choose a replacement session or a refund',
-    'ticket.folioLink': 'View the ticket payment folio',
+    'ticket.folioLink': 'View the ticket bill',
   },
 };

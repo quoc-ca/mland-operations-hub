@@ -11,7 +11,7 @@ This screen allows Staff and Managers to:
 - See when a change needs a Manager: the request is queued and the ticket only changes after approval in Change Requests.
 - As a Manager, grant a ticket one extra counted change allowance.
 
-A reason is required for every action and is written to the audit log. Prices, outcomes and queue status come from the server. A cancellation cannot be undone; any refund goes to the bank account the payer provides. A paid-up ticket whose folio is finalized can still be cancelled before its first session; the folio stays finalized and nothing is refunded.
+A reason is required for every action and is written to the audit log. Prices, outcomes and queue status come from the server. A cancellation cannot be undone; any refund goes to the bank account the payer provides. A paid-up ticket whose bill is finalized can still be cancelled before its first session; the bill stays finalized and nothing is refunded.
 
 | Field Name | Description |
 | --- | --- |

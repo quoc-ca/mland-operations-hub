@@ -9,7 +9,7 @@ This screen allows Managers to:
 - Edit an add-on that is not retired.
 - Activate a draft add-on so customers can choose it, or retire an active one.
 
-Customers can only choose an add-on while it is "Đang bán". Staff can open the page; changes are checked by the server.
+Customers can only choose an add-on while it is "Đang bán". The menu shows this page to Managers only. The server allows only a Manager to change add-ons.
 
 | Field Name | Description |
 | --- | --- |

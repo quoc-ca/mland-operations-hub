@@ -10,23 +10,25 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Account|Register, sign in, and recover account|Full|Full|Restricted|Restricted|Restricted|
 |Personal profile|View and update own profile|No|Full|Restricted|Restricted|Restricted|
 |User account|Create, view, update, lock, or unlock platform accounts|No|No|No|No|Full|
-|Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|Restricted|No|No|
+|Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|No|No|No|
 |Workshop payment|Pay a workshop deposit and view the payment result|Full|Full|No|No|No|
-|Booking lookup|Look up booking details and QR check-in ticket|Full|Full|Restricted|Restricted|No|
+|Booking lookup|Look up booking details and QR check-in ticket|Full|Full|No|No|No|
 |Workshop operations|Check in a participant by QR code or manual code|No|No|Restricted|Full|No|
-|Workshop schedule|Create, update, or cancel schedules and branch allocations|No|No|No|Full|No|
+|Workshop schedule|Manage branches, and create, update, or cancel schedules (UC 25)|No|No|No|Full|No|
 |Workshop staffing|Assign Staff to workshop slots|No|No|No|Full|No|
-|Workshop time and capacity|Configure time slots, session capacity, and participant limits|No|No|No|Full|No|
-|Ticket folio|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
-|Ticket folio|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
-|Ticket folio|Verify transfers, manage handover exceptions and debt, and correct a folio (UC 80, 81, 82)|No|No|No|Full|No|
+|Workshop time and capacity|Configure time slots and session capacity|No|No|No|Full|No|
+|Workshop package|Manage workshop packages, add-ons, and branch availability (UC 91)|No|No|No|Full|No|
+|Late payment|Confirm or refund a late booking payment (UC 92)|No|No|No|Full|No|
+|Ticket bill|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
+|Ticket bill|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
+|Ticket bill|Verify transfers, manage handover exceptions and debt, and correct a bill (UC 80, 81, 82)|No|No|No|Full|No|
 |Cash day|Close a branch cash day; only a Manager resolves a difference (UC 83)|No|No|Restricted|Full|No|
 |Ticket cancellation|Cancel unused workshop tickets (UC 84)|Restricted|Restricted|Restricted|Full|No|
 |Ticket change|Select replacement sessions for a ticket (UC 85)|Restricted|Restricted|Restricted|Full|No|
-|Ticket change|Approve or reject a queued change request (UC 86)|No|No|Restricted|Full|No|
-|Ticket change|Grant an extra counted change (UC 87)|No|No|No|Full|No|
+|Ticket change|Approve or reject a queued change request (UC 85)|No|No|Restricted|Full|No|
+|Ticket change|Grant an extra counted change (UC 85)|No|No|No|Full|No|
 |Mland cancellation|Choose a replacement session or refund (UC 88); Staff and Manager only with the buyer proof|Restricted|Restricted|Restricted|Restricted|No|
-|Refund|Submit the receiving refund account (UC 89)|Restricted|Restricted|Restricted|Restricted|No|
+|Refund|Submit the receiving refund account (UC 90)|Restricted|Restricted|Restricted|Restricted|No|
 |Refund|Process a refund request (UC 90); Staff may only resend the refund-account link|No|No|Restricted|Full|No|
 |Product catalogue|Create (manually or by Excel import), update, and soft-delete products, images, stock, sale status and proposed prices (UC 12, UC 14); Staff only for products sold at an assigned branch (footnote 12)|No|No|Restricted|Full|No|
 |Product price|Decide a product or price proposal (UC 15)|No|No|No|Full|No|

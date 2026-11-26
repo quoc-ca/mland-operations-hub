@@ -45,7 +45,7 @@ An actor selects a published workshop package and starts booking.
 
 4a. Member applies one voucher and loyalty points → System includes them in the quote.
 
-8a. Booking-time collection is 0 VND → System confirms the group at once, without UC-22.
+8a. Booking-time collection is below 5,000 VND → System confirms the group at once, without UC-22.
 
 #### Exception Flows
 
