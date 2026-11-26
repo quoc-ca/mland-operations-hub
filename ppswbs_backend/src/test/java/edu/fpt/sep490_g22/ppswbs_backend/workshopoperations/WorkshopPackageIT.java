@@ -67,6 +67,7 @@ class WorkshopPackageIT {
     @Autowired private WorkshopPackageRepository packageRepository;
     @Autowired private WorkshopSessionRepository sessionRepository;
     @Autowired private WorkshopSlotRepository slotRepository;
+    @Autowired private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageLocationAvailabilityRepository availabilityRepository;
     @Autowired private WorkshopPackageService packageService;
     @Autowired private WorkshopPackageAuthorizationService packageAuthorization;
 
@@ -178,6 +179,9 @@ class WorkshopPackageIT {
         WorkshopPackage published = createPackage("Public Package", 1, 4, 1, 0, WorkshopPackageState.PUBLISHED);
         WorkshopPackage draft = createPackage("Private Draft", 1, 4, 1, 0, WorkshopPackageState.DRAFT);
         WorkshopLocation location = location("PKG-PUBLIC", true);
+        // 003.2 FR-037: a Package is sold at a location only with an active availability row.
+        availabilityRepository.saveAndFlush(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.WorkshopPackageLocationAvailability.builder()
+                .packageId(published.getId()).locationId(location.getId()).active(true).build());
         WorkshopSession selectable = createSession(location, 4, 2, LocalDate.now(ZONE).plusDays(9));
         WorkshopSession full = createSession(location, 5, 1, LocalDate.now(ZONE).plusDays(9));
         assertThat(reserve(published, selectable).status().name()).isEqualTo("ACCEPTED");
