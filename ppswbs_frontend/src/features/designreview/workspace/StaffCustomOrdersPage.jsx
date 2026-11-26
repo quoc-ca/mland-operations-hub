@@ -435,6 +435,18 @@ export default function StaffCustomOrdersPage() {
                           <strong>Địa chỉ nhận:</strong> {order.shippingAddress}
                         </p>
                       )}
+                      {order.trackingNumber && (
+                        <div style={{ margin: '0.4rem 0', background: '#f0fdf4', padding: '0.4rem 0.6rem', borderRadius: 4, border: '1px solid #bbf7d0' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 600 }}>🚚 Vận đơn GHTK:</span>
+                          <strong style={{ fontSize: '0.85rem', color: '#14532d', marginLeft: '0.4rem' }}>{order.trackingNumber}</strong>
+                          <span style={{ fontSize: '0.75rem', color: '#15803d', display: 'block' }}>
+                            Trạng thái: {order.shipmentStatus === 'DELIVERED' ? 'Đã giao thành công'
+                              : order.shipmentStatus === 'HANDED_TO_CARRIER' ? 'Bưu tá đang giao'
+                              : order.shipmentStatus === 'READY_FOR_CARRIER' ? 'Chờ bưu tá lấy hàng'
+                              : 'Đang chuẩn bị đóng gói'}
+                          </span>
+                        </div>
+                      )}
                       {order.designOriginalDescription && (
                         <div style={{ marginTop: '0.5rem', background: '#f8fafc', padding: '0.65rem', borderRadius: 6, border: '1px solid #f1f5f9' }}>
                           <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', fontWeight: 600 }}>Mô tả yêu cầu gốc của khách:</span>
@@ -623,29 +635,51 @@ export default function StaffCustomOrdersPage() {
                         )}
 
                         {currentStageKey === 'READY_FOR_FULFILMENT' && (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() =>
-                              setPendingTransition({
-                                order,
-                                targetStage: getStageConfig('CLOSED'),
-                                currentStageConfig,
-                              })
-                            }
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#334155',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: 6,
-                              fontWeight: 600,
-                              fontSize: '0.85rem',
-                              cursor: isBusy ? 'not-allowed' : 'pointer',
-                            }}
-                          >
-                            ✅ Xác nhận đã bàn giao / Giao hàng
-                          </button>
+                          order.shipmentStatus === 'READY_FOR_CARRIER' ? (
+                            <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600, padding: '0.4rem 0.75rem', background: '#dcfce7', borderRadius: 6 }}>
+                              🚚 Đã bàn giao bưu tá GHTK ({order.trackingNumber || 'S...'}) &bull; Chờ bưu tá lấy hàng & giao thành công để đóng đơn
+                            </span>
+                          ) : order.shipmentStatus === 'HANDED_TO_CARRIER' ? (
+                            <span style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 600, padding: '0.4rem 0.75rem', background: '#e0f2fe', borderRadius: 6 }}>
+                              🚚 Bưu tá GHTK đang giao hàng &bull; Tự động đóng đơn khi bưu tá báo giao thành công
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={async () => {
+                                setActionBusyId(order.customOrderReference);
+                                setNotification(null);
+                                try {
+                                  await api.advanceCustomOrderShipmentToReadyForCarrier(order.customOrderReference);
+                                  setNotification({
+                                    type: 'success',
+                                    message: `Đơn hàng ${order.customOrderReference} đã đóng gói xong và chuyển sang "Chờ bưu tá lấy" (READY_FOR_CARRIER).`,
+                                  });
+                                  await loadOrders();
+                                } catch (err) {
+                                  setNotification({
+                                    type: 'error',
+                                    message: err.message || 'Cập nhật bàn giao bưu tá thất bại.',
+                                  });
+                                } finally {
+                                  setActionBusyId(null);
+                                }
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#16a34a',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: 6,
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                cursor: isBusy ? 'not-allowed' : 'pointer',
+                              }}
+                            >
+                              📦 Đóng gói xong & Bàn giao bưu tá GHTK
+                            </button>
+                          )
                         )}
                       </div>
 

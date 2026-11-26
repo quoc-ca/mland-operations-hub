@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router';
+import { useParams, Link, useSearchParams } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
@@ -11,6 +11,7 @@ import '../designreview.css';
 
 export default function CustomOrderDetailPage() {
   const { customOrderId } = useParams();
+  const [searchParams] = useSearchParams();
   const api = useDesignReviewApi();
   const t = useT(designReviewMessages);
   const fmt = useFormat();
@@ -20,10 +21,75 @@ export default function CustomOrderDetailPage() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [paymentNotice, setPaymentNotice] = useState(null);
+
+  // Fix Bug 1: bfcache unlocks actionLoading when navigating back from payment gateway
+  useEffect(() => {
+    const handlePageShow = () => {
+      setActionLoading(false);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   useEffect(() => {
     loadOrder();
   }, [customOrderId]);
+
+  // Fix Bug 2: handle VNPay return redirect with automatic polling & feedback banner
+  useEffect(() => {
+    const responseCode = searchParams.get('vnp_ResponseCode');
+    if (!responseCode) return;
+
+    if (responseCode === '00') {
+      setPaymentNotice({
+        kind: 'info',
+        message: 'Đang xác thực giao dịch thanh toán từ VNPay, vui lòng đợi trong giây lát...'
+      });
+
+      // Poll up to 5 times every 1.5 seconds until order is marked PAID
+      let tries = 0;
+      const interval = setInterval(async () => {
+        tries += 1;
+        try {
+          const res = await api.getMyCustomOrder(customOrderId);
+          if (res?.status === 'PAID' || res?.quote?.status === 'PAID') {
+            setOrder(res);
+            setPaymentNotice({
+              kind: 'success',
+              message: `Thanh toán thành công cho đơn hàng ${res.customOrderReference || customOrderId}! Đơn hàng đã được chuyển sang chế tác.`
+            });
+            setActionLoading(false);
+            clearInterval(interval);
+            window.history.replaceState(null, '', window.location.pathname);
+          } else if (tries >= 5) {
+            setOrder(res);
+            setPaymentNotice({
+              kind: 'info',
+              message: 'Giao dịch thanh toán đã được tiếp nhận. Trạng thái đơn sẽ được cập nhật trong ít phút.'
+            });
+            setActionLoading(false);
+            clearInterval(interval);
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch {
+          if (tries >= 5) {
+            clearInterval(interval);
+            setActionLoading(false);
+          }
+        }
+      }, 1500);
+
+      return () => clearInterval(interval);
+    } else {
+      setPaymentNotice({
+        kind: 'warn',
+        message: 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Quý khách có thể bấm "Thanh toán lại" khi sẵn sàng.'
+      });
+      setActionLoading(false);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [customOrderId, searchParams]);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -118,6 +184,28 @@ export default function CustomOrderDetailPage() {
           &larr; {t('co.backToCustomOrders')}
         </Link>
       </div>
+
+      {paymentNotice && (
+        <div
+          className={`alert-banner alert-banner-${paymentNotice.kind === 'success' ? 'success' : paymentNotice.kind === 'warn' ? 'warning' : 'info'}`}
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1rem 1.25rem',
+            borderRadius: 8,
+            backgroundColor: paymentNotice.kind === 'success' ? '#f0fdf4' : paymentNotice.kind === 'warn' ? '#fffbeb' : '#f0f9ff',
+            border: `1px solid ${paymentNotice.kind === 'success' ? '#bbf7d0' : paymentNotice.kind === 'warn' ? '#fde68a' : '#bae6fd'}`,
+            color: paymentNotice.kind === 'success' ? '#166534' : paymentNotice.kind === 'warn' ? '#92400e' : '#0369a1',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '0.95rem',
+            fontWeight: 500
+          }}
+        >
+          <span>{paymentNotice.kind === 'success' ? '✅' : paymentNotice.kind === 'warn' ? '⚠️' : 'ℹ️'}</span>
+          <span>{paymentNotice.message}</span>
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
         <div>
@@ -214,6 +302,60 @@ export default function CustomOrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* GHTK Shipping Tracking Card */}
+      {order.trackingNumber && (
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #bbf7d0',
+          borderRadius: 8,
+          padding: '1.25rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          borderLeft: '5px solid #16a34a'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>🚚</span>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#166534' }}>
+                Thông tin Vận chuyển GHTK
+              </h3>
+            </div>
+            <span style={{
+              background: '#dcfce7',
+              color: '#15803d',
+              padding: '3px 10px',
+              borderRadius: 9999,
+              fontSize: '0.85rem',
+              fontWeight: 600
+            }}>
+              {order.shipmentStatus === 'DELIVERED' ? 'Giao thành công'
+                : order.shipmentStatus === 'HANDED_TO_CARRIER' ? 'Đang giao hàng'
+                : order.shipmentStatus === 'READY_FOR_CARRIER' ? 'Chờ bưu tá lấy hàng'
+                : 'Đang chuẩn bị đóng gói'}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.9rem' }}>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.8rem' }}>Mã vận đơn GHTK:</span>
+              <strong style={{ color: '#0f172a', fontSize: '1.05rem', letterSpacing: '0.05em' }}>
+                {order.trackingNumber}
+              </strong>
+            </div>
+            <div>
+              <span style={{ color: '#64748b', display: 'block', fontSize: '0.8rem' }}>Đơn vị vận chuyển:</span>
+              <span style={{ color: '#334155', fontWeight: 500 }}>Giao Hàng Tiết Kiệm (GHTK)</span>
+            </div>
+            {order.shippingAddress && (
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '0.8rem' }}>Địa chỉ nhận hàng:</span>
+                <span style={{ color: '#334155', fontWeight: 500 }}>{order.shippingAddress}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Quote Summary Box */}
       <div style={{

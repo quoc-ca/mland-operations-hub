@@ -18,6 +18,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderIdempotencyRecord;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderPaymentContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
+import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderShipment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.config.VnpayProperties;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.entity.PaymentOwnerRegistration;
@@ -72,6 +73,9 @@ class CustomOrderServiceTest {
     @Mock
     private AccountFacade accountFacade;
 
+    @Mock
+    private CustomOrderShipmentService customOrderShipmentService;
+
     private VnpayPaymentGatewayCheckoutAdapter vnpayAdapter;
 
     private CustomOrderService customOrderService;
@@ -101,8 +105,8 @@ class CustomOrderServiceTest {
                 snapshotRepository,
                 paymentOwnerRegistry,
                 vnpayAdapter,
-                accountFacade
-        );
+                accountFacade,
+                customOrderShipmentService);
 
         testOrder = CustomOrder.builder()
                 .id(orderId)
@@ -135,11 +139,11 @@ class CustomOrderServiceTest {
     @DisplayName("startFullPayment registers PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT with exact 25 characters and returns payment attempt")
     void startFullPayment_Success_RegistersCorrectOwnerKindAndReturnsUrl() {
         when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
 
         PaymentAttemptProjectionDto result = customOrderService.startFullPayment(
-                memberAccountId, orderId, "idem-key-1", "127.0.0.1"
-        );
+                memberAccountId, orderId, "idem-key-1", "127.0.0.1");
 
         assertThat(result).isNotNull();
         assertThat(result.getPaymentAttemptReference()).isNotNull();
@@ -154,8 +158,7 @@ class CustomOrderServiceTest {
                 eq(orderRef),
                 kindCaptor.capture(),
                 eq(4_500_000L),
-                eq("VND")
-        );
+                eq("VND"));
 
         assertThat(kindCaptor.getValue()).isEqualTo(PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT);
         assertThat(kindCaptor.getValue().name().length()).isEqualTo(25);
@@ -167,7 +170,8 @@ class CustomOrderServiceTest {
     void startFullPayment_QuoteExpired_ThrowsExceptionAndDoesNotRegister() {
         testQuote.setExpiresAt(Instant.now().minus(Duration.ofMinutes(5)));
         when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
 
         assertThatThrownBy(() -> customOrderService.startFullPayment(memberAccountId, orderId, null, "127.0.0.1"))
                 .isInstanceOf(DesignReviewException.class)
@@ -186,7 +190,8 @@ class CustomOrderServiceTest {
         testOrder.setStatus("QUOTE_PENDING");
         testQuote.setStatus("PENDING_APPROVAL");
         when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
 
         assertThatThrownBy(() -> customOrderService.startFullPayment(memberAccountId, orderId, null, "127.0.0.1"))
                 .isInstanceOf(DesignReviewException.class)
@@ -201,7 +206,8 @@ class CustomOrderServiceTest {
         testOrder.setStatus("PAID");
         testQuote.setStatus("PAID");
         when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
 
         assertThatThrownBy(() -> customOrderService.startFullPayment(memberAccountId, orderId, null, "127.0.0.1"))
                 .isInstanceOf(DesignReviewException.class)
@@ -226,14 +232,14 @@ class CustomOrderServiceTest {
     @DisplayName("applyVerifiedFullPayment transitions custom order and quote to PAID and clears hold")
     void applyVerifiedFullPayment_Success_TransitionsToPaid() {
         when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
 
         var context = paymentContext("quote-uuid-123");
         when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
 
         customOrderService.applyVerifiedFullPayment(
-                orderRef, "MERCH-1", "TXN-VNPAY-999", 4_500_000L, "VND"
-        );
+                orderRef, "MERCH-1", "TXN-VNPAY-999", 4_500_000L, "VND");
 
         assertThat(context.getStatus()).isEqualTo("PAID");
 
@@ -267,7 +273,8 @@ class CustomOrderServiceTest {
         testQuote.setStatus("PAID");
         var context = paymentContext("quote-uuid-123");
         when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
         when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
 
         customOrderService.applyVerifiedFullPayment(orderRef, "MERCH-1", "TXN-2", 4_500_000L, "VND");
@@ -290,6 +297,70 @@ class CustomOrderServiceTest {
     }
 
     @Test
+    @DisplayName("startFullPayment limits payment gateway session to at most 10 minutes even when quote validity is 7 days")
+    void startFullPayment_Uses10MinuteWindowDecoupledFrom72hQuote() {
+        testQuote.setExpiresAt(Instant.now().plus(Duration.ofDays(7)));
+        when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
+
+        var attempt = customOrderService.startFullPayment(memberAccountId, orderId, "idem-10m", "127.0.0.1");
+
+        assertThat(attempt).isNotNull();
+        ArgumentCaptor<CustomOrderPaymentContext> contextCaptor = ArgumentCaptor
+                .forClass(CustomOrderPaymentContext.class);
+        verify(paymentContextRepository).save(contextCaptor.capture());
+
+        CustomOrderPaymentContext savedContext = contextCaptor.getValue();
+        assertThat(savedContext.getExpiresAt()).isNotNull();
+        // Payment window must expire around 10 minutes from now (between 9 and 11
+        // minutes), not 7 days
+        Duration remaining = Duration.between(Instant.now(), savedContext.getExpiresAt());
+        assertThat(remaining.toMinutes()).isLessThanOrEqualTo(10);
+        assertThat(remaining.toMinutes()).isGreaterThanOrEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("status update to READY_FOR_FULFILMENT automatically delegates shipment creation to CustomOrderShipmentService")
+    void updateStatus_ReadyForFulfilment_CreatesShipment() {
+        paidOrder("IN_PRODUCTION");
+
+        customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "READY_FOR_FULFILMENT");
+
+        assertThat(testOrder.getStatus()).isEqualTo("READY_FOR_FULFILMENT");
+        assertThat(testOrder.getProductionStatus()).isEqualTo("COMPLETED");
+        assertThat(testOrder.getFulfilmentStatus()).isEqualTo("READY_FOR_FULFILMENT");
+        verify(customOrderShipmentService).createShipmentForOrder(testOrder);
+        verify(customOrderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("status update to CLOSED directly is rejected because only courier delivery can close order")
+    void updateStatus_DirectClosed_ThrowsConflict() {
+        paidOrder("READY_FOR_FULFILMENT");
+        when(customOrderShipmentService.findByCustomOrderReference(orderRef))
+                .thenReturn(Optional.of(CustomOrderShipment.builder().status("PREPARING").build()));
+
+        assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "CLOSED"))
+                .isInstanceOf(DesignReviewException.class)
+                .hasMessageContaining(
+                        "Đơn hàng chỉ được đóng (CLOSED) khi bưu tá đã giao hàng thành công (DELIVERED).");
+
+        verify(customOrderRepository, never()).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("staffAdvanceShipmentToReadyForCarrier delegates to CustomOrderShipmentService and returns updated order")
+    void staffAdvanceShipmentToReadyForCarrier_Delegates() {
+        when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+
+        var dto = customOrderService.staffAdvanceShipmentToReadyForCarrier(orderId);
+
+        assertThat(dto).isNotNull();
+        verify(customOrderShipmentService).staffAdvanceToReadyForCarrier(orderRef);
+    }
+
+    @Test
     @DisplayName("status update refuses skipped stages, unknown statuses and unpaid orders")
     void updateStatus_Invalid_Rejected() {
         paidOrder("PAID");
@@ -298,7 +369,8 @@ class CustomOrderServiceTest {
         assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "PAID"))
                 .isInstanceOf(DesignReviewException.class).hasMessageContaining("không hợp lệ");
         testQuote.setPaymentStatus("UNPAID");
-        assertThatThrownBy(() -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "IN_PRODUCTION"))
+        assertThatThrownBy(
+                () -> customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "IN_PRODUCTION"))
                 .isInstanceOf(DesignReviewException.class).hasMessageContaining("chưa được thanh toán");
         verify(customOrderRepository, never()).save(any());
     }
@@ -323,7 +395,8 @@ class CustomOrderServiceTest {
 
     private void assertReviewRequired(CustomOrderPaymentContext context) {
         when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
-        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId)).thenReturn(Optional.of(testQuote));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
         when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
 
         customOrderService.applyVerifiedFullPayment(orderRef, "MERCH-1", "TXN-LATE", 4_500_000L, "VND");

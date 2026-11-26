@@ -278,6 +278,13 @@ public class DesignReviewDtos {
         private List<ImageProjectionDto> designImages;
         private String designRef;
         private String staffExplanation;
+
+        // Shipment & Carrier fields (Mock GHTK - Method 1B)
+        private String trackingNumber;
+        private String shipmentStatus;
+        private String carrierService;
+        private String shipmentPickedUpAt;
+        private String shipmentDeliveredAt;
     }
 
     @Data

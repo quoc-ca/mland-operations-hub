@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
@@ -10,6 +10,7 @@ import { getOrderBadgeInfo, getProductionStatusLabel, getFulfilmentStatusLabel }
 import '../designreview.css';
 
 export default function MyCustomOrdersPage() {
+  const [searchParams] = useSearchParams();
   const api = useDesignReviewApi();
   const navigate = useNavigate();
   const t = useT(designReviewMessages);
@@ -22,6 +23,72 @@ export default function MyCustomOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState(null);
+
+  // Fix Bug 1: bfcache unlocks actionLoading when navigating back
+  useEffect(() => {
+    const handlePageShow = () => {
+      setActionLoading(false);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
+  // Fix Bug 2: handle VNPay return redirect with automatic polling & notification
+  useEffect(() => {
+    const responseCode = searchParams.get('vnp_ResponseCode');
+    const orderRef = searchParams.get('orderRef');
+    if (!responseCode) return;
+
+    if (responseCode === '00') {
+      setPaymentNotice({
+        kind: 'info',
+        message: 'Đang xác thực giao dịch thanh toán từ VNPay, vui lòng đợi trong giây lát...'
+      });
+
+      let tries = 0;
+      const interval = setInterval(async () => {
+        tries += 1;
+        try {
+          const res = await api.listMyCustomOrders();
+          const items = res?.items || [];
+          setOrders(items);
+          const target = items.find(o => orderRef ? o.customOrderReference === orderRef : o.status === 'PAID');
+          if (target && (target.status === 'PAID' || target.quote?.status === 'PAID')) {
+            setPaymentNotice({
+              kind: 'success',
+              message: `Thanh toán thành công cho đơn hàng ${target.customOrderReference}! Đơn hàng đã chuyển sang giai đoạn chuẩn bị chế tác.`
+            });
+            setActionLoading(false);
+            clearInterval(interval);
+            window.history.replaceState(null, '', window.location.pathname);
+          } else if (tries >= 5) {
+            setPaymentNotice({
+              kind: 'info',
+              message: 'Giao dịch thanh toán đã được tiếp nhận. Danh sách đơn sẽ cập nhật trong ít phút.'
+            });
+            setActionLoading(false);
+            clearInterval(interval);
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch {
+          if (tries >= 5) {
+            clearInterval(interval);
+            setActionLoading(false);
+          }
+        }
+      }, 1500);
+
+      return () => clearInterval(interval);
+    } else {
+      setPaymentNotice({
+        kind: 'warn',
+        message: 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Quý khách có thể bấm "Thanh toán lại" khi sẵn sàng.'
+      });
+      setActionLoading(false);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [searchParams]);
 
   // Clarification Modal State
   const [clarifyingRequest, setClarifyingRequest] = useState(null);
@@ -143,6 +210,28 @@ export default function MyCustomOrdersPage() {
           {t('co.list.subtitle')}
         </p>
       </div>
+
+      {paymentNotice && (
+        <div
+          className={`alert-banner alert-banner-${paymentNotice.kind === 'success' ? 'success' : paymentNotice.kind === 'warn' ? 'warning' : 'info'}`}
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1rem 1.25rem',
+            borderRadius: 8,
+            backgroundColor: paymentNotice.kind === 'success' ? '#f0fdf4' : paymentNotice.kind === 'warn' ? '#fffbeb' : '#f0f9ff',
+            border: `1px solid ${paymentNotice.kind === 'success' ? '#bbf7d0' : paymentNotice.kind === 'warn' ? '#fde68a' : '#bae6fd'}`,
+            color: paymentNotice.kind === 'success' ? '#166534' : paymentNotice.kind === 'warn' ? '#92400e' : '#0369a1',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '0.95rem',
+            fontWeight: 500
+          }}
+        >
+          <span>{paymentNotice.kind === 'success' ? '✅' : paymentNotice.kind === 'warn' ? '⚠️' : 'ℹ️'}</span>
+          <span>{paymentNotice.message}</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '1rem', borderBottom: '2px solid #e2e8f0', marginBottom: '1.5rem' }}>
@@ -406,6 +495,11 @@ export default function MyCustomOrdersPage() {
                         <span style={{ color: '#0f172a', fontWeight: 500 }}>
                           {getFulfilmentStatusLabel(order.fulfilmentStatus)}
                         </span>
+                        {order.trackingNumber && (
+                          <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
+                            🚚 GHTK: {order.trackingNumber}
+                          </div>
+                        )}
                       </div>
                     </div>
 
