@@ -21,8 +21,16 @@ public class OperationsRestIdempotencyService {
     private final FacadeCommandIdempotencyRecordRepository repository;
     private final ObjectMapper objectMapper;
 
-    public <T> T execute(String idempotencyKey, String action, String scope, Object command,
+    /** For a controller that has already checked the caller's authority for this request. */
+    public static final Runnable AUTHORIZED_BY_CALLER = () -> { };
+
+    /**
+     * {@code authorization} runs on every request, before any stored record is read, so a replay never answers a caller
+     * who may not run the command now. It throws to refuse.
+     */
+    public <T> T execute(Runnable authorization, String idempotencyKey, String action, String scope, Object command,
                          Class<T> responseType, Supplier<T> commandAction) {
+        authorization.run();
         String key = requiredKey(idempotencyKey);
         String fingerprint = fingerprint(action, scope, command);
         FacadeCommandIdempotencyRecord existing = repository.findFirstByOperationReference(key).orElse(null);

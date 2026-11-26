@@ -1072,6 +1072,13 @@ paths:
         7th calendar day (Asia/Ho_Chi_Minh) after the replaced session ends is 409
         LATE_ARRIVAL_WINDOW_EXPIRED; neither consumes the allowance. A move to
         another location writes the audit action TICKET_LOCATION_CHANGED.
+        Decided 2026-11-26 (spec FR-044b): a Member or Guest buyer may send only
+        type=ADVANCE; LATE_ARRIVAL from anyone who is not Staff of the ticket's
+        location or a Manager is 403 LATE_ARRIVAL_STAFF_ONLY, decided before any
+        buyer proof is checked. An ADVANCE change of a session that has already
+        started is 409 ADVANCE_CHANGE_WINDOW_EXPIRED for every caller: nothing
+        is queued or consumed. A retry with the key of a stored change or queued
+        request replays that result.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
@@ -1110,6 +1117,8 @@ paths:
         (RESCHEDULE_QUOTA_EXHAUSTED, ADVANCE_CHANGE_WINDOW_EXPIRED, CHANGE_ALLOWANCE_EXHAUSTED) is listed with
         requiresManager=true and the rule names; a full session, a package-rule break or a folio that
         is not OPEN is never selectable. remainingCapacity is exact for every caller. Served Cache-Control no-store.
+        Decided 2026-11-26 (spec FR-044b): type=LATE_ARRIVAL is answered only to Staff of the ticket's location or a
+        Manager; anyone else gets 403 LATE_ARRIVAL_STAFF_ONLY.
       security: [{bearerAuth: []}]
       parameters:
         - $ref: '#/components/parameters/TicketCode'
@@ -1131,6 +1140,8 @@ paths:
         contactEmail or contactPhone of the group; a wrong ticket code or proof answers the same 404. Read only,
         never consumes a buyerVerificationReference. The answer is the ChangeOptions of GET /change-options.
         Served Cache-Control no-store.
+        Decided 2026-11-26 (spec FR-044b): type=LATE_ARRIVAL is 403 LATE_ARRIVAL_STAFF_ONLY on this route, whatever
+        the proof (it is not checked).
       security: [{}]
       parameters: [{$ref: '#/components/parameters/TicketCode'}]
       requestBody:
@@ -1151,6 +1162,7 @@ paths:
       responses:
         '200': {description: Options of the ticket, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeOptions'}}}}
         '400': {$ref: '#/components/responses/Problem'}
+        '403': {description: 'LATE_ARRIVAL_STAFF_ONLY (FR-044b)', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {description: 'TICKET_FOLIO_NOT_OPEN', content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '422': {description: FROM_SESSION_NOT_OF_TICKET, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
@@ -1176,6 +1188,10 @@ paths:
         the 24 h window of each ticket is measured from the start of the session
         being changed (the earlier of the two when both move), not from the
         ticket's first session; the code follows in T130.
+        Decided 2026-11-26 (spec FR-044b): LATE_ARRIVAL from anyone who is not
+        Staff of the tickets' location or a Manager is 403
+        LATE_ARRIVAL_STAFF_ONLY; an ADVANCE ticket whose session has started
+        fails the whole change with 409 ADVANCE_CHANGE_WINDOW_EXPIRED.
       security: [{}, {bearerAuth: []}]
       parameters: [{$ref: '#/components/parameters/GroupCode'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:

@@ -40,6 +40,7 @@ describe('Staff/Manager pages for a signed-in actor (003.2 and 003.3 browser all
   it.each([
     ['ADMIN', operationsRoutes, '/operations/sessions'],
     ['ADMIN', settlementRoutes, '/settlement/ticket-actions'],
+    ['ADMIN', settlementRoutes, '/settlement/change-requests'],
     ['MEMBER', settlementRoutes, '/settlement'],
     ['CARRIER', operationsRoutes, '/operations/packages'],
     ['STAFF', operationsRoutes, '/operations/audit'],

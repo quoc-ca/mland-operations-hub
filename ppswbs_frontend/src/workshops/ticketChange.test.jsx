@@ -216,6 +216,64 @@ describe('003.3 FR-044a customer ticket change', () => {
   });
 });
 
+describe('003.3 FR-044b the customer changes ADVANCE only', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const withSessions = (...sessions) => {
+    const group = confirmedGroup();
+    group.tickets[0].sessions = sessions.map(([hours, locationName], index) => ({
+      sessionReference: index ? FULL : FROM, ordinal: index + 1,
+      scheduledStart: day(hours), scheduledEnd: day(hours + 2), locationName,
+    }));
+    return group;
+  };
+  const card = group => render(<GroupDetailCard group={group} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+
+  it('offers no change type and always asks for ADVANCE', async () => {
+    const calls = mockFetch({ [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options() });
+    const user = userEvent.setup();
+    card(confirmedGroup());
+    await pickFirstOption(user);
+    expect(screen.queryByText('Loại đổi lịch')).toBeNull();
+    expect(screen.queryByRole('option', { name: /đến muộn/ })).toBeNull();
+    const reads = calls.filter(call => call.path.endsWith('/change-options'));
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every(call => call.query.type === 'ADVANCE')).toBe(true);
+  });
+
+  it('tells the customer to contact the named shop once the session has started, with nothing to submit', async () => {
+    mockFetch({});
+    card(withSessions([-1, 'Mland Hà Nội']));
+    expect(await screen.findByText(/Buổi 1 đã bắt đầu .* liên hệ cửa hàng Mland Hà Nội/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Đổi lịch' })).toBeNull();
+  });
+
+  it('leaves out the shop name when the data has none', async () => {
+    mockFetch({});
+    card(withSessions([-1, null]));
+    expect(await screen.findByText(/liên hệ cửa hàng để được hỗ trợ/)).toBeInTheDocument();
+  });
+
+  it('keeps the change of a later session open when only the first one has started', async () => {
+    mockFetch({});
+    card(withSessions([-30, 'Mland Hà Nội'], [72, 'Mland Hà Nội']));
+    expect(await screen.findByText(/Buổi 1 đã bắt đầu/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đổi lịch' })).toBeInTheDocument();
+  });
+
+  it('shows the shop message when the session started before the change was confirmed (409)', async () => {
+    mockFetch({
+      [`GET /api/v1/workshop-tickets/${TICKET}/change-options`]: options(),
+      [`POST /api/v1/workshop-tickets/${TICKET}/changes`]: json(409, { code: 'ADVANCE_CHANGE_WINDOW_EXPIRED' }),
+    });
+    const user = userEvent.setup();
+    card(confirmedGroup());
+    await pickFirstOption(user);
+    await user.click(screen.getByRole('button', { name: 'Xác nhận đổi lịch' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('liên hệ cửa hàng');
+  });
+});
+
 describe('003.3 Phase 14 (T189) customer change across locations', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 

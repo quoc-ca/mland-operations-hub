@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { managerDashboardRoutes } from './routes';
 
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
+
 const values = (retail, workshop, orders, checkedIn, capacity) => ({
   retailRevenue: retail, workshopRevenue: workshop,
   totalRevenue: retail == null || workshop == null ? null : String(Number(retail) + Number(workshop)),

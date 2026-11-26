@@ -261,17 +261,16 @@ function CancelTicketForm({ ticket, groupCode, authorization, proof, onUpdated }
   );
 }
 
-const CHANGE_TYPES = [
-  { value: 'ADVANCE', labelKey: 'ticket.change.type.ADVANCE' },
-  { value: 'LATE_ARRIVAL', labelKey: 'ticket.change.type.LATE_ARRIVAL' },
-];
+// The buyer's own change is always an advance change; late arrival is done by Staff at the shop (FR-044b).
+const CHANGE_TYPE = 'ADVANCE';
 
 /**
  * The buyer changes the sessions of one ticket (003.3 FR-044, FR-044a, FR-045). The picker lists only the sessions the
  * server says could replace the chosen one, with the exact seats left; the server re-checks everything on confirmation.
  * A Member sends the bearer; a Guest first proves the group with one contact to see the list (no OTP) and with the OTP
  * to commit. A price increase is confirmed first and the call repeats with a new key; a change that only a Manager may
- * allow is queued (202) and reported as sent.
+ * allow is queued (202) and reported as sent. A session that has started cannot be changed online (FR-044b): the buyer is
+ * told to contact the shop.
  */
 const REQUEST_POLL_MS = 20000;
 
@@ -279,7 +278,6 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   const t = useT(messages);
   const { language } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState('ADVANCE');
   const [selection, setSelection] = useState(null);
   const [reference, setReference] = useState(null);
   const [pending, setPending] = useState(false);
@@ -326,13 +324,13 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
   }, [authorization, code, queuedReference, decision]);
 
   const loadOptions = useCallback(from => (authorization
-    ? getTicketChangeOptions(code, { type, fromSessionReferences: from, authorization })
+    ? getTicketChangeOptions(code, { type: CHANGE_TYPE, fromSessionReferences: from, authorization })
     : lookupTicketChangeOptions(code, {
       contactEmail: proof?.contactEmail || undefined,
       contactPhone: proof?.contactPhone || undefined,
-      type,
+      type: CHANGE_TYPE,
       fromSessionReferences: from,
-    })), [code, type, authorization, proof?.contactEmail, proof?.contactPhone]);
+    })), [code, authorization, proof?.contactEmail, proof?.contactPhone]);
 
   const submit = async confirmIncrease => {
     if (!selection) return;
@@ -340,7 +338,7 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
     setError(null);
     try {
       const result = await changeTicketSessions(code, {
-        type,
+        type: CHANGE_TYPE,
         fromSessionReferences: selection.fromSessionReferences,
         targetSessionReferences: selection.targetSessionReferences,
         confirmIncrease: confirmIncrease || undefined,
@@ -402,26 +400,38 @@ function ChangeScheduleForm({ ticket, groupCode, authorization, proof, onUpdated
     );
   }
 
+  const sessions = ticket.sessions || [];
+  const started = sessions.filter(session => new Date(session.scheduledStart).getTime() <= Date.now());
+  const branches = [...new Set(started.map(session => session.locationName).filter(Boolean))].join(', ');
+  // The group data carries the branch name only (no phone number).
+  const contactShop = started.length > 0 && (
+    <p role="note" style={{ margin: '10px 0 0', fontSize: '13px', color: '#874d00' }}>
+      {t(branches ? 'ticket.change.contactShopAt' : 'ticket.change.contactShop', {
+        sessions: started.map(session => session.ordinal).join(', '),
+        branch: branches,
+      })}
+    </p>
+  );
+  if (started.length > 0 && started.length === sessions.length) return contactShop;
+
   if (!open) {
     return (
-      <button type="button" className="button outline small" style={{ marginTop: '10px' }} onClick={() => setOpen(true)}>
-        {t('ticket.change.open')}
-      </button>
+      <>
+        {contactShop}
+        <button type="button" className="button outline small" style={{ marginTop: '10px' }} onClick={() => setOpen(true)}>
+          {t('ticket.change.open')}
+        </button>
+      </>
     );
   }
 
   return (
     <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #dcdfe6' }}>
-      <label style={{ display: 'block', fontSize: '13px' }}>
-        {t('ticket.change.typeLabel')}
-        <select value={type} onChange={event => { setType(event.target.value); setSelection(null); setIncrease(null); setError(null); }} disabled={pending}>
-          {CHANGE_TYPES.map(item => <option key={item.value} value={item.value}>{t(item.labelKey)}</option>)}
-        </select>
-      </label>
+      {contactShop}
       <TicketSessionPicker
         key={pickerKey}
         ticketCode={code}
-        type={type}
+        type={CHANGE_TYPE}
         loadOptions={loadOptions}
         onSelect={next => { setSelection(next); setIncrease(null); if (next) setError(null); }}
         labels={pickerLabels(t)}

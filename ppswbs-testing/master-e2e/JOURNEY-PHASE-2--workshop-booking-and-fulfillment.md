@@ -63,7 +63,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
 - Trình cấu hình nhẫn (Feature 012): Chọn size nhẫn, nhập nội dung khắc laser cá nhân hóa.
 - Phân tích chi phí cọc 50% và tích hợp cổng thanh toán VNPay Sandbox.
 - Quy trình xuất vé, hiển thị mã vé `TKT-...` và mã QR trên giao diện người dùng.
-- Đổi slot vé (003.3 FR-044/FR-045): một lượt đổi mỗi vé, hạn 24 giờ, chỉ liệt kê buổi còn chỗ, xác nhận khoản tăng giá, bấm đúp.
+- Đổi slot vé (003.3 FR-044/FR-045): một lượt đổi mỗi vé, hạn 24 giờ, chỉ liệt kê buổi còn chỗ, xác nhận khoản tăng giá, bấm đúp; khách chỉ đổi trước buổi học, đến muộn chỉ Staff/Manager (FR-044b).
 - Hàng chờ yêu cầu đổi lịch (`/settlement/change-requests`): Staff và Manager duyệt hoặc từ chối kèm lý do, phạm vi chi nhánh của Staff, Admin bị chặn (FR-045a).
 - Màn hình vận hành xưởng của Staff (`003.2`): Nhập mã vé, kiểm tra quyền chi nhánh, cập nhật trạng thái `CHECKED_IN`.
 - Màn hình tất toán của Manager (`003.3`): Xuất hóa đơn tất toán, cập nhật trạng thái `COMPLETED` và tự động tích điểm Loyalty.
@@ -180,15 +180,15 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
 
 ### Bước 5b (P2-S05b): Đổi Slot Vé — Lối đi, Hạn mức 1 lần đổi & Bẫy hạn 24 giờ (Browser 1)
 
-> Căn cứ: `003.3 spec.md` FR-044, FR-044a, FR-045, FR-045a. Chèn sau P2-S05, trước khi Staff check-in, để vé ở Bước 6 là vé đã đổi slot.
+> Căn cứ: `003.3 spec.md` FR-044, FR-044a, FR-044b (2026-11-26), FR-045, FR-045a. Chèn sau P2-S05, trước khi Staff check-in, để vé ở Bước 6 là vé đã đổi slot.
 
 - **(a) Quan sát & Dò tìm (Visual Discovery)**:
   - Không có màn "Vé của tôi". Khách vào **"Tra cứu vé & Booking"** (`/workshop-booking/lookup`), mở nhóm đặt chỗ, tìm nút **"Đổi lịch"** trên thẻ vé `WORKSHOP_TICKET_CODE` (nút cũng có ở trang `payment-return` ngay sau thanh toán). Nút có dễ thấy không, hay khách phải tự mò?
   - Nút **ẩn** khi nhóm hoặc vé chưa `CONFIRMED`, vé đã có điểm danh hoặc no-show; đó là hành vi đúng, không phải lỗi.
   - Khách vãng lai (Guest) xem danh sách buổi qua một liên hệ không cần OTP, nhưng **cần OTP để xác nhận đổi**.
-  - Mở form đổi lịch: có 2 loại **"Đổi lịch trước buổi học"** và **"Tôi đến muộn hoặc đã lỡ buổi"**; mặc định là loại thứ nhất.
+  - Mở form đổi lịch: **không có ô "Loại đổi lịch"** (FR-044b: Member và Guest chỉ đổi trước buổi học), bộ chọn buổi hiện ngay.
 - **(b) Thử nghiệm & Bẫy bế tắc (Dead-end Probing)**:
-  - **Nhánh 1 — Đổi hợp lệ (happy path)**: Chọn loại "Đổi lịch trước buổi học", bộ chọn chỉ liệt kê các buổi có thể thay thế, kèm số chỗ còn lại.
+  - **Nhánh 1 — Đổi hợp lệ (happy path)**: Mở form đổi lịch, bộ chọn chỉ liệt kê các buổi có thể thay thế, kèm số chỗ còn lại.
     + **ĐẠT CHUẨN**: Buổi kín chỗ hoặc vi phạm thứ tự/khoảng cách gói **không xuất hiện** trong danh sách (FR-044a); mỗi dòng hiển thị chỗ trống và, nếu có, số tiền tăng thêm.
     + **BẾ TẮC (UX Friction)**: Buổi kín chỗ vẫn chọn được rồi mới báo lỗi ở bước xác nhận.
     + Chọn một buổi còn chỗ, **cách giờ học hiện tại ≥ 24 giờ**. Giá chỉ tăng khi vé đang có giảm giá voucher mà buổi mới nằm ngoài phạm vi voucher (cần chuẩn bị vé có voucher nếu muốn thử); không bao giờ giảm giá hay hoàn tiền (FR-045).
@@ -196,8 +196,10 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
     + Thành công ➔ thông báo *"Đã đổi lịch cho vé …"*, thẻ vé hiển thị slot mới.
     + Hạn mức đổi của **buổi mới** giảm 1 ("còn N lượt đổi" ở bộ chọn giảm 1 khi xem lại).
   - **Nhánh 2 — Hết lượt đổi (Abnormal)**: Dùng vé **đã đổi 1 lần** (vé riêng, xem Dữ liệu cần chuẩn bị), thử đổi lần nữa ➔ **không bị từ chối mà được xếp hàng chờ**: bộ chọn hiện ghi chú *"Vé này đã dùng hết lần đổi lịch; mọi lựa chọn cần quản lý duyệt."*, mỗi dòng ghi *"Cần quản lý duyệt (đã dùng lần đổi của vé)"*, nút đổi thành **"Gửi yêu cầu đổi lịch"**; sau khi gửi hiện *"Đã gửi yêu cầu đổi lịch cho quản lý duyệt."* kèm mã yêu cầu (202). Vé **chưa bị đổi**, có đúng 1 yêu cầu `PENDING`.
-  - **Nhánh 3 — Quá hạn 24 giờ (Boundary)**: Với vé (riêng) có buổi học bắt đầu **dưới 24 giờ** nữa, thử "Đổi lịch trước buổi học" ➔ ghi chú *"Đã quá hạn đổi lịch trước buổi học (24 giờ); lựa chọn cần quản lý duyệt."*, nút "Gửi yêu cầu đổi lịch", thông báo gửi như nhánh 2, vé **chưa bị đổi**. Gửi thêm lần nữa trên cùng vé ➔ `409 CHANGE_REQUEST_PENDING` (*"Vé này đang có một yêu cầu đổi lịch chờ quản lý duyệt."*): mỗi vé chỉ có một yêu cầu `PENDING`.
+  - **Nhánh 3 — Quá hạn 24 giờ (Boundary)**: Với vé (riêng) có buổi học bắt đầu **dưới 24 giờ** nữa, chưa bắt đầu, mở form đổi lịch ➔ ghi chú *"Đã quá hạn đổi lịch trước buổi học (24 giờ); lựa chọn cần quản lý duyệt."*, nút "Gửi yêu cầu đổi lịch", thông báo gửi như nhánh 2, vé **chưa bị đổi**. Gửi thêm lần nữa trên cùng vé ➔ `409 CHANGE_REQUEST_PENDING` (*"Vé này đang có một yêu cầu đổi lịch chờ quản lý duyệt."*): mỗi vé chỉ có một yêu cầu `PENDING`.
   - **Nhánh 4 — Chống bấm đúp**: Bấm "Xác nhận đổi lịch" hai lần liên tiếp ở nhánh 1 ➔ nút bị khóa khi đang gửi và vé chỉ có **một lượt đổi được tính**. (Mỗi lần gửi dùng khóa idempotency mới, nên chỉ nút bị khóa mới bảo vệ; một lần gửi lọt thêm sẽ thành yêu cầu chờ duyệt thay vì đổi lần hai. Nếu thấy yêu cầu thứ hai xuất hiện, ghi nhận SOFT FAIL.)
+  - **Nhánh 5 — Buổi đã bắt đầu (Boundary, FR-044b)**: Với vé D có buổi học **đã bắt đầu** và chưa điểm danh/no-show, mở thẻ vé ➔ hiện *"Buổi 1 đã bắt đầu nên không đổi lịch trực tuyến được. Vui lòng liên hệ cửa hàng {tên chi nhánh} để được hỗ trợ."*, **không có nút "Đổi lịch"** (dữ liệu không có số điện thoại chi nhánh). Vé 2 buổi mới bắt đầu 1 buổi: vẫn có thông báo và vẫn đổi được buổi còn lại. Gọi API `ADVANCE` cho buổi đã bắt đầu ➔ `409 ADVANCE_CHANGE_WINDOW_EXPIRED`, không tạo yêu cầu chờ duyệt; không thử API thì ghi `NOT RUN`.
+  - **Nhánh 6 — Khách gọi `LATE_ARRIVAL` (Abuse, FR-044b)**: Member hoặc Guest gọi API đổi một vé, đổi nhiều vé hoặc danh sách buổi (cả `change-option-lookups`) với `type=LATE_ARRIVAL` ➔ `403 LATE_ARRIVAL_STAFF_ONLY`, vé không đổi, không trừ lượt. Staff được phân công đúng chi nhánh (trang "Đổi vé", loại "Đến muộn") và Manager vẫn làm được. Không thử API thì ghi `NOT RUN`.
 - **(c) Hành động Đi tiếp & Chốt trạng thái (Next Step Transition)**:
   - Mở lại thẻ vé trong **"Tra cứu vé & Booking"**: slot mới hiển thị đúng ngày, giờ, chi nhánh.
   - **Assertion mã vé & QR (003.2 FR-010z)**: Trước khi đổi, ghi lại mã vé `GRP-…-L0-T1` và mã QR `QR-…`. Sau khi đổi, **mã vé và QR phải y hệt** (so sánh từng ký tự), không có vé thay thế mới trong danh sách, và QR cũ vẫn được Staff chấp nhận ở P2-S06 (không báo `TICKET_QR_REVOKED`). Khác bất kỳ điều nào ➔ **HARD STOP**, ghi lỗi gán Backend.
@@ -212,19 +214,20 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
     + **Chỗ trống**: ca cũ nhả 1 chỗ, ca mới nhận 1 chỗ (kiểm tra số chỗ trống trên trang chi tiết gói trước và sau); tổng chỗ vé này chiếm là 1, không phải 2.
   - Ghi nhận `NEW_SLOT_REFERENCE` và `OLD_SLOT_FREED` (chỗ ca cũ được trả lại: số chỗ trống ca cũ tăng 1 khi xem lại trang chi tiết gói).
 - **Đánh giá & Mức độ Dừng**:
-  - **HARD STOP**: Mã vé hoặc QR thay đổi sau khi đổi slot; đổi lịch trừ lượt nhưng vé không đổi slot; hoặc đổi sang buổi đã kín chỗ; hoặc ca cũ không được trả chỗ; hoặc tạo hai lần đổi do bấm đúp.
+  - **HARD STOP**: Member hoặc Guest đổi được bằng `LATE_ARRIVAL`; mã vé hoặc QR thay đổi sau khi đổi slot; đổi lịch trừ lượt nhưng vé không đổi slot; hoặc đổi sang buổi đã kín chỗ; hoặc ca cũ không được trả chỗ; hoặc tạo hai lần đổi do bấm đúp.
   - **SOFT FAIL**: Thiếu nút "Đổi lịch" dễ thấy; câu chữ thông báo lỗi khác đặc tả nhưng vẫn chặn đúng; số chỗ trống hiển thị trễ.
 - **Dữ liệu cần chuẩn bị** (mỗi vé chỉ được một yêu cầu `PENDING`, nên cần vé riêng cho từng nhánh):
   - Vé A: buổi học ≥ 24 giờ tới, chưa đổi lần nào ➔ Nhánh 1 và 4 (thêm voucher nếu muốn thử tăng giá).
   - Vé B: đã đổi 1 lần (dùng hết lượt) ➔ Nhánh 2.
   - Vé C: buổi học bắt đầu < 24 giờ tới ➔ Nhánh 3 (vé Phase 2 đặt cho ngày mai thường rơi vào đây).
+  - Vé D: buổi học đã bắt đầu, chưa điểm danh ➔ Nhánh 5.
   - Vé A, B, C đều thuộc chi nhánh của Staff test; yêu cầu thứ 3 cho P2-S05d xem bước đó.
 
 ---
 
 ### Bước 5c (P2-S05c): Staff Duyệt / Từ chối Yêu cầu Đổi lịch trong Hàng chờ (Browser 2)
 
-> Căn cứ: `003.3 spec.md` FR-045a (sửa đổi 2026-11-17: hàng chờ do **Staff hoặc Manager** quyết định). Trang: `/settlement/change-requests` (menu **"Yêu cầu đổi vé"**). Tiền điều kiện: có 2 yêu cầu `PENDING` tại chi nhánh của Staff, trên **2 vé khác nhau**: vé C (quá 24 giờ, P2-S05b nhánh 3) và vé B (hết lượt đổi, nhánh 2); thêm 1 yêu cầu thứ 3 `PENDING` trên vé thứ ba cho P2-S05d.
+> Căn cứ: `003.3 spec.md` FR-045a (sửa đổi 2026-11-17: hàng chờ do **Staff hoặc Manager** quyết định). Trang: `/settlement/change-requests` (menu **"Yêu cầu đổi vé"**). Tiền điều kiện: có 2 yêu cầu `PENDING` tại chi nhánh của Staff, trên **2 vé khác nhau**: vé C (còn dưới 24 giờ, P2-S05b nhánh 3) và vé B (hết lượt đổi, nhánh 2); thêm 1 yêu cầu thứ 3 `PENDING` trên vé thứ ba cho P2-S05d.
 
 - **(a) Quan sát & Dò tìm (Backstage Discovery)**:
   - Tại **Browser 2**, đăng nhập Staff `staff.test@mland.vn`. Nhân viên tìm mục **"Yêu cầu đổi vé"** trên menu bên: có thấy dễ không?
@@ -232,7 +235,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
   - Nhãn trang là **tiếng Anh** ("Change requests", "Status", "Details", "Approve", "Reject") trong khi menu là tiếng Việt: đây là hiện trạng đã biết, ghi nhận một lần như SOFT FAIL, không lặp lại ở từng bước.
   - Bấm **"Details"** ở một yêu cầu: hiển thị buổi hiện tại và buổi muốn đổi (ngày, giờ, chi nhánh), `Blocked by` hiển thị **mã thô** (VD: `ADVANCE_CHANGE_WINDOW_EXPIRED` cho vé C, `CHANGE_ALLOWANCE_EXHAUSTED` cho vé B), khoản tăng giá, hạn hết hạn. Nếu `Price increase` trống hoặc 0 mà yêu cầu có tăng giá, ghi là chưa xác minh.
 - **(b) Thử nghiệm & Hành động (Action Execution)**:
-  - **Nhánh 1 — Staff duyệt**: Với yêu cầu của vé C (quá 24 giờ), bấm **"Approve"** ➔ hộp thoại lý do ➔ nhập lý do ➔ xác nhận. Kỳ vọng: thông báo *"Change approved and applied."*, yêu cầu rời danh sách `PENDING`, sang `APPROVED` kèm `Applied change`; hạn mức đổi của buổi mới giảm 1 (lúc duyệt, không phải lúc xếp hàng chờ). Duyệt có thể **thất bại** và yêu cầu vẫn `PENDING` không đổi dữ liệu (`INSUFFICIENT_CAPACITY`, `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, `TICKET_FOLIO_NOT_OPEN`, `CONFIRM_INCREASE_REQUIRED`...): ghi lại mã nếu gặp.
+  - **Nhánh 1 — Staff duyệt**: Với yêu cầu của vé C (còn dưới 24 giờ), bấm **"Approve"** ➔ hộp thoại lý do ➔ nhập lý do ➔ xác nhận. Kỳ vọng: thông báo *"Change approved and applied."*, yêu cầu rời danh sách `PENDING`, sang `APPROVED` kèm `Applied change`; hạn mức đổi của buổi mới giảm 1 (lúc duyệt, không phải lúc xếp hàng chờ). Duyệt có thể **thất bại** và yêu cầu vẫn `PENDING` không đổi dữ liệu (`INSUFFICIENT_CAPACITY`, `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, `TICKET_FOLIO_NOT_OPEN`, `CONFIRM_INCREASE_REQUIRED`...): ghi lại mã nếu gặp.
   - **Nhánh 2 — Staff từ chối**: Với yêu cầu của vé B (hết lượt đổi), bấm **"Reject"** ➔ nhập lý do ➔ xác nhận. Kỳ vọng: *"Change rejected."*, sang `REJECTED`, `Decision reason` hiển thị lý do vừa nhập; vé **không đổi slot**.
   - **Nhánh 3 — Lý do trống (Abnormal)**: Thử xác nhận hộp thoại khi để trống lý do (cả Approve lẫn Reject) ➔ hộp thoại hiện *"A reason is required."* và không gửi gì; yêu cầu vẫn `PENDING`. (Nếu gọi API trực tiếp: `422 REASON_REQUIRED`.)
   - **Nhánh 4 — Ngoài phạm vi (Abuse)**: Danh sách `PENDING` đã lọc theo chi nhánh của Staff, nên yêu cầu của chi nhánh khác **không hiện** với Staff này; qua giao diện không thể thử duyệt. Assertion: yêu cầu ngoài phạm vi (nếu có) không có trong danh sách của Staff. `403 LOCATION_SCOPE_DENIED` chỉ gặp khi gọi API trực tiếp bằng mã yêu cầu; không có dữ liệu hoặc không thử API thì ghi `NOT RUN`.

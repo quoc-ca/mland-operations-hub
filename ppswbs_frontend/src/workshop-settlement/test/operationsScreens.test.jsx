@@ -279,12 +279,4 @@ describe('Change request queue', () => {
     expect(within(dialog).queryByText(/Approving applies/)).not.toBeInTheDocument();
   });
 
-  it('gives an Admin no queue and no decision buttons, and reads nothing', async () => {
-    const calls = mockFetch({ [PROFILE]: asRole('ADMIN'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
-    renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
-    expect(await screen.findByText(/Admin accounts have no part in ticket changes/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(screen.queryByText('CR-1')).not.toBeInTheDocument();
-    expect(calls.filter(call => call.path === '/api/v1/workshop-change-requests')).toHaveLength(0);
-  });
 });

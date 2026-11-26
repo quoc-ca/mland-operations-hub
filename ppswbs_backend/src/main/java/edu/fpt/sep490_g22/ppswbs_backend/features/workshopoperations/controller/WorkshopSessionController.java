@@ -32,6 +32,7 @@ import java.util.List;
 public class WorkshopSessionController {
 
     private final WorkshopSlotService slotService;
+    private final edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopOperationsAuthorizationService authorizationService;
     private final WorkshopSessionService sessionService;
     private final WorkshopLifecycleService lifecycleService;
     private final WorkshopResponsibilityService responsibilityService;
@@ -44,7 +45,7 @@ public class WorkshopSessionController {
             @PathVariable("slotId") String slotId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody SlotRequest request) {
-        SlotResponse response = restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-slots/{slotId}", "slot:update:" + slotId,
+        SlotResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:PATCH:/api/v1/workshop-slots/{slotId}", "slot:update:" + slotId,
                 request, SlotResponse.class, () -> slotService.updateSlot(authHeader, slotId, request));
         return ResponseEntity.ok(response);
     }
@@ -65,7 +66,7 @@ public class WorkshopSessionController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody SessionRequest request) {
-        SessionResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-sessions", "session:create", request,
+        SessionResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:POST:/api/v1/workshop-sessions", "session:create", request,
                 SessionResponse.class, () -> sessionService.createSession(authHeader, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -75,7 +76,7 @@ public class WorkshopSessionController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody BulkSessionRequest request) {
-        BulkGenerationResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-sessions/bulk", "session:bulk-create", request,
+        BulkGenerationResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:POST:/api/v1/workshop-sessions/bulk", "session:bulk-create", request,
                 BulkGenerationResponse.class, () -> sessionService.generateBulkSessions(authHeader, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -94,7 +95,7 @@ public class WorkshopSessionController {
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @RequestBody SessionRequest request) {
-        SessionResponse response = restIdempotency.execute(idempotencyKey, "REST:PATCH:/api/v1/workshop-sessions/{sessionId}", "session:update:" + sessionId,
+        SessionResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey, "REST:PATCH:/api/v1/workshop-sessions/{sessionId}", "session:update:" + sessionId,
                 request, SessionResponse.class, () -> sessionService.updateSession(authHeader, sessionId, request));
         return ResponseEntity.ok(response);
     }
@@ -106,7 +107,7 @@ public class WorkshopSessionController {
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody RescheduleQuotaRequest request) {
-        SessionResponse response = restIdempotency.execute(idempotencyKey,
+        SessionResponse response = restIdempotency.execute(managerOnly(authHeader), idempotencyKey,
                 "REST:PUT:/api/v1/workshop-sessions/{sessionId}/reschedule-quota",
                 "session:reschedule-quota:" + sessionId,
                 request, SessionResponse.class,
@@ -121,7 +122,8 @@ public class WorkshopSessionController {
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody StateTransitionRequest request) {
-        SessionResponse response = restIdempotency.execute(idempotencyKey, "REST:POST:/api/v1/workshop-sessions/{sessionId}/state-transitions", "session:transition:" + sessionId,
+        SessionResponse response = restIdempotency.execute(() -> lifecycleService.requireTransitionAuthority(authHeader, sessionId, request.getTargetState()),
+                        idempotencyKey, "REST:POST:/api/v1/workshop-sessions/{sessionId}/state-transitions", "session:transition:" + sessionId,
                 request, SessionResponse.class, () -> lifecycleService.transitionState(authHeader, correlationId, sessionId, request));
         return ResponseEntity.ok(response);
     }
@@ -133,7 +135,9 @@ public class WorkshopSessionController {
             @PathVariable("sessionId") String sessionId,
             @RequestHeader(value = "Idempotency-Key", required = true) String idempotencyKey,
             @Valid @RequestBody StaffAssignmentRequest request) {
-        SessionResponse response = restIdempotency.execute(idempotencyKey, "REST:PUT:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff:" + sessionId,
+        SessionResponse response = restIdempotency.execute(() -> deniedAttemptRecorder.guardVoid("SESSION_STAFF_ASSIGNED", sessionId, authHeader, correlationId,
+                        () -> authorizationService.requireGlobalManager(authHeader)), idempotencyKey,
+                "REST:PUT:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff:" + sessionId,
                 request, SessionResponse.class, () -> deniedAttemptRecorder.guard("SESSION_STAFF_ASSIGNED", sessionId, authHeader, correlationId,
                         () -> responsibilityService.assignStaff(authHeader, correlationId, sessionId, request)));
         return ResponseEntity.ok(response);
@@ -148,11 +152,17 @@ public class WorkshopSessionController {
             @RequestParam("accountId") Long accountId,
             @RequestParam(value = "confirmLastAssignmentRemoval", defaultValue = "false") boolean confirmLastAssignmentRemoval) {
         // The confirmation flag is part of the fingerprint: replaying a key with a different flag is IDEMPOTENCY_CONFLICT (T115).
-        restIdempotency.execute(idempotencyKey, "REST:DELETE:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff-remove:" + sessionId + ":" + accountId,
+        restIdempotency.execute(() -> deniedAttemptRecorder.guardVoid("SESSION_STAFF_REMOVED", sessionId, authHeader, correlationId,
+                        () -> authorizationService.requireGlobalManager(authHeader)), idempotencyKey,
+                "REST:DELETE:/api/v1/workshop-sessions/{sessionId}/staff-assignments", "session:staff-remove:" + sessionId + ":" + accountId,
                 accountId + ":confirm=" + confirmLastAssignmentRemoval, Void.class,
                 () -> deniedAttemptRecorder.guard("SESSION_STAFF_REMOVED", sessionId, authHeader, correlationId,
                         () -> { responsibilityService.removeStaff(authHeader, correlationId, sessionId, accountId, confirmLastAssignmentRemoval); return null; }));
         return ResponseEntity.noContent().build();
     }
 
+    /** Checked before an idempotent replay; the service checks again when it runs the command. */
+    private Runnable managerOnly(String authHeader) {
+        return () -> authorizationService.requireGlobalManager(authHeader);
+    }
 }

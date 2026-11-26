@@ -95,6 +95,8 @@ public class GroupTicketChangeService {
             return new GroupTicketChangeResultDto(group, true, String.valueOf(totalOf(replay)), false, replay);
         }
 
+        WorkshopSettlementAuthorizationService.requireLateArrivalStaff(request.type(), actor);
+
         String correlation = correlationId == null || correlationId.isBlank()
                 ? UUID.randomUUID().toString() : correlationId.trim();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);

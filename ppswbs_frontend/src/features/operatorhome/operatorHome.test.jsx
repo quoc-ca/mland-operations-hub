@@ -1,8 +1,10 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../test/render';
 import { operatorHomeRoutes } from './routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 const routes = [...operatorHomeRoutes, { path: '/manager/home', element: <p>Manager home page</p> }, { path: '/', element: <p>General home</p> }];
 // The shared sidebar lists every area for everyone; the home page content itself is what differs per role.
@@ -57,5 +59,22 @@ describe('Staff and Manager home pages', () => {
     renderRoutes(routes, { path: '/home' });
 
     expect(await screen.findByText('Manager home page')).toBeInTheDocument();
+  });
+});
+
+describe('/home access', () => {
+  it('sends a guest to sign in without loading anything', async () => {
+    const calls = mockFetch({});
+    renderRoutes([...routes, { path: '/login', element: <p>Login page</p> }], { path: '/home', session: fakeSession('signed-out') });
+
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('shows a retry when the profile cannot be read', async () => {
+    mockFetch({ 'GET /api/v1/accounts/me/profile': json(500, { code: 'X' }) });
+    renderRoutes(routes, { path: '/home' });
+
+    expect(await screen.findByRole('button', { name: /Thử lại/ })).toBeInTheDocument();
   });
 });
