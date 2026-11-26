@@ -120,6 +120,11 @@ public class CustomManufacturingController {
         String fulfStatus = body != null ? body.get("fulfilmentStatus") : null;
         String status = body != null ? body.get("status") : null;
 
+        if ("READY_FOR_CARRIER".equalsIgnoreCase(fulfStatus)) {
+            CustomOrderProjectionDto advanced = customOrderService.staffAdvanceShipmentToReadyForCarrier(customOrderId);
+            return ResponseEntity.ok(advanced);
+        }
+
         CustomOrderProjectionDto updated = customOrderService.updateProductionOrFulfilmentStatus(
                 customOrderId,
                 prodStatus,
@@ -127,6 +132,22 @@ public class CustomManufacturingController {
                 status
         );
 
+        return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/{customOrderId}/shipment/ready-for-carrier")
+    public ResponseEntity<CustomOrderProjectionDto> advanceShipmentToReadyForCarrier(
+            @PathVariable("customOrderId") String customOrderId,
+            Authentication authentication
+    ) {
+        String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+        boolean isStaff = DesignReviewPermissions.isStaff(authentication.getAuthorities());
+        boolean isManager = DesignReviewPermissions.isManager(authentication.getAuthorities());
+        if (!isStaff && !isManager) {
+            throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED", "Bạn không có quyền bàn giao vận đơn.");
+        }
+
+        CustomOrderProjectionDto updated = customOrderService.staffAdvanceShipmentToReadyForCarrier(customOrderId);
         return ResponseEntity.ok(updated);
     }
 }
