@@ -11,7 +11,7 @@ A request that is accepted or rejected is final and the decision form is hidden.
 
 | Field Name | Description |
 | --- | --- |
-| Header | "Thẩm duyệt Yêu cầu Thiết kế #{id}", reference, design version, request status, review status and "Hội viên" ("Khách vãng lai" only on older records). |
+| Header | "Thẩm duyệt Yêu cầu Thiết kế #{id}", reference, design version, request status, review status and the Member owner projection. |
 | Final decision card | "Quyết định: Chấp thuận (ACCEPTED)" or "Từ chối (REJECTED)" with the reviewer's explanation. |
 | Description and images | Submitted idea, catalogue reference and image gallery; an image can be enlarged. |
 | Quyết định | Choice of "Chấp thuận (ACCEPTED)", "Từ chối (REJECTED)" or "Yêu cầu làm rõ thông tin (CLARIFICATION_REQUIRED)". |

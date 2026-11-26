@@ -1,58 +1,65 @@
 ### 10.4 View Custom Order
 
-#### Primary Actors
-
-- Member
-- Staff
-- Manager
-
-#### Secondary Actors
-
-- None
+| Use Case ID | UC-70 | Use Case Name | View Custom Order |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member; Staff; Manager | Secondary Actors | None |
 
 #### Description
 
-This use case (use case 70) lets a Member view their own custom orders, and lets Staff and Managers view all custom orders for operations.
+As a Member, Staff, or Manager, I want to view custom orders within my authorized scope so that I can track quote, design, production, and handover status.
+
+#### Trigger
+
+An authorized actor opens the custom order list or selects a custom order.
 
 #### Preconditions
 
-1. The actor is signed in with one of the listed roles.
-
-#### Normal Flow
-
-**View Custom Order**
-
-1. The actor opens the custom order list.
-2. The system returns the own orders to a Member, or all orders to Staff and Managers.
-3. The actor selects an order.
-4. The system shows the status, quote, design information and production and handover progress.
-
-#### Alternative Flows
-
-**Step 2 — No order**
-
-The system shows an empty state.
-
-**Step 4 — Member does not own the order**
-
-The system denies access.
-
-**Step 4 — Order does not exist**
-
-The system reports that it was not found.
+1. The actor is signed in as Member, Staff, or Manager.
 
 #### Postconditions
 
-- No order, quote or payment data is changed.
+1. The actor sees authorized custom order details or an empty/error state.
+2. No order, quote, or payment data is changed.
+
+#### Normal Flow
+
+1. Member opens the custom order list.
+2. System retrieves the Member's own custom orders.
+3. Member selects an order.
+4. System displays status, quote, design details, and production and handover progress.
+
+#### Alternative Flows
+
+1a. Staff or Manager opens the custom order list → System retrieves all custom orders for operations.
+
+2a. No order exists → System displays an empty state.
+
+#### Exception Flows
+
+4a. Member does not own the order → System denies access.
+
+4b. Order does not exist → System reports that the order was not found.
 
 #### Business Rules
 
-- BR-70-01
-- BR-70-02
+BR-70-01, BR-70-02
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-70-01 | A Member sees only own orders. |
 | BR-70-02 | Viewing is read-only; Admin and Guest have no business view of custom orders. |

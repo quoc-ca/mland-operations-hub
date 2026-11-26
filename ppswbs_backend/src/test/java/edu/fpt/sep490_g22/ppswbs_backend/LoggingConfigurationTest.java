@@ -72,7 +72,7 @@ public class LoggingConfigurationTest {
         assertThat(infoLines.stream().filter(l -> l.contains(infoMsg)).findFirst().orElse(""))
                 .matches("^\\d{2}:\\d{2}:\\d{2}\\s+.*");
 
-        // Verify stack trace max 15 lines
+        // Verify stack trace max 5 lines
         List<String> traceLines = new ArrayList<>();
         boolean capture = false;
         for (String line : errorLines) {
@@ -91,10 +91,10 @@ public class LoggingConfigurationTest {
             }
         }
 
-        // Deep call stack had 50+ frames, but %rEx{15} must limit to exactly 15 frames
+        // Deep call stack had 50+ frames, but %rEx{5} must limit to exactly 5 frames
         assertThat(traceLines.size())
-                .as("Stack trace frames must be capped at 15 lines")
-                .isEqualTo(15);
+                .as("Stack trace frames must be capped at 5 lines")
+                .isEqualTo(5);
     }
 
     private Exception createDeepCallStack(int depth, String message) {

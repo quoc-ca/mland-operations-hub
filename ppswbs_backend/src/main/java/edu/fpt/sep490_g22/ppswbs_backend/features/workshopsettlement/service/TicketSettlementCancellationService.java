@@ -183,6 +183,11 @@ public class TicketSettlementCancellationService {
         String channel;
         String buyerProof;
 
+        // Only an anonymous caller is a Guest: Admin and Carrier have no authority over buyer operations (003.1).
+        if (actor != null && actor.role() != ActorRole.MEMBER && actor.role() != ActorRole.STAFF
+                && actor.role() != ActorRole.MANAGER) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             // Member must be the buyer who owns the group
             if (buyerMemberAccountId == null || !buyerMemberAccountId.equals(actor.accountId())) {

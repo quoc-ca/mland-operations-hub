@@ -1,10 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 // 003.2 T127 (Retry-After on the 429), T139 (the two 409 INVALID_STATE reasons) and T140 (the control is locked while
 // the request is pending).

@@ -1,10 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 const SLOT_A = '11111111-1111-1111-1111-111111111111';
 const SLOT_B = '22222222-2222-2222-2222-222222222222';

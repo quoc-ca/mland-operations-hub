@@ -16,7 +16,7 @@ test_method: shouldLockDesignOnBookingAttachmentAndPreserveOnRollback
 
 **Ngày tạo**: 2026-11-21
 **Tác giả**: Senior QA Engineer
-**Trạng thái**: PASS
+**Trạng thái**: SUPERSEDED (kết quả thực thi mã cũ: PASS)
 
 ## 1. Mục tiêu kiểm thử
 
@@ -46,9 +46,11 @@ Xác minh:
 
 ## 5. Kết quả thực thi
 
+Ca này chỉ ghi nhận hành vi của luồng booking legacy trong mã hiện tại. Kết quả PASS bên dưới không xác nhận phạm vi Feature-012 đang đề xuất, vốn không gắn thiết kế vào booking.
+
 <!-- EXECUTION:START -->
 - Trạng thái: PASS
-- Thực thi bởi: Senior QA & Verification Engineer
-- Ngày thực thi: 2026-11-21
-- Ghi chú: Đã kiểm chứng tính liên kết giữa Facade Ring Design và Booking Service.
+- Thực thi bởi: DatNT (Senior QA & Verification Engineer)
+- Ngày thực thi: 2026-11-26
+- Ghi chú: Chạy đạt thông qua `WorkshopRingDesignIntegrationTest.shouldLockDesignOnBookingAttachmentAndPreserveOnRollback`. Đã xác minh thiết kế chuyển trạng thái `ATTACHED_TO_BOOKING`, khóa chống lưu trữ/chỉnh sửa (báo 409 `DESIGN_CANNOT_ARCHIVE`), chống gắn lại trùng lặp (409 `DESIGN_NOT_VALIDATED`), và dữ liệu thiết kế nguyên vẹn bảo toàn khi booking rollback.
 <!-- EXECUTION:END -->

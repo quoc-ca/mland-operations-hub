@@ -37,7 +37,7 @@ health_urls:
 - Executed by: Bùi Trọng Thịnh
 - Browser tool: Chrome
 - Test data: Member `thinhbui732004`; giỏ 2 chi nhánh (Hoàn Kiếm: Nhẫn bạc hở tourmaline xanh 640.000 đ; Tây Hồ: Nhẫn bạc garnet tròn 480.000 đ); đơn `ML2611265F7D9792`, `ML2611268A8F9193`.
-- Actual result: Thời gian đo được khoảng 175 giây, dưới mục tiêu 180 giây (SC-08-004). Màn xem lại đơn tách 2 nhóm theo chi nhánh, mỗi nhóm có tạm tính và lựa chọn giao nhận riêng (Nhận tại cửa hàng / Giao tận nơi qua GHTK); lần chạy chọn nhận tại cửa hàng cho cả hai nên dòng phí GHTK không hiện. Đặt hàng tạo đúng 2 đơn theo chi nhánh.
+- Actual result: Thời gian đo được khoảng 175 giây, dưới mục tiêu 180 giây (SC-08-004). Màn xem lại đơn tách 2 nhóm theo chi nhánh, mỗi nhóm có tạm tính và lựa chọn giao nhận riêng (Nhận tại cửa hàng / Giao tận nơi qua GHTK); lần chạy chọn nhận tại cửa hàng cho cả hai nên dòng phí GHTK không hiện. Đặt hàng tạo đúng 2 đơn theo chi nhánh. Ở lần chạy 02:50 (E2E-008-001), Hoàn Kiếm chọn giao GHTK: phí 28.714 đ hiện riêng ở nhóm Hoàn Kiếm và ở dòng "Tổng tiền phí vận chuyển", Tây Hồ nhận tại cửa hàng "Miễn phí".
 - Evidence: screenshots/E2E-008-001--checkout-points-two-branches.png, screenshots/E2E-008-001--member-orders.png
 - Bug reference: không có
 <!-- EXECUTION:END -->

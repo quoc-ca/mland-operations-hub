@@ -1,65 +1,67 @@
 ### 5.6 View Custom Design Request Decision
 
-#### Primary Actors
-
-- Member
-
-#### Secondary Actors
-
-- None
+| Use Case ID | UC-41 | Use Case Name | View Custom Design Request Decision |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | — |
 
 #### Description
 
-This use case allows a member to view the status and decision of their submitted custom design request. The system displays the reviewer decision, the written explanation and the next available action without allowing the member to modify the recorded decision.
+As a Member, I want to view the status, decision, and explanation of my custom design request so that I know the next action.
+
+#### Trigger
+
+A Member opens the custom design request history.
 
 #### Preconditions
 
-1. The member is signed in.
-2. The member has at least one custom design request.
-3. The request belongs to the signed-in member.
-
-#### Normal Flow
-
-**View Custom Design Request Decision**
-
-1. The member opens the custom design request history.
-2. The system retrieves requests belonging to the member.
-3. The member selects a request.
-4. The system displays the request description, images and other inputs, status, reviewer decision, mandatory explanation, and timestamp.
-5. The system displays the next action, such as waiting, replying to a clarification, contacting Staff, or continuing to custom-order quote preparation and following the quote in the custom order.
-
-#### Alternative Flows
-
-**Step 2 — No request is found**
-
-1. The system finds no custom design request for the member.
-2. The system displays an empty-state message and allows the member to start a new eligible request.
-
-**Step 3 — Request is not accessible**
-
-1. The selected request does not belong to the signed-in member or is unavailable.
-2. The system denies access and displays a general error message.
-
-**Step 4 — Request is still pending**
-
-1. The request has not received a final decision.
-2. The system displays the pending status and does not show an approval or rejection result.
+1. The Member is signed in.
+2. The Member has at least one custom design request.
+3. The selected request belongs to the signed-in Member.
 
 #### Postconditions
 
-- The member can view the latest permitted status and decision information.
-- No request, approval, quotation, or payment data is changed.
-- Access to another member's request is not granted.
+1. The Member views the latest permitted status and decision information.
+2. No request, approval, quotation, or payment data is changed.
+3. Access to another Member's request is not granted.
+
+#### Normal Flow
+
+1. Member opens the custom design request history.
+2. System retrieves custom design requests belonging to the Member.
+3. Member selects a request.
+4. System displays the description, inputs, status, reviewer decision, explanation, and timestamp.
+5. System displays the next available action for the current status.
+
+#### Alternative Flows
+
+2a. No custom design request is found → System displays an empty-state message and allows starting a new request.
+
+4a. Request has no final decision yet → System displays the pending status without an approval or rejection result.
+
+#### Exception Flows
+
+3a. Request does not belong to the Member or is unavailable → System denies access and displays a general error.
 
 #### Business Rules
 
-- BR-37-01
-- BR-37-02
+BR-37-01, BR-37-02
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-37-01 | A member may view only custom design requests linked to the member's own account. |
 | BR-37-02 | Viewing a decision is read-only and does not automatically create an order or payment. |
-

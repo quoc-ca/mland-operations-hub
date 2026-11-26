@@ -1,68 +1,68 @@
 ### 7.6 View Order Details
 
-#### Primary Actors
-
-Member; Staff; Manager; Admin.
-
-#### Secondary Actors
-
-None.
+| Use Case ID | UC-57 | Use Case Name | View Order Details |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member; Staff; Manager; Admin | Secondary Actors | None |
 
 #### Description
 
 As an authorized order viewer, I want the frozen retail purchase and recorded payment/internal fulfilment facts so that I can understand the order without repricing it or implying GHTK provider tracking.
 
+#### Trigger
+
+An authorized actor opens a retail order reference.
+
 #### Preconditions
 
 1. The platform is available and an order reference is supplied.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The requested purpose fits own-order access, assigned-branch Staff access, applicable Manager read delegation or the limited Admin support policy.
+2. The actor is authenticated with verified identity, has an active account, and holds current authority.
+3. The purpose fits own-order access, assigned-branch Staff access, Manager delegation, or Admin technical support.
 
 #### Postconditions
 
-- The authorized actor sees only purpose-appropriate recorded order information, or a safe denied/error result.
-- No payment, hold, stock or order/fulfilment mutation occurs; historical and personal-data retirement boundaries remain intact.
+1. The authorized actor sees only purpose-appropriate recorded order information, or a safe denied/error result.
+2. No payment, hold, stock, or fulfilment mutation occurs; historical and data-retirement boundaries remain intact.
 
 #### Normal Flow
 
-**View Order Details**
-
-1. The actor opens a retail order reference for an authorized purpose.
-2. The system rechecks current ownership/action/branch/account authority before revealing protected data.
-3. For authorized business reads the system retrieves frozen purchase snapshots and reference/branch; for Admin technical support it retrieves only permitted technical diagnostics, excluding cart/product/options/customer data.
-4. The system retrieves recorded payment and paid time, original deadlines, hold disposition, method, internal preparation/readiness/completion evidence, the recorded GHTK shipment step and the received time.
-5. The system applies purpose-based access/minimization and recipient-data retirement, distinguishing unknown legacy values from current facts.
-6. The system displays permitted order details and eligible next-action links; each later action rechecks its own authority/state.
+1. Actor opens a retail order reference for an authorized purpose.
+2. System rechecks ownership, branch, and account authority before revealing protected data.
+3. System retrieves frozen purchase snapshots, payment facts, deadlines, and fulfilment evidence.
+4. System applies purpose-based minimization and 30-day carrier recipient-data retirement rules.
+5. System displays permitted order details and eligible next-action links.
 
 #### Alternative Flows
 
-**Steps 1 and 2 — Unknown order, wrong owner/branch or missing/revoked delegation**
+3a. Admin technical support request → System displays only internal order/attempt reference, branch code, timestamps, states, and sanitized technical codes, excluding customer, product, and auth data.
 
-Return a safe unavailable/denied result without private line/payment/recipient data or mutation. Staff cannot read across unassigned branches; a Manager's title is not applicable delegation.
+3b. Catalogue changed or product-only legacy snapshot → System retains accepted historical values and marks legacy options unknown without substituting current catalogue terms.
 
-**Steps 2 and 5 — Admin technical support request**
+4a. Carrier personal data reached retirement → System obscures/deletes retired recipient, contact, and address values while retaining minimized payment/custody evidence.
 
-Display only internal order/attempt reference, branch code, timestamps, payment/hold/fulfilment states and sanitized technical codes. Exclude cart/product/options, customer identity/contact/address/notes and authentication data; grant no mutation or impersonation.
+#### Exception Flows
 
-**Steps 3 and 4 — Data retrieval fails or payment outcome is uncertain**
+2a. Unknown order, wrong owner/branch, or missing/revoked delegation → System returns a safe denied/unavailable result without exposing private data or mutating state.
 
-Display a safe failure or recorded pending/exception fact with appropriate guidance, not an empty order or fabricated payment/fulfilment success. Payment recovery belongs to eligible UC55 rules.
+3c. Retrieval failure or uncertain payment outcome → System displays a safe failure or recorded pending/exception fact with guidance, without fabricating payment or fulfilment success.
 
-**Steps 3 and 5 — Catalogue changes or product-only legacy snapshot**
-
-Retain accepted historical values, show unknown legacy option information without guessing and do not substitute current catalogue terms.
-
-**Step 5 — Carrier personal data reached retirement**
-
-Delete/irreversibly obscure retired recipient/contact/address values and applicable copies while retaining necessary minimized payment/custody evidence; do not expose old raw values through audit/details.
-
-**Step 6 — Processing branch now inactive**
-
-Preserve the recorded branch and history; no silent relocation occurs. An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
+5a. Processing branch became inactive → System preserves the recorded branch, history, and deadlines without silent relocation, allowing currently authorized Staff/delegated Manager to finish paid orders.
 
 #### Business Rules
 
 BR-57-01, BR-57-02, BR-57-03, BR-57-04, BR-57-05, BR-57-06, BR-57-07
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

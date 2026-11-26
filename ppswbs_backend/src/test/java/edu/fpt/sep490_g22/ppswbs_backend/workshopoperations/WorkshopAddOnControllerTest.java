@@ -98,9 +98,9 @@ class WorkshopAddOnControllerTest {
                         "Clay kit", 15_000L, "VND", WorkshopAddOnState.DRAFT));
         doAnswer(invocation -> {
             @SuppressWarnings("unchecked")
-            java.util.function.Supplier<AddOnResponse> command = invocation.getArgument(5);
+            java.util.function.Supplier<AddOnResponse> command = invocation.getArgument(6);
             return command.get();
-        }).when(idempotency).execute(eq("ops-add-on-001"), anyString(), anyString(), any(),
+        }).when(idempotency).execute(any(), eq("ops-add-on-001"), anyString(), anyString(), any(),
                 eq(AddOnResponse.class), any());
 
         MockMvc idempotentMvc = standaloneSetup(
@@ -116,7 +116,7 @@ class WorkshopAddOnControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("abc00000-0000-4000-8000-000000000003")));
 
-        verify(idempotency).execute(eq("ops-add-on-001"),
+        verify(idempotency).execute(any(), eq("ops-add-on-001"),
                 eq("REST:POST:/api/v1/workshop-packages/{packageId}/locations/{locationId}/add-ons"),
                 eq("addon:create:10:999"), any(), eq(AddOnResponse.class), any());
     }

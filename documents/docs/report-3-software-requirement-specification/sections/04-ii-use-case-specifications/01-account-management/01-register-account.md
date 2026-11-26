@@ -1,50 +1,71 @@
-﻿### 1.1 Register Account
+### 1.1 Register Account
 
-#### Primary Actors
-
-Guest
-
-#### Secondary Actors
-
-Firebase Authentication
+| Use Case ID | UC-01 | Use Case Name | Register Account |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest | Secondary Actors | Firebase Authentication |
 
 #### Description
 
-A Guest registers a Member account with email and password or Google. Firebase establishes identity; Mland assigns the fixed Member role.
+As a Guest, I want to register with email and password or Google so that I can use Mland as a Member.
+
+#### Trigger
+
+A Guest selects Register.
 
 #### Preconditions
 
 1. Firebase Authentication is configured.
 2. The identity is not reserved for a pending internal account or linked to another Mland account.
 
+#### Postconditions
+
+1. One active Member account is linked to the Firebase UID.
+2. The Member lands on Member home.
+3. Email verification stays a separate condition, checked only by protected actions.
+4. Self-registration never grants Staff, Manager, Carrier, or Admin access.
+
 #### Normal Flow
 
-1. The Guest opens registration and chooses email/password or Google.
-2. Email registration creates a Firebase identity; Google registration redirects to Google and processes the returned result.
-3. The system verifies the Firebase identity and rejects a reserved or duplicate account.
-4. The system creates one active Member account bound to that Firebase UID.
-5. For email registration, Firebase sends a verification email. The Member may verify later from Profile.
-6. The system opens Member home and shows a verification reminder when needed.
+1. Guest opens registration and chooses email/password or Google.
+2. Guest submits email and password. Firebase creates the identity.
+3. System verifies the Firebase identity.
+4. System creates one active Member account bound to the Firebase UID.
+5. System opens Member home.
 
 #### Alternative Flows
 
-**Invalid input or provider failure:** The system displays safe guidance and does not create a duplicate Member account.
+2a. Guest chooses Google → System redirects to Google and processes the returned result.
 
-**Email already used by a password identity:** Google registration does not merge accounts automatically. The person is guided to sign in with the original password method.
+4a. Guest registered with email → Firebase sends a verification email; Member may verify later from Profile.
 
-**Identity reserved for internal setup:** Registration does not create a Member account and gives neutral invitation guidance.
+5a. Email is unverified → System shows a verification reminder on Member home.
 
-**Verification email fails:** The Member account remains active. Profile provides an explicit resend action; there is no background resend.
+#### Exception Flows
 
-#### Postconditions
+2a. Input is invalid or the provider fails → System shows safe guidance and creates no duplicate account.
 
-- One Firebase UID is linked to at most one Mland account.
-- Email verification remains a separate condition checked by actions that require it.
-- Self-registration never grants Staff, Manager, Carrier, or Admin access.
+3a. Google email already belongs to a password identity → System does not merge accounts and guides the person to sign in with the original method.
+
+3b. Identity is reserved for internal setup or already linked → System creates no Member account and shows neutral invitation guidance.
+
+4a. Verification email fails → Account stays active; Profile offers a manual resend; no automatic resend.
 
 #### Business Rules
 
 BR-01-01, BR-01-02, BR-01-03, BR-01-04
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
@@ -52,5 +73,5 @@ BR-01-01, BR-01-02, BR-01-03, BR-01-04
 | --- | --- |
 | BR-01-01 | Self-registration creates only a Member account. |
 | BR-01-02 | A reserved or existing identity cannot create another Member account. |
-| BR-01-03 | Email registration creates an active account; Firebase sends verification email and Mland checks verification for protected actions. |
+| BR-01-03 | Email registration creates an active account; Firebase sends the verification email and Mland checks verification for protected actions. |
 | BR-01-04 | Firebase establishes identity; Mland controls role, status, and business authorization. |

@@ -1,11 +1,13 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nProvider, useLanguage } from '../../shared/i18n/I18nProvider';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { managerDashboardMessages } from './messages';
 import { managerDashboardRoutes } from './routes';
 import { Change, TrendChart } from './TrendCharts';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 function LanguageToggle() {
   const { setLanguage } = useLanguage();

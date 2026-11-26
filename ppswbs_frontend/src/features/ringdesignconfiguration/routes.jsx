@@ -8,6 +8,7 @@ import DesignEvaluationPage from './ui/DesignEvaluationPage';
 import BranchCompatibilityPage from './ui/BranchCompatibilityPage';
 import MemberDesignHistoryPage from './ui/MemberDesignHistoryPage';
 import './ring-design.css';
+import { MaskAdmin } from '../../shared/auth/RoleArea';
 
 export const ringDesignConfigurationRoutes = [
   {
@@ -46,7 +47,7 @@ export const ringDesignConfigurationRoutes = [
     path: '/my/designs',
     element: (
       <RequireSession requiredText="Bạn cần đăng nhập để tiếp tục.">
-        <MemberDesignHistoryPage />
+        <MaskAdmin><MemberDesignHistoryPage /></MaskAdmin>
       </RequireSession>
     ),
   },

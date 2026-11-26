@@ -2,67 +2,71 @@
 
 > **Retired (confirmed 2026-11-25):** use case 29 is not part of the platform; no specification or implementation exists for it. The text below is kept only as history and must not be implemented.
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-29 | Use Case Name | Configure Supported Materials by Branch |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to configure which jewelry materials, ring options, and workshop packages are supported at each branch.
+As a Manager, I want to configure which jewelry materials, ring options, and workshop packages are supported at each branch so that only valid branch options are offered.
+
+#### Trigger
+
+A Manager selects a branch in the supported-materials configuration screen.
 
 #### Preconditions
 
 1. The Manager is authenticated and authorized.
-2. The branch and material/ring catalogue entries exist.
+2. The branch and material or ring catalogue entries exist.
 3. The selected material is active and eligible for workshop use.
-
 
 #### Postconditions
 
-- The branch-material and supported-option configuration is saved.
-- New booking and design flows use the branch-specific supported options.
-- Existing bookings retain their recorded selections.
+1. The branch-material and supported-option configuration is saved.
+2. New booking and design flows use the branch-specific supported options.
+3. Existing bookings retain their recorded selections.
 
 #### Normal Flow
 
-**Configure Supported Materials by Branch**
-
-1. The Manager selects a branch.
-2. The system displays the currently supported materials, ring options, and packages.
-3. The Manager adds, edits, or removes a supported option.
-4. The system validates the catalogue entry, compatibility, active state, and branch scope.
-5. The Manager confirms the configuration.
-6. The system saves the branch configuration and makes it available to eligible booking/design flows.
+1. Actor selects a branch.
+2. System displays the currently supported materials, ring options, and packages.
+3. Actor adds, edits, or removes a supported option.
+4. System validates the catalogue entry, compatibility, active state, and branch scope.
+5. Actor confirms the configuration.
+6. System saves the branch configuration for eligible booking and design flows.
 
 #### Alternative Flows
 
-**Step 3 — Catalogue entry is inactive or missing**
+3a. Removing an option used by existing bookings → System preserves historical booking data and deactivates it only for new selections.
 
-The system rejects the option and asks the Manager to select an active configured entry.
+#### Exception Flows
 
-**Step 4 — Material/design combination is incompatible**
+3a. Catalogue entry is inactive or missing → System rejects the option and asks the Manager to select an active entry.
 
-The system identifies the compatibility problem and does not save the combination.
+4a. Material or design combination is incompatible → System identifies the compatibility problem and does not save it.
 
-**Step 3 — Removing an option used by existing bookings**
-
-The system prevents removal from historical booking data and deactivates it only for new selections.
-
-**Step 6 — Save fails**
-
-The system displays an error and preserves the prior branch configuration.
+6a. Save fails → System displays an error and preserves the prior branch configuration.
 
 #### Business Rules
 
 BR-25-01, BR-25-02
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-25-01 | Only active and compatible materials/ring options configured for the selected branch may be offered for new workshop selections. |
 | BR-25-02 | Changing branch support affects new selections and must not rewrite materials or options already recorded on existing bookings. |

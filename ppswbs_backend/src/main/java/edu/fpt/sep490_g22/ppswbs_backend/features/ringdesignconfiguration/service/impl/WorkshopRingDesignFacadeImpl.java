@@ -77,8 +77,16 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<BookingDesignSnapshotDto> getDesignSnapshot(String designId) {
-        return designRepository.findLatestByDesignReference(designId).map(design -> {
+    public Optional<BookingDesignSnapshotDto> getOwnedActiveDesignSnapshot(Long memberAccountId,
+            String designReference) {
+        if (memberAccountId == null || designReference == null || designReference.isBlank()) {
+            return Optional.empty();
+        }
+        return designRepository.findLatestByDesignReference(designReference.trim())
+                .filter(design -> design.getOwnerType() == RingDesignOwnerType.MEMBER
+                        && String.valueOf(memberAccountId).equals(design.getOwnerReference())
+                        && design.getStatus() != RingDesignStatus.ARCHIVED)
+                .map(design -> {
             Map<String, Object> snapshot = Collections.emptyMap();
             if (design.getComponentSnapshot() != null && !design.getComponentSnapshot().isBlank()) {
                 try {

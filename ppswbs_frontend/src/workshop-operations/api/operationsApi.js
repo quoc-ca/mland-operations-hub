@@ -4,7 +4,8 @@ export function createOperationsApi(http) {
   const command = (path, body, key, opts = {}) => http(path, { method: 'POST', body, idempotencyKey: key || newCommandId(), ...opts });
   return {
     listSessions: query => http('/api/v1/workshop-sessions', { query }),
-    getSession: id => http(`/api/v1/workshop-sessions/${id}`),
+    // opts.suppressAccessDenied: a 403 on a read that only decorates another page (e.g. a session at another branch) must not send the user home.
+    getSession: (id, opts = {}) => http(`/api/v1/workshop-sessions/${id}`, opts),
     transition: (id, targetState, key) => command(`/api/v1/workshop-sessions/${id}/state-transitions`, { targetState }, key, { suppressAccessDenied: true }),
     finalizeAttendance: (id, key) => command(`/api/v1/workshop-sessions/${id}/attendance-finalizations`, { confirmedSessionEnded: true }, key),
     checkIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-ins`, body, key),

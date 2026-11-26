@@ -262,7 +262,7 @@ export default function OperationsSessionPage() {
   const visibleRosterRows = rosterFilter === 'ALL' ? rosterRows : rosterRows.filter(row => row.attendanceState === rosterFilter);
   const assignedStaff = (session.assignedStaffAccountIds || []).map(accountId => {
     const staff = staffOptions.find(option => Number(option.accountId) === Number(accountId));
-    return { accountId, label: staff ? (staff.fullName || staff.loginEmail || `ID ${accountId}`) : `ID ${accountId}` };
+    return { accountId, label: staff?.fullName || `ID ${accountId}` };
   });
   // A session can have several Staff, so the fact shows the count; the Staff assignment panel lists each one.
   const assignedStaffLabel = assignedStaff.length ? t('ses.staffCount', { count: assignedStaff.length }) : t('ses.unassigned');
@@ -580,7 +580,7 @@ export default function OperationsSessionPage() {
               <option value="">{t('ses.staff.pickOption')}</option>
               {staffOptions.map(s => (
                 <option key={s.accountId} value={String(s.accountId)}>
-                  {s.fullName ? `${s.fullName} (${s.loginEmail})` : s.loginEmail} — {t('ses.staff.optionId', { id: s.accountId })}
+                  {s.fullName ? `${s.fullName} — ` : ''}{t('ses.staff.optionId', { id: s.accountId })}
                 </option>
               ))}
               <option value="__OTHER__">{t('ses.staff.other')}</option>

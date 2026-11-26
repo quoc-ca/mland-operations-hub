@@ -19,7 +19,11 @@ public interface WorkshopRingDesignFacade {
 
     void finalizeLock(String designId);
 
-    Optional<BookingDesignSnapshotDto> getDesignSnapshot(String designId);
+    /**
+     * Snapshot of the latest version of a design, only when this Member owns it and it is not archived. A missing,
+     * foreign, Guest-owned or archived design all give an empty result.
+     */
+    Optional<BookingDesignSnapshotDto> getOwnedActiveDesignSnapshot(Long memberAccountId, String designReference);
 
     java.util.List<WorkshopRingDesignConsultationOption> findMemberDesignsForConsultation(Long memberAccountId);
 

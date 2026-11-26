@@ -1,103 +1,96 @@
 ### 2.4 Import Products from Excel
 
-#### Primary Actors
-
-Staff, Manager with product-creation permission.
-
-#### Secondary Actors
-
-Cloud Storage Service, which stores images attached after the import.
+| Use Case ID | UC-13 | Use Case Name | Import Products from Excel |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff, Manager | Secondary Actors | Cloud Storage Service |
 
 #### Description
 
-As an authorized catalogue maintainer, I want to create many draft products at once from an Excel template so that I do not have to enter each product and size by hand, while the same rules as manual creation still apply, and then attach images to the new products in one place.
+As an authorized catalogue maintainer, I want to import draft products from an Excel template and attach their images so that I can create products in bulk under standard rules.
 
-This use case includes the following sub-flows:
+#### Trigger
 
-- Import Products from Excel
-- Attach Images to Imported Products
+A Staff or Manager with product-creation permission selects Import from Excel on the Product Management List.
 
 #### Preconditions
 
-1. The actor is signed in, the account is active, and the current role is Staff or Manager with product-creation permission.
+1. Actor is signed in with an active Staff or Manager account and product-creation permission.
 2. At least one active category exists.
-3. At least one active branch is within the actor's scope; a Staff has at least one assigned branch.
+3. At least one active branch is within Actor's scope.
+
+#### Postconditions
+
+1. On success, all imported products exist as Unpublished drafts with SKUs and branch stock, and are audited.
+2. On failure or rejection, no product data is created and the rejected attempt is audited.
+3. The uploaded Excel file content is not stored beyond the import result record.
 
 #### Normal Flow
 
 **Import Products from Excel**
 
-1. The actor opens the Product Management List, selects Import from Excel (Import Products from Excel screen) and selects one or more active branches within the actor's scope (a Manager may select any active branch; a Staff only assigned branches).
-2. The actor downloads the template. Its columns are, in order: Group code, Product name, Description, Category, Size, Proposed price (VND), and one Quantity {branch name} column for each selected branch, in the order selected. The template includes instructions, an example and the list of active categories. An older template with a single Quantity column is still accepted when exactly one branch is selected.
-3. The actor fills in the template. Rows with the same Group code form one product and must share the same name, description and category. The Size cell holds one size, a range such as `12-20`, a list such as `12,14,16` (separated by `,` or `;`), or a combination such as `5-9,12`; every size in the cell uses that row's proposed price and quantities. An empty quantity cell means 0.
-4. The actor uploads the `.xlsx` file.
-5. The system checks the file type, size, row count and columns, then validates every row with the same rules as UC-12 Manage Products, without creating data or using product codes or SKUs.
-6. The system shows a preview with the number of products, the number of variants and the list of errors (MSG31). Each product whose name matches an existing product is marked, and the total is shown before Confirm import (MSG56); this warning does not block the import. The preview is valid for 60 minutes.
-7. The actor confirms the import.
-8. The system revalidates the file against the latest data, including whether each category is still active.
-9. The system creates all products in one operation, each as Unpublished with a Draft review record and one stock row per size at each selected branch, assigns product codes and SKUs, and records an audit entry.
-10. The system lists the created product codes and SKUs (MSG34).
+1. Actor opens Import from Excel and selects active branches within scope.
+2. Actor downloads the `.xlsx` template containing Group code, details, size, price, and branch quantity columns.
+3. Actor fills in the template rows and uploads the `.xlsx` file.
+4. System validates file type, size, row count, columns, and all row rules per UC-12 without creating data.
+5. System displays a 60-minute preview with product/variant counts, duplicate-name warnings (MSG56), and validation summary (MSG31).
+6. Actor confirms the import.
+7. System revalidates the file against the latest data and active categories.
+8. System creates all products atomically as Unpublished drafts with SKUs and branch stock, and logs an audit entry.
+9. System displays the created product codes and SKUs (MSG34).
 
 **Attach Images to Imported Products**
 
-1. After a successful import, the result screen offers to attach images to the new products. The actor may skip this step and add images later on the product detail page.
-2. The actor chooses images for each product, or chooses several images at once and selects the product under each image. An image whose file name contains a product's Group code or name is matched to that product automatically (whole words, ignoring accents, longest match first); the actor can change the match. The alt text defaults to the product name and can be edited.
-3. The screen checks, before sending anything, the image type, the 5,000,000-byte limit, at most 10 images per product including existing ones, and alt text of 1–200 characters.
-4. The actor selects Save. For each product in turn, the system uploads its images, reloads the product and saves the image list with the existing images first, using the same image rules, permissions, version check and audit as UC-12. Before the first publication this returns the review record to Draft. Nothing is submitted for approval.
-5. The system reports for each product whether its images were saved or failed (MSG57).
+1. System offers to attach images to the newly imported products on the result screen.
+2. Actor selects images, verifies auto-matched products by code or name, and edits alt text.
+3. System validates image types, 5 MB limit, 10-image cap, and alt text before sending.
+4. Actor selects Save; System uploads and saves images per product using UC-12 rules.
+5. System confirms image save results for each product (MSG57).
 
 #### Alternative Flows
 
-**Steps 1–9 — Actor is not authorized or the session has expired**
+8a. Confirmation is sent twice → System avoids duplicates and returns the completed import result.
 
-The system rejects the request at any step (MSG01, MSG02). Admin, Guest and Member cannot import.
+A1a. Actor skips attaching images → Actor exits the result screen and adds images later on the product detail page.
 
-**Step 1 — Branch outside the actor's scope**
+#### Exception Flows
 
-The system rejects the request (MSG01). A Staff with no assigned branch cannot import.
+1a. Actor is unauthorized or session expired → System rejects the request at any step (MSG01, MSG02).
 
-**Step 5 — File is not accepted**
+1b. Selected branch is outside Actor's scope → System rejects the request (MSG01).
 
-The system rejects a file that is not a valid macro-free `.xlsx`, is larger than 5,000,000 bytes, has more than 500 data rows, or has missing, extra or reordered columns, including branch quantity columns that do not match the selected branches (MSG30). Only the first sheet is read.
+4a. File is invalid, oversized, over 500 rows, or columns mismatch → System rejects the file (MSG30).
 
-**Step 6 — Rows contain errors**
+5a. Rows contain validation errors → System lists errors with row, column, value, and reason (MSG32), blocks Confirm, and offers a neutralized error report.
 
-Each error shows the row number, column name, value and reason (MSG32), and the actor can download an error report. Values that start with `=`, `+`, `-` or `@` are neutralized in the report. The actor fixes the file and resumes at Step 4; Confirm is not available while errors remain.
+6a. Actor does not confirm → System creates no product, code, or SKU.
 
-**Step 7 — Actor does not confirm**
+7a. Preview expired (> 60 minutes) or data changed → System rejects confirmation, creates nothing, and prompts revalidation (MSG33).
 
-Nothing is created and no product code or SKU is used.
+8b. Save or audit fails → System rolls back all products, SKUs, and audits and reports a safe error (MSG04).
 
-**Step 8 — Preview is out of date**
-
-If the data has changed since the preview, for example a category was deactivated, or the preview is older than 60 minutes, the system rejects the confirmation, creates nothing and asks the actor to validate the file again (MSG33). The error report of an expired preview can no longer be downloaded.
-
-**Step 9 — Save or audit failure**
-
-The system creates no product, variant, SKU or audit record (all or nothing) and reports a safe error (MSG04).
-
-**Step 9 — Confirmation is sent twice**
-
-The system does not create duplicates and returns the result of the import that already completed.
-
-**Attach Images Step 4 — Images of one product fail**
-
-The other products are not affected. The failed product keeps the chosen images so the actor can retry; a retry reuses the same upload requests.
-
-#### Postconditions
-
-- On success, every product in the file exists as an Unpublished draft with its SKUs and stock at the selected branches, and the import is audited.
-- On failure or rejection, no product data is created; the rejected attempt is audited.
-- The original file is not stored beyond the import result record.
+A4a. Image upload fails for one product → Other products stay unaffected; System reports per-product results (MSG57) and allows retry.
 
 #### Business Rules
 
 GBR-17, BR-13-01, BR-13-02, BR-13-03, BR-13-04, BR-13-05, BR-13-06, BR-13-07
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+MSG01, MSG02, MSG04, MSG30, MSG31, MSG32, MSG33, MSG34, MSG56, MSG57
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | GBR-17 | Excel import creates draft products under the same rules as manual creation, validates the whole file first, is all or nothing, takes quantities per selected branch within the actor's scope, and its preview expires after 60 minutes. |
 | BR-13-01 | Import is another way of creating drafts: it uses the same validation, code and SKU rules and the same result as manual creation, and never submits, approves, prices or publishes a product. Import only creates new products; it does not add sizes to existing ones. |
 | BR-13-02 | The file must be a valid macro-free `.xlsx`, at most 5,000,000 bytes and 500 data rows; only the first sheet is read, cells are read as data, and formulas and external links are not executed. |

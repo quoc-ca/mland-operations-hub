@@ -1,16 +1,17 @@
 ### 3.7 Manage Workshop Schedule
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-25 | Use Case Name | Manage Workshop Schedule |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to create workshop sessions, one at a time or in bulk, change their capacity and check-in opening, publish or pause them, and cancel them.
+As a Manager, I want to create, update, publish, pause, and cancel workshop sessions so that branch schedules stay accurate without invalidating existing tickets.
+
+#### Trigger
+
+A Manager opens the session management screen.
 
 #### Preconditions
 
@@ -19,49 +20,53 @@ Allows the Manager to create workshop sessions, one at a time or in bulk, change
 
 #### Postconditions
 
-- The session is stored with its location, date, slot, capacity, and state.
-- Existing tickets and holds are never silently invalidated.
+1. The session is stored with its location, date, slot, capacity, and state.
+2. Existing tickets and holds are never silently invalidated.
 
 #### Normal Flow
 
-**Manage Workshop Schedule**
-
-1. The Manager opens the session management screen.
-2. The Manager creates one session, or generates sessions for a location, slots, date range, and weekdays, entering the capacity.
-3. The system validates the slot, the date, uniqueness, and the capacity.
-4. The system saves the sessions as Draft by default, or Published when chosen, and reports created and skipped sessions.
-5. The Manager changes capacity or uses the direct state transition only to publish or pause sales; cancellation uses the separate reasoned cancellation flow.
-6. The system records an audit entry.
+1. Actor opens the session management screen.
+2. Actor enters single or bulk session details with location, slot, date range, weekdays, and capacity.
+3. System validates the slot, date, uniqueness, and capacity.
+4. System saves sessions as Draft or Published and reports created and skipped sessions.
+5. Actor changes capacity or transitions state to publish or pause sales.
+6. System records an audit entry.
 
 #### Alternative Flows
 
-**Step 3 — Slot start is in the past or more than 90 days ahead**
+5a. Actor cancels a session with confirmed tickets or live holds → Session moves to Cancellation Requested and hands off to ticket settlement.
 
-The system rejects the creation.
+5b. Actor cancels a session without tickets or live holds → System cancels the session directly.
 
-**Step 3 — A session already exists for the location, date, and slot**
+#### Exception Flows
 
-Bulk generation skips it without overwriting; single creation is rejected.
+3a. Slot start is in the past or over 90 days ahead → System rejects the creation.
 
-**Step 5 — Change of date, slot, or location**
+3b. Session already exists for the location, date, and slot → Bulk generation skips it without overwriting; single creation is rejected.
 
-The system refuses the change. The Manager cancels the session and creates another.
+5a. Actor attempts to change date, slot, or location → System refuses; actor cancels the session and creates another.
 
-**Step 5 — Cancellation of a session with confirmed tickets or live holds**
-
-The session moves to Cancellation Requested and is handed to ticket settlement. A session without them is cancelled directly.
-
-**Step 5 — The Manager selects cancellation in the direct state transition**
-
-The direct transition does not accept `CANCELLED`. The Manager starts the cancellation flow, provides its reason, and follows the settlement handoff when tickets or live holds exist.
+5b. Actor selects CANCELLED in direct state transition → System rejects it; actor uses the reasoned cancellation flow.
 
 #### Business Rules
 
 BR-21-01, BR-21-02
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-21-01 | A session is unique for its location, date, and configured slot. |
 | BR-21-02 | Only a Manager creates, changes, or cancels sessions. Mland is the source of truth for capacity. |

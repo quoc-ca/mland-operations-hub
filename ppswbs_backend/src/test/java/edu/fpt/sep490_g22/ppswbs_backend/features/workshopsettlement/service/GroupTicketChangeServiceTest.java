@@ -1,5 +1,8 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.LoyaltyFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketVoucherScope;
@@ -189,6 +192,40 @@ class GroupTicketChangeServiceTest {
         assertThat(applied.totalPriceIncrease()).isEqualTo("60000");
         verify(finalBills, times(2)).save(org.mockito.ArgumentMatchers.argThat(
                 (SettlementFinalBill bill) -> bill.getRemainingAmountVnd() == 130_000L));
+    }
+
+    @Test
+    @DisplayName("FR-044b: a Guest or Member LATE_ARRIVAL group change is 403 and touches nothing")
+    void lateArrivalByBuyer_refused403() {
+        GroupTicketChangeRequestDto late = new GroupTicketChangeRequestDto(TicketChangeType.LATE_ARRIVAL,
+                request(null).changes(), null, PROOF, null);
+        CurrentAccountActor member = new CurrentAccountActor(100L, ActorRole.MEMBER, ActorStatus.ACTIVE, false, List.of());
+
+        for (CurrentAccountActor actor : java.util.Arrays.asList(null, member)) {
+            assertThatThrownBy(() -> service.changeGroupTickets(GROUP, late, KEY, "CORR", actor))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                    .hasMessageContaining("LATE_ARRIVAL_STAFF_ONLY");
+        }
+        verify(booking, never()).getTicketFolioContext(any());
+        verify(booking, never()).consumeBuyerProof(any());
+        verify(operations, never()).replaceTicketSessions(any());
+    }
+
+    @Test
+    @DisplayName("FR-044b: a Manager still makes a LATE_ARRIVAL group change")
+    void lateArrivalByManager_applied() {
+        givenTwoOpenTickets(0L, 0L);
+        when(operations.replaceTicketSessions(any())).thenReturn(TicketSessionReplacementOutcome.accepted());
+        CurrentAccountActor manager = new CurrentAccountActor(300L, ActorRole.MANAGER, ActorStatus.ACTIVE, false, List.of());
+
+        GroupTicketChangeResultDto result = service.changeGroupTickets(GROUP, new GroupTicketChangeRequestDto(
+                TicketChangeType.LATE_ARRIVAL, request(null).changes(), null, PROOF, "Buyer arrived late"),
+                KEY, "CORR", manager);
+
+        assertThat(result.applied()).isTrue();
+        ArgumentCaptor<ReplaceTicketSessionsCommand> command = ArgumentCaptor.forClass(ReplaceTicketSessionsCommand.class);
+        verify(operations).replaceTicketSessions(command.capture());
+        assertThat(command.getValue().type()).isEqualTo(TicketReplacementType.CUSTOMER_LATE_ARRIVAL);
     }
 
     @Test

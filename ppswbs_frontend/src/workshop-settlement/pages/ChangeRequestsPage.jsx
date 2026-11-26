@@ -17,7 +17,7 @@ function SessionTime({ reference, operations }) {
   useEffect(() => {
     if (sessionCache.has(reference)) { setState({ loading: false, data: sessionCache.get(reference) }); return undefined; }
     let alive = true;
-    operations.getSession(reference)
+    operations.getSession(reference, { suppressAccessDenied: true })
       .then(data => { sessionCache.set(reference, data); if (alive) setState({ loading: false, data }); })
       .catch(() => { if (alive) setState({ loading: false, data: null }); });
     return () => { alive = false; };
@@ -74,7 +74,7 @@ function RequestDetails({ request, operations }) {
     </dl>
   );
 }
-/** Queue of changes a Staff member or a Manager may allow (FR-045a, T117; owner decision 2026-11-17). An Admin has no part in it. */
+/** Queue of changes a Staff member or a Manager may allow (FR-045a, T117; owner decision 2026-11-17). */
 export default function ChangeRequestsPage() {
   const t = useT(messages);
   const fmt = useFormat();
@@ -84,7 +84,6 @@ export default function ChangeRequestsPage() {
   const api = createSettlementApi(http);
   const operations = useMemo(() => createOperationsApi(http), [http]);
   const role = useRole();
-  const isAdmin = role === 'ADMIN';
   const canDecide = role === 'STAFF' || role === 'MANAGER';
   const [{ status }, setUrlFilters] = useUrlFilters({ status: 'PENDING' });
   const setStatus = value => setUrlFilters({ status: value });
@@ -92,7 +91,7 @@ export default function ChangeRequestsPage() {
   const [deciding, setDeciding] = useState(null); // { request, decision }
   const [message, setMessage] = useState('');
   const command = useCommand();
-  // Nothing is read until the role is known to be Staff or Manager (an Admin never reads this queue).
+  // Nothing is read until the role is known to be Staff or Manager.
   const queue = useResource(() => (canDecide ? api.listChangeRequests({ status }) : Promise.resolve([])), [status, canDecide]);
   const requests = useMemo(() => asList(queue.data), [queue.data]);
 
@@ -101,14 +100,6 @@ export default function ChangeRequestsPage() {
     const out = await command.run(key => api.decideChangeRequest(request.requestReference, { decision, reason }, key));
     if (out.ok) { setDeciding(null); setMessage(t(decision === 'APPROVE' ? 'cr.msg.approved' : 'cr.msg.rejected')); queue.reload(); }
   };
-
-  if (isAdmin) {
-    return (
-      <OpsPage title={t('cr.title')} intro="">
-        <div className="empty-state" role="status"><p>{t('cr.adminNote')}</p></div>
-      </OpsPage>
-    );
-  }
 
   return (
     <OpsPage title={t('cr.title')} intro={t('cr.intro')}>
@@ -163,7 +154,7 @@ export default function ChangeRequestsPage() {
       </section>
       <ReasonDialog open={Boolean(deciding)} title={t(deciding?.decision === 'APPROVE' ? 'cr.approveTitle' : 'cr.rejectTitle')}
         confirmLabel={t(deciding?.decision === 'APPROVE' ? 'cr.approve' : 'cr.reject')} pending={command.pending} onCancel={() => setDeciding(null)} onConfirm={decide}>
-        <p>{t('cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
+        <p>{t(deciding?.decision === 'REJECT' ? 'cr.rejectBody' : 'cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
       </ReasonDialog>
     </OpsPage>
   );

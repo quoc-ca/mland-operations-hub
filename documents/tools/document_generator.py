@@ -38,6 +38,24 @@ DRIVE_ASSET_INCH_WIDTH = re.compile(r"^(?:0\.[1-9][0-9]*|[1-9][0-9]*(?:\.[0-9]+)
 GIT_HISTORY_MARKER = "<!-- AUTO-GENERATED: GIT-CHANGE-HISTORY -->"
 USE_CASE_TABLE_REPORT_ID = "report-3-software-requirement-specification"
 DOCX_TABLE_STYLE_MARKER = "MOH_Table_"
+
+REPORT_FOOTER_LABELS = {
+    "report-1-project-introduction": "Report 1 (Project Introduction)",
+    "report-2-project-management-plan": "Report 2 (Project Management Plan)",
+    "report-3-software-requirement-specification": "Report 3 (SRS Document)",
+    "report-4-software-design-specification": "Report 4 (SDS Document)",
+    "report-5.0-test-documentation": "Report 5 (Test Document)",
+}
+
+REPORT_COVER_SUBTITLES = {
+    "report-1-project-introduction": "Report 1 \u2013 Project Introduction",
+    "report-2-project-management-plan": "Report 2 \u2013 Project Management Plan",
+    "report-3-software-requirement-specification": "Report 3 \u2013 Software Requirement Specification",
+    "report-4-software-design-specification": "Report 4 \u2013 Software Design Specification",
+    "report-5.0-test-documentation": "Report 5 \u2013 Software Test Documentation",
+}
+COVER_DATE_LINE = "\u2013 Hanoi, Aug 2026 \u2013"
+COVER_AND_TOC_MARKER = "MOH_COVER_AND_TOC_PLACEHOLDER"
 DOCX_DRIVE_IMAGE_TITLE_PREFIX = "MOH_DRIVE_IMAGE:"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
@@ -322,8 +340,174 @@ def _pandoc_fragment(stderr: str, line_ranges: list[tuple[int, int, str]]) -> st
     return f"unknown (Pandoc reported composed line {line})"
 
 
-def _apply_docx_layout(docx_path: Path) -> tuple[int, int]:
-    """Apply table widths and injected Drive image alignment in the DOCX."""
+def _prepare_front_matter(content: str, report_id: str) -> str:
+    """Keep only the logo from front-matter.md and insert the cover/ToC marker for reports."""
+    if report_id not in REPORT_COVER_SUBTITLES:
+        return content
+    logo_lines = [line for line in content.splitlines() if line.strip().startswith("{{") and line.strip().endswith("}}")]
+    parts = [*logo_lines, "", COVER_AND_TOC_MARKER] if logo_lines else [COVER_AND_TOC_MARKER]
+    return "\n".join(parts)
+
+
+def _build_cover_and_toc_blocks(
+    document: ET.Element, qname: callable, report_id: str
+) -> list[ET.Element]:
+    """Build cover page and auto-generated Table of Contents OOXML blocks."""
+    xml_space = "{http://www.w3.org/XML/1998/namespace}space"
+
+    def make_para(
+        text: str = "",
+        *,
+        align: str | None = None,
+        before: str | None = None,
+        after: str | None = None,
+        bold: bool = False,
+        color: str | None = None,
+        size_half_pt: str | None = None,
+        left_indent: str | None = None,
+    ) -> ET.Element:
+        p = ET.Element(qname("p"))
+        pPr = ET.SubElement(p, qname("pPr"))
+        if before is not None or after is not None:
+            sp = ET.SubElement(pPr, qname("spacing"))
+            if before is not None:
+                sp.set(qname("before"), before)
+            if after is not None:
+                sp.set(qname("after"), after)
+        if left_indent is not None:
+            ind = ET.SubElement(pPr, qname("ind"))
+            ind.set(qname("left"), left_indent)
+        if align is not None:
+            jc = ET.SubElement(pPr, qname("jc"))
+            jc.set(qname("val"), align)
+        if text:
+            r = ET.SubElement(p, qname("r"))
+            rPr = ET.SubElement(r, qname("rPr"))
+            if bold:
+                ET.SubElement(rPr, qname("b"))
+            if color is not None:
+                c = ET.SubElement(rPr, qname("color"))
+                c.set(qname("val"), color)
+            if size_half_pt is not None:
+                sz = ET.SubElement(rPr, qname("sz"))
+                sz.set(qname("val"), size_half_pt)
+                szCs = ET.SubElement(rPr, qname("szCs"))
+                szCs.set(qname("val"), size_half_pt)
+            t = ET.SubElement(r, qname("t"))
+            t.set(xml_space, "preserve")
+            t.text = text
+        return p
+
+    def make_page_break() -> ET.Element:
+        p = ET.Element(qname("p"))
+        r = ET.SubElement(p, qname("r"))
+        br = ET.SubElement(r, qname("br"))
+        br.set(qname("type"), "page")
+        return p
+
+    subtitle = REPORT_COVER_SUBTITLES[report_id]
+    blocks: list[ET.Element] = [
+        make_para("CAPSTONE PROJECT REPORT", align="center", before="2800", after="160", bold=True, color="C00000", size_half_pt="44"),
+        make_para(subtitle, align="center", before="0", after="3800", bold=True, color="C00000", size_half_pt="28"),
+        make_para(COVER_DATE_LINE, align="center", before="0", after="0", size_half_pt="22"),
+        make_page_break(),
+        make_para("Table of Contents", before="0", after="200", bold=True, color="C00000", size_half_pt="32"),
+    ]
+
+    # Collect Heading1..Heading3 and ensure each has a bookmark for ToC links.
+    toc_entries: list[tuple[int, str, str]] = []
+    existing_ids = [
+        int(el.get(qname("id"), "0"))
+        for el in document.findall(".//" + qname("bookmarkStart"))
+        if el.get(qname("id"), "").isdigit()
+    ]
+    bm_id = max(existing_ids, default=0)
+    for p in document.findall(".//" + qname("p")):
+        st = p.find("./" + qname("pPr") + "/" + qname("pStyle"))
+        if st is None:
+            continue
+        val = st.get(qname("val"), "")
+        if val not in {"Heading1", "Heading2", "Heading3"}:
+            continue
+        heading_text = "".join(t.text or "" for t in p.findall(".//" + qname("t"))).strip()
+        if not heading_text:
+            continue
+        level = int(val[-1])
+        bm = p.find("./" + qname("bookmarkStart"))
+        if bm is not None and bm.get(qname("name")):
+            anchor = bm.get(qname("name"))
+        else:
+            bm_id += 1
+            anchor = f"_Toc_{bm_id}"
+            bm_start = ET.Element(qname("bookmarkStart"))
+            bm_start.set(qname("id"), str(bm_id))
+            bm_start.set(qname("name"), anchor)
+            bm_end = ET.Element(qname("bookmarkEnd"))
+            bm_end.set(qname("id"), str(bm_id))
+            insert_pos = 1 if len(p) > 0 and p[0].tag == qname("pPr") else 0
+            p.insert(insert_pos, bm_start)
+            p.append(bm_end)
+        toc_entries.append((level, heading_text, anchor))
+
+    # Wrap ToC in a native Word SDT + TOC field so Word updates page numbers automatically.
+    sdt = ET.Element(qname("sdt"))
+    sdtPr = ET.SubElement(sdt, qname("sdtPr"))
+    docPartObj = ET.SubElement(sdtPr, qname("docPartObj"))
+    docPartGallery = ET.SubElement(docPartObj, qname("docPartGallery"))
+    docPartGallery.set(qname("val"), "Table of Contents")
+    ET.SubElement(docPartObj, qname("docPartUnique"))
+    sdtContent = ET.SubElement(sdt, qname("sdtContent"))
+
+    field_start = ET.SubElement(sdtContent, qname("p"))
+    r_begin = ET.SubElement(field_start, qname("r"))
+    fc_begin = ET.SubElement(r_begin, qname("fldChar"))
+    fc_begin.set(qname("fldCharType"), "begin")
+    r_instr = ET.SubElement(field_start, qname("r"))
+    instr = ET.SubElement(r_instr, qname("instrText"))
+    instr.set(xml_space, "preserve")
+    instr.text = ' TOC \\o "1-3" \\h \\z \\u '
+    r_sep = ET.SubElement(field_start, qname("r"))
+    fc_sep = ET.SubElement(r_sep, qname("fldChar"))
+    fc_sep.set(qname("fldCharType"), "separate")
+
+    indents = {1: "0", 2: "360", 3: "720"}
+    for level, heading_text, anchor in toc_entries:
+        p = ET.SubElement(sdtContent, qname("p"))
+        pPr = ET.SubElement(p, qname("pPr"))
+        sp = ET.SubElement(pPr, qname("spacing"))
+        sp.set(qname("before"), "40" if level == 1 else "20")
+        sp.set(qname("after"), "40" if level == 1 else "20")
+        ind = ET.SubElement(pPr, qname("ind"))
+        ind.set(qname("left"), indents[level])
+        hl = ET.SubElement(p, qname("hyperlink"))
+        hl.set(qname("anchor"), anchor)
+        hl.set(qname("history"), "1")
+        r = ET.SubElement(hl, qname("r"))
+        rPr = ET.SubElement(r, qname("rPr"))
+        if level == 1:
+            ET.SubElement(rPr, qname("b"))
+        c = ET.SubElement(rPr, qname("color"))
+        c.set(qname("val"), "000000")
+        sz = ET.SubElement(rPr, qname("sz"))
+        sz.set(qname("val"), "20")
+        szCs = ET.SubElement(rPr, qname("szCs"))
+        szCs.set(qname("val"), "20")
+        t = ET.SubElement(r, qname("t"))
+        t.set(xml_space, "preserve")
+        t.text = heading_text
+
+    field_end = ET.SubElement(sdtContent, qname("p"))
+    r_end = ET.SubElement(field_end, qname("r"))
+    fc_end = ET.SubElement(r_end, qname("fldChar"))
+    fc_end.set(qname("fldCharType"), "end")
+
+    blocks.append(sdt)
+    blocks.append(make_page_break())
+    return blocks
+
+
+def _apply_docx_layout(docx_path: Path, report_id: str | None = None) -> tuple[int, int]:
+    """Apply table widths, footer label, and injected Drive image alignment in the DOCX."""
     qname = lambda name: f"{{{WORD_NS}}}{name}"
     with zipfile.ZipFile(docx_path, "r") as source:
         entries = [(info, source.read(info.filename)) for info in source.infolist()]
@@ -378,14 +562,18 @@ def _apply_docx_layout(docx_path: Path) -> tuple[int, int]:
         if style is None:
             continue
         style_id = style.get(qname("val"), "")
-        if not style_id.startswith(DOCX_TABLE_STYLE_MARKER):
+        is_metadata_table = style_id == "MetadataTable"
+        if is_metadata_table:
+            width_hundredths = 10000
+        elif style_id.startswith(DOCX_TABLE_STYLE_MARKER):
+            marker_width = style_id.removeprefix(DOCX_TABLE_STYLE_MARKER)
+            if not marker_width.isdigit():
+                raise ValueError(f"Invalid internal table-width marker: {style_id!r}.")
+            width_hundredths = int(marker_width)
+            if not 100 <= width_hundredths <= 10000:
+                raise ValueError(f"Table-width marker is outside 1%–100%: {style_id!r}.")
+        else:
             continue
-        marker_width = style_id.removeprefix(DOCX_TABLE_STYLE_MARKER)
-        if not marker_width.isdigit():
-            raise ValueError(f"Invalid internal table-width marker: {style_id!r}.")
-        width_hundredths = int(marker_width)
-        if not 100 <= width_hundredths <= 10000:
-            raise ValueError(f"Table-width marker is outside 1%–100%: {style_id!r}.")
         table_width = properties.find("./" + qname("tblW"))
         if table_width is None:
             table_width = ET.Element(qname("tblW"))
@@ -429,10 +617,59 @@ def _apply_docx_layout(docx_path: Path) -> tuple[int, int]:
                     cell_properties.insert(0, cell_width_element)
                 cell_width_element.set(qname("type"), "dxa")
                 cell_width_element.set(qname("w"), str(cell_width))
-        style.set(qname("val"), "TableGrid")
+        cell_margins = properties.find("./" + qname("tblCellMar"))
+        if cell_margins is None:
+            cell_margins = ET.Element(qname("tblCellMar"))
+            insert_idx = len(list(properties))
+            for idx, child in enumerate(list(properties)):
+                if child.tag in {qname("tblLook"), qname("tblCaption"), qname("tblDescription")}:
+                    insert_idx = idx
+                    break
+            properties.insert(insert_idx, cell_margins)
+        for side in ("top", "left", "bottom", "right"):
+            side_el = cell_margins.find("./" + qname(side))
+            if side_el is None:
+                side_el = ET.Element(qname(side))
+                cell_margins.append(side_el)
+            side_el.set(qname("w"), "75")
+            side_el.set(qname("type"), "dxa")
+        if not is_metadata_table:
+            style.set(qname("val"), "TableGrid")
         changed_tables += 1
 
-    if not changed_tables and not changed_images:
+    changed_footers = 0
+    footer_label = REPORT_FOOTER_LABELS.get(report_id or "")
+    if footer_label:
+        from xml.sax.saxutils import escape as xml_escape
+
+        escaped_label = xml_escape(footer_label)
+        for index, (info, payload) in enumerate(entries):
+            if not (info.filename.startswith("word/footer") and info.filename.endswith(".xml")):
+                continue
+            footer_text = payload.decode("utf-8")
+            updated_text, count = re.subn(
+                r"(<w:t\b[^>]*>)\s*Report\s*(</w:t>)",
+                lambda m: f"{m.group(1)}{escaped_label}{m.group(2)}",
+                footer_text,
+            )
+            if count > 0:
+                entries[index] = (info, updated_text.encode("utf-8"))
+                changed_footers += 1
+
+    changed_cover = 0
+    if report_id in REPORT_COVER_SUBTITLES:
+        body = document.find("./" + qname("body"))
+        if body is not None:
+            for idx, child in enumerate(list(body)):
+                if child.tag == qname("p") and "".join(t.text or "" for t in child.findall(".//" + qname("t"))).strip() == COVER_AND_TOC_MARKER:
+                    cover_blocks = _build_cover_and_toc_blocks(document, qname, report_id)
+                    body.remove(child)
+                    for offset, blk in enumerate(cover_blocks):
+                        body.insert(idx + offset, blk)
+                    changed_cover = 1
+                    break
+
+    if not changed_tables and not changed_images and not changed_footers and not changed_cover:
         return 0, 0
 
     entries[document_entry] = (
@@ -499,7 +736,10 @@ def build_bundle(
         line_ranges: list[tuple[int, int, str]] = []
         current_line = 1
         for fragment in bundle.fragments:
-            content = _replace_drive_image_placeholders(fragment_text[fragment], drive_assets, rendered_drive_assets).rstrip()
+            raw_content = fragment_text[fragment]
+            if fragment.name == "front-matter.md":
+                raw_content = _prepare_front_matter(raw_content, bundle.report_id)
+            content = _replace_drive_image_placeholders(raw_content, drive_assets, rendered_drive_assets).rstrip()
             source_marker = f"<!-- MOH-SOURCE: {_relative(bundle, fragment)} -->\n\n"
             content = source_marker + content
             line_count = max(1, content.count("\n") + 1)
@@ -554,7 +794,7 @@ def build_bundle(
                 fragment=_pandoc_fragment(reason, line_ranges),
             )
         try:
-            _apply_docx_layout(staged_output)
+            _apply_docx_layout(staged_output, bundle.report_id)
         except (OSError, ValueError, zipfile.BadZipFile, ET.ParseError) as exc:
             raise _error(
                 "docx-layout-failed", str(exc), report_id=bundle.report_id,

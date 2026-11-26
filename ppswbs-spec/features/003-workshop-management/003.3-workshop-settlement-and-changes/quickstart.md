@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-16
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -142,6 +142,14 @@ This section is the current acceptance path (added 2026-11-16, R29); the scenari
 7. Theo dõi: người nhận nhập lại số tài khoản qua link mới; Manager duyệt lại sau khi có tài khoản mới.
 
 Cột lưu bản mã là `settlement_refund_requests.recipient_account_encrypted` (V122, nullable): route đặt cột này về `NULL` và giữ `recipient_account_masked`, nên **không cần migration**. Phản hồi `200` chỉ có số lượng: `requestsReset`, `linksSent` và `failed` (yêu cầu không xử lý được vẫn giữ bản mã; gọi lại với `Idempotency-Key` mới để thử lại). Mỗi yêu cầu có hai bản ghi audit: `REFUND_ACCOUNT_KEY_REPLACED` (kèm lý do) và `REFUND_ACCOUNT_LINK_RESENT`. Kiểm chứng bằng `RefundAccountMysqlIT`, `BankRefundServiceTest` và `RefundAccountKeyReplacementControllerTest`.
+
+## Change types (FR-044b; added 2026-11-26)
+
+1. **Customer, 24 h or more:** as Member or Guest, change a ticket (no type to pick; `ADVANCE` is sent): applied at once (200).
+2. **Customer, under 24 h, not started:** 202, the request waits in `/settlement/change-requests`.
+3. **Customer, session started:** the screen shows the contact-the-shop message; a direct `ADVANCE` call is `409 ADVANCE_CHANGE_WINDOW_EXPIRED`, nothing queued or counted.
+4. **`LATE_ARRIVAL` as Member or Guest** (change, group change, both option routes): `403 LATE_ARRIVAL_STAFF_ONLY`, nothing changes.
+5. **`LATE_ARRIVAL` as Staff of the location (assigned) or Manager:** works as before; a `LATE_ARRIVAL` request queued earlier can still be approved.
 
 ## Changes across locations (Phase 14, FR-058–FR-063, T192; added 2026-11-17)
 

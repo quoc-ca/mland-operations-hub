@@ -1,76 +1,83 @@
 ### 8.1 Configure System Operational Parameters
 
-#### Primary Actors
-
-Admin
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-62 | Use Case Name | Configure System Operational Parameters |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Admin | Secondary Actors | None |
 
 #### Description
 
-Allows the Admin to configure approved operational values used by checkout workflows and the workshop-ring difficulty policy. The current FE-09 delivery covers only the ring-difficulty screen; checkout operational parameters remain a separate, unspecified delivery scope. For ring difficulty, the Admin alone changes and publishes per-option scores, engraving coefficients and classification/recommendation thresholds; Feature-012 owns the policy and evaluation. The Manager may maintain separately authorized non-difficulty ring-catalogue fields but cannot change or approve difficulty values. The loyalty point policy (earning rate, point value, minimum points per use and point-discount cap) is not part of this use case; only the Manager manages it (use case 51). Custom-order queue configuration is retired from V1 (see section 10.2).
+As an Admin, I want to configure operational values and workshop-ring difficulty policy so that applicable workflows use validated settings.
+
+#### Trigger
+
+An Admin opens operational parameter configuration.
 
 #### Preconditions
 
 1. The Admin is authenticated and authorized to manage operational parameters.
 2. The platform is available.
-3. The parameter definitions and permitted value ranges are configured by the system.
-
+3. Parameter definitions and permitted value ranges are configured by the system.
 
 #### Postconditions
 
-- Valid parameter values are saved with the Admin actor and change time recorded.
-- Subsequent applicable workflows use the new values.
-- Invalid or incomplete values do not overwrite the previous configuration.
+1. Valid parameter values are saved with the acting Admin and change time recorded.
+2. Subsequent applicable workflows use the new values.
+3. Invalid or incomplete values do not overwrite the previous configuration.
 
 #### Normal Flow
 
-**Configure System Operational Parameters**
-
-1. The Admin opens operational parameter configuration.
-2. The system displays the current values and their descriptions.
-3. The Admin edits one or more values.
-4. The system validates data types, ranges and dependencies. For ring difficulty it previews the old and proposed outcomes on required standard non-personal examples and any additional non-personal examples chosen by Admin, without exposing Member records.
-5. The Admin reviews and confirms the changes.
-6. For ring difficulty, the API verifies a fresh preview of the exact proposed values by the same Admin, then atomically publishes a new immutable policy version, records an audit entry, and displays the effective configuration. Other operational parameters follow their separately specified delivery contract.
+1. Admin opens operational parameter configuration.
+2. System displays current values and descriptions.
+3. Admin edits the workshop-ring difficulty policy.
+4. System validates the complete candidate policy.
+5. System previews before-and-after outcomes on non-personal examples and every active published model.
+6. Admin reviews the preview and confirms publication.
+7. System publishes an immutable policy version and displays the effective values.
 
 #### Alternative Flows
 
-**Step 4 — Value is invalid or outside the permitted range**
+3a. Admin edits a checkout operational value → System follows the separately specified checkout parameter workflow.
 
-The system displays field-level validation errors and does not save the invalid value.
+6a. Admin cancels → System discards unsaved edits and changes no parameter.
 
-**Step 4 — Values are inconsistent**
+#### Exception Flows
 
-The system identifies the dependency and asks the Admin to correct it.
+4a. Value is invalid or outside the permitted range → System displays field-level validation errors and preserves the effective policy.
 
-**Step 5 — Admin cancels**
+4b. Values are inconsistent or an option lacks a score → System identifies the issue and preserves the effective policy.
 
-No parameter is changed.
+5a. An active published model becomes invalid, unscored, or too risky → System identifies the model and issues no publication proof.
 
-**Step 6 — Save fails**
+7a. Preview proof is missing, expired, or mismatched → System rejects publication and requests a fresh preview.
 
-The system displays an error and preserves the previous configuration.
-
-**Step 6 — Ring-difficulty preview proof is missing, expired or mismatched**
-
-The API rejects publication, keeps the prior policy effective and asks the Admin
-to preview the current candidate again. A retry of a previously completed
-identical publication returns its recorded result.
+7b. Publication fails → System reports failure and preserves the previously effective policy.
 
 #### Business Rules
 
-BR-62-01, BR-62-02, BR-62-03, BR-62-04, BR-62-05, BR-62-06
+BR-62-01, BR-62-02, BR-62-03, BR-62-04, BR-62-05, BR-62-06, BR-62-07, BR-62-08
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-62-01 | Only an authorized Admin may change system-wide operational parameters. |
 | BR-62-02 | Operational parameters must be validated as a consistent set before they become effective. |
 | BR-62-03 | Every saved parameter change must retain the acting Admin, time, previous value, and new value for audit purposes. |
 | BR-62-04 | Only an authorized Admin may publish a workshop-ring difficulty policy. Manager catalogue commands must not alter any difficulty score, coefficient or threshold. |
 | BR-62-05 | A ring-difficulty publication is an atomic, versioned change after a before/after preview. Existing saved design versions retain their original evaluation; subsequent evaluations use the newly effective policy. |
 | BR-62-06 | The ring-difficulty publication API rejects a missing, expired or mismatched preview proof; a completed identical retry replays its original result. |
+| BR-62-07 | Each active published model's complete default configuration remains valid, fully scored, and below or at the too-risky cutoff after policy publication. |
+| BR-62-08 | The proposed ring-difficulty screen excludes checkout parameters, Manager-owned loyalty policy, and retired V1 custom-order queue configuration. |

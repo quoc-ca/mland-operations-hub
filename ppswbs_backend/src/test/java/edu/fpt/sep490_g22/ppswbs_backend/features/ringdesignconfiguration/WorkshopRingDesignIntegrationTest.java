@@ -215,7 +215,13 @@ public class WorkshopRingDesignIntegrationTest {
     }
 
     @Test
-    void whenGuestSessionExpiredAfter20Minutes_thenSessionExpired() {
+    void shouldIsolateMemberOwnershipAndHandleGuestExpiry() throws Exception {
+        guestSessionExpiredAfter20Minutes_thenSessionExpired();
+        anonymousCallsWorkshopDesigns_thenUnauthorized401();
+        memberATriesToAccessOrModifyMemberBDesign_thenAccessDenied403();
+    }
+
+    private void guestSessionExpiredAfter20Minutes_thenSessionExpired() {
         GuestDesignSession session = guestDesignSessionService.issueGuestSession("corr-test-expiry");
         // Simulate session inactivity past 20 minutes (expired in past)
         session.setExpiresAt(Instant.now().minusSeconds(60));
@@ -228,8 +234,7 @@ public class WorkshopRingDesignIntegrationTest {
         );
     }
 
-    @Test
-    void whenAnonymousCallsWorkshopDesigns_thenUnauthorized401() throws Exception {
+    private void anonymousCallsWorkshopDesigns_thenUnauthorized401() throws Exception {
         CreateDesignRequest req = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE")
                 .startMode("BLANK")
@@ -242,8 +247,7 @@ public class WorkshopRingDesignIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void whenMemberATriesToAccessOrModifyMemberBDesign_thenAccessDenied403() throws Exception {
+    private void memberATriesToAccessOrModifyMemberBDesign_thenAccessDenied403() throws Exception {
         // Member A creates a design
         CreateDesignRequest req = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE")
@@ -288,7 +292,12 @@ public class WorkshopRingDesignIntegrationTest {
     }
 
     @Test
-    void whenDesignCreatedAndEvaluated_thenPriceAndDifficultyAreServerAuthoritative() throws Exception {
+    void shouldValidateBranchCompatibilityAndComputePricingAuthoritatively() throws Exception {
+        designCreatedAndEvaluated_thenPriceAndDifficultyAreServerAuthoritative();
+        branchLacksMaterial_thenAttachToBookingFailsWithBranchIncompatible();
+    }
+
+    private void designCreatedAndEvaluated_thenPriceAndDifficultyAreServerAuthoritative() throws Exception {
         CreateDesignRequest req = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE")
                 .startMode("BLANK")
@@ -327,8 +336,7 @@ public class WorkshopRingDesignIntegrationTest {
                 .andExpect(jsonPath("$.evaluation.rulesVersion").value("2026.11-v1.0"));
     }
 
-    @Test
-    void whenBranchLacksMaterial_thenAttachToBookingFailsWithBranchIncompatible() throws Exception {
+    private void branchLacksMaterial_thenAttachToBookingFailsWithBranchIncompatible() throws Exception {
         CreateDesignRequest req = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE")
                 .startMode("BLANK")
@@ -368,7 +376,7 @@ public class WorkshopRingDesignIntegrationTest {
     }
 
     @Test
-    void whenDesignAttachedToBooking_thenLockedAndResilientToRollback() throws Exception {
+    void shouldLockDesignOnBookingAttachmentAndPreserveOnRollback() throws Exception {
         CreateDesignRequest req = CreateDesignRequest.builder()
                 .packageReference("PKG-COUPLE")
                 .startMode("BLANK")

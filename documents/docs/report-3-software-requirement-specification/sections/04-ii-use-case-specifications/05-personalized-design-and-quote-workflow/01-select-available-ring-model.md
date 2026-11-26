@@ -1,72 +1,75 @@
 ### 5.1 Select Available Ring Model
 
-#### Primary Actors
-
-- Guest
-- Member
-
-#### Secondary Actors
-
-- None
+| Use Case ID | UC-36 | Use Case Name | Select Available Ring Model |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest, Member | Secondary Actors | — |
 
 #### Description
 
-This use case allows a Guest or Member to browse the published ring models offered for a workshop package, and a Member to select one as the starting point of a ring design. A Member may also start from a blank ring. The design is not attached to a workshop booking or ticket.
+As a Guest or Member, I want to browse published workshop ring models so that a Member can select one as a design starting point.
+
+#### Trigger
+
+A Guest or Member opens the general ring catalogue or a workshop package's ring model list.
 
 #### Preconditions
 
 1. The platform is available.
-2. The catalogue options of the workshop package are published.
-3. To select a model, the actor is a signed-in Member with an active account.
-
-#### Normal Flow
-
-**Select Available Ring Model**
-
-1. The Guest or Member opens the ring model list of a workshop package.
-2. The system retrieves the published models and options.
-3. The system displays each model's image, material, name, description and advisory difficulty when available.
-4. The Member selects a model or chooses a blank ring.
-5. The system validates that the selected model is still published and compatible with the package.
-6. The system opens Configure Workshop Ring with the selected starting point.
-
-#### Alternative Flows
-
-**Step 2 — No available model**
-
-1. The system cannot find an active and approved ring model.
-2. The system displays an availability message and does not create a workshop configuration.
-
-**Step 4 — Actor is a Guest**
-
-1. The system asks the Guest to sign in and sends no protected command.
-2. No design is created.
-
-**Step 5 — Model is unavailable**
-
-1. The selected model has become inactive or unavailable.
-2. The system rejects the selection and asks the user to choose another model.
-
-**Step 2 — Catalogue retrieval failure**
-
-1. The system cannot retrieve the ring model catalogue.
-2. The system displays an error message and allows the user to retry.
+2. Published ring models and their catalogue options are available.
+3. Selecting a model requires a signed-in Member with an active account.
 
 #### Postconditions
 
-- The Member continues to Configure Workshop Ring with the selected starting point; nothing is saved yet.
-- No booking, ticket, order, payment or custom design request is created.
+1. Member continues to Configure Workshop Ring with the selected starting point; nothing is saved yet.
+2. No booking, ticket, order, payment, or custom design request is created.
+
+#### Normal Flow
+
+1. Guest or Member opens the general ring catalogue.
+2. System retrieves the published models and options.
+3. System displays each model's image, material, name, description, and advisory difficulty.
+4. Member selects a published ring model.
+5. System validates that the selected model and its complete defaults remain published, scored, and eligible.
+6. System opens Configure Workshop Ring with the selected starting point.
+
+#### Alternative Flows
+
+1a. Actor opens a workshop package's model list → System shows only models compatible with that package.
+
+4a. Member chooses a blank ring → System skips model validation and opens Configure Workshop Ring with a blank starting point.
+
+#### Exception Flows
+
+2a. No active and approved ring model exists → System displays an availability message and creates no workshop configuration.
+
+2b. Ring model catalogue retrieval fails → System displays an error message and allows retrying.
+
+4a. Actor is a Guest → System prompts the Guest to sign in and sends no protected command.
+
+5a. Selected model became inactive or unavailable → System rejects the selection and asks the Member to choose another model.
 
 #### Business Rules
 
-- BR-32-01
-- BR-32-02
-- BR-32-03
+BR-32-01, BR-32-02, BR-32-03, BR-32-04
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-32-01 | Only published and active ring models may be selected. |
 | BR-32-02 | Selecting a ring model does not reserve stock, create a booking or order, or authorize payment. |
 | BR-32-03 | A Guest may browse public models and options; selecting and configuring require a signed-in Member. |
+| BR-32-04 | General discovery includes every active published model; a workshop package page filters models by compatibility. |

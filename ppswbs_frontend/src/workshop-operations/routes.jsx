@@ -1,6 +1,6 @@
 import React from 'react';
 import { installStackedTableLabels } from './stackedTables';
-import { RequireSession } from '../shared/auth/RequireSession';
+import { RoleArea } from '../shared/auth/RoleArea';
 import { useT } from '../shared/i18n/I18nProvider';
 import { sharedMessages } from '../shared/ui/messages';
 import OperationsDashboardPage from './pages/OperationsDashboardPage';
@@ -13,10 +13,22 @@ import LatePaymentReviewsPage from './pages/LatePaymentReviewsPage';
 import AuditReviewPage from './pages/AuditReviewPage';
 installStackedTableLabels();
 
-/** Staff/Manager area: without a session the page shows a sign-in link back to itself (the backend still decides every permission). */
-function StaffArea({ children }) {
+/**
+ * Browser allowlists of 003.2 and 003.3 ("Route masking synchronization"): without a session the page shows a sign-in
+ * link back to itself; a signed-in actor outside the set is replaced to /404 before the page renders or calls the API.
+ * The backend still decides every permission.
+ */
+function Area({ roles, children }) {
   const t = useT(sharedMessages);
-  return <RequireSession requiredText={t('session.required')}>{children}</RequireSession>;
+  return <RoleArea roles={roles} requiredText={t('session.required')}>{children}</RoleArea>;
+}
+
+function StaffArea({ children }) {
+  return <Area roles={['STAFF', 'MANAGER']}>{children}</Area>;
+}
+
+function ManagerArea({ children }) {
+  return <Area roles={['MANAGER']}>{children}</Area>;
 }
 
 export const operationsRoutes = [
@@ -24,13 +36,13 @@ export const operationsRoutes = [
   { path: '/operations/sessions/:sessionId', element: <StaffArea><OperationsSessionPage /></StaffArea> },
   { path: '/operations/packages', element: <StaffArea><WorkshopPackageManagementPage /></StaffArea> },
   { path: '/workshop-packages', element: <StaffArea><WorkshopPackageManagementPage /></StaffArea> },
-  { path: '/operations/admin', element: <StaffArea><OperationsAdministrationPage /></StaffArea> },
-  { path: '/operations/locations', element: <StaffArea><OperationsAdministrationPage /></StaffArea> },
-  { path: '/operations/slots', element: <StaffArea><OperationsAdministrationPage /></StaffArea> },
+  { path: '/operations/admin', element: <ManagerArea><OperationsAdministrationPage /></ManagerArea> },
+  { path: '/operations/locations', element: <ManagerArea><OperationsAdministrationPage /></ManagerArea> },
+  { path: '/operations/slots', element: <ManagerArea><OperationsAdministrationPage /></ManagerArea> },
   { path: '/operations/package-add-ons', element: <StaffArea><PackageAddOnCataloguePage /></StaffArea> },
-  { path: '/operations/package-availability', element: <StaffArea><PackageAvailabilityMatrixPage /></StaffArea> },
-  { path: '/operations/late-payments', element: <StaffArea><LatePaymentReviewsPage /></StaffArea> },
-  { path: '/operations/audit', element: <StaffArea><AuditReviewPage /></StaffArea> },
+  { path: '/operations/package-availability', element: <ManagerArea><PackageAvailabilityMatrixPage /></ManagerArea> },
+  { path: '/operations/late-payments', element: <ManagerArea><LatePaymentReviewsPage /></ManagerArea> },
+  { path: '/operations/audit', element: <ManagerArea><AuditReviewPage /></ManagerArea> },
 ];
 
 export { StaffArea };

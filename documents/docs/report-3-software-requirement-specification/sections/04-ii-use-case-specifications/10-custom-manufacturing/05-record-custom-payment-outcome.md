@@ -1,56 +1,64 @@
 ### 10.5 Record Custom Payment Outcome
 
-#### Primary Actors
-
-- System
-
-#### Secondary Actors
-
-- Payment Gateway
+| Use Case ID | UC-71 | Use Case Name | Record Custom Payment Outcome |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | System | Secondary Actors | Payment Gateway |
 
 #### Description
 
-This use case (use case 71) records the verified full payment of the active quote, or its expiry.
+As the System, I want to record the verified full payment of the active custom order quote or its expiry so that paid orders enter production accurately.
+
+#### Trigger
+
+The Payment Gateway sends a payment result for an approved custom order quote, or the quote deadline passes.
 
 #### Preconditions
 
 1. A payment was started for an approved quote (use case 69).
 
+#### Postconditions
+
+1. The order is paid in full and enters waiting for production, or remains unpaid/expired.
+
 #### Normal Flow
 
-**Record Custom Payment Outcome**
-
-1. The system receives a verified payment result from the Payment Gateway.
-2. The system matches the order and checks the amount against the quote.
-3. The system marks the quote and order paid and records the transaction reference.
-4. The order enters the waiting-for-production stage.
+1. System receives a verified payment result from Payment Gateway.
+2. System matches the order and checks the amount against the active quote.
+3. System marks the quote and order paid and records the transaction reference.
+4. System moves the order to the waiting-for-production stage.
 
 #### Alternative Flows
 
-**Step 1 — Result is not verified or not successful**
+None.
 
-The order is not marked paid.
+#### Exception Flows
 
-**Step 2 — Late, replaced or mismatched payment**
+1a. Result is not verified or not successful → System does not mark the order paid.
 
-When the quote has expired or been replaced, the order is not waiting for payment, or the amount differs, the system keeps the evidence as needing manual review, acknowledges the notification and does not mark the order paid.
+2a. Late, replaced, or mismatched payment → System keeps the evidence for manual review, acknowledges the notification, and does not mark the order paid.
 
-**Deadline passes without payment**
-
-The quote is treated as expired; no final balance is created.
-
-#### Postconditions
-
-- The order is paid in full, or remains unpaid or expired.
+2b. Deadline passes without payment → System treats the quote as expired and creates no final balance.
 
 #### Business Rules
 
-- BR-71-01
-- BR-71-02
+BR-71-01, BR-71-02
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-71-01 | Only a verified payment of the exact amount of the latest, approved and unexpired quote for which it was started marks the order paid; other successful evidence is kept for manual review. |
 | BR-71-02 | An expired quote cannot be paid; a new quote version is required. |

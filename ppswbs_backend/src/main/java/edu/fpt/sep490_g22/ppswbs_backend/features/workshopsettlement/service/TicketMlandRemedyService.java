@@ -269,6 +269,11 @@ public class TicketMlandRemedyService {
         String ticket = ticketCode.trim();
         TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
+        // Only an anonymous caller is a Guest: Admin and Carrier have no authority over buyer operations (003.1).
+        if (actor != null && actor.role() != ActorRole.MEMBER && actor.role() != ActorRole.STAFF
+                && actor.role() != ActorRole.MANAGER) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             if (ctx.buyerMemberAccountId() == null || !ctx.buyerMemberAccountId().equals(actor.accountId())) {
                 throw new WorkshopSettlementAuthorizationException("NOT_GROUP_OWNER");
@@ -449,6 +454,11 @@ public class TicketMlandRemedyService {
         String channel;
         String buyerProof;
 
+        // Only an anonymous caller is a Guest: Admin and Carrier have no authority over buyer operations (003.1).
+        if (actor != null && actor.role() != ActorRole.MEMBER && actor.role() != ActorRole.STAFF
+                && actor.role() != ActorRole.MANAGER) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             if (buyerMemberAccountId == null || !buyerMemberAccountId.equals(actor.accountId())) {
                 throw new WorkshopSettlementAuthorizationException("NOT_GROUP_OWNER");

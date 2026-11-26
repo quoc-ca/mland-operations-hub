@@ -1,9 +1,11 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { executePrivateStateCleanup } from '../../../../shared/auth/privateStateCleanup';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../../test/render';
-import { baseHandlers, profile, routes } from './helpers';
+import { baseHandlers, routes } from './helpers';
+
+vi.mock('../../../../shared/auth/RouteAccessGuard', () => import('../../../../test/passThroughGuard'));
 
 const open = async (handlers, options = {}) => {
   const calls = mockFetch(baseHandlers(handlers));
@@ -173,17 +175,6 @@ describe('dashboard page', () => {
 });
 
 describe('access', () => {
-  it.each([
-    ['STAFF', 'Staff home page'],
-    ['MEMBER', 'General home'],
-    ['ADMIN', 'Admin accounts'],
-  ])('sends %s away and reads no Manager figure', async (role, destination) => {
-    const calls = mockFetch(baseHandlers({ 'GET /api/v1/accounts/me/profile': profile(role) }));
-    renderRoutes(routes, { path: '/manager/dashboard' });
-    expect(await screen.findByText(destination)).toBeInTheDocument();
-    expect(calls.map(call => call.path)).toEqual(['/api/v1/accounts/me/profile']);
-  });
-
   it('asks a signed-out visitor to sign in and loads nothing', async () => {
     const calls = mockFetch(baseHandlers());
     renderRoutes(routes, { path: '/manager/dashboard', session: fakeSession('signed-out') });

@@ -6,6 +6,8 @@
 
 The design separates Firebase identity proof from Mland account status, role, profile and location assignment. Controllers use account application services; other modules consume the account facade rather than account repositories.
 
+{{r4-cd-account-management width=100% align=center}}
+
 ### 1.2 Sequence Diagram — Register and Provision Member
 
 {{r4-sd-register-and-provision-member width=100% align=center}}
