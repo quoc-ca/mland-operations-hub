@@ -41,4 +41,14 @@ describe('ticket card money position', () => {
     expect(screen.getByText('Đã trả khi đặt')).toBeTruthy();
     expect(screen.queryByText('Add-on đã xác nhận')).toBeNull();
   });
+
+  it.each([
+    ['booking-time figures', {}],
+    ['folio figures', { currentTotalVnd: 725000, currentAddOnVnd: 0, currentPaidVnd: 200000, currentBalanceDueVnd: 525000 }],
+  ])('a cancelled ticket shows nothing to collect (%s)', (_, money) => {
+    render(<GroupDetailCard group={group({ ...baseTicket, ...money, ticketStatus: 'CANCELLED' })}
+      authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+
+    expect(rowValue('Còn phải trả')).toBe('Không phải thu');
+  });
 });

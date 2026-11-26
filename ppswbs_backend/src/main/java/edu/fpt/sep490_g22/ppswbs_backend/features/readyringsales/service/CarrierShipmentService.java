@@ -3,9 +3,9 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
-import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.service.CustomOrderShipmentService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dao.RetailShipmentRepository;
-import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CarrierShipmentDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.CarrierShipmentDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.CustomShipmentCarrierPort;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipment;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipmentStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipmentStatusHistory;
@@ -32,7 +32,7 @@ public class CarrierShipmentService {
     private static final int MAX_PAGE_SIZE = 200;
 
     private final RetailShipmentRepository shipments;
-    private final CustomOrderShipmentService customOrderShipmentService;
+    private final CustomShipmentCarrierPort customShipmentCarrier;
 
     public CarrierShipmentService(RetailShipmentRepository shipments) {
         this(shipments, null);
@@ -41,10 +41,10 @@ public class CarrierShipmentService {
     @Autowired
     public CarrierShipmentService(
             RetailShipmentRepository shipments,
-            @Autowired(required = false) CustomOrderShipmentService customOrderShipmentService
+            @Autowired(required = false) CustomShipmentCarrierPort customShipmentCarrier
     ) {
         this.shipments = shipments;
-        this.customOrderShipmentService = customOrderShipmentService;
+        this.customShipmentCarrier = customShipmentCarrier;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
@@ -57,8 +57,8 @@ public class CarrierShipmentService {
         long totalElements = result.getTotalElements();
         int totalPages = result.getTotalPages();
 
-        if (customOrderShipmentService != null) {
-            List<CarrierShipmentDtos.Shipment> customShipments = customOrderShipmentService.listForCarrier();
+        if (customShipmentCarrier != null) {
+            List<CarrierShipmentDtos.Shipment> customShipments = customShipmentCarrier.listForCarrier();
             if (status != null) {
                 String filter = status.name();
                 customShipments = customShipments.stream()
@@ -78,8 +78,8 @@ public class CarrierShipmentService {
     public CarrierShipmentDtos.TransitionResult transition(CurrentAccountActor actor, String shipmentId, String action,
                                                            Integer expectedVersion) {
         requireCarrier(actor);
-        if (customOrderShipmentService != null && customOrderShipmentService.isCustomShipment(shipmentId)) {
-            return customOrderShipmentService.transitionCustomShipment(shipmentId, action, expectedVersion);
+        if (customShipmentCarrier != null && customShipmentCarrier.isCustomShipment(shipmentId)) {
+            return customShipmentCarrier.transitionCustomShipment(shipmentId, action, expectedVersion);
         }
         return record(shipmentId, action, expectedVersion, actor.accountId(), "GHTK#" + actor.accountId());
     }

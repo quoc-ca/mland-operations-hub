@@ -1,4 +1,4 @@
-package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto;
+package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
