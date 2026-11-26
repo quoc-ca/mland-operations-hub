@@ -17,7 +17,7 @@ function SessionTime({ reference, operations }) {
   useEffect(() => {
     if (sessionCache.has(reference)) { setState({ loading: false, data: sessionCache.get(reference) }); return undefined; }
     let alive = true;
-    operations.getSession(reference)
+    operations.getSession(reference, { suppressAccessDenied: true })
       .then(data => { sessionCache.set(reference, data); if (alive) setState({ loading: false, data }); })
       .catch(() => { if (alive) setState({ loading: false, data: null }); });
     return () => { alive = false; };
@@ -163,7 +163,7 @@ export default function ChangeRequestsPage() {
       </section>
       <ReasonDialog open={Boolean(deciding)} title={t(deciding?.decision === 'APPROVE' ? 'cr.approveTitle' : 'cr.rejectTitle')}
         confirmLabel={t(deciding?.decision === 'APPROVE' ? 'cr.approve' : 'cr.reject')} pending={command.pending} onCancel={() => setDeciding(null)} onConfirm={decide}>
-        <p>{t('cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
+        <p>{t(deciding?.decision === 'REJECT' ? 'cr.rejectBody' : 'cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
       </ReasonDialog>
     </OpsPage>
   );

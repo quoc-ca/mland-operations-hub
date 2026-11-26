@@ -125,9 +125,11 @@ cleanup:
   - Step 1 & 2 (Actor: Staff): Đăng nhập thành công với staff.test@mland.vn. Tại /operations/sessions, hệ thống hiển thị chính xác phạm vi "Chi nhánh của bạn: Mland Hà Nội – Hoàn Kiếm" và chỉ hiển thị 135 ca thuộc cơ sở Hoàn Kiếm (không hiển thị ca Tây Hồ). Mở chi tiết ca session 8531cc0a-e8f0-11f1-a75e-a6dbd948c690: Staff chỉ có quyền xem thông tin và quầy check-in, hoàn toàn KHÔNG có panel/nút phân công nhân sự.
   - Step 3 (Actor: Manager): Đăng xuất Staff và đăng nhập thành công với manager.test@mland.vn.
   - Step 4 & 5 (Actor: Manager): Mở chi tiết ca workshop nói trên. Dưới vai trò Manager, khu vực "Phân công Staff" xuất hiện đầy đủ chức năng. Dropdown "Chọn nhân viên (Staff) *" hiển thị chính xác danh sách nhân sự vai trò STAFF: "Nhân Viên Workshop Hoàn Kiếm (staff.test@mland.vn) — ID: 3". Kiểm chứng đối nghịch: Tài khoản Manager (manager.test@mland.vn, Quản Lý Chuỗi Chi Nhánh) bị loại trừ 100% khỏi danh sách nhân sự đứng lớp theo đúng hợp đồng D-23 (R-MGA).
+  - Step 2b (Actor: Staff, bổ sung 2026-11-26 03:04 bởi Đặng Thị Khương, Chrome — trình duyệt trong Claude desktop, local `localhost:5173` / `localhost:8080`): bước kiểm chặn quyền ngoài cơ sở bị thiếu ở lần chạy trên. Đăng nhập `staff.test@mland.vn` (Hoàn Kiếm, location 1), dán thẳng link `/operations/sessions/3d443bf3-e191-11f1-97eb-f9fe0f4f5ee9` (ca Tây Hồ, location 2, 26/11/2026 09:30, PUBLISHED). Kết quả: `GET /api/v1/workshop-sessions/3d443bf3-…` và `GET …/attendance-roster` đều trả `403` với `"code":"LOCATION_SCOPE_DENIED"`, `"detail":"Location ID 2 is outside actor's active location scope"` (correlationId `6273fbed-5f37-4e45-8856-cf9a02453a0c`); giao diện đưa Staff về trang chủ với thông báo "Bạn không có quyền truy cập chức năng này.", không hiện dữ liệu ca hay quầy check-in.
 - Findings: NONE
 - Evidence screenshots:
   - screenshots/E2E-001-024--staff-session-view.jpg
   - screenshots/E2E-001-024--manager-staff-roster.jpg
+  - screenshots/E2E-001-024--staff-direct-link-other-location-denied.jpg (Step 2b)
 - Bug references: NONE
 <!-- EXECUTION:END -->
