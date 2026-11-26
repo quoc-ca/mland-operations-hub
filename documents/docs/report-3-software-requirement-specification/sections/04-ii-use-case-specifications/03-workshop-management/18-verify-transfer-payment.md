@@ -1,4 +1,4 @@
-### 3.18 Verify Transfer Payment
+### 3.15 Verify Transfer Payment
 
 | Use Case ID | UC-80 | Use Case Name | Verify Transfer Payment |
 | --- | --- | --- | --- |
@@ -11,12 +11,12 @@ As a Manager, I want to confirm a pending bank-transfer collection or mark it as
 
 #### Trigger
 
-A Manager opens a pending bank-transfer collection on a ticket folio.
+A Manager opens a pending bank-transfer collection on a ticket bill.
 
 #### Preconditions
 
 1. The actor is an active Manager.
-2. A pending collection exists on the ticket folio.
+2. A pending collection exists on the ticket bill.
 
 #### Postconditions
 
@@ -28,7 +28,7 @@ A Manager opens a pending bank-transfer collection on a ticket folio.
 1. Actor opens the pending collection of the ticket.
 2. Actor checks that the money arrived in the shop account.
 3. Actor confirms the transfer.
-4. System confirms the collection, updates the balance, and finalizes the folio if nothing is due or pending.
+4. System confirms the collection, updates the balance, and finalizes the bill if nothing is due or pending.
 
 #### Alternative Flows
 

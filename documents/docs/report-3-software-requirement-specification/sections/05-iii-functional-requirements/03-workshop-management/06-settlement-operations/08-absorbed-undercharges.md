@@ -4,11 +4,11 @@
 
 This screen allows Managers to:
 
-- List the undercharges Mland absorbed on finalized ticket folios for one branch and period.
+- List the undercharges Mland absorbed on finalized ticket bills for one branch and period.
 - See the server's total of active records.
 - Void an active record once, with a reason, when it was recorded by mistake.
 
-Each record is documentation only: nothing is collected and no folio changes. New records are made on the ticket folio in Settlement Workspace, not here. A voided record stays in the list, is marked and no longer counts in the total. A non-Manager sees "Chỉ Manager mới mở được danh sách khoản thiếu Mland chịu."
+Each record is documentation only: nothing is collected and no bill changes. New records are made on the ticket bill in Settlement Workspace, not here. A voided record stays in the list, is marked and no longer counts in the total. A non-Manager sees "Chỉ Manager mới mở được danh sách khoản thiếu Mland chịu."
 
 | Field Name | Description |
 | --- | --- |

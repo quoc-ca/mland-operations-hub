@@ -1,4 +1,4 @@
-### 3.22 Cancel Workshop Tickets
+### 3.19 Cancel Workshop Tickets
 
 | Use Case ID | UC-84 | Use Case Name | Cancel Workshop Tickets |
 | --- | --- | --- | --- |
@@ -63,4 +63,4 @@ BR-84-01, BR-84-02, BR-84-03, BR-84-04
 | BR-84-01 | Cancelling at least 24 hours before the first session returns the ticket's used points. |
 | BR-84-02 | The group voucher use is restored once, while the voucher is still valid, only if every ticket ended by valid or Mland cancellation, unless an Mland cancellation already restored it. |
 | BR-84-03 | Staff (within location scope) or Manager acts with a reason and the buyer proof. |
-| BR-84-04 | A paid-up ticket whose folio is finalized may still be cancelled before the first session; the folio stays finalized and nothing is refunded. |
+| BR-84-04 | A paid-up ticket whose bill is finalized may still be cancelled before the first session; the bill stays finalized and nothing is refunded. |

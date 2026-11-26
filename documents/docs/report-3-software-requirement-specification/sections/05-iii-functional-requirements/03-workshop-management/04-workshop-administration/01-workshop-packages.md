@@ -9,7 +9,7 @@ This screen allows Managers to:
 - Edit a package that is not retired; a change applies only to bookings made afterwards.
 - Retire a published package, which stops new bookings and keeps existing bookings unchanged.
 
-Staff can open the page, but creating, editing, publishing and retiring a package are Manager commands checked by the server.
+The menu shows this page to Managers only. The server allows only a Manager to list, create, edit, publish and retire packages.
 
 | Field Name | Description |
 | --- | --- |
