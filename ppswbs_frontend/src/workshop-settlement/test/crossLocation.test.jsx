@@ -140,7 +140,7 @@ describe('Mland remedy across locations', () => {
     const radios = await screen.findAllByRole('radio');
     expect(screen.getByText(/^Mland Hà Nội – /)).toBeInTheDocument();
     expect(screen.queryByText(/null/)).toBeNull();
-    await user.click(radios[0]);
+    await user.click(radios[1]); // radios[0] is the refund
     await user.click(screen.getByRole('button', { name: 'Send my answer' }));
     expect(within(screen.getByRole('dialog')).getByText(/moves to the chosen session at Mland Hà Nội\./)).toBeInTheDocument();
   });

@@ -98,7 +98,9 @@ public class BookingGroupProjectionService {
                     confirmed ? attendance(ticket) : null,
                     confirmed ? ticket.getQrReference() : null,
                     forOwningMember && confirmed ? ticket.getOperationsTicketReference() : null,
-                    sessions(current, lineByIndex.get(ticket.getLineIndex())),
+                    sessions(ticket.getTicketStatus() == BookingStatus.CANCELLED ? cancelledSessions(ticket)
+                            : current == null ? List.of() : current.sessionEntitlements(),
+                            lineByIndex.get(ticket.getLineIndex())),
                     confirmed && pendingRemedies.contains(ticket.getTicketCode()),
                     balance == null ? null : balance.totalVnd(),
                     balance == null ? null : balance.addOnVnd(),
@@ -168,9 +170,22 @@ public class BookingGroupProjectionService {
         }
     }
 
-    private static List<BookingGroupView.SessionView> sessions(DeliverySafeTicket current, BookingGroupLine line) {
-        if (current != null && !current.sessionEntitlements().isEmpty()) {
-            List<SessionEntitlementProjection> ordered = new ArrayList<>(current.sessionEntitlements());
+    /** A cancelled ticket holds no current entitlement; Operations still knows what it gave back. */
+    private List<SessionEntitlementProjection> cancelledSessions(TicketBooking ticket) {
+        if (ticket.getOperationsTicketReference() == null) return List.of();
+        try {
+            return operations.getCancelledTicketSessions(ticket.getOperationsTicketReference());
+        } catch (RuntimeException failure) {
+            log.warn("Cancelled schedule unavailable for ticket {}: {}", ticket.getTicketCode(),
+                    failure.getClass().getSimpleName());
+            return List.of();
+        }
+    }
+
+    private static List<BookingGroupView.SessionView> sessions(List<SessionEntitlementProjection> held,
+                                                               BookingGroupLine line) {
+        if (held != null && !held.isEmpty()) {
+            List<SessionEntitlementProjection> ordered = new ArrayList<>(held);
             ordered.sort(Comparator.comparing(SessionEntitlementProjection::scheduledStart,
                     Comparator.nullsLast(Comparator.naturalOrder())));
             List<BookingGroupView.SessionView> result = new ArrayList<>();

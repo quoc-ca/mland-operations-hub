@@ -187,7 +187,7 @@ describe('Ticket folio (Staff/Manager)', () => {
     await user.click(within(form).getByRole('checkbox', { name: /Customer agreed/ }));
     await user.click(screen.getByRole('button', { name: 'Add selected add-on' }));
     expect(await screen.findByText(/the session of this ticket has not started/)).toBeInTheDocument();
-    expect(screen.getByText(/move it to IN PROGRESS/)).toBeInTheDocument();
+    expect(screen.getByText(/move it to "In progress"/)).toBeInTheDocument();
     expect(screen.getByText('Code: SESSION_NOT_STARTED')).toBeInTheDocument();
     expect(screen.getByText('Correlation: corr-1')).toBeInTheDocument();
   });

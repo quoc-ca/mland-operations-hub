@@ -45,6 +45,12 @@ public interface WorkshopOperationsFacade {
 
     DeliverySafeTicketSet getBookingTicketProjection(BookingTicketProjectionQuery query);
 
+    /**
+     * The sessions a cancelled ticket held when it was cancelled: those it gave back plus those it still keeps
+     * (already started or past). Empty when the ticket is unknown or not cancelled. Read only, no QR.
+     */
+    java.util.List<SessionEntitlementProjection> getCancelledTicketSessions(String ticketReference);
+
     /** True once at least one of the booking's active sessions is running or its attendance is finalized (the customer is at the workshop). */
     boolean hasBookingServiceStarted(BookingSettlementReadinessQuery query);
 

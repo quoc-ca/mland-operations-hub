@@ -618,7 +618,7 @@ class LoyaltyWorkshopFacadeIT {
     private static edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand mlandCancel(
             String group, String ticket) {
         return new edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.RestoreVoucherCommand(group,
-                ticket, edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketCancellationKind.MLAND_CANCELLED);
+                group + "-" + ticket, ticket, edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.TicketCancellationKind.MLAND_CANCELLED);
     }
 
     private edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome restoreVoucher(
@@ -641,6 +641,19 @@ class LoyaltyWorkshopFacadeIT {
         assertThat(programs.findByCodeKey(cart.code()).orElseThrow().getConsumedCount())
                 .as("never a second time").isEqualTo(consumedBefore - 1);
         assertThat(balance(cart.memberId())).as("t-2 still gets its own points").isEqualTo(n(900 + 33 + 34));
+    }
+
+    /** BUG-E2E-0049: a real ticket code ({group}-{part}) differs from the part reference the benefit is keyed by. */
+    @Test
+    void restoreVoucherFindsTheTicketByItsPartReferenceNotItsTicketCode() {
+        TicketCart cart = acceptAndSettleThreeTickets();
+
+        // mlandCancel sends the ticket code {group}-t-1 and the part reference t-1.
+        var outcome = restoreVoucher(cart.ref(), "t-1");
+
+        assertThat(outcome).isEqualTo(
+                edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.VoucherRestorationOutcome.RESTORED);
+        assertThat(balance(cart.memberId())).as("t-1 points back").isEqualTo(n(900 + 33));
     }
 
     @Test

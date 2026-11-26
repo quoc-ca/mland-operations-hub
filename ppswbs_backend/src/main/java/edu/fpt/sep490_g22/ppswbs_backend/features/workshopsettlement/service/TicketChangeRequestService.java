@@ -148,7 +148,7 @@ public class TicketChangeRequestService {
                 .aggregateReference(request.getRequestReference())
                 .actionCode(body.decision() == ChangeRequestDecision.APPROVE
                         ? "TICKET_CHANGE_REQUEST_APPROVED" : "TICKET_CHANGE_REQUEST_REJECTED")
-                .actorReference(String.valueOf(actor.accountId()))
+                .actorReference("account:" + actor.accountId())
                 .correlationReference(correlation)
                 .build());
         if (body.decision() != ChangeRequestDecision.APPROVE) {

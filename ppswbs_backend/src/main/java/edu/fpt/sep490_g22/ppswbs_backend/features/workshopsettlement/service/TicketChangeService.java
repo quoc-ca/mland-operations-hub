@@ -652,7 +652,7 @@ public class TicketChangeService {
                 .aggregateType("TICKET_CHANGE")
                 .aggregateReference(ticketCode)
                 .actionCode(action)
-                .actorReference(actorId != null ? String.valueOf(actorId) : role)
+                .actorReference(actorId != null ? "account:" + actorId : role)
                 .correlationReference(correlation)
                 .reasonReference(reason)
                 .build());

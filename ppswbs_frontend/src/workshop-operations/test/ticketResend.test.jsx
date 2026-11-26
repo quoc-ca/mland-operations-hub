@@ -117,6 +117,7 @@ describe('Operational commands are locked while a request is pending (T140)', ()
     const user = userEvent.setup();
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     await user.click(await screen.findByRole('button', { name: 'Finalize attendance' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm finalization' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Finalize attendance' })).toBeDisabled());
     // Typed input alone must not re-enable a command button while the request is pending.

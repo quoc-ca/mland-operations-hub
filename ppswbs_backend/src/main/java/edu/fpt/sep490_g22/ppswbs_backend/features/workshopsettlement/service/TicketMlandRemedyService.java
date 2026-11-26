@@ -656,7 +656,9 @@ public class TicketMlandRemedyService {
         boolean hasLoyalty = loyaltySource != null && loyaltySource.memberOrigin() && loyaltySource.snapshotRef() != null;
         if (hasLoyalty) {
             VoucherRestorationOutcome restoration = loyalty.restoreVoucherForCancelledTicket(
-                    new RestoreVoucherCommand(ctx.groupCode(), ticketCode, TicketCancellationKind.MLAND_CANCELLED));
+                    new RestoreVoucherCommand(ctx.groupCode(), ticketCode,
+                            ctx.partRef() != null ? ctx.partRef() : ticketCode,
+                            TicketCancellationKind.MLAND_CANCELLED));
             voucherOutcome = restoration == null ? null : restoration.name();
             pointsReturned = ctx.pointsUsed();
             voucherRestoredOnTicket = restoration == VoucherRestorationOutcome.RESTORED;

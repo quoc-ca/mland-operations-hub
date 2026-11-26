@@ -43,6 +43,26 @@ describe('session board shows the location name', () => {
   });
 });
 
+describe('the session column names the time slot (BUG-E2E-0035)', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('shows the slot label, and the short session code when the slot is unknown', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
+      'GET /api/v1/workshop-sessions': json(200, [
+        { id: 'aaaaaaaa-1111', slotId: 'slot-1', locationId: 1, state: 'PUBLISHED' },
+        { id: 'bbbbbbbb-2222', slotId: 'slot-x', locationId: 1, state: 'PUBLISHED' },
+      ]),
+      'GET /api/v1/workshop-locations': json(200, [{ id: 1, name: 'MLAND Hoàn Kiếm' }]),
+      'GET /api/v1/workshop-locations/1/slots': json(200, [{ id: 'slot-1', label: 'Ca sáng' }]),
+    });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions?from=' });
+
+    expect(await screen.findByText('Ca sáng')).toBeInTheDocument();
+    expect(screen.getByText('bbbbbbbb')).toBeInTheDocument();
+  });
+});
+
 describe('Staff sees which locations they work at', () => {
   beforeEach(() => clearRoleCache());
 

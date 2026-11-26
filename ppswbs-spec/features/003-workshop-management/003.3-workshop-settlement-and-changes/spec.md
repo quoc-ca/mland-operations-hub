@@ -972,6 +972,14 @@ rescheduling, or serve external sales channels.
 
 ## Clarifications
 
+### Session 2026-11-26 — findings of the staging E2E run (owner Hồ Hoàng Quốc)
+
+- Q: May a Guest cancel or change a ticket of a booking made by a Member account? (BUG-E2E-0040) → A: Yes, unchanged: a Guest acts only with a buyer verification reference (the one-time code sent to the booking contact), for cancellation and for changes.
+- Q: Until when is check-in allowed? (BUG-E2E-0041) → A: Unchanged: 003.2 keeps finalization manual and the scheduled end informational; check-in stays possible until attendance is finalized.
+- Q: Is adding an add-on or surcharge audited? (BUG-E2E-0042) → A: Yes. Each added charge writes one settlement audit row `CHARGE_ADDED` (aggregate `SETTLEMENT_CHARGE`, actor `account:<id>`, the charge's reason).
+- Q: What does the customer see on the ticket folio? (BUG-E2E-0027, 0046) → A: Each added charge that is not voided, with its name and amount. A cancelled ticket or a `CLOSED` folio shows "nothing to collect" instead of a balance due.
+- Q: How are the replacement choices of a Mland cancellation shown? (BUG-E2E-0050) → A: The refund first; only sessions that can be chosen, narrowed by location and date.
+
 ### Session 2026-11-26 — who may change which way (owner Hồ Hoàng Quốc, "phương án C")
 
 - Q: May a customer pick late-arrival support online? → A: No. Member and Guest change `ADVANCE` only; `LATE_ARRIVAL` is for Staff of the ticket's location or a Manager, everyone else gets `403 LATE_ARRIVAL_STAFF_ONLY` on the single change, the group change and both option routes (FR-044b).

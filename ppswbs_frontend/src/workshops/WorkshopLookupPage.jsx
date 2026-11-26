@@ -229,7 +229,7 @@ export function WorkshopLookupPage() {
                 {t('lookup.groupCode')}
                 <input
                   type="text"
-                  placeholder="e.g. WG-20261113-ABCD"
+                  placeholder="GRP-…"
                   value={groupCode}
                   onChange={event => setGroupCode(event.target.value.toUpperCase())}
                   disabled={loading}

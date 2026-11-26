@@ -123,6 +123,21 @@ class BookingGroupProjectionServiceTest {
         assertThat(service.project(group, true).tickets().get(0).currentBalanceDueVnd()).isNull();
     }
 
+    /** BUG-E2E-0045: a rescheduled then cancelled ticket shows the session it gave back, not the booked one. */
+    @Test
+    void aCancelledTicketShowsTheSessionsItHeldWhenCancelled() {
+        ticket.setTicketStatus(BookingStatus.CANCELLED);
+        when(operations.getCancelledTicketSessions(TICKET_REF.toString())).thenReturn(List.of(new SessionEntitlementProjection(
+                REPLACED_SESSION, 4L, START.plusSeconds(86_400), START.plusSeconds(90_000), "MLAND Tây Hồ")));
+
+        BookingGroupView.TicketView view = service.project(group, true).tickets().get(0);
+
+        assertThat(view.sessions()).singleElement().satisfies(session -> {
+            assertThat(session.sessionReference()).isEqualTo(REPLACED_SESSION);
+            assertThat(session.locationName()).isEqualTo("MLAND Tây Hồ");
+        });
+    }
+
     @Test
     void theViewTellsWhetherALivePaymentAttemptExists() {
         assertThat(service.project(group, false).hasLivePaymentAttempt()).isFalse();

@@ -164,6 +164,11 @@ public class WorkshopOperationsAdapter {
                                                 ticketReference));
         }
 
+        public java.util.List<edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.SessionEntitlementProjection>
+                        getCancelledTicketSessions(String ticketReference) {
+                return workshopOperationsFacade.getCancelledTicketSessions(ticketReference);
+        }
+
         public DeliverySafeTicketSet getCurrentEntitlementProjection(String bookingReference) {
                 log.debug("WorkshopOperationsAdapter.getCurrentEntitlementProjection: bookingRef={}", bookingReference);
                 return workshopOperationsFacade
