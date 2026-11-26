@@ -283,4 +283,20 @@ public class HumanReviewIT {
                 .andExpect(jsonPath("$.status").value("QUOTE_READY"))
                 .andExpect(jsonPath("$.approvedByManager").value(true));
     }
+
+    @Test
+    void whenDecidingWithoutExplanation_thenReturns400BadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/design-review-requests/" + lowValueRequestId + "/decisions")
+                        .header("Authorization", "Bearer token-staff-01")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "decision": "ACCEPTED",
+                                  "designVersion": 1,
+                                  "reason": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
 }

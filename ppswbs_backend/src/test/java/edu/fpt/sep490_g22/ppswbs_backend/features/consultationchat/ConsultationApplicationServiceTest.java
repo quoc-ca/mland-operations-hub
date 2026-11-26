@@ -294,4 +294,28 @@ class ConsultationApplicationServiceTest {
         assertThat(conv.getAssignedLocationId()).isEqualTo(1001L);
         verify(claimEventRepository).save(any(ConsultationClaimEvent.class));
     }
+
+    @Test
+    @DisplayName("T013-045: Sending message to closed conversation is rejected with CHAT_CONVERSATION_CLOSED")
+    void sendMessageToClosedConversationFails() {
+        var member = new AccountActorPort.CallerActor(10L, "MEMBER", "ACTIVE", List.of());
+        var conv = ConsultationConversation.builder()
+                .id(1L)
+                .conversationReference("CONV-CLOSED-1")
+                .memberUserId(10L)
+                .status(ConsultationStatus.CLOSED)
+                .aggregateVersion(2L)
+                .build();
+
+        when(conversationRepository.findByConversationReference("CONV-CLOSED-1")).thenReturn(Optional.of(conv));
+
+        assertThatThrownBy(() -> service.sendMessage(
+                "CONV-CLOSED-1",
+                SendMessageRequestDto.builder().message("Tin nhắn sau khi đóng").build(),
+                member,
+                "k-closed",
+                "c-closed"
+        )).isInstanceOf(ConsultationException.class)
+                .satisfies(ex -> assertThat(((ConsultationException) ex).getCode()).isEqualTo("CHAT_CONVERSATION_CLOSED"));
+    }
 }

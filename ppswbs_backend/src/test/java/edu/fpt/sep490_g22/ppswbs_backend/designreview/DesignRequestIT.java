@@ -363,4 +363,29 @@ public class DesignRequestIT {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("MEMBER_INACTIVE_OR_INVALID"));
     }
+
+    @Test
+    void whenUploadExceeds5Images_thenReturns422ImageLimitExceeded() throws Exception {
+        MockMultipartFile file1 = new MockMultipartFile("images", "ring1.jpg", "image/jpeg", "image-content-1".getBytes());
+        MockMultipartFile file2 = new MockMultipartFile("images", "ring2.jpg", "image/jpeg", "image-content-2".getBytes());
+        MockMultipartFile file3 = new MockMultipartFile("images", "ring3.jpg", "image/jpeg", "image-content-3".getBytes());
+        MockMultipartFile file4 = new MockMultipartFile("images", "ring4.jpg", "image/jpeg", "image-content-4".getBytes());
+        MockMultipartFile file5 = new MockMultipartFile("images", "ring5.jpg", "image/jpeg", "image-content-5".getBytes());
+        MockMultipartFile file6 = new MockMultipartFile("images", "ring6.jpg", "image/jpeg", "image-content-6".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/design-requests")
+                        .file(file1)
+                        .file(file2)
+                        .file(file3)
+                        .file(file4)
+                        .file(file5)
+                        .file(file6)
+                        .param("description", "Nhẫn thử 6 ảnh vượt giới hạn")
+                        .param("consentVersion", "v1.0.0")
+                        .param("consentPurpose", "INDEPENDENT_DESIGN_IMAGE_ANALYSIS")
+                        .header("Authorization", "Bearer " + testMemberToken)
+                        .header("Idempotency-Key", "idemp-6-images-test"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("DESIGN_REQUEST_IMAGE_LIMIT_EXCEEDED"));
+    }
 }
