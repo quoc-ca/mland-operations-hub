@@ -63,7 +63,11 @@ public class WorkshopRingDesignExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
     }
 
-    @ExceptionHandler({MissingRequestHeaderException.class, MissingServletRequestParameterException.class})
+    @ExceptionHandler({
+            MissingRequestHeaderException.class,
+            MissingServletRequestParameterException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class
+    })
     public ResponseEntity<RingDesignErrorResponseDto> handleMissingParamHeaderException(
             Exception ex,
             HttpServletRequest request

@@ -1,16 +1,16 @@
 # Feature-012 Formula Reference
 
-Date created: 2026-11-24  
-Date updated: 2026-11-24  
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+**Date created**: 2026-11-24
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
 ## 1. Purpose and source of truth
 
-This document records the difficulty and related evaluation formulas currently implemented by Feature-012. The executable source of truth is:
+Sections 1–8 record the formula currently implemented by Feature-012; Section 9 records the proposed Admin-owned policy and does not claim that code has changed. The executable current source of truth is:
 
 - Backend: `ppswbs_backend/src/main/java/edu/fpt/sep490_g22/ppswbs_backend/features/ringdesignconfiguration/rules/ManagerDesignRuleAdapter.java`.
-- Catalogue seed data: `V110__workshop_ring_design_configuration.sql` and `V142__ring_design_copper_steel_and_models.sql`.
+- Catalogue seed & pricing data: `V110__workshop_ring_design_configuration.sql`, `V142__ring_design_copper_steel_and_models.sql`, and `V204__update_ring_materials_base_pricing.sql`.
 - Frontend classification: `ppswbs_frontend/src/features/ringdesignconfiguration/domain/designPreview.js`.
 
 The backend owns the evaluation result. The frontend only formats and classifies the server-returned `difficultyScore`; it must not recalculate or override it.
@@ -203,10 +203,11 @@ The evaluation calculates estimated price and material cost based on authoritati
      - `MAT-COPPER`: **750,000 VND**
      - `MAT-STAINLESS-STEEL`: **750,000 VND**
 2. **Excess material surcharge ($> 3.00\text{ g}$)**:
-   - When estimated mass exceeds $3.00\text{ g}$, the excess mass is charged at a fixed rate of **120,000 VND** per excess gram:
+   - When estimated mass exceeds $3.00\text{ g}$, the excess mass is charged at a fixed rate of **120,000 VND** per excess gram across all supported materials:
      $$\text{excessWeight} = \text{estimatedWeight} - 3.00$$
      $$\text{excessMaterialCost} = 120,000 \times \text{excessWeight}$$
      $$\text{materialCost} = \text{baseUnitPrice} + \text{excessMaterialCost} = \text{baseUnitPrice} + 120,000 \times (\text{estimatedWeight} - 3.00)$$
+   - Estimated mass above $3.00\text{ g}$ produces an advisory excess-material surcharge, not a design rejection or an automatic workshop payment.
 3. **Add-on components**:
    - Shape adjustment (`ring_shapes.price_adjustment`)
    - Gemstones (`gemstone.unitPrice × quantity`)
@@ -216,7 +217,7 @@ The evaluation calculates estimated price and material cost based on authoritati
 
 $$\text{estimatedPrice} = \text{materialCost} + \text{shapeAdjustment} + \sum(\text{gemstoneCost}) + \sum(\text{attachmentCost}) + \text{engravingCost}$$
 
-These amounts are advisory and do not alter workshop package deposit or confirmed bookings.
+These amounts are advisory, are not difficulty points, and do not alter workshop package deposit or confirmed bookings.
 
 ## 6. Frontend difficulty classification
 
@@ -237,15 +238,17 @@ This is presentation logic only. It does not modify the server score.
 Recommendation is a separate rule from difficulty calculation:
 
 ```text
-if total gemstone quantity > 5:
-    recommend Silver Clay
+if difficultyScore > 11:
+    show TOO_RISKY; no workshop recommendation
 else if difficultyScore > 9:
     recommend Wax Casting
+else if total gemstone quantity > 5:
+    recommend Silver Clay
 else:
     recommend the applicable Signature package
 ```
 
-When both conditions are true, the current Feature-012 baseline gives the primary recommendation to Wax Casting. The Wax Casting message must explain that the workshop requires two sessions on different days. The recommendation is advisory and must not hide other workshop options or create booking/payment state.
+This is the order observed in the current frontend, including the `>11` no-workshop state. When Wax and Silver Clay conditions are both true below that safety cutoff, Wax is primary. The Wax Casting message must explain that the workshop requires two sessions on different days. The recommendation is advisory and must not hide general workshop discovery or create booking/payment state.
 
 ## 8. Important implementation observations
 
@@ -253,4 +256,43 @@ When both conditions are true, the current Feature-012 baseline gives the primar
 - Missing or unknown catalogue options do not contribute their difficulty in the current adapter, although request validation is expected to reject invalid options before evaluation.
 - Ring size, dimensions, placement, engraving text count, symbols, image preprocessing, package, branch, and catalogue model do not currently contribute to the difficulty score.
 - The frontend displays the score as `/10`, but the backend does not clamp the value to that range. This is a presentation inconsistency that should be resolved in a future approved change if a strict 0–10 scale is required.
-- Any change to coefficients, normalization, maximum score, or recommendation precedence requires a new Manager-approved rules version and corresponding backend, frontend, API, and test updates.
+- Current coefficients and classification/recommendation thresholds are not yet administered through an API. The Manager-owned wording in historical artifacts is superseded for the proposed policy by Section 9; it is not evidence of a completed permission change.
+
+## 9. Proposed Admin-owned policy — 2026-11-26
+
+The additive expression in Section 2 and four-decimal `HALF_UP` rounding remain
+fixed. An Admin may change each material, shape, gemstone and attachment
+contribution, the `0.5000` engraving coefficient, the `0.3000` per-image
+coefficient, the level cutoffs, the Wax Casting score cutoff and Silver Clay
+gemstone-count cutoff. Quantities remain design input, not Admin settings.
+No arbitrary formula expression, new contribution type, normalization or clamp
+is offered in this change.
+
+The initial policy copies the currently seeded scores and coefficients, with
+level cutoffs `3`, `6`, `9`, `11`, Wax cutoff `9` and gemstone-count cutoff `5`.
+The score remains unbounded above; customer labels omit `/10`. The server
+classifies and recommends from the same immutable policy version used to
+calculate a newly saved score. The ordered decision is: score above the
+too-risky cutoff means no workshop recommendation; otherwise score above Wax
+cutoff means Wax Casting when that workshop supports the saved material;
+otherwise gemstone count above its cutoff means Silver Clay for the silver
+family, with explicit S999 workshop-material disclosure for an S925 design;
+otherwise use the applicable Signature mapping. With no approved compatible
+package, return `NO_COMPATIBLE_PACKAGE` and consultation/general discovery.
+Copper and Steel 316L currently follow that no-package path at every score.
+Equality stays in the lower category at every `>` boundary.
+The candidate preview and publication also evaluate every active published
+model from its full default material, shape, gemstone and attachment inputs.
+Every model must have complete contributions and score at or below the
+candidate too-risky cutoff. Representative standard examples alone cannot
+prove that invariant. An unscored newly active option may be visible but
+disabled only when no active published model depends on it.
+
+The previous Section 7 draft listed gemstone count first although its prose
+said Wax wins when both apply. Section 7 now records the observed frontend
+order; the proposed policy makes that order server-owned and configurable only
+at its numeric cutoffs. This is a proposed contract change until the
+Feature-012 design pack is approved. Historical scores and policy versions are
+not recalculated merely because the Admin publishes new values. Artisan ratings
+may later be compared
+with predicted scores; configuration capability alone is not accuracy evidence.

@@ -13,5 +13,7 @@ public interface RingCatalogueModelRepository extends JpaRepository<RingCatalogu
     Optional<RingCatalogueModel> findByModelCode(String modelCode);
 
     List<RingCatalogueModel> findAllByPackageReferenceAndIsActiveTrue(String packageReference);
+
+    List<RingCatalogueModel> findAllByIsActiveTrue();
 }
 

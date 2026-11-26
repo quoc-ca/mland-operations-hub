@@ -183,19 +183,27 @@ export default function RingConfigurationPage() {
             <div className="ring-cards-grid">
               {(options?.materials || []).map((mat) => {
                 const isSelected = draft.materialReference === mat.reference;
+                const isDisabled = mat.selectable === false;
                 return (
                   <div
                     key={mat.reference}
-                    className={`ring-option-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => updateMaterial(mat.reference)}
+                    className={`ring-option-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                    onClick={() => { if (!isDisabled) updateMaterial(mat.reference); }}
                     role="button"
-                    tabIndex={0}
+                    tabIndex={isDisabled ? -1 : 0}
                     aria-pressed={isSelected}
+                    aria-disabled={isDisabled}
+                    style={isDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
                     data-testid={`material-card-${mat.reference}`}
                   >
                     <div>
                       <div className="ring-option-name">{mat.name}</div>
                       <div className="ring-option-desc">{mat.description}</div>
+                      {isDisabled && mat.unavailableReason === 'DIFFICULTY_SCORE_PENDING' && (
+                        <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '0.25rem' }} data-testid={`option-pending-${mat.reference}`}>
+                          {lang === 'en' ? 'Difficulty score pending Admin publication' : 'Đang chờ Admin cập nhật điểm độ khó'}
+                        </div>
+                      )}
                     </div>
                     {mat.unitPrice && (
                       <div className="ring-option-price">
@@ -217,19 +225,27 @@ export default function RingConfigurationPage() {
               <div className="ring-cards-grid" style={{ marginBottom: '1.25rem' }}>
                 {(options?.shapes || []).map((shp) => {
                   const isSelected = draft.shapeReference === shp.reference;
+                  const isDisabled = shp.selectable === false;
                   return (
                     <div
                       key={shp.reference}
-                      className={`ring-option-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => updateShape(shp.reference)}
+                      className={`ring-option-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                      onClick={() => { if (!isDisabled) updateShape(shp.reference); }}
                       role="button"
-                      tabIndex={0}
+                      tabIndex={isDisabled ? -1 : 0}
                       aria-pressed={isSelected}
+                      aria-disabled={isDisabled}
+                      style={isDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
                       data-testid={`shape-card-${shp.reference}`}
                     >
                       <div>
                         <div className="ring-option-name">{shp.name}</div>
                         <div className="ring-option-desc">{shp.description}</div>
+                        {isDisabled && shp.unavailableReason === 'DIFFICULTY_SCORE_PENDING' && (
+                          <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '0.25rem' }} data-testid={`option-pending-${shp.reference}`}>
+                            {lang === 'en' ? 'Difficulty score pending Admin publication' : 'Đang chờ Admin cập nhật điểm độ khó'}
+                          </div>
+                        )}
                       </div>
                       {shp.priceAdjustment && Number(shp.priceAdjustment) > 0 && (
                         <div className="ring-option-price">

@@ -487,6 +487,131 @@ public class CustomOrderIntegrationTest {
     }
 
     @Test
+    void shouldEnforceStrictStateTransitionsAndMultiRoleSync() throws Exception {
+        // Setup order in PAID state
+        String coId = "CO-SYNC-" + UUID.randomUUID().toString().substring(0, 8);
+        CustomOrder co = CustomOrder.builder()
+                .id(coId)
+                .customOrderReference("REF-" + coId)
+                .memberAccountId(memberAccountId)
+                .designRequestId(testOrder.getDesignRequestId())
+                .status("PAID")
+                .productionStatus("PENDING")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        customOrderRepository.save(co);
+
+        CustomOrderQuote paidQuote = CustomOrderQuote.builder()
+                .id("QT-SYNC-" + UUID.randomUUID().toString().substring(0, 8))
+                .customOrderId(coId)
+                .quoteReference("QREF-" + coId)
+                .quoteGeneration(1)
+                .totalAmount(5_000_000L)
+                .currency("VND")
+                .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
+                .status("PAID")
+                .approvedByManager(true)
+                .paymentStatus("PAID")
+                .paymentMode("FULL_CUSTOM_ORDER_PAYMENT")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        customOrderQuoteRepository.save(paidQuote);
+
+        // 1. Negative: Attempt to skip stage from PAID directly to CLOSED -> 409 CUSTOM_ORDER_STATUS_CONFLICT
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "CLOSED",
+                                "productionStatus", "COMPLETED",
+                                "fulfilmentStatus", "DELIVERED"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CUSTOM_ORDER_STATUS_CONFLICT"));
+
+        // 2. Negative: Attempt to set invalid status PRODUCTION_FAILED -> 400 CUSTOM_ORDER_STATUS_INVALID
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "PRODUCTION_FAILED",
+                                "productionStatus", "FAILED"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CUSTOM_ORDER_STATUS_INVALID"));
+
+        // 3. Step 1: Transition PAID -> IN_PRODUCTION
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "IN_PRODUCTION",
+                                "productionStatus", "IN_PRODUCTION"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PRODUCTION"))
+                .andExpect(jsonPath("$.productionStatus").value("IN_PRODUCTION"));
+
+        // Member verifies status is synchronized to IN_PRODUCTION
+        mockMvc.perform(get("/api/v1/members/me/custom-orders")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[?(@.customOrderReference == '" + co.getCustomOrderReference() + "')].status").value("IN_PRODUCTION"));
+
+        // 4. Negative: Attempt to rollback from IN_PRODUCTION back to PAID -> 409 CUSTOM_ORDER_STATUS_CONFLICT
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "PAID"))))
+                .andExpect(status().isBadRequest()); // Stage doesn't even exist for PAID target in STAGES map
+
+        // 5. Step 2: Transition IN_PRODUCTION -> READY_FOR_FULFILMENT
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "READY_FOR_FULFILMENT",
+                                "productionStatus", "COMPLETED",
+                                "fulfilmentStatus", "READY_FOR_FULFILMENT"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("READY_FOR_FULFILMENT"))
+                .andExpect(jsonPath("$.productionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.fulfilmentStatus").value("READY_FOR_FULFILMENT"));
+
+        // Member verifies status is synchronized to READY_FOR_FULFILMENT
+        mockMvc.perform(get("/api/v1/members/me/custom-orders")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[?(@.customOrderReference == '" + co.getCustomOrderReference() + "')].status").value("READY_FOR_FULFILMENT"));
+
+        // 6. Step 3: Transition READY_FOR_FULFILMENT -> CLOSED
+        mockMvc.perform(post("/api/v1/custom-orders/" + coId + "/status")
+                        .header("Authorization", "Bearer " + staffToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "status", "CLOSED",
+                                "productionStatus", "COMPLETED",
+                                "fulfilmentStatus", "DELIVERED"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.productionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.fulfilmentStatus").value("DELIVERED"));
+
+        // Both Staff and Member see CLOSED / DELIVERED
+        mockMvc.perform(get("/api/v1/custom-orders/" + coId)
+                        .header("Authorization", "Bearer " + staffToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.fulfilmentStatus").value("DELIVERED"));
+
+        mockMvc.perform(get("/api/v1/members/me/custom-orders")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[?(@.customOrderReference == '" + co.getCustomOrderReference() + "')].status").value("CLOSED"))
+                .andExpect(jsonPath("$.items[?(@.customOrderReference == '" + co.getCustomOrderReference() + "')].fulfilmentStatus").value("DELIVERED"));
+    }
+
+    @Test
     void anUnpaidOrderCanStillBeQuotedAgain() throws Exception {
         DesignRequest request = designRequestRepository.findById(testOrder.getDesignRequestId()).orElseThrow();
         request.setReviewStatus(edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus.ACCEPTED);

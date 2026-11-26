@@ -15,7 +15,7 @@ public class WorkshopDesignOptionsController {
 
     @GetMapping
     public ResponseEntity<DesignOptionsResponseDto> getWorkshopDesignOptions(
-            @RequestParam String packageReference,
+            @RequestParam(required = false) String packageReference,
             @RequestParam(required = false) String branchReference
     ) {
         DesignOptionsResponseDto response = rulesPort.loadPackageOptions(packageReference, branchReference);

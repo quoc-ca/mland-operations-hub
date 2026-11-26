@@ -1,11 +1,11 @@
 # Feature-012 Architecture Design — Workshop Ring Design Configuration
 
-Date created: 2026-11-08
-Date updated: 2026-11-14
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
-**Status:** 2026-11-22 lifecycle/recommendation change documented; implementation pending.
+**Status:** 2026-11-22 lifecycle change and proposed 2026-11-26 Admin policy documented; implementation approval pending.
 
 Current boundary: Feature-012 owns configuration, saved-design persistence,
 recommendation and safe consultation/reference snapshots. The former booking
@@ -30,7 +30,7 @@ be verified with Spring Modulith before implementation.
 ```text
 ppswbs_backend/src/main/java/.../features/ringdesignconfiguration/
 ├── controller/          # proposed: transport and validation
-├── dto/                 # proposed: public, owner and booking DTOs
+├── dto/                 # proposed: public, owner and Admin DTOs
 ├── service/             # proposed: use cases and transactions
 ├── facade/              # proposed: public cross-feature boundary
 ├── dao/                 # proposed: persistence boundary
@@ -42,24 +42,19 @@ ppswbs_backend/src/main/java/.../features/ringdesignconfiguration/
 Expected public boundaries:
 
 - `WorkshopRingDesignFacade`
-  - `getAvailableOptions(...)`
+  - `getAvailableOptions(optionalPackageReference)`
   - `validateDesign(...)`
   - `getDesignSnapshot(...)`
-  - `attachDesignToBooking(...)`
 - `DesignDraftApplicationService`
   - `createDraft(...)`
   - `saveVersion(...)`
   - `evaluate(...)`
   - `archive(...)`
 - `DesignOptionRulesPort`
-  - `loadPackageOptions(...)`
+  - `loadOptions(optionalPackageReference)`
   - `validateCompatibility(...)`
   - `evaluate(...)`
-- No Guest design-session port; Guest preview is local-only.
-  - `issue(...)`
-  - `resolve(...)`
-  - `touch(...)`
-  - `expire(...)`
+- No Guest design-session or booking attachment port; Guest preview is local-only.
 
 These names are proposed logical units, not approved Java API names.
 
@@ -78,7 +73,7 @@ ppswbs_frontend/src/features/ringdesignconfiguration/
 │   ├── DesignEvaluationPage.jsx
 │   ├── DesignSummaryPage.jsx
 │   ├── MemberDesignHistoryPage.jsx
-│   └── GuestSessionExpiredPage.jsx
+│   └── SignInRequiredPanel.jsx
 ├── application/
 ├── domain/
 ├── infrastructure/
@@ -109,7 +104,7 @@ controller → application service → domain/rules → DAO/entity
                                       ↓
                          catalogue/operations facades
                                       ↓
-                         WorkshopRingDesignFacade → Feature-003 Booking
+                         WorkshopRingDesignFacade → Feature-013 consultation / Feature-004 reference
 ```
 
 Feature-003 may depend on the public facade only. Feature-012 must not depend
@@ -118,24 +113,23 @@ on Feature-003 repositories or private DTOs.
 ## 5. Data flow
 
 ```text
-Package page
+General design catalogue or compatible package page
 → design entry
 → options API
 → local form state
 → Save/Evaluate command
-→ shared HTTP/auth/session transport
+→ shared HTTP/auth transport
 → controller
-→ identity/session + ownership
+→ identity + ownership
 → option/rule facades
 → version transaction
 → safe DesignResponse
 → summary UI
-→ Booking facade attachment
-→ Booking-owned snapshot
+→ material-compatible workshop advice or Feature-013 consultation
 ```
 
 The server is authoritative for permission, option availability, compatibility,
-estimate, difficulty, version and lock state.
+estimate, difficulty and version.
 
 ## 6. Frontend handoff from the Figma baseline
 
@@ -168,7 +162,7 @@ ppswbs_frontend/src/features/ringdesignconfiguration/
 │   ├── DesignControlField.jsx
 │   ├── DesignEvaluationPage.jsx
 │   ├── MemberDesignHistoryPage.jsx
-│   ├── BranchCompatibilityPage.jsx
+│   ├── PackageCompatibilityPanel.jsx
 │   └── ring-design.css
 ├── messages.js
 └── tests/
@@ -186,8 +180,8 @@ shared/auth/RequireSession.jsx
 shared/i18n/
 ```
 
-Read requests use the project's resource pattern. Save, evaluate, archive and
-attach commands use the project's command pattern, generate one
+Read requests use the project's resource pattern. Save, evaluate and archive
+commands use the project's command pattern, generate one
 `Idempotency-Key` per user action, and reuse that key for a retry. Versioned
 commands send `If-Match-Version` from the last server response. The frontend
 must not retry a write with a new key or bypass the shared HTTP/auth client.
@@ -253,12 +247,66 @@ server contract and replaces the local authoritative version only after success.
   implemented.
 - Guest preview state must remain local and non-authoritative; no Guest session
   storage or expiry workflow is part of Feature-012.
-- Manager-owned rule/catalogue data must expose a stable read facade.
-- Booking must expose an approved attach/snapshot boundary.
+- Historical Manager-owned rule gate is superseded for difficulty by Section 8;
+  non-difficulty catalogue facts still need a stable read boundary.
+- General catalogue and package-filtered models must be consistent; Copper/Steel
+  model records require an append-only correction of their Silver package association.
+- Policy preview/publish and catalogue model/option writes must preserve every
+  active published model's complete default score and eligibility.
 - Module verification must confirm no repository cycle.
 
 The logical design is ready for review. Implementation remains gated by the
 physical `ring_designs` mapping, the Member ownership boundary, the
-Manager rule facade, the approved WorkshopRingDesignFacade and formal approval.
-The repository migration baseline is `V102`; no migration is created by this
-design package.
+proposed Admin policy boundary, the approved WorkshopRingDesignFacade and
+formal approval.
+The `V102` migration baseline is historical. Repository migration files were
+observed through `V203` on 2026-11-26; the actual applied database baseline
+must be verified before an append-only policy migration is numbered.
+
+## 8. Proposed Admin difficulty-policy architecture — 2026-11-26
+
+This section supersedes Manager-owned difficulty assumptions above. Feature-012
+owns policy storage, evaluator and Admin API; FE-09 owns only the Admin UI. The
+[Admin OpenAPI](../contracts/admin-ring-difficulty.openapi.yaml) owns transport
+fields and errors; [data model](../data-model.md#7-proposed-difficulty-policy-model--2026-11-26)
+owns schema and snapshot invariants. React/Vite, Java/Spring Boot, JPA and
+Flyway are existing stack choices; no new library or generic parameter store
+is proposed.
+
+| Production unit and location | Status/source | Responsibility and proposed use-case boundary |
+| --- | --- | --- |
+| `rules/ManagerDesignRuleAdapter.java` → `RingDesignRuleEvaluator` in `ringdesignconfiguration` | Existing adapter; rename/refactor proposed by FE-012 spec §4.1 | `evaluate(request, effectivePolicy)` uses one version for score, level and recommendation; no literal coefficients or frontend-owned thresholds. |
+| `controller/AdminRingDifficultyPolicyController.java` | Proposed by Admin OpenAPI | `getActive`, `listVersions`, `preview`, `publish`; transport validation and active Admin enforcement. |
+| `service/RingDifficultyPolicyService.java` | Proposed by FE-012 spec §4.1 | `readActive`, `readHistory`, `preview`, `publish`; whole-candidate validation, transaction, concurrency and idempotency. |
+| `dao/RingDifficultyPolicyRepository.java`, `dao/RingDifficultyOptionScoreRepository.java` and `dao/RingDifficultyPreviewProofRepository.java` | Proposed by data model §7 | Read immutable versions/entries, retain short-lived preview proof and atomically switch the effective version through JPA. |
+| `domain/RingDifficultyPolicyVersion.java`, `domain/RingDifficultyOptionScore.java`, preview-proof and publication audit entities | Proposed by data model §7 | Persist complete versions, option scores, 15-minute proof metadata and minimized old/new publication evidence. |
+| `dto/AdminRingDifficulty*Dto.java` and evaluation response DTO | Proposed by Admin OpenAPI and customer OpenAPI | Separate Admin candidate/preview/history transport from safe public score/level/recommendation fields; no JPA entity exposure. |
+| `service/WorkshopRingDesignApplicationService.java` | Existing; change proposed by FE-012 spec §4.1 | Bind save/evaluate to one effective version and return stored historical snapshot on reads. |
+| `controller/WorkshopDesignOptionsController.java` and customer design controller | Existing; response change proposed | Return versioned option scores and server-derived evaluation metadata without exposing Admin audit. |
+| `dao/RingCatalogueModelRepository.java` and model publication boundary | Existing repository; guard proposed by FE-012 spec §4.1 | Read all active models for general discovery, filter package-compatible models, validate full defaults before model publication and option retirement. |
+| `ui/DesignEvaluationPage.jsx` and `ui/RingModelSelectionPage.jsx` | Existing; display change proposed by FE-012 spec §6 | Render returned score/level/recommendation without `/10`, with a too-risky no-workshop state. |
+| `domain/designPreview.js` and customer API adapter | Existing; refactor proposed by customer OpenAPI | Stop authoritative local classification/package selection; map server metadata into view models while keeping visual preview local. |
+
+The Admin flow is FE-09 page → FE-09 API client → proposed Admin controller →
+policy service → JPA repositories. Preview creates short-lived server proof;
+publish checks its candidate digest, actor, policy/catalogue version and expiry before the
+effective-pointer transaction. The customer flow is design controller →
+application service → evaluator + one active policy → immutable evaluation
+snapshot. An unauthorized Admin call stops at the controller/security boundary;
+invalid or stale publication stops before effective-pointer mutation. There is
+no cross-module repository access or Manager difficulty write path. New active
+options remain visible but disabled for customer selection until an Admin
+publishes scores for their references, provided no published model uses them.
+The existing create path currently scores only material and shape while saving
+model default components separately; the proposed evaluator must score the
+complete defaults. Published-model impact is exhaustive and checked again
+inside the publication transaction.
+
+## 9. Current gaps and approval boundary
+
+The current code still uses catalogue score columns, frontend thresholds and
+model scoring that omits default components. A new append-only migration,
+current DB baseline verification, revised customer contract, general catalogue
+entry and written Admin-screen visual approval are dependencies. This section is
+`PROPOSED`, not implementation authority. Historical Feature-012 approval does
+not approve these units, API fields, authorization or schema.

@@ -1,0 +1,267 @@
+openapi: 3.1.0
+info:
+  title: Feature-012 Admin Ring Difficulty Policy API — proposed
+  version: 0.1.0
+  description: >-
+    Draft contract for Admin-only review and atomic publication of complete,
+    immutable workshop-ring difficulty policies. It is not approved for implementation.
+servers:
+  - url: /api/v1
+tags:
+  - name: Admin Ring Difficulty
+security:
+  - bearerAuth: []
+paths:
+  /admin/workshop-ring-difficulty/active:
+    get:
+      tags: [Admin Ring Difficulty]
+      operationId: getActiveRingDifficultyPolicy
+      summary: Read the complete currently effective policy
+      responses:
+        '200':
+          description: Active policy and publication metadata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /admin/workshop-ring-difficulty/versions:
+    get:
+      tags: [Admin Ring Difficulty]
+      operationId: listRingDifficultyPolicyVersions
+      summary: Read immutable publication history for authorized Admin audit
+      responses:
+        '200':
+          description: Newest-first immutable versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PolicyVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admin Ring Difficulty]
+      operationId: publishRingDifficultyPolicy
+      summary: Atomically publish one complete policy after a server-verified preview
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublishRequest' }
+      responses:
+        '201':
+          description: Newly effective immutable policy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyVersion' }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidPolicy' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /admin/workshop-ring-difficulty/preview:
+    post:
+      tags: [Admin Ring Difficulty]
+      operationId: previewRingDifficultyPolicy
+      summary: Compare current and candidate outcomes on non-personal samples
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreviewRequest' }
+      responses:
+        '200':
+          description: Before/after examples and exhaustive active-model impact; proof exists only when publication is eligible
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreviewResult' }
+        '400': { $ref: '#/components/responses/InvalidInput' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidPolicy' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+  schemas:
+    DecimalScore:
+      type: string
+      pattern: '^(0|[1-9][0-9]{0,5})(\.[0-9]{1,4})?$'
+    OptionScore:
+      type: object
+      additionalProperties: false
+      required: [kind, reference, score]
+      properties:
+        kind: { type: string, enum: [MATERIAL, SHAPE, GEMSTONE, ATTACHMENT] }
+        reference: { type: string, minLength: 1, maxLength: 128 }
+        score: { $ref: '#/components/schemas/DecimalScore' }
+    DifficultyThresholds:
+      type: object
+      additionalProperties: false
+      required: [easyMax, mediumMax, hardMax, veryHardMax, waxAbove, silverClayGemstonesAbove]
+      properties:
+        easyMax: { $ref: '#/components/schemas/DecimalScore' }
+        mediumMax: { $ref: '#/components/schemas/DecimalScore' }
+        hardMax: { $ref: '#/components/schemas/DecimalScore' }
+        veryHardMax: { $ref: '#/components/schemas/DecimalScore' }
+        waxAbove: { $ref: '#/components/schemas/DecimalScore' }
+        silverClayGemstonesAbove: { type: integer, minimum: 0, maximum: 9 }
+    PolicyValues:
+      type: object
+      required: [optionScores, engravingBonus, customImageBonusPerImage, thresholds]
+      properties:
+        optionScores:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OptionScore' }
+        engravingBonus: { $ref: '#/components/schemas/DecimalScore' }
+        customImageBonusPerImage: { $ref: '#/components/schemas/DecimalScore' }
+        thresholds: { $ref: '#/components/schemas/DifficultyThresholds' }
+    PolicyVersion:
+      allOf:
+        - { $ref: '#/components/schemas/PolicyValues' }
+        - type: object
+          required: [rulesVersion, status, publishedAt, publishedBy]
+          properties:
+            rulesVersion: { type: string, minLength: 1, maxLength: 64 }
+            status: { type: string, enum: [EFFECTIVE, HISTORICAL] }
+            publishedAt: { type: string, format: date-time }
+            publishedBy: { type: string, description: Safe Admin account reference }
+    PublishRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedActiveRulesVersion, candidate, previewReference]
+      properties:
+        expectedActiveRulesVersion: { type: string, minLength: 1, maxLength: 64 }
+        candidate: { $ref: '#/components/schemas/PolicyValues' }
+        previewReference: { type: string, format: uuid, description: Opaque reference returned by an eligible preview of this Admin's exact candidate, active version and catalogue revision }
+    SampleSelection:
+      type: object
+      additionalProperties: false
+      required: [sampleName, materialReference, shapeReference]
+      properties:
+        sampleName: { type: string, minLength: 1, maxLength: 80 }
+        materialReference: { type: string, minLength: 1, maxLength: 128 }
+        shapeReference: { type: string, minLength: 1, maxLength: 128 }
+        gemstones:
+          type: array
+          items: { $ref: '#/components/schemas/SelectionQuantity' }
+        attachments:
+          type: array
+          items: { $ref: '#/components/schemas/SelectionQuantity' }
+        engravingEnabled: { type: boolean, default: false }
+        customImageCount: { type: integer, minimum: 0, maximum: 2, default: 0 }
+    SelectionQuantity:
+      type: object
+      additionalProperties: false
+      required: [reference, quantity]
+      properties:
+        reference: { type: string, minLength: 1, maxLength: 128 }
+        quantity: { type: integer, minimum: 1 }
+    PreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedActiveRulesVersion, candidate]
+      properties:
+        expectedActiveRulesVersion: { type: string, minLength: 1, maxLength: 64 }
+        candidate: { $ref: '#/components/schemas/PolicyValues' }
+        samples:
+          type: array
+          maxItems: 20
+          description: Optional non-personal Admin examples; required standard examples are selected by the server and do not count toward this limit.
+          items: { $ref: '#/components/schemas/SampleSelection' }
+    SampleOutcome:
+      type: object
+      required: [sampleName, difficultyScore, difficultyLevel, recommendationCode]
+      properties:
+        sampleName: { type: string }
+        difficultyScore: { $ref: '#/components/schemas/DecimalScore' }
+        difficultyLevel: { type: string, enum: [EASY, MEDIUM, HARD, VERY_HARD, TOO_RISKY] }
+        recommendationCode:
+          type: string
+          enum: [SIGNATURE_SILVER, SIGNATURE_BRASS, SILVER_CLAY, WAX_CASTING, NO_COMPATIBLE_PACKAGE, TOO_RISKY]
+    ModelImpact:
+      type: object
+      required: [modelReference, name, materialReference, before, after, eligible, blockingReasons]
+      properties:
+        modelReference: { type: string, description: Opaque active published model code }
+        name: { type: string }
+        materialReference: { type: string }
+        before: { $ref: '#/components/schemas/SampleOutcome' }
+        after: { $ref: '#/components/schemas/SampleOutcome', nullable: true, description: Null only when the candidate cannot fully evaluate this model }
+        eligible: { type: boolean, description: True only when all default options are valid/scored and after score is at or below the candidate too-risky cutoff }
+        blockingReasons:
+          type: array
+          items: { type: string, enum: [MODEL_OPTION_INACTIVE, MODEL_OPTION_SCORE_MISSING, MODEL_DEFAULT_INVALID, MODEL_TOO_RISKY] }
+    PreviewComparison:
+      type: object
+      required: [source, before, after]
+      properties:
+        source: { type: string, enum: [STANDARD, ADMIN] }
+        before: { $ref: '#/components/schemas/SampleOutcome' }
+        after: { $ref: '#/components/schemas/SampleOutcome' }
+    UnavailableStandardCase:
+      type: object
+      required: [sampleName, reason]
+      properties:
+        sampleName: { type: string }
+        reason: { type: string, description: Safe explanation that no valid current catalogue selection can realize this standard case }
+    PreviewResult:
+      type: object
+      required: [activeRulesVersion, catalogueRevision, publicationEligible, blockingModelCount, comparisons, unavailableStandardCases, modelImpacts]
+      properties:
+        activeRulesVersion: { type: string }
+        catalogueRevision: { type: string, description: Opaque revision of active published models and referenced catalogue options }
+        publicationEligible: { type: boolean, description: False when any active model is invalid, unscored or too risky }
+        blockingModelCount: { type: integer, minimum: 0 }
+        previewReference: { type: string, format: uuid, nullable: true, description: Present only when eligible; proof binds Admin, candidate digest and policy/catalogue versions }
+        previewExpiresAt: { type: string, format: date-time, nullable: true }
+        comparisons:
+          type: array
+          items: { $ref: '#/components/schemas/PreviewComparison' }
+        unavailableStandardCases:
+          type: array
+          items: { $ref: '#/components/schemas/UnavailableStandardCase' }
+        modelImpacts:
+          type: array
+          description: Every active published model, evaluated from full default material, shape, gemstones and attachments; never a sample
+          items: { $ref: '#/components/schemas/ModelImpact' }
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string }
+        details: { type: array, items: { type: string } }
+  responses:
+    InvalidInput:
+      description: Invalid request shape or data type, including missing previewReference (PREVIEW_REQUIRED)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing or invalid identity
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Active Admin role required; Manager is denied
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: Stale active/catalogue revision, expired/mismatched preview proof (PREVIEW_EXPIRED or PREVIEW_MISMATCH), or conflicting idempotent command; an identical completed retry replays before proof revalidation
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    InvalidPolicy:
+      description: Missing/duplicate option score, unknown option, inconsistent threshold, or active model rendered invalid, unscored or too risky; details contain safe affected model codes
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unavailable:
+      description: Policy store unavailable or no standard preview example is evaluable; effective policy remains unchanged and no preview proof is issued
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

@@ -1,11 +1,14 @@
 # Mland V1 API Contract Catalog
 
 **Date created**: 2026-09-30
-**Date updated**: 2026-11-14 (dòng `productmanagement` GET products/{productId}: `availableQuantity`)
+**Date updated**: 2026-11-26
 **Author**: Ngô Tiến Đạt
-**Last updated by**: Đặng Thị Khương
+**Last updated by**: Phan Sơn
 
 **Version**: 0.4
+
+**2026-11-26 note**: The Feature-012 Admin difficulty endpoints listed below
+are proposed additions, not an approved or implemented API baseline.
 
 ## 1. Purpose and scope
 
@@ -380,18 +383,31 @@ Owner: `ringdesignconfiguration`.
 
 | Method | Endpoint | Actor | Contract boundary |
 | --- | --- | --- | --- |
-| GET | `/api/v1/workshop-design-options` | Public read / Member command context | Package-scoped active options; opaque references only. |
+| GET | `/api/v1/workshop-design-options` | Public read / Member command context | General active options and fully scored published models; optional package filter returns only compatible models. |
+| GET | `/api/v1/workshop-designs` | Member owner | Own design summaries and history only. |
 | POST | `/api/v1/workshop-designs` | Member | Creates a server-validated design using Firebase identity. |
 | GET | `/api/v1/workshop-designs/{designId}` | Member owner | Safe projection scoped to Member ownership. |
 | POST | `/api/v1/workshop-designs/{designId}/versions` | Member | Creates a new immutable version using `Idempotency-Key` and `If-Match-Version`. |
 | POST | `/api/v1/workshop-designs/{designId}/evaluate` | Member | Server/rule-facade evaluation; estimate is advisory. |
+| GET | `/api/v1/workshop-designs/{designId}/recommendation` | Member owner | Stored material-compatible advisory recommendation or consultation-only outcome. |
 | POST | `/api/v1/workshop-designs/{designId}/archive` | Member | Soft archive only; versioned and idempotent. |
+| POST | `/api/v1/workshop-designs/{designId}/restore` | Member | Restore an archived own design with version and idempotency checks. |
+| GET | `/api/v1/admin/workshop-ring-difficulty/active` | Active Admin only | Proposed complete effective difficulty policy; Feature-012 owner. |
+| GET | `/api/v1/admin/workshop-ring-difficulty/versions` | Active Admin only | Proposed immutable publication history and minimized Admin audit metadata. |
+| POST | `/api/v1/admin/workshop-ring-difficulty/preview` | Active Admin only | Proposed standard/optional non-personal comparisons and exhaustive active-model impact; stores 15-minute proof only when all published model defaults remain eligible. |
+| POST | `/api/v1/admin/workshop-ring-difficulty/versions` | Active Admin only | Proposed atomic publication of complete policy with matching proof, unchanged policy/catalogue revision, full-model revalidation and idempotency key. |
 | POST | `/api/v1/workshop-designs/{designId}/attach-to-booking` | Booking facade | Retired Feature-012 endpoint. It must not be called by the current frontend or implemented as part of the saved-design recommendation baseline. |
 
 All write commands use `Idempotency-Key`; versioned commands use
 `If-Match-Version`. Public/safe DTOs do not expose database IDs, audit data or
-private Member data. Feature-003 consumes the
-internal facade and never accesses Feature-012 persistence directly.
+private Member data. Feature-012 no longer exposes a current booking-attachment
+facade or endpoint.
+
+The four proposed Admin policy endpoints are specified in
+`features/012-workshop-ring-design-configuration/contracts/admin-ring-difficulty.openapi.yaml`.
+They grant no Manager difficulty authority; FE-09 supplies the Admin UI but
+does not own policy storage. The customer OpenAPI now proposes the synchronized
+Member-only and general-catalogue contract; both contracts remain unapproved.
 
 ## Feature-002 — Product Management: tồn kho theo chi nhánh (US10, 2026-11-09)
 

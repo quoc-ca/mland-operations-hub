@@ -1,9 +1,9 @@
 # Feature-012 Research — Workshop Ring Design Configuration
 
-Date created: 2026-11-08
-Date updated: 2026-11-09
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
 ## 1. Research purpose
 
@@ -23,6 +23,35 @@ the preview is abandoned; Guest cannot create, evaluate, save, archive or persis
 a design. The former Guest server-session, 20-minute expiry and Guest persistence
 assumptions are retired. Only authenticated active Members use the persisted
 design lifecycle.
+
+## 1.2 Admin difficulty-policy change — proposed 2026-11-26
+
+The current implementation stores per-option difficulty scores in ring-catalogue
+rows, hard-codes engraving coefficients and rule version in
+`ManagerDesignRuleAdapter`, and classifies/recommends in the frontend. FE-09 has
+no implemented parameter-management feature pack. The user-selected, still
+unapproved design direction is an Admin-only, Feature-012-owned immutable policy
+with one atomic
+publish after a non-personal before/after preview. Manager retains authorized
+non-difficulty catalogue fields but has no difficulty-policy read/write or
+approval capability. The current Member-only rebaseline and this policy change
+both remain pending design/contract approval; code must not be treated as the
+approved behavior.
+
+## 1.3 Superseding full-scope review — 2026-11-26
+
+Sections below that describe Guest persistence, booking attachment or package-
+required design creation are historical research, not current requirements.
+The current candidate is the Member-only general-or-compatible-package flow in
+`spec.md` and the revised customer OpenAPI. Signature Silver 925 includes 3g;
+extra estimated material is advisory. All active published model defaults must
+remain fully scoreable and at or below the too-risky cutoff after policy or
+catalogue publication. Twelve seeded models pass a static formula check under
+current values (maximum 4.7000); this does not establish runtime correctness.
+Four Copper/Steel models currently carry a Silver package reference and need
+an append-only data correction for general discovery. The revised Feature-013
+Member-only consultation specification is newer than its recorded approval and
+must be revalidated for the handoff.
 
 ## 2. Sources inspected
 
@@ -99,8 +128,10 @@ These decisions were supplied and confirmed in the planning discussion:
 15. A design is locked after booking submission.
 16. A failed booking submission does not delete the validated design; it remains
     available for booking retry.
-17. Manager owns business rules, material/component availability, price inputs
-    and difficulty rules.
+17. Historical assumption: Manager owned material/component availability,
+    price inputs and difficulty rules. The proposed 2026-11-26 boundary retains
+    Manager's non-difficulty catalogue work and assigns all difficulty values,
+    thresholds and publication exclusively to Admin.
 
 ## 5. Boundary analysis
 
@@ -132,10 +163,11 @@ it is not a review target.
 
 ### FE-09 Administrative Parameter Configuration
 
-FE-09 remains the operational administration boundary. Feature-012 consumes
-approved business configuration; it does not grant Admin technical authority to
-make routine business or financial decisions. Manager remains the business owner
-for the rules listed in this feature.
+FE-09 provides the Admin's operational configuration journey. Feature-012 owns
+the difficulty-policy state, Admin-only publication API and evaluation. This
+narrow authorization does not grant Admin published-price, catalogue
+availability or other Manager business authority. Earlier Manager-owned
+difficulty language in this research is historical for this proposed change.
 
 ## 6. Proposed flow
 
@@ -171,7 +203,7 @@ Guest/Member selects package
 - Approve the physical mapping for configured-design versions.
 - Implement and verify the server-session storage/cleanup while preserving the
   fixed 20-minute inactivity behavior.
-- Implement the Manager-owned option/rule facade and provide active catalogue
+- Implement the option/rule facade and provide active catalogue
   data for size, placement, quantity and engraving.
 - Implement the approved Feature-003 attach/snapshot facade.
 - Verify `flyway_schema_history` before selecting a future migration greater
@@ -193,7 +225,7 @@ facade implementation and formal approval remain implementation gates.
 | Version persistence | One immutable `ring_designs` row is one design version; `source_design_id` preserves lineage. | No separate version table in V1; physical sequence mapping still requires approval. |
 | Guest persistence | Feature-012-owned MySQL `guest_design_sessions` with opaque reference/digest. | 20-minute inactivity expiry, explicit lifecycle state, cleanup and replay protection. |
 | Booking integration | Synchronous `attachAndLockDesignForBooking(...)` in the Booking transaction. | Commit locks the design and stores an immutable snapshot; rollback preserves retryability. |
-| Evaluation authority | Manager-owned catalogue/rule facade. | No duplicate catalogue tables or hard-coded numerical formula in Feature-012. |
+| Evaluation authority | Proposed Feature-012 difficulty policy published by Admin; non-difficulty option facts remain in the catalogue boundary. | Do not duplicate a writable policy in FE-09 or let Manager catalogue commands overwrite scores. |
 | Retention | Member design history is retained for three years. | Archive is soft-delete; history is not hard-deleted. |
 | Migration | Current repository baseline is `V102`. | Any future migration must be append-only and greater than `V102` after DB-history verification. |
 

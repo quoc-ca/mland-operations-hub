@@ -1,9 +1,15 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.rules;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dao.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.domain.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.dto.*;
-import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDesignException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.rules.RingDifficultyPolicyEvaluator.OptionKey;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.rules.RingDifficultyPolicyEvaluator.PolicySnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.rules.RingDifficultyPolicyEvaluator.RecommendationOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDifficultyPolicyAccessService;
+import edu.fpt.sep490_g22.ppswbs_backend.features.ringdesignconfiguration.service.RingDifficultyPolicyAccessService.LoadedPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -48,69 +54,101 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
     private final RingGemstoneRepository gemstoneRepository;
     private final RingAttachmentRepository attachmentRepository;
     private final RingCatalogueModelRepository catalogueModelRepository;
+    private final RingDifficultyPolicyAccessService policyAccessService;
+    private final RingDifficultyPolicyEvaluator policyEvaluator;
+    private final ObjectMapper objectMapper;
 
     @Override
     public DesignOptionsResponseDto loadPackageOptions(String packageReference, String branchReference) {
-        if (packageReference == null || packageReference.isBlank()) {
-            throw RingDesignException.badRequest("DESIGN_INPUT_INVALID", "packageReference không được để trống.");
-        }
+        String normalizedPkg = (packageReference != null && !packageReference.isBlank())
+                ? packageReference.trim()
+                : null;
+
+        LoadedPolicy loadedPolicy = loadPolicyOrNull();
+        PolicySnapshot policy = loadedPolicy != null ? loadedPolicy.snapshot() : null;
+        String effectiveRulesVersion = policy != null ? policy.rulesVersion() : CURRENT_RULES_VERSION;
 
         List<RingMaterial> materials = materialRepository.findAllByIsActiveTrue();
         List<RingShape> shapes = shapeRepository.findAllByIsActiveTrue();
         List<RingGemstone> gemstones = gemstoneRepository.findAllByIsActiveTrue();
         List<RingAttachment> attachments = attachmentRepository.findAllByIsActiveTrue();
-        List<RingCatalogueModel> models = catalogueModelRepository
-                .findAllByPackageReferenceAndIsActiveTrue(packageReference);
+        List<RingCatalogueModel> models = normalizedPkg != null
+                ? catalogueModelRepository.findAllByPackageReferenceAndIsActiveTrue(normalizedPkg)
+                : catalogueModelRepository.findAllByIsActiveTrue();
 
         return DesignOptionsResponseDto.builder()
-                .packageReference(packageReference)
-                .rulesVersion(CURRENT_RULES_VERSION)
-                .materials(materials.stream().map(m -> DesignOptionsResponseDto.MaterialOptionDto.builder()
-                        .reference(m.getMaterialCode())
-                        .name(m.getMaterialName())
-                        .description(m.getDescription())
-                        .purity(m.getPurity())
-                        .unitPrice(m.getUnitPrice().toPlainString())
-                        .currency(m.getCurrency())
-                        .difficultyScore(m.getDifficultyScore().setScale(2, RoundingMode.HALF_UP).toPlainString())
-                        .imageUrl(m.getImgUrl())
-                        .build()).toList())
-                .shapes(shapes.stream().map(s -> DesignOptionsResponseDto.ShapeOptionDto.builder()
-                        .reference(s.getShapeCode())
-                        .name(s.getShapeName())
-                        .description(s.getDescription())
-                        .priceAdjustment(s.getPriceAdjustment().toPlainString())
-                        .currency(s.getCurrency())
-                        .difficultyScore(s.getDifficultyScore().setScale(2, RoundingMode.HALF_UP).toPlainString())
-                        .imageUrl(s.getImgUrl())
-                        .build()).toList())
+                .packageReference(normalizedPkg)
+                .rulesVersion(effectiveRulesVersion)
+                .materials(materials.stream().map(m -> {
+                    BigDecimal score = resolveScore(policy, OptionScoreKind.MATERIAL, m.getMaterialCode(), m.getDifficultyScore());
+                    boolean selectable = score != null;
+                    return DesignOptionsResponseDto.MaterialOptionDto.builder()
+                            .reference(m.getMaterialCode())
+                            .name(m.getMaterialName())
+                            .description(m.getDescription())
+                            .purity(m.getPurity())
+                            .unitPrice(m.getUnitPrice().toPlainString())
+                            .currency(m.getCurrency())
+                            .difficultyScore(selectable ? score.setScale(2, RoundingMode.HALF_UP).toPlainString() : null)
+                            .imageUrl(m.getImgUrl())
+                            .selectable(selectable)
+                            .unavailableReason(selectable ? null : "DIFFICULTY_SCORE_PENDING")
+                            .build();
+                }).toList())
+                .shapes(shapes.stream().map(s -> {
+                    BigDecimal score = resolveScore(policy, OptionScoreKind.SHAPE, s.getShapeCode(), s.getDifficultyScore());
+                    boolean selectable = score != null;
+                    return DesignOptionsResponseDto.ShapeOptionDto.builder()
+                            .reference(s.getShapeCode())
+                            .name(s.getShapeName())
+                            .description(s.getDescription())
+                            .priceAdjustment(s.getPriceAdjustment().toPlainString())
+                            .currency(s.getCurrency())
+                            .difficultyScore(selectable ? score.setScale(2, RoundingMode.HALF_UP).toPlainString() : null)
+                            .imageUrl(s.getImgUrl())
+                            .selectable(selectable)
+                            .unavailableReason(selectable ? null : "DIFFICULTY_SCORE_PENDING")
+                            .build();
+                }).toList())
                 .sizes(STANDARD_SIZES)
-                .components(gemstones.stream().map(g -> DesignOptionsResponseDto.ComponentOptionDto.builder()
-                        .reference(g.getGemstoneCode())
-                        .name(g.getGemstoneName())
-                        .description(g.getDescription())
-                        .type(g.getGemstoneType())
-                        .color(g.getColor())
-                        .cutName(g.getCutName())
-                        .unitPrice(g.getUnitPrice().toPlainString())
-                        .currency(g.getCurrency())
-                        .difficultyScore(g.getDifficultyScore().setScale(2, RoundingMode.HALF_UP).toPlainString())
-                        .imageUrl(g.getImgUrl())
-                        .maxQuantity(g.getMaxQuantity())
-                        .allowedPlacements(ALLOWED_COMPONENT_PLACEMENTS)
-                        .build()).toList())
-                .attachments(attachments.stream().map(a -> DesignOptionsResponseDto.AttachmentOptionDto.builder()
-                        .reference(a.getAttachmentCode())
-                        .name(a.getAttachmentName())
-                        .description(a.getDescription())
-                        .type(a.getAttachmentType())
-                        .unitPrice(a.getUnitPrice().toPlainString())
-                        .currency(a.getCurrency())
-                        .difficultyScore(a.getDifficultyScore().setScale(2, RoundingMode.HALF_UP).toPlainString())
-                        .imageUrl(a.getImgUrl())
-                        .maxQuantity(a.getMaxQuantity())
-                        .allowedPlacements(ALLOWED_ATTACHMENT_PLACEMENTS)
-                        .build()).toList())
+                .components(gemstones.stream().map(g -> {
+                    BigDecimal score = resolveScore(policy, OptionScoreKind.GEMSTONE, g.getGemstoneCode(), g.getDifficultyScore());
+                    boolean selectable = score != null;
+                    return DesignOptionsResponseDto.ComponentOptionDto.builder()
+                            .reference(g.getGemstoneCode())
+                            .name(g.getGemstoneName())
+                            .description(g.getDescription())
+                            .type(g.getGemstoneType())
+                            .color(g.getColor())
+                            .cutName(g.getCutName())
+                            .unitPrice(g.getUnitPrice().toPlainString())
+                            .currency(g.getCurrency())
+                            .difficultyScore(selectable ? score.setScale(2, RoundingMode.HALF_UP).toPlainString() : null)
+                            .imageUrl(g.getImgUrl())
+                            .maxQuantity(g.getMaxQuantity())
+                            .allowedPlacements(ALLOWED_COMPONENT_PLACEMENTS)
+                            .selectable(selectable)
+                            .unavailableReason(selectable ? null : "DIFFICULTY_SCORE_PENDING")
+                            .build();
+                }).toList())
+                .attachments(attachments.stream().map(a -> {
+                    BigDecimal score = resolveScore(policy, OptionScoreKind.ATTACHMENT, a.getAttachmentCode(), a.getDifficultyScore());
+                    boolean selectable = score != null;
+                    return DesignOptionsResponseDto.AttachmentOptionDto.builder()
+                            .reference(a.getAttachmentCode())
+                            .name(a.getAttachmentName())
+                            .description(a.getDescription())
+                            .type(a.getAttachmentType())
+                            .unitPrice(a.getUnitPrice().toPlainString())
+                            .currency(a.getCurrency())
+                            .difficultyScore(selectable ? score.setScale(2, RoundingMode.HALF_UP).toPlainString() : null)
+                            .imageUrl(a.getImgUrl())
+                            .maxQuantity(a.getMaxQuantity())
+                            .allowedPlacements(ALLOWED_ATTACHMENT_PLACEMENTS)
+                            .selectable(selectable)
+                            .unavailableReason(selectable ? null : "DIFFICULTY_SCORE_PENDING")
+                            .build();
+                }).toList())
                 .engravingConfig(DesignOptionsResponseDto.EngravingConfigDto.builder()
                         .supported(true)
                         .maxCharacters(MAX_ENGRAVING_CHARS)
@@ -130,14 +168,7 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                         .maxCustomImages(2)
                         .build())
                 .totalGemstoneLimit(10)
-                .models(models.stream().map(mod -> DesignOptionsResponseDto.ModelOptionDto.builder()
-                        .modelReference(mod.getModelCode())
-                        .name(mod.getName())
-                        .description(mod.getDescription())
-                        .imageUrl(mod.getImgUrl())
-                        .materialReference(mod.getMaterialReference())
-                        .shapeReference(mod.getShapeReference())
-                        .build()).toList())
+                .models(models.stream().map(mod -> toModelOptionDto(mod, policy)).toList())
                 .build();
     }
 
@@ -146,12 +177,17 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         List<String> reasons = new ArrayList<>();
 
         // Validate Material
+        LoadedPolicy loadedPolicy = loadPolicyOrNull();
+        PolicySnapshot policy = loadedPolicy != null ? loadedPolicy.snapshot() : null;
+
         if (request.getMaterialReference() == null || request.getMaterialReference().isBlank()) {
             reasons.add("Chất liệu nhẫn (materialReference) không được để trống.");
         } else {
             Optional<RingMaterial> matOpt = materialRepository.findByMaterialCode(request.getMaterialReference());
             if (matOpt.isEmpty() || !Boolean.TRUE.equals(matOpt.get().getIsActive())) {
                 reasons.add("Chất liệu không tồn tại hoặc đã ngừng hoạt động: " + request.getMaterialReference());
+            } else if (policy != null && policy.scoreOf(OptionScoreKind.MATERIAL, request.getMaterialReference()) == null) {
+                reasons.add("DIFFICULTY_SCORE_PENDING: Chất liệu chưa được chấm điểm độ khó: " + request.getMaterialReference());
             }
         }
 
@@ -162,6 +198,8 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
             Optional<RingShape> shpOpt = shapeRepository.findByShapeCode(request.getShapeReference());
             if (shpOpt.isEmpty() || !Boolean.TRUE.equals(shpOpt.get().getIsActive())) {
                 reasons.add("Dáng nhẫn không tồn tại hoặc đã ngừng hoạt động: " + request.getShapeReference());
+            } else if (policy != null && policy.scoreOf(OptionScoreKind.SHAPE, request.getShapeReference()) == null) {
+                reasons.add("DIFFICULTY_SCORE_PENDING: Dáng nhẫn chưa được chấm điểm độ khó: " + request.getShapeReference());
             }
         }
 
@@ -187,6 +225,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 if (gemOpt.isEmpty() || !Boolean.TRUE.equals(gemOpt.get().getIsActive())) {
                     reasons.add("Đá quý/thành phần không tồn tại hoặc đã ngừng hoạt động: " + comp.getReference());
                 } else {
+                    if (policy != null && policy.scoreOf(OptionScoreKind.GEMSTONE, comp.getReference()) == null) {
+                        reasons.add("DIFFICULTY_SCORE_PENDING: Đá quý chưa được chấm điểm độ khó: " + comp.getReference());
+                    }
                     int maxQty = gemOpt.get().getMaxQuantity() != null ? gemOpt.get().getMaxQuantity() : 10;
                     if (qty > maxQty) {
                         reasons.add("Số lượng đá quý " + comp.getReference() + " vượt quá giới hạn tối đa (" + maxQty
@@ -216,6 +257,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 if (attOpt.isEmpty() || !Boolean.TRUE.equals(attOpt.get().getIsActive())) {
                     reasons.add("Phụ kiện không tồn tại hoặc đã ngừng hoạt động: " + att.getReference());
                 } else {
+                    if (policy != null && policy.scoreOf(OptionScoreKind.ATTACHMENT, att.getReference()) == null) {
+                        reasons.add("DIFFICULTY_SCORE_PENDING: Phụ kiện chưa được chấm điểm độ khó: " + att.getReference());
+                    }
                     int maxQty = attOpt.get().getMaxQuantity() != null ? attOpt.get().getMaxQuantity() : 10;
                     if (att.getQuantity() != null && att.getQuantity() > maxQty) {
                         reasons.add("Số lượng phụ kiện " + att.getReference() + " vượt quá giới hạn tối đa (" + maxQty
@@ -345,6 +389,10 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
 
     @Override
     public EvaluationResultDto evaluate(SaveDesignVersionRequest request) {
+        LoadedPolicy loadedPolicy = loadPolicyOrNull();
+        PolicySnapshot policy = loadedPolicy != null ? loadedPolicy.snapshot() : defaultFallbackSnapshot();
+        Long policyVersionId = loadedPolicy != null ? loadedPolicy.version().getId() : null;
+
         BigDecimal totalEstimate = BigDecimal.ZERO;
         BigDecimal totalDifficulty = BigDecimal.ZERO;
 
@@ -360,8 +408,6 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         double thicknessMm = request.getThicknessMm() != null ? request.getThicknessMm().doubleValue() : 1.8;
         double bandWidthMm = request.getBandWidthMm() != null ? request.getBandWidthMm().doubleValue() : 3.5;
 
-        // Geometric volume of hollow cylindrical ring band: V = (P + π*T) * T * W in
-        // mm³
         double volumeMm3 = (perimeterMm + Math.PI * thicknessMm) * thicknessMm * bandWidthMm;
         double volumeCm3 = volumeMm3 / 1000.0;
 
@@ -378,9 +424,12 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
             Optional<RingMaterial> matOpt = materialRepository.findByMaterialCode(request.getMaterialReference());
             if (matOpt.isPresent()) {
                 BigDecimal baseUnitPrice = matOpt.get().getUnitPrice();
-                totalDifficulty = totalDifficulty.add(matOpt.get().getDifficultyScore());
+                BigDecimal matScore = resolveScore(policy, OptionScoreKind.MATERIAL, matOpt.get().getMaterialCode(),
+                        matOpt.get().getDifficultyScore());
+                if (matScore != null) {
+                    totalDifficulty = totalDifficulty.add(matScore);
+                }
 
-                // If mass exceeds 3.0 grams, add excess surcharge: 120,000 * (totalMass - 3)
                 if (estimatedWeight.compareTo(BASE_WEIGHT_LIMIT_GRAMS) > 0) {
                     BigDecimal excessWeight = estimatedWeight.subtract(BASE_WEIGHT_LIMIT_GRAMS);
                     excessMaterialCost = EXCESS_MATERIAL_PRICE_PER_GRAM.multiply(excessWeight).setScale(2, RoundingMode.HALF_UP);
@@ -395,19 +444,28 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
             Optional<RingShape> shpOpt = shapeRepository.findByShapeCode(request.getShapeReference());
             if (shpOpt.isPresent()) {
                 totalEstimate = totalEstimate.add(shpOpt.get().getPriceAdjustment());
-                totalDifficulty = totalDifficulty.add(shpOpt.get().getDifficultyScore());
+                BigDecimal shpScore = resolveScore(policy, OptionScoreKind.SHAPE, shpOpt.get().getShapeCode(),
+                        shpOpt.get().getDifficultyScore());
+                if (shpScore != null) {
+                    totalDifficulty = totalDifficulty.add(shpScore);
+                }
             }
         }
 
         // Components cost & difficulty
+        int totalGemstones = 0;
         if (request.getComponents() != null) {
             for (ComponentSelectionDto comp : request.getComponents()) {
                 Optional<RingGemstone> gemOpt = gemstoneRepository.findByGemstoneCode(comp.getReference());
                 if (gemOpt.isPresent()) {
                     int qty = comp.getQuantity() != null ? comp.getQuantity() : 1;
+                    totalGemstones += qty;
                     totalEstimate = totalEstimate.add(gemOpt.get().getUnitPrice().multiply(BigDecimal.valueOf(qty)));
-                    totalDifficulty = totalDifficulty
-                            .add(gemOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
+                    BigDecimal gemScore = resolveScore(policy, OptionScoreKind.GEMSTONE, gemOpt.get().getGemstoneCode(),
+                            gemOpt.get().getDifficultyScore());
+                    if (gemScore != null) {
+                        totalDifficulty = totalDifficulty.add(gemScore.multiply(BigDecimal.valueOf(qty)));
+                    }
                 }
             }
         }
@@ -419,8 +477,11 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 if (attOpt.isPresent()) {
                     int qty = att.getQuantity() != null ? att.getQuantity() : 1;
                     totalEstimate = totalEstimate.add(attOpt.get().getUnitPrice().multiply(BigDecimal.valueOf(qty)));
-                    totalDifficulty = totalDifficulty
-                            .add(attOpt.get().getDifficultyScore().multiply(BigDecimal.valueOf(qty)));
+                    BigDecimal attScore = resolveScore(policy, OptionScoreKind.ATTACHMENT, attOpt.get().getAttachmentCode(),
+                            attOpt.get().getDifficultyScore());
+                    if (attScore != null) {
+                        totalDifficulty = totalDifficulty.add(attScore.multiply(BigDecimal.valueOf(qty)));
+                    }
                 }
             }
         }
@@ -431,10 +492,9 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
         boolean hasOuterEngraving = false;
 
         if (request.getEngraving() != null) {
-            // 1. Standard engraving paid once
             if (Boolean.TRUE.equals(request.getEngraving().getEnabled())) {
                 engravingCost = engravingCost.add(ENGRAVING_PRICE);
-                totalDifficulty = totalDifficulty.add(new BigDecimal("0.5000"));
+                totalDifficulty = totalDifficulty.add(policy.engravingBonus());
 
                 if ("OUTER_BAND".equalsIgnoreCase(request.getEngraving().getPlacement())) {
                     hasOuterEngraving = true;
@@ -448,13 +508,12 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 }
             }
 
-            // 2. Custom uploaded images at 100,000 VND / image
             if (request.getEngraving().getCustomImages() != null
                     && !request.getEngraving().getCustomImages().isEmpty()) {
                 int imgCount = request.getEngraving().getCustomImages().size();
                 BigDecimal customImgCost = CUSTOM_ENGRAVING_IMAGE_PRICE.multiply(BigDecimal.valueOf(imgCount));
                 engravingCost = engravingCost.add(customImgCost);
-                totalDifficulty = totalDifficulty.add(new BigDecimal("0.3000").multiply(BigDecimal.valueOf(imgCount)));
+                totalDifficulty = totalDifficulty.add(policy.customImageBonusPerImage().multiply(BigDecimal.valueOf(imgCount)));
 
                 for (CustomEngravingImageDto img : request.getEngraving().getCustomImages()) {
                     if ("OUTER_BAND".equalsIgnoreCase(img.getPlacement())) {
@@ -466,7 +525,6 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
 
         totalEstimate = totalEstimate.add(engravingCost);
 
-        // Check textured surface warning on outer band engraving
         String shapeRef = request.getShapeReference() != null ? request.getShapeReference().trim() : "";
         if (hasOuterEngraving && TEXTURED_SURFACE_SHAPES.contains(shapeRef)) {
             warnings.add(
@@ -477,11 +535,21 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 ? request.getEngraving().getCustomImages().size()
                 : 0;
 
+        BigDecimal roundedDifficulty = totalDifficulty.setScale(4, RoundingMode.HALF_UP);
+        RingDifficultyPolicyEvaluator eval = policyEvaluator != null ? policyEvaluator : new RingDifficultyPolicyEvaluator();
+        RecommendationOutcome rec = eval.recommend(roundedDifficulty, matRef, totalGemstones, policy);
+
         return EvaluationResultDto.builder()
+                .policyVersionId(policyVersionId)
                 .estimatedPrice(totalEstimate.setScale(2, RoundingMode.HALF_UP).toPlainString())
                 .currency("VND")
-                .difficultyScore(totalDifficulty.setScale(4, RoundingMode.HALF_UP).toPlainString())
-                .rulesVersion(CURRENT_RULES_VERSION)
+                .difficultyScore(roundedDifficulty.toPlainString())
+                .difficultyLevel(rec.difficultyLevel())
+                .recommendationCode(rec.recommendationCode())
+                .recommendedPackageReference(rec.recommendedPackageReference())
+                .materialDisclosure(rec.materialDisclosure())
+                .recommendationReason(rec.reason())
+                .rulesVersion(policy.rulesVersion())
                 .estimatedWeightGrams(estimatedWeight.toPlainString())
                 .baseWeightLimitGrams(BASE_WEIGHT_LIMIT_GRAMS.toPlainString())
                 .materialCost(materialCost.setScale(2, RoundingMode.HALF_UP).toPlainString())
@@ -490,6 +558,105 @@ public class ManagerDesignRuleAdapter implements DesignOptionRulesPort {
                 .customImageCount(customImgCount)
                 .warnings(warnings)
                 .advisory(true)
+                .build();
+    }
+
+    private LoadedPolicy loadPolicyOrNull() {
+        if (policyAccessService == null) {
+            return null;
+        }
+        return policyAccessService.loadEffectivePolicy();
+    }
+
+    private BigDecimal resolveScore(PolicySnapshot policy, OptionScoreKind kind, String ref, BigDecimal legacyFallback) {
+        if (policy != null && policy.optionScores() != null && !policy.optionScores().isEmpty()) {
+            return policy.scoreOf(kind, ref);
+        }
+        return legacyFallback;
+    }
+
+    private PolicySnapshot defaultFallbackSnapshot() {
+        return new PolicySnapshot(
+                CURRENT_RULES_VERSION,
+                new BigDecimal("0.5000"),
+                new BigDecimal("0.3000"),
+                new BigDecimal("3.0000"),
+                new BigDecimal("6.0000"),
+                new BigDecimal("9.0000"),
+                new BigDecimal("11.0000"),
+                new BigDecimal("9.0000"),
+                5,
+                Map.of()
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private DesignOptionsResponseDto.ModelOptionDto toModelOptionDto(RingCatalogueModel mod, PolicySnapshot policy) {
+        List<ComponentSelectionDto> defaultComponents = new ArrayList<>();
+        List<AttachmentSelectionDto> defaultAttachments = new ArrayList<>();
+        if (mod.getDefaultComponents() != null && !mod.getDefaultComponents().isBlank() && objectMapper != null) {
+            try {
+                Map<String, Object> root = objectMapper.readValue(mod.getDefaultComponents(), new TypeReference<>() {});
+                if (root.get("components") instanceof List<?> list) {
+                    defaultComponents = objectMapper.convertValue(list, new TypeReference<>() {});
+                }
+                if (root.get("attachments") instanceof List<?> list) {
+                    defaultAttachments = objectMapper.convertValue(list, new TypeReference<>() {});
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        PolicySnapshot effective = policy != null ? policy : defaultFallbackSnapshot();
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal matScore = effective.scoreOf(OptionScoreKind.MATERIAL, mod.getMaterialReference());
+        BigDecimal shpScore = effective.scoreOf(OptionScoreKind.SHAPE, mod.getShapeReference());
+        boolean selectable = true;
+        if (matScore != null) {
+            total = total.add(matScore);
+        } else if (policy != null && !policy.optionScores().isEmpty()) {
+            selectable = false;
+        }
+        if (shpScore != null) {
+            total = total.add(shpScore);
+        } else if (policy != null && !policy.optionScores().isEmpty()) {
+            selectable = false;
+        }
+        for (ComponentSelectionDto c : defaultComponents) {
+            int qty = c.getQuantity() != null ? c.getQuantity() : 1;
+            BigDecimal gs = effective.scoreOf(OptionScoreKind.GEMSTONE, c.getReference());
+            if (gs != null) {
+                total = total.add(gs.multiply(BigDecimal.valueOf(qty)));
+            } else if (policy != null && !policy.optionScores().isEmpty()) {
+                selectable = false;
+            }
+        }
+        for (AttachmentSelectionDto a : defaultAttachments) {
+            int qty = a.getQuantity() != null ? a.getQuantity() : 1;
+            BigDecimal as = effective.scoreOf(OptionScoreKind.ATTACHMENT, a.getReference());
+            if (as != null) {
+                total = total.add(as.multiply(BigDecimal.valueOf(qty)));
+            } else if (policy != null && !policy.optionScores().isEmpty()) {
+                selectable = false;
+            }
+        }
+
+        RingDifficultyPolicyEvaluator eval = policyEvaluator != null ? policyEvaluator : new RingDifficultyPolicyEvaluator();
+        BigDecimal rounded = eval.roundScore(total);
+        DifficultyLevel level = eval.classify(rounded, effective);
+
+        return DesignOptionsResponseDto.ModelOptionDto.builder()
+                .modelReference(mod.getModelCode())
+                .name(mod.getName())
+                .description(mod.getDescription())
+                .imageUrl(mod.getImgUrl())
+                .materialReference(mod.getMaterialReference())
+                .shapeReference(mod.getShapeReference())
+                .defaultComponents(defaultComponents)
+                .defaultAttachments(defaultAttachments)
+                .difficultyScore(selectable ? rounded.toPlainString() : null)
+                .difficultyLevel(selectable ? level.name() : null)
+                .selectable(selectable)
                 .build();
     }
 }

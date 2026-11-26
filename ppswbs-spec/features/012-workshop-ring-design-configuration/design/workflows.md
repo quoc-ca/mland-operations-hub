@@ -1,26 +1,25 @@
 # Feature-012 Workflows — Workshop Ring Design Configuration
 
-Date created: 2026-11-08
-Date updated: 2026-11-09
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
-**Status:** 2026-11-22 workflow change documented; names are logical until API and code
-approval.
+**Status:** 2026-11-22 workflow change and proposed 2026-11-26 Admin policy documented; names are logical until API and code approval.
 
 The current workflow ends at `SAVED` design summary, advisory workshop
 recommendation and optional Feature-013 consultation. The former booking
 attachment and branch-revalidation workflows are historical and are not current
 frontend or backend actions.
 
-## W1 — Load package-scoped options
+## W1 — Load general or package-filtered options
 
-1. Guest or Member enters the public configurator after selecting a published package; Guest changes remain local only.
-2. UI calls `GET /workshop-design-options` with opaque package reference.
-3. Controller validates package visibility and query shape.
-4. Application service asks the package/catalogue boundary for active options.
-5. Rules service returns option schema, compatibility metadata and rule version.
-6. UI renders only returned options.
+1. Guest or Member enters general design discovery or a published package page; Guest changes remain local only.
+2. UI calls `GET /workshop-design-options`, optionally filtering by opaque package reference.
+3. Controller validates an explicit package filter and query shape.
+4. Application service asks the catalogue boundary for active options and models, filtering models by material/package compatibility when a package is present.
+5. Rules service evaluates each published model's complete default material, shape, components and attachments under one policy version; it returns score/level for every active model in scope. An unexpected persisted invariant violation returns a safe unavailable error instead of a partial list.
+6. UI renders server-returned options and models. A model cannot be hidden merely because a policy update omitted its score; publication of such a policy is rejected.
 
 Failure: package unavailable, invalid or rules service unavailable returns a safe
 typed error; no design mutation occurs. Retry is an explicit read retry.
@@ -28,9 +27,9 @@ typed error; no design mutation occurs. Retry is an explicit read retry.
 ## W2 — Create a blank or model-based draft
 
 1. User selects `BLANK` or a published model.
-2. Client sends `POST /workshop-designs` with package context and idempotency key.
+2. Client sends `POST /workshop-designs` with an optional explicitly selected package context and idempotency key.
 3. Backend authenticates the Member before any create command; a Guest attempting the command receives a sign-in response.
-4. Backend verifies model publication and package compatibility.
+4. Backend verifies model publication, complete default eligibility and package compatibility when a package was selected.
 5. Service creates a private draft boundary.
 6. Response returns an opaque design reference and safe current state.
 
@@ -45,7 +44,7 @@ key. A changed payload under the same key returns conflict.
    `If-Match-Version`.
 4. Controller validates transport and rejects client price/difficulty fields.
 5. Service verifies Member ownership.
-6. Rules boundary validates active options, package compatibility, cardinality,
+6. Rules boundary validates active options, any explicitly selected package compatibility, cardinality,
    placement, size and engraving constraints.
 7. Service calculates server-owned estimate/difficulty with `rules_version`.
 8. One transaction creates the new immutable version and evaluation snapshot.
@@ -59,9 +58,9 @@ retrying with a new command key. An identical retry replays the original result.
 
 1. The customer saves a design and receives a `SAVED` owner-safe projection.
 2. The server counts gemstones and reads the persisted difficulty score.
-3. The server resolves a semantic package recommendation from catalogue data.
+3. The server resolves a material-compatible semantic package recommendation from catalogue data. Copper/Steel yield no package; an S925 design may receive Silver Clay S999 advice only with explicit material disclosure.
 4. The response includes recommendation code, package link/reference, reason,
-   rule version, and the Wax Casting two-session note when applicable.
+   rule version, and the Wax Casting note about two sessions separated by at least two foundry working dates when applicable.
 5. The customer may follow the recommendation, edit/archive the design, start
    consultation, or explore all workshops. No booking or payment mutation occurs.
 
@@ -103,8 +102,8 @@ no booking, payment, ticket or capacity mutation is created by this feature.
 
 ## W10 — Frontend live-preview interaction
 
-1. The route loads the package reference and requests the package-scoped option
-   schema.
+1. The route loads a general or package-filtered option schema; package context
+   exists only when explicitly selected.
 2. The application hook normalizes the response into control descriptors and a
    local draft; the UI renders only those descriptors.
 3. A material, gemstone, ring-size or band-width change updates local draft
@@ -136,3 +135,51 @@ approved contract explicitly requires server preview.
    The saved design and safe local draft are retained.
 6. Retrying the same attach command reuses its operation reference; changing
    the design creates a new version before a new attach attempt.
+
+## W12 — Admin policy read and preview (proposed 2026-11-26)
+
+An active Admin reads the effective policy and immutable history through the
+Feature-012 Admin controller/service. A preview submits a complete candidate
+and optional non-personal examples. The service adds standard non-personal
+examples spanning a basic design, gemstone/engraving cases, cutoff boundaries
+and overlapping recommendation conditions. It validates the whole candidate,
+then calculates old/new score, level and recommendation with the real evaluator.
+It also evaluates every active published model from full defaults under both
+policies and returns per-model score/eligibility and blocking reasons. An
+unrealizable standard case is reported as unavailable, not fabricated. A
+preview with any blocking model returns the impact table without publication
+proof. An eligible preview stores only an opaque proof reference, Admin
+reference, candidate digest, active and catalogue versions and 15-minute
+expiry; no sample contents,
+policy version or Member record is persisted. Manager, inactive Admin and other
+actors are denied before private values are returned; store outage yields retry.
+
+## W13 — Admin policy publication (proposed 2026-11-26)
+
+After preview, Admin confirms a candidate with expected active version,
+matching preview reference and one idempotency key. The policy service first
+replays a completed identical command when present; otherwise it checks active
+Admin, unexpired proof for the exact candidate/policy/catalogue revision and
+candidate completeness. Inside the same transaction it re-evaluates all active
+published model defaults and rejects the candidate if any is invalid, unscored
+or too risky. One transaction records the complete
+immutable version, minimized audit and effective-pointer switch. A stale
+version, invalid proof or duplicate key with changed payload returns conflict.
+Invalid data or persistence failure leaves the old version effective. Restoring a prior
+configuration repeats this workflow as a new version; Manager has no approval
+or write step.
+
+## W14 — Customer evaluation across policy versions (proposed 2026-11-26)
+
+At Save/Evaluate the service captures one active policy version, evaluates the
+fixed additive formula and server-side precedence, then stores score, level,
+recommendation and version in the new immutable design version. A concurrent
+Admin publication cannot mix entries from two policies in one evaluation.
+Viewing a historical design returns the persisted snapshot; it does not
+re-evaluate using current values. Legacy rows without reconstructible outcome
+metadata show only known stored fields. Rule-service failure creates no design
+version and preserves the Member's local draft for retry. An active catalogue
+option absent from the captured policy remains visible in option reads but
+disabled with `DIFFICULTY_SCORE_PENDING`; it cannot enter a new saved version.
+An active published model cannot reference it: catalogue publication and policy
+publication reject that state instead of silently disabling the model.

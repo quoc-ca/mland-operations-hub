@@ -24,6 +24,7 @@ The allowlist is exact and role groups are not inherited: `ADMIN` is not a Manag
 | Route family | Allowed browser role(s) | Owning feature | Notes |
 | --- | --- | --- | --- |
 | `/admin/accounts`, `/admin/roles` | ADMIN | 001 | Account lifecycle and role catalogue only. |
+| `/admin/ring-difficulty` | ADMIN | 009 UI / 012 policy API | Proposed Admin-only policy editor. Manager is masked before mount/request; the backend independently requires active Admin. |
 | `/admin/notifications/*` | ADMIN, MANAGER | 007 | Explicit shared notification-management capability; the `/admin` prefix is historical and is not an inference rule. A later route rename requires its own approved compatibility plan. |
 | `/carrier`, `/carrier/orders`, `/carrier/stats` | CARRIER | 008 | CARRIER may also use public routes and the explicitly allowed password self-service route. It has no Member commerce/history capability. |
 | `/staff/home` | STAFF | 014 | Staff home; the Manager home is `/manager/home` (owner decision 2026-11-26). |
@@ -40,6 +41,14 @@ The allowlist is exact and role groups are not inherited: `ADMIN` is not a Manag
 | `/api/v1/workshop-designs/*/technical-projection`, `/api/v1/reviews/*/technical-projection` | ADMIN, MANAGER | 012, 011 | Technical audit projection API; commercial pricing and customer personal details masked. |
 
 ## Self-service and public boundaries
+
+Feature-012 proposes public `/design/rings` and `/design/rings/models` discovery,
+with optional compatible-package entry under `/workshops/:packageReference/design`.
+Guests may browse and change a local preview, but no protected design command
+is sent before Member sign-in. `/design/rings/:designId` and `/my/designs` are
+active Member owner routes; other signed-in roles are masked before mount and
+the backend enforces ownership independently. A package route does not imply
+that every published material is supported by that package.
 
 FE-001 self-service is explicit: `MEMBER`, `STAFF`, `MANAGER`, and `ADMIN` may open Profile, Address Book, Email and Password canonical routes and aliases; `CARRIER` may open only `/security/password` among those routes. `CARRIER` may use public journeys but is masked from Member commerce/history routes such as `/member/cart`, `/member/checkout`, `/member/orders`, `/me/loyalty`, `/me/saved-vouchers`, and Member design history. An Account in `SUSPENDED` or `PENDING_SETUP` state is masked from every internal route with `/404`. A Member is masked from every registered internal route above. Any route absent from this inventory must be classified by its owner before implementation; a URL prefix alone is insufficient evidence of access.
 

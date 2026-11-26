@@ -114,6 +114,7 @@ export const GROUPS = [
     tabs: [
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: managerOrAdmin },
       { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: managerOrAdmin },
+      { id: 'ring-difficulty', vi: 'Độ khó thiết kế nhẫn', en: 'Ring difficulty policy', to: '/admin/ring-difficulty', match: ['/admin/ring-difficulty*'], visible: admin },
       { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
     ],
   },
