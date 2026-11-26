@@ -1,4 +1,4 @@
-### 2.9 Manage Product Categories
+### 2.5 Manage Product Categories
 
 | Use Case ID | UC-18 | Use Case Name | Manage Product Categories |
 | --- | --- | --- | --- |

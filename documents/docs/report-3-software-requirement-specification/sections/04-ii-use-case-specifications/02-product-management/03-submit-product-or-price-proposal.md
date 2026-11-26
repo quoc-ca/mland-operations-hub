@@ -1,4 +1,4 @@
-### 2.5 Submit Product or Price Proposal
+### 2.3 Submit Product or Price Proposal
 
 | Use Case ID | UC-14 | Use Case Name | Submit Product or Price Proposal |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ As an authorized catalogue maintainer, I want to submit a new product or a price
 
 #### Trigger
 
-A Staff or Manager selects Submit for approval on a product or Propose a new price on a size.
+A Staff member selects Submit for approval on a product, or a Staff or Manager selects Propose a new price on a size.
 
 #### Preconditions
 
@@ -66,6 +66,8 @@ A1b. Product is sold only outside Staff's assigned branches → Staff can view t
 
 N3b. Submission prerequisite is missing → System lists missing items (MSG18), highlights sections, and keeps the record in Draft.
 
+N4b. Submitter's branch scope cannot be read → System rejects the submission and saves no empty snapshot.
+
 P2b. Proposed amount is zero, negative, or non-whole → System rejects the amount (MSG08).
 
 P3a. Size already has a pending proposal → System blocks a second proposal (MSG19); Actor must edit the current proposal instead.
@@ -73,8 +75,6 @@ P3a. Size already has a pending proposal → System blocks a second proposal (MS
 P4a. Proposal saved but submission fails → Draft is kept under Drafts not sent in Prices to review and the error is shown.
 
 S4a. One or more sizes fail in batch submission → Valid sizes succeed; System lists failed sizes and reasons (MSG54).
-
-N4b. Submitter's branch scope cannot be read → System rejects the submission and saves no empty snapshot.
 
 A4a. Data changed concurrently, save failed, or response lost → System rejects stale requests (MSG03) or reports unconfirmed result (MSG04).
 
