@@ -331,6 +331,13 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(screen.queryByText(/CÁC GÓI WORKSHOP/)).not.toBeInTheDocument();
   });
 
+  it('points the Carrier account tab at password self-service, not the profile page', () => {
+    signedInRole('CARRIER');
+    renderHomePage({ initialAuthState: { status: 'signed-in' } });
+    const links = screen.getByRole('navigation', { name: 'Điều hướng di động' }).querySelectorAll('a');
+    expect(links[4]).toHaveAttribute('href', '/security/password');
+  });
+
   it('renders mobile sticky bottom navigation with 5 targets', () => {
     renderHomePage();
     const bottomNav = screen.getByRole('navigation', { name: 'Điều hướng di động' });

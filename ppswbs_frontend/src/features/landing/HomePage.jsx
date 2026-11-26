@@ -629,7 +629,8 @@ export default function HomePage() {
           <span className="landing-mobile-nav-icon" aria-hidden="true">🎫</span>
           <span className="landing-mobile-nav-label">{t('mobileNav.ticket')}</span>
         </Link>
-        <Link to="/profile" className="landing-mobile-nav-item">
+        {/* A Carrier has no profile page; password self-service is their only account page. */}
+        <Link to={userRole === 'CARRIER' ? '/security/password' : '/profile'} className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">👤</span>
           <span className="landing-mobile-nav-label">{t('mobileNav.account')}</span>
         </Link>
