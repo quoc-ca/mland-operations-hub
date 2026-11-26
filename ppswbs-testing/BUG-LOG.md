@@ -310,7 +310,7 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
 
 ---
 
-## BUG-E2E-0011 — OPEN
+## BUG-E2E-0011 — CLOSED
 
 - Ngày: 2026-11-17
 - Phát hiện bởi: Senior QA & System Verification Engineer (Master E2E Phase 2 trên Mock Prod)
@@ -328,6 +328,9 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Screenshot: ![Ngrok warning](master-e2e/screenshots/P2-06--ngrok-warning.jpg)
 
 ---
+- Ngày đóng: 2026-11-26
+- Kết quả kiểm lại: staging đã chuyển sang backend `https://mland-demo.io.vn`. Hai lần thanh toán sandbox ngày 26/11 từ frontend `localhost:5173` quay thẳng về `/workshop-booking/{mã}/payment-return` của `localhost`, không qua ngrok, vé được xác nhận.
+- Lưu ý: chưa thử thanh toán từ bản Vercel. Nếu URL quay về vẫn trỏ `localhost:5173` thì người dùng bản Vercel sẽ không về được trang kết quả; cần kiểm cấu hình trước khi dùng bản đó để demo.
 
 ## BUG-E2E-0012 — OPEN
 
