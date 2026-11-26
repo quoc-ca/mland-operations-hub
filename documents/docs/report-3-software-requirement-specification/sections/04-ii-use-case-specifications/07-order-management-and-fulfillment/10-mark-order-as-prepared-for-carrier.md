@@ -1,80 +1,78 @@
 ### 7.10 Mark Order as Prepared for Carrier
 
-#### Primary Actors
-
-Staff; Manager; GHTK partner (Đối tác vận chuyển).
-
-#### Secondary Actors
-
-Delivery Service; Mail Gateway
+| Use Case ID | UC-61 | Use Case Name | Mark Order as Prepared for Carrier |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff; Manager; GHTK partner (Đối tác vận chuyển) | Secondary Actors | Delivery Service; Mail Gateway |
 
 #### Description
 
-As an authorized shop actor, I want to mark a packed paid GHTK order ready for the courier, and as the GHTK partner I want to record the courier pickup and the delivery, so that each step of the parcel is attributable. Packing alone never proves carrier custody.
+As an authorized shop actor, I want to mark a packed paid GHTK order ready for the courier, and as the GHTK partner I want to record the courier pickup and the delivery, so that each step of the parcel is attributable.
+
+#### Trigger
+
+A shop actor opens a paid GHTK order in Đơn hàng cần chuẩn bị to pack and mark it ready for the courier.
 
 #### Preconditions
 
 1. The platform is available and the retail order exists.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The shop actor has current assigned-branch or applicable Manager action/branch delegation; the GHTK partner uses an active partner account (role CARRIER).
-4. The order is verified paid and GHTK-selected, its shipment is in preparation, and necessary recipient name/phone/address exist. The actual courier pickup must occur before it is recorded.
+2. The actor is authenticated with verified identity, has an active account, and holds current authority.
+3. Shop actors have assigned-branch or Manager delegation; the GHTK partner uses an active CARRIER account.
+4. The order is verified paid and GHTK-selected with necessary recipient name, phone, and address.
 
 #### Postconditions
 
-- The shipment moves READY_FOR_CARRIER → HANDED_TO_CARRIER → DELIVERED once each, with the platform tracking number, actor/time and safe minimized evidence; DELIVERED is terminal and sets the order received time.
-- The original actual handoff starts the 30-day recipient-data retirement clock; retry does not reset it.
-- No GHTK shipment API, provider tracking, new payment/hold, repeat sale deduction, cancellation/refund or return is created. Rejected/failed requests preserve prior facts.
+1. Shipment moves READY_FOR_CARRIER → HANDED_TO_CARRIER → DELIVERED once each with tracking number, actor, and time.
+2. Original actual handoff starts the 30-day recipient-data retirement clock; retries do not reset it.
+3. No GHTK shipment API, provider tracking, new payment, repeat deduction, or return is created.
 
 #### Normal Flow
 
-**Mark Order as Prepared for Carrier**
-
-1. The shop actor opens the paid GHTK order in the Đơn hàng cần chuẩn bị tab within authorized branch scope.
-2. The system checks current account/action/branch authority, verified paid state, fixed GHTK method and that the shipment is in preparation.
-3. The shop actor packs the order and presses Đã chuẩn bị xong; the system records READY_FOR_CARRIER, shows the order in Chờ ĐVVC lấy hàng and shows the Member Chờ GHTK lấy hàng.
-4. The GHTK courier collects the parcel at the branch. On the partner portal, which lists the GHTK shipments of every branch with the pickup branch, recipient name, phone and address, item count and shipping fee, the GHTK partner presses Đã lấy hàng.
-5. The system rechecks the partner account and the current shipment state and version, then records READY_FOR_CARRIER to HANDED_TO_CARRIER once; Staff sees Đã bàn giao cho ĐVVC and the Member sees Đang giao hàng.
-6. After delivering the parcel, the GHTK partner presses Giao thành công; the system rechecks state and version and records HANDED_TO_CARRIER to DELIVERED once.
-7. The system retains the original handoff and delivery times, actor, tracking number and minimized custody evidence, sets the order received time, and sets recipient-data retirement at 30 days after the original actual handoff.
-8. The system displays Hoàn thành to Staff and Đã giao to the Member. Optional completion email follows the shared notification policy and never reverses completion.
+1. Staff opens the paid GHTK order in Đơn hàng cần chuẩn bị within authorized branch scope.
+2. System checks account/branch authority, verified paid state, fixed GHTK method, and preparation status.
+3. Staff packs the order and presses Đã chuẩn bị xong.
+4. System records READY_FOR_CARRIER and displays Chờ ĐVVC lấy hàng to Staff and Chờ GHTK lấy hàng to Member.
+5. GHTK partner collects the parcel at the branch and presses Đã lấy hàng on the partner portal.
+6. System rechecks partner account, state, and version, then records HANDED_TO_CARRIER once.
+7. GHTK partner delivers the parcel and presses Giao thành công.
+8. System rechecks state and version, records DELIVERED once, and sets received time and 30-day data retirement.
+9. System displays Hoàn thành to Staff and Đã giao to Member.
 
 #### Alternative Flows
 
-**Steps 2 and 6 — Unauthorized/wrong branch or revoked delegation**
+8a. Recipient entry is old or 30-day retirement becomes due → System keeps required recipient data while handoff is pending, then deletes/obscures recipient data and copies 30 days after original actual handoff while keeping minimized custody/payment evidence.
 
-Reject without mutation/private exposure. Manager needs applicable action/branch delegation; Admin has no business override. The GHTK partner records only the two courier steps and never sees product prices, vouchers, points or Member account data.
+#### Exception Flows
 
-**Steps 2 and 6 — Unpaid/unprepared/pickup order or incompatible terminal state**
+2a. Unauthorized, wrong branch, or revoked delegation → System rejects without mutation or exposure; GHTK partner sees only courier steps and never sees prices, vouchers, points, or Member account data.
 
-Reject without skipping readiness or moving from pickup/backwards. Use UC55/UC58/UC59 for valid prerequisites; human paid flags do not authorize handoff.
+2b. Unpaid, unprepared, pickup order, or incompatible terminal state → System rejects without skipping readiness or moving backwards.
 
-**Steps 3 and 6 — Missing recipient data or handoff reference**
+2c. Processing branch became inactive → System preserves the branch and deadlines without silent transfer or refund; currently authorized Staff/delegated Manager may complete paid orders.
 
-Reject with safe correction guidance; do not invent recipient values or evidence. The tracking number is generated by the platform; no waybill entry or document-image upload is required. GHTK delivery is domestic Vietnam: recipient name 1–100 Unicode characters, address 10–500 Unicode characters, optional note at most 500 Unicode characters, with leading/trailing whitespace trimmed. Contact mobile number is 10 digits starting with 0 or its equivalent +84 form. Method/recipient edits remain frozen after preparing; no correction override is invented.
+3a. Missing recipient data or invalid domestic Vietnam fields → System rejects with correction guidance (name 1–100 chars, address 10–500 chars, optional note ≤ 500 chars, 10-digit 0/+84 mobile); method/recipient edits remain frozen after preparing.
 
-**Steps 4 to 6 — Packing/preparation recorded but no actual GHTK handoff**
+5a. Packing recorded but no actual GHTK handoff → System retains READY_FOR_CARRIER until Đã lấy hàng is recorded by the GHTK partner; Staff cannot record Đã lấy hàng or Giao thành công.
 
-Retain READY_FOR_CARRIER and do not assert carrier custody until Đã lấy hàng is recorded. Staff cannot record Đã lấy hàng or Giao thành công; only the GHTK partner account can.
+6a. Already-recorded handoff, duplicate, or stale shipment version → System returns no-change for an identical accepted effect and rejects stale/conflicting updates, asking the actor to reload.
 
-**Step 6 — Already-recorded handoff, duplicate or stale conflicting request**
-
-Never create a second effect, repeat quantity/benefit settlement or reset original handoff/retirement time. The system returns no-change for an identical accepted effect and rejects stale/incompatible changes, including a stale shipment version, asking the actor to reload the list.
-
-**Steps 2 and 6 — Read/save failure, uncertain recording outcome**
-
-Report a safe actual error and preserve accepted custody/payment facts; do not fabricate completion or repeat physical handoff merely because a response is missing.
-
-**Steps 3 and 7 — Recipient entry is old or retirement becomes due**
-
-Keep required recipient name/phone/address while actual handoff is still pending, even beyond 30 days from entry. After the original actual handoff, delete/irreversibly obscure recipient/contact/address data and applicable copies at 30 days while preserving minimized custody/payment evidence.
-
-**Steps 2 and 6 — Processing branch became inactive**
-
-An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
+8b. Read/save failure or uncertain recording outcome → System reports a safe error and preserves accepted custody/payment facts without fabricating completion.
 
 #### Business Rules
 
 BR-61-01, BR-61-02, BR-61-03, BR-61-04, BR-61-05, BR-61-06, BR-61-07, BR-61-08
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

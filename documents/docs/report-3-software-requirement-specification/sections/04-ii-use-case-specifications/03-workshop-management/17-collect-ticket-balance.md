@@ -1,16 +1,17 @@
 ### 3.17 Collect Ticket Balance
 
-#### Primary Actors
-
-Staff, Manager
-
-#### Secondary Actors
-
-VNPay Payment Gateway
+| Use Case ID | UC-79 | Use Case Name | Collect Ticket Balance |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff, Manager | Secondary Actors | VNPay Payment Gateway |
 
 #### Description
 
-As an assigned Staff member or a Manager, I want to collect the remaining balance of a ticket by VNPay, cash, or bank transfer from the Guest or Member so that the folio can be finalized.
+As an assigned Staff member or a Manager, I want to collect the remaining balance of a ticket by VNPay, cash, or bank transfer so that the folio can be finalized.
+
+#### Trigger
+
+An actor opens an open ticket folio with a balance due to collect payment.
 
 #### Preconditions
 
@@ -19,40 +20,48 @@ As an assigned Staff member or a Manager, I want to collect the remaining balanc
 
 #### Postconditions
 
-- Each collection is recorded on one ticket folio with its method, amount, and status.
-- The folio is finalized when the balance is zero and no collection is pending.
+1. Each collection is recorded on one ticket folio with its method, amount, and status.
+2. The folio is finalized when the balance is zero and no collection is pending.
 
 #### Normal Flow
 
-**Collect Ticket Balance**
-
-1. The actor opens the folio and chooses VNPay, cash, or bank transfer, offered in that order.
-2. The actor enters the amount to collect; several collections and mixed methods are allowed.
-3. The system checks the amount against the confirmed and pending collections.
-4. The system records the collection and updates the balance once the money is confirmed.
+1. Actor opens the folio and selects VNPay, cash, or bank transfer in that order.
+2. Actor enters the amount to collect.
+3. System checks the amount against confirmed and pending collections.
+4. System records the collection and updates the balance once the money is confirmed.
 
 #### Alternative Flows
 
-**Step 2 — VNPay part below 5,000 VND**
+2a. Actor splits payment across several collections or mixed methods → System accepts multiple collections on the same folio.
 
-The system states this before collecting and refuses VNPay; cash or transfer is used.
+#### Exception Flows
 
-**Step 4 — Transfer or VNPay not yet verified**
+2a. VNPay part is below 5,000 VND → System refuses VNPay and informs the actor to use cash or transfer.
 
-The collection stays pending; a VNPay part is confirmed only by signed provider evidence and a transfer only by a Manager.
+4a. Transfer or VNPay is not yet verified → Collection stays pending; VNPay confirms via signed evidence and transfer via a Manager.
 
-**Step 4 — Money received twice or above the balance**
-
-The system records it in full and routes the excess to a Manager refund.
+4b. Money is received twice or exceeds the balance → System records it in full and routes the excess to a Manager refund.
 
 #### Business Rules
 
 BR-79-01, BR-79-02, BR-79-03, BR-79-04
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-79-01 | Cash records the amount received and the change returned; only the applied amount enters the folio. |
 | BR-79-02 | The system never raises, waives, or hides a remainder. |
 | BR-79-03 | The workshop product is handed over only after finalization, unless a Manager approves an exception. |

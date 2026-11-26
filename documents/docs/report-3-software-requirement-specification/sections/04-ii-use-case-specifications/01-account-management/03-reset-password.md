@@ -1,43 +1,63 @@
 ﻿### 1.3 Reset Password
 
-#### Primary Actors
-
-Guest, Member
-
-#### Secondary Actors
-
-Firebase Authentication
+| Use Case ID | UC-03 | Use Case Name | Reset Password |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest, Member | Secondary Actors | Firebase Authentication |
 
 #### Description
 
-A person with an eligible email/password identity requests a Firebase recovery link without giving a password to Mland staff.
+As a Guest or Member, I want to request a Firebase password recovery link so that I can reset my password without sharing it with staff.
+
+#### Trigger
+
+A Guest or Member selects Forgot Password.
 
 #### Preconditions
 
-Firebase password recovery is configured and the person can provide a sign-in email.
-
-#### Normal Flow
-
-1. The person opens Forgot Password and enters an email address.
-2. The browser requests a recovery email from Firebase and displays a response that does not disclose whether an account exists.
-3. Firebase sends a time-limited recovery link to an eligible identity.
-4. The person opens the link and sets a new password on Firebase's recovery page.
-5. Firebase validates the link and updates the credential; the person signs in again.
-
-#### Alternative Flows
-
-**Unknown email or ineligible identity:** The page gives the same non-disclosing response. Google-only users recover access through Google.
-
-**Expired link, delivery error, or password update failure:** The password remains unchanged and the person receives safe retry guidance.
+1. Firebase password recovery is configured.
+2. The user can provide a sign-in email address.
 
 #### Postconditions
 
-- Firebase manages the new password; Mland does not store it.
-- The response does not reveal account existence.
+1. Firebase manages the new password; Mland does not store it.
+2. The recovery response does not reveal account existence.
+
+#### Normal Flow
+
+1. Guest or Member opens Forgot Password.
+2. Guest or Member submits an email address.
+3. System requests a recovery email from Firebase and displays a non-disclosing response.
+4. Firebase sends a time-limited recovery link to the eligible identity.
+5. Guest or Member opens the link and sets a new password on Firebase's recovery page.
+6. Firebase validates the link and updates the credential.
+7. Guest or Member signs in with the new password.
+
+#### Alternative Flows
+
+None.
+
+#### Exception Flows
+
+2a. Email is unknown or identity is Google-only → System shows the same non-disclosing response; Google-only users recover via Google.
+
+6a. Link is expired, delivery fails, or update fails → Password remains unchanged and System shows safe retry guidance.
 
 #### Business Rules
 
 BR-03-01, BR-03-02, BR-03-03
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

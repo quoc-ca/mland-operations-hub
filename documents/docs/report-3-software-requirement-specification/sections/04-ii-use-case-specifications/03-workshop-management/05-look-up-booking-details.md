@@ -1,60 +1,69 @@
 ### 3.5 Look Up Booking Details
 
-#### Primary Actors
-
-Guest, Member
-
-#### Secondary Actors
-
-Mail Gateway
+| Use Case ID | UC-23 | Use Case Name | Look Up Booking Details |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest, Member | Secondary Actors | Mail Gateway |
 
 #### Description
 
 As a Guest or Member, I want to open my booking group so that I can see its tickets, their status and money, and the check-in QR codes.
 
+#### Trigger
+
+An actor opens their Member booking list, submits group lookup credentials, or opens a Magic Link.
+
 #### Preconditions
 
 1. The platform is available.
 2. A booking group exists.
-3. The actor is the signed-in owning Member, or holds the group code with one stored contact value, or holds the emailed Magic Link.
+3. The actor is the owning Member, holds the group code with one stored contact value, or holds the Magic Link.
 
 #### Postconditions
 
-- The actor sees the read-only group with each ticket, or a safe refusal.
-- No booking, payment, or capacity changes.
+1. The actor sees the read-only group with each ticket, or a safe refusal.
+2. No booking, payment, or capacity changes.
 
 #### Normal Flow
 
-**Look Up Booking Details**
-
-1. A Member opens the list of their booking groups; a Guest enters the group code and exactly one stored contact email or phone, or opens the Magic Link.
-2. The system verifies ownership, the contact proof, or the link.
-3. The system displays the group and each ticket with status, attendance, collected and remaining amounts.
-4. The buyer also sees each ticket QR code.
-5. From Booking Lookup, the buyer may request the confirmation email again; the Magic Link view is read-only and does not offer this action.
+1. Actor opens the Member booking list, enters the group code with one contact value, or opens the Magic Link.
+2. System verifies ownership, the contact proof, or the Magic Link.
+3. System displays the group and each ticket with status, attendance, collected amount, and remaining balance.
+4. System displays each ticket QR code to the buyer.
+5. Actor requests the confirmation email again from Booking Lookup.
 
 #### Alternative Flows
 
-**Step 2 — Proof does not match**
+3a. Group is still awaiting payment → Buyer may retry payment or release the hold from this view.
 
-The system refuses without saying which value was wrong. Guest attempts are rate limited.
+5a. Actor opened the read-only Magic Link view → Confirmation email resend action is not offered.
 
-**Step 2 — Magic Link is expired or revoked**
+#### Exception Flows
 
-The system refuses the link; the buyer returns to Booking Lookup and verifies the booking before requesting another confirmation email.
+2a. Proof does not match → System refuses without saying which value was wrong and rate-limits Guest attempts.
 
-**Step 3 — Group is still awaiting payment**
-
-The buyer may retry payment or release the hold from this view.
+2b. Magic Link is expired or revoked → System refuses the link; buyer verifies via Booking Lookup before requesting another email.
 
 #### Business Rules
 
 BR-19-01, BR-19-02, BR-19-03
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-19-01 | A Guest needs the group code and exactly one stored contact value, or the Magic Link; the group code alone is never enough. |
 | BR-19-02 | The Member list shows at most 30 of the Member own groups, newest first. |
 | BR-19-03 | Only the buyer sees ticket QR codes; a ticket recipient QR email gives no group view. |

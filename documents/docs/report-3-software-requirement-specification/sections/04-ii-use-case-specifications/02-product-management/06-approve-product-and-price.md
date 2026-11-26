@@ -1,111 +1,104 @@
 ### 2.6 Approve Product and Price
 
-#### Primary Actors
-
-Manager.
-
-#### Secondary Actors
-
-Account Management, which supplies the names of submitters and deciders.
+| Use Case ID | UC-15 | Use Case Name | Approve Product and Price |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | Account Management |
 
 #### Description
 
-As a Manager, I want to review pending products and price proposals and accept, adjust or reject them, and change the price of a published product in one step, so that only prices I decide can be applied to the catalogue.
+As a Manager, I want to review and decide pending products and price proposals, and change published prices directly, so that only Manager-approved prices can be applied.
 
-This use case includes the following sub-flows:
+#### Trigger
 
-- Approve Product and Price
-- Change Price as Manager
+A Manager opens Products to review or Prices to review, or selects Change price on a published size.
 
 #### Preconditions
 
-1. The actor is signed in, the account is active, and the current role is Manager.
-2. For an approval, a pending product review record or price proposal exists and is still valid; for Change price, the product has been published before.
+1. Actor is signed in with an active Manager account.
+2. For approval, a pending product review or price proposal exists and is valid.
+3. For Change price, the product has been published before and the size has no pending proposal.
+
+#### Postconditions
+
+1. The pending item is Approved with a final price per size, or Rejected with a reason.
+2. Historical decisions are never rewritten; later edits require a new version and decision.
+3. Approved prices are applied under UC-16 immediately if selected, otherwise later.
 
 #### Normal Flow
 
 **Approve Product and Price**
 
-1. The Manager opens the Products to review tab (reviews of never-published products) or the Prices to review tab (price proposals of published products, the Prices to Review screen) of the Product Management List. A product whose review is Pending shows Review first instead of a one-click publish button.
-2. The Manager selects a pending item, or decides a pending price directly on its row in the Prices to review tab with the Price Proposal Review form. On the product detail page, the Initial review section is shown to a Manager only while a review submitted by Staff is Pending, or when the review was Rejected (with its reason).
-3. The system displays the submitted product content, images and the proposed price of each size. For each price proposal version (including in the table for several sizes) and each review version, current and past, it shows the submitter and submission time, the submitter's branches at submission (UC-14), and the Manager who decided and the decision time once decided. A Draft that was never submitted shows no submitter.
-4. For each size, the Manager accepts the proposed price or enters an adjusted final price as a positive whole VND amount; one shared final price can be filled in for the selected sizes.
-5. The Manager confirms the decision.
-6. The system checks that the item is still pending and is the current version.
-7. The system records the decision with the Manager, time, version and decision inputs, sets the item to Approved, records an audit entry and confirms (MSG22). The decision itself does not apply or publish the price. In the Prices to review tab, the list and the counts are reloaded; a rejected price is shown under the Rejected sub-filter until the size gets a new proposal.
+1. Manager opens Products to review or Prices to review on the Product Management List.
+2. Manager selects a pending product review or pending price proposal.
+3. System displays submitted content, images, proposed prices, submitter, branch scope, and decider history.
+4. Manager accepts each proposed price or enters an adjusted positive whole VND amount.
+5. Manager confirms the approval decision.
+6. System verifies the item is still pending and is the current version.
+7. System records the Approved decision, audits it, confirms (MSG22), and reloads list counts.
 
 **Change Price as Manager**
 
-1. On a size of a product that has been published before and has no pending proposal, the Manager selects Change price, either in the Price proposals section or from a rejected row of the Prices to review tab.
-2. The Manager enters the new selling price as a positive whole VND amount and keeps or clears "Apply the price right after approving", which is ticked by default.
-3. The Manager selects Save.
-4. The screen sends, one after another: the creation of a proposal (or a new version of the current Draft), its submission (UC-14), the approval at exactly the entered price and, if ticked, the application (UC-16). Each step is its own command with its own record and audit entry.
-5. The system confirms the result (MSG22, MSG24). The price history shows a new round with the Manager as submitter and decider, and the previous applied round as Superseded.
+1. Manager selects Change price on a published product size with no pending proposal.
+2. Manager enters the new positive whole VND selling price and keeps "Apply right after approving" ticked.
+3. Manager selects Save.
+4. System sends proposal creation, submission (UC-14), approval, and application (UC-16) as sequential commands.
+5. System confirms completion (MSG22, MSG24) and marks the previous applied round as Superseded.
 
 #### Alternative Flows
 
-**Step 4 — Manager rejects**
+2a. Review is Rejected → List shows See reason; Initial review shows the reason without a publish button for Staff revision (UC-14).
 
-The Manager selects Reject and enters a reason of 1–2,000 characters after trimming. The system sets the item to Rejected with the reason (MSG22). A missing or too long reason is rejected (MSG21).
+2b. Several pending sizes are decided together → Manager approves or rejects multiple published-product proposals at once with one shared rejection reason.
 
-**Step 5 — Manager keeps "Apply the price right after approving" ticked**
+3a. Submitter or decider name cannot be read → System displays "Account #{id}" (or "System" for seed data) and loads the rest.
 
-This option is selected by default. After step 7, the system applies each approved price as a separate apply action under UC-16, with its own record (MSG24). If applying fails, the decision is kept and a retry applies only the sizes not yet applied. If the Manager clears the option, the approved price waits to be applied under UC-16.
+4a. Manager rejects the item → Manager enters a 1–2,000 character reason; System sets the item to Rejected (MSG22).
 
-**Step 2 — Review is Rejected**
+4b. Manager reviews own submission → System allows Manager to approve or reject their own product or proposal.
 
-The product list shows See reason. The Initial review section shows the reason and no publish button; Staff edit the product and submit a new version under UC-14.
+5a. "Apply right after approving" stays ticked → System runs UC-16 immediately after Step 7 (MSG24); clearing it leaves the price unapplied.
 
-**Step 2 — Several pending sizes decided together**
+C1a. Size has a pending Staff proposal → Change price is hidden; Manager decides the pending proposal via the approval form.
 
-After the first publication, the Manager can approve or reject several pending price proposals at once; a rejection uses one shared reason. Each size is still its own decision; a size that fails does not affect the others; partial results are reported (MSG54).
+#### Exception Flows
 
-**Step 4 — Manager reviews own submission**
+A1a. Actor is not a Manager or session expired → System rejects the request (MSG01, MSG02).
 
-The Manager may approve or reject their own product or proposal. When a Manager creates a product or uses Publish now, the screen sends the approval with the entered prices itself (UC-12, UC-17); it is still a separate, audited decision.
+2c. One or more sizes fail in a batch decision → Valid sizes succeed; System reports partial results (MSG54).
 
-**Step 3 — A person's name cannot be read**
+4c. Rejection reason is missing or exceeds 2,000 characters → System rejects the decision (MSG21).
 
-If the account has no full name, cannot be read or no longer exists, the system shows "Account #{id}" and still shows the rest of the page. A system actor, such as seed data, is shown as "System".
+5b. Manager cancels → System records no decision.
 
-**Step 5 — Manager cancels**
+5c. Applying approved price after approval fails → Approval decision is kept; retry applies only unapplied sizes.
 
-No decision is recorded.
+6a. Item was edited, already decided, or product deleted → System rejects the decision and prompts reload (MSG23).
 
-**Step 6 — Item is no longer pending or valid**
+7a. Save fails or response is lost → System records no partial decision (MSG04); retry creates no duplicate.
 
-If the item was edited, already decided or the product was deleted, the system rejects the decision and asks the Manager to reload (MSG23).
-
-**Change Price Step 1 — Size has a pending proposal from Staff**
-
-Change price is not offered; the Manager decides the pending proposal with the approval form, where the approved price can be adjusted, so that the Staff proposal is not withdrawn.
-
-**Change Price Step 4 — A step fails**
-
-The steps already completed are kept. The screen reloads and reports that the change is not finished (MSG68); the Manager continues from the current state with the existing submit, approve or apply buttons.
-
-**Any step — Actor is not a Manager or the session has expired**
-
-The system rejects the request (MSG01, MSG02). Staff and Admin cannot decide.
-
-**Step 7 — Save failure or lost response**
-
-The system records no partial decision (MSG04); a retry does not create a second decision.
-
-#### Postconditions
-
-- The pending item is Approved with a final price per size, or Rejected with a reason.
-- Historical decisions are never rewritten; editing after a decision requires a new version and a new decision.
-- The approved price is applied under UC-16, right after the decision when the Manager chose so, otherwise later.
+C4a. A step in Change price fails → Completed steps stay saved; System reports the unfinished change (MSG68) for continuation.
 
 #### Business Rules
 
 GBR-14, GBR-32, BR-15-01, BR-15-02, BR-15-04, BR-15-05, BR-15-06
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+MSG01, MSG02, MSG04, MSG21, MSG22, MSG23, MSG24, MSG54, MSG68
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | GBR-14 | Review, price and publication are separate states; a Manager's Change price sends the proposal, submission, approval and application as separate audited commands and never approves a pending Staff price in one click. |
 | GBR-32 | The submitter, the submitter's branches at submission and the decider are shown for information only and never change permissions. |
 | BR-15-01 | Only a Manager may approve, adjust or reject a product or price, including the Manager's own submission. |

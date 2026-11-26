@@ -1,16 +1,17 @@
 ### 3.8 Assign Staff to Workshop Slot
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-26 | Use Case Name | Assign Staff to Workshop Slot |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to revoke or restore the assignment of Staff to a workshop session. Active Staff of the location are assigned to its sessions automatically.
+As a Manager, I want to revoke or restore the assignment of Staff to a workshop session so that only authorized Staff can access the session.
+
+#### Trigger
+
+A Manager opens a workshop session to manage Staff assignments.
 
 #### Preconditions
 
@@ -20,39 +21,45 @@ Allows the Manager to revoke or restore the assignment of Staff to a workshop se
 
 #### Postconditions
 
-- The assignment change is saved with history and takes effect immediately on Staff access.
+1. The assignment change is saved with history and takes effect immediately on Staff access.
 
 #### Normal Flow
 
-**Assign Staff to Workshop Slot**
-
-1. The Manager opens a session.
-2. The system displays the assigned Staff.
-3. The Manager assigns or revokes a Staff member.
-4. The system validates the Staff account, location scope, and session state.
-5. The system saves the change and records it.
+1. Actor opens a session.
+2. System displays the assigned Staff.
+3. Actor assigns or revokes a Staff member.
+4. System validates the Staff account, location scope, and session state.
+5. System saves the change and records it in history.
 
 #### Alternative Flows
 
-**Step 4 — Staff is not eligible**
+3a. System auto-assigns active in-scope Staff to sessions → Manager-revoked assignments are never added back automatically.
 
-The system rejects the assignment.
+5a. Removing the last assignment after check-in has opened → System asks for confirmation.
 
-**Step 5 — Removing the last assignment after check-in has opened**
+#### Exception Flows
 
-The system asks for confirmation.
-
-**Automatic assignment**
-
-The system assigns active in-scope Staff to new and existing sessions; an assignment the Manager revoked is never added back automatically.
+4a. Staff is not eligible → System rejects the assignment.
 
 #### Business Rules
 
 BR-22-01, BR-22-02
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-22-01 | Only an active Staff account with the location in scope may be assigned. There is no operational role, time-overlap check, or assignment limit. |
 | BR-22-02 | Only a Manager assigns or revokes Staff; assignment gives Staff access to the session. |

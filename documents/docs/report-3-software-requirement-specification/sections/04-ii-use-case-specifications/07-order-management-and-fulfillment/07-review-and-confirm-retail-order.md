@@ -1,70 +1,72 @@
 ### 7.7 Review & Confirm Retail Order
 
-#### Primary Actors
-
-Staff; Manager.
-
-#### Secondary Actors
-
-None.
+| Use Case ID | UC-58 | Use Case Name | Review & Confirm Retail Order |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff; Manager | Secondary Actors | None |
 
 #### Description
 
 As an authorized shop actor, I want to review a verified paid retail order and begin preparation for its selected method so that fulfilment starts with current authority and valid data.
 
+#### Trigger
+
+A Staff member or delegated Manager opens a paid retail order in the Đơn hàng cần chuẩn bị tab.
+
 #### Preconditions
 
 1. The platform is available and the retail order exists.
-2. The actor is authenticated with verified identity, has an active account, and holds current authority for the requested action.
-3. The actor is assigned to its processing branch or holds applicable Manager action/branch delegation.
-4. The order is verified paid with a selected valid pickup/GHTK method and required data; these conditions are rechecked on submission.
+2. The actor is authenticated with verified identity, has an active account, and holds current authority.
+3. The actor is assigned to the processing branch or holds applicable Manager action/branch delegation.
+4. The order is verified paid with a valid selected pickup/GHTK method and required data.
 
 #### Postconditions
 
-- Successful confirmation changes paid to preparing once with safe actor/time evidence and freezes method/recipient edits.
-- Rejected/failed attempts preserve prior business facts. No human paid override, repricing, new hold or terminal completion occurs.
+1. Successful confirmation records readiness once with safe actor/time evidence and freezes method/recipient edits.
+2. Rejected attempts preserve prior facts; no human paid override, repricing, new hold, or terminal completion occurs.
 
 #### Normal Flow
 
-**Review & Confirm Retail Order**
-
-1. The actor opens a retail order within authorized processing scope.
-2. The system rechecks current action/branch authority and retrieves payment/hold/frozen purchase facts.
-3. The actor reviews the paid order, which is already Đang chuẩn bị hàng, with its method and necessary recipient data in the Đơn hàng cần chuẩn bị tab.
-4. The actor packs the order and selects Đã chuẩn bị xong.
-5. The system rechecks current account and branch authority, verified paid state, method and data, and current order state.
-6. The system records the method-specific readiness (UC59 for pickup, UC61 for GHTK).
-7. The system records safe attributable evidence and shows the new status to the actor and the Member.
+1. Actor opens a paid retail order in the Đơn hàng cần chuẩn bị tab within authorized branch scope.
+2. System rechecks action/branch authority and retrieves payment, hold, and frozen purchase facts.
+3. Actor reviews the Đang chuẩn bị hàng order, packs it, and selects Đã chuẩn bị xong.
+4. System rechecks account, branch authority, verified paid state, method, data, and order state.
+5. System records method-specific readiness (UC59 for pickup, UC61 for GHTK).
+6. System records attributable evidence and displays the new status to Actor and Member.
 
 #### Alternative Flows
 
-**Steps 2 and 5 — Wrong branch, revoked delegation or unauthorized role**
+None.
 
-Deny without mutation/private exposure. Manager requires applicable current delegation; Admin, Guest and Member cannot perform internal preparation.
+#### Exception Flows
 
-**Step 5 — Pending/expired/exception-only payment or missing method/data**
+2a. Wrong branch, revoked delegation, or unauthorized role → System denies access without mutation or private exposure; Admin, Guest, and Member cannot perform internal preparation.
 
-Reject preparation and preserve state. Staff cannot assert paid; eligible payment belongs to UC55 or the counter cash collection in UC60, and owner method/data selection to UC54 checkout. Resume at Step 1 after prerequisites are met.
+2b. Processing branch became inactive → System preserves the branch and original deadlines without silent transfer, cancellation, or refund; currently authorized assigned Staff/delegated Manager may complete paid orders.
 
-**Steps 5 and 6 — Member method edit races with preparing**
+4a. Pending, expired, or exception-only payment, or missing method/data → System rejects preparation and preserves state; Staff cannot assert paid (resume at step 1 after prerequisites are met).
 
-Use the current selected valid method/data when accepting preparation. An edit accepted after preparing is effective must be rejected; no stale edit may overwrite frozen data or move the processing branch.
+5a. Member method edit races with preparing → System uses the current valid method/data when accepting preparation and rejects any stale edit after preparing takes effect.
 
-**Step 6 — Already preparing, later milestone, terminal or stale conflict**
+5b. Already preparing, later milestone, terminal state, or stale conflict → System acknowledges an identical accepted effect without change and rejects incompatible or stale updates.
 
-Do not duplicate preparation or move backwards/from the other branch. The system acknowledges an identical accepted effect without change and rejects incompatible/stale updates.
-
-**Steps 2 and 6 — Read/save failure**
-
-Report a safe actual failure and preserve accepted facts without false transition.
-
-**Steps 2 and 5 — Processing branch became inactive**
-
-An inactive branch cannot receive new checkout, but accepted orders retain their branch and original deadlines. Currently authorized assigned Staff/delegated Manager may complete paid orders; physical handover problems require operational follow-up without automatic transfer, cancellation or refund.
+6a. Read or save failure → System reports a safe actual failure and preserves accepted facts without false transition.
 
 #### Business Rules
 
 BR-58-01, BR-58-02, BR-58-03, BR-58-04, BR-58-05, BR-58-06, BR-58-07
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

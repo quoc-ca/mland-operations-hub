@@ -1,117 +1,103 @@
 ### 2.1 Browse Product Catalogue
 
-#### Primary Actors
-
-Guest, Member.
-
-#### Secondary Actors
-
-Cloud Storage Service, which serves product images; Loyalty and Promotion Management, which supplies active product promotions for display.
+| Use Case ID | UC-10 | Use Case Name | Browse Product Catalogue |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Guest, Member | Secondary Actors | Cloud Storage Service, Loyalty and Promotion Management |
 
 #### Description
 
-As a catalogue visitor, I want to search, filter and sort published ring products so that I can find products and compare their current prices and availability before choosing one to view or buy, or add one to the cart directly from the list.
+As a catalogue visitor, I want to search, filter, and sort published products so that I can compare prices and availability or quick-add items to my cart.
 
-This use case includes the following sub-flows:
+#### Trigger
 
-- Browse Product Catalogue
-- Quick Add to Cart
+A Guest or Member opens the Product Catalogue page.
 
 #### Preconditions
 
-1. The platform is available. No sign-in is required.
-2. The catalogue may contain zero or more public products; an empty catalogue does not prevent browsing.
+1. The platform is available; no sign-in is required.
+2. The catalogue contains zero or more public products.
+
+#### Postconditions
+
+1. The actor sees matching public products, an empty state, or error guidance.
+2. Drafts, review records, unapplied prices, and held quantities are never exposed.
+3. Browsing creates no cart, order, payment, hold, voucher, or point transaction.
+4. Displayed card prices are for viewing only; checkout recalculates the final amount.
 
 #### Normal Flow
 
 **Browse Product Catalogue**
 
-1. The actor opens the Product Catalogue page.
-2. The system retrieves products that are published, not deleted, belong to an active category, have at least one usable image and have at least one size with an applied approved price. Sizes without an applied price are not shown and are not counted in prices, filters or sorting.
-3. The actor optionally enters a keyword, selects a category, enters a price range, selects Only products you can buy, and chooses a sort order.
-4. The system trims the keyword and validates the criteria.
-5. The system matches the keyword as a case-insensitive substring of the product name or description and combines all criteria with AND. When a price range and Only products you can buy are both used, the same size must satisfy both.
-6. The system sorts the results by name A–Z then product identity by default, or by lowest price, highest price or newest, and returns 20 products per page.
-7. The system displays each product on a product card with its image, name, VND price range (or a single price when all displayed sizes have the same price), an in-stock or out-of-stock label and a cart button. When an automatic discount applies, the card shows the price after the largest discount with the original price struck through; when a voucher lowers the price of one item further, the card shows the price after the best voucher labelled "Price after voucher {code}", with "· at {branches}" for a voucher limited to some branches (MSG72), and promotion labels, under UC-47 View and Save Vouchers.
-8. The actor changes the page, changes or clears the criteria while keeping the others, selects a product to continue to UC-11 View Product Details, or selects the cart button.
+1. Actor opens the Product Catalogue page.
+2. System retrieves eligible published products with an active category, usable image, and applied price.
+3. Actor enters search keywords, category, price range, purchasable filter, and sort order.
+4. System trims the keyword and validates all search criteria.
+5. System matches criteria with AND logic and sorts results by default or chosen order.
+6. System displays 20 product cards per page with image, name, price, stock status, and cart button.
+7. System shows discounted prices and voucher labels (MSG72) on cards where promotions apply.
+8. Actor pages through results, updates criteria, opens a product (UC-11), or selects the cart button.
 
 **Quick Add to Cart**
 
-1. The actor selects the cart button on a product card.
-2. The system opens a Quick add box on the list with the same buy panel and rules as UC-11 View Product Details: the size grid, the branch list, the quantity selector with the available quantity, and the Add to cart and Buy now buttons. The price of the selected size is shown under the size grid.
-3. The actor selects a size, a branch and a quantity, in any order, and selects Add to cart.
-4. The system passes the size variant, branch and quantity to UC-52 Add Product to Cart.
-5. On success, the system closes the box and shows that the item was added, with a link to the cart (MSG55); the actor stays on the list. If the actor selects Buy now instead, the item is added in the same way and the checkout opens as in UC-11.
+1. Actor selects the cart button on a product card.
+2. System opens a Quick add box with size grid, branch list, quantity selector, and action buttons.
+3. Actor selects a size, branch, and quantity, then selects Add to cart.
+4. System passes the size variant, branch, and quantity to UC-52 Add Product to Cart.
+5. System closes the box and displays a cart confirmation with a link (MSG55).
 
 #### Alternative Flows
 
-**Step 2 — Catalogue retrieval fails**
+2a. Active branch list cannot be read → Catalogue loads; branches with stock rows on sale count as active until cart/checkout rechecks.
 
-The system displays a load error with a retry option (MSG05). It does not present the failure as an empty catalogue.
+5a. No matching products found → System displays an empty-result message (MSG06) and lets Actor adjust criteria.
 
-**Step 2 — The list of active branches cannot be read**
+7a. All sizes are out of stock → Product stays visible as unavailable unless the purchasable filter is active.
 
-The catalogue still loads. Branches that have stock rows on sale are treated as active when availability and Only products you can buy are calculated, so a branch that has just been deactivated may still be counted; the cart and checkout check again.
+7b. Promotions cannot be loaded → Card displays the normal price without an error.
 
-**Step 4 — Invalid or unsupported criteria**
+Q3a. Actor selects Buy now in Quick add → System adds the item via UC-52 and opens checkout as in UC-11.
 
-The system rejects a keyword longer than 200 characters, a negative price, a minimum price above the maximum, an unknown or inactive category or an unsupported criterion, identifies the invalid criterion (MSG07) and resumes at Step 3.
+Q3b. Guest selects Add to cart or Buy now → System redirects Guest to sign in and returns to the product page with choices kept.
 
-**Step 5 — No matching products**
+#### Exception Flows
 
-The system displays an empty-result message (MSG06) and allows the actor to change or clear the criteria at Step 3.
+2b. Catalogue retrieval fails → System shows a load error with retry (MSG05) rather than an empty catalogue.
 
-**Step 7 — All sizes are out of stock**
+4a. Search or filter criteria are invalid → System rejects invalid values, identifies the criterion (MSG07), and returns to Step 3.
 
-The product stays visible with an unavailable indication unless Only products you can buy is selected. Zero quantity does not unpublish the product.
+7c. Product image fails to load → System shows a fallback image; products losing all usable images are excluded from public reads.
 
-**Step 7 — Image cannot be loaded**
+8a. Product is hidden, deleted, or category deactivated → System excludes the product from the next public read.
 
-The system shows a safe image fallback with retry guidance. If a product loses all usable images, it is excluded from public reads without changing its publication flag, and it reappears when a usable image and the other conditions return.
+Q2a. Branch source is unavailable → System disables Add to cart and Buy now and offers a retry (MSG36).
 
-**Step 7 — Promotions cannot be loaded**
+Q3c. Size is stopped from sale or out of stock → System dims the size and prevents selection (MSG35).
 
-The card shows the normal price without an error.
+Q3d. Size or branch is not selected → System prompts Actor to select a size or branch (MSG37) without sending a request.
 
-**Step 8 — Product hidden, deleted or category deactivated since an earlier view**
-
-The system excludes the product from the next public read. An earlier page view does not grant the right to buy.
-
-**Quick Add Step 3 — Guest selects Add to cart or Buy now**
-
-After a size and a branch are chosen, the system sends the Guest to sign in and then returns to the product detail page with the choices kept.
-
-**Quick Add Step 2 — Branch source is unavailable**
-
-The system disables Add to cart and Buy now and offers a retry (MSG36).
-
-**Quick Add Step 3 — Size cannot be bought**
-
-A size that is stopped from sale, or has no available quantity at the selected branch (or at any branch when no branch is selected), is dimmed and cannot be selected (MSG35). A product that cannot be bought at any branch cannot be added.
-
-**Quick Add Step 3 — Size or branch not selected**
-
-The system asks the actor to select a size or a branch (MSG37) and sends no request.
-
-**Quick Add Step 4 — The cart rejects the item**
-
-The system shows the message returned by the cart use case and keeps the box open.
-
-#### Postconditions
-
-- The actor sees matching public products, or an empty or error state with recovery guidance.
-- Drafts, review records, proposed prices, approved-but-unapplied prices, quantities before holds and held quantities are not exposed.
-- Browsing creates no cart, order, payment, hold, voucher or point transaction; Quick add only hands the item to the cart use case.
-- A price shown on a card is for viewing only; the amount paid is calculated again at checkout.
+Q4a. Cart rejects the item → System displays the cart error message and keeps the Quick add box open.
 
 #### Business Rules
 
 GBR-26, GBR-31, GBR-33, BR-10-01, BR-10-02, BR-10-03, BR-10-04, BR-10-05, BR-10-06, BR-10-07, BR-10-08
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+MSG05, MSG06, MSG07, MSG35, MSG36, MSG37, MSG55, MSG72
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | GBR-26 | Product cards show the price after the largest automatic discount and then the best voucher for one item, labelled "Price after voucher {code}" ("· at {branch}" for a branch-limited voucher); the display never replaces the checkout quote, and a failure to read promotions never blocks the page. |
 | GBR-31 | Buy now sends the same add-to-cart request as Add to cart and then opens the checkout with only that cart line. |
 | GBR-33 | After a product's first publication, a size without an applied price is not shown publicly, not counted in public prices or filters and cannot be added to the cart; the product stays public. |

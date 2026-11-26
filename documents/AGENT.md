@@ -42,9 +42,29 @@ Act as a controlled documentation editor: make the smallest evidence-based chang
 - If the sources disagree, do not choose silently. Describe the code behaviour, mark the difference as `TBD — Mland decision required`, and tell the requester.
 - Every step in a diagram must appear in the matching text, and the reverse.
 
+## Use case template (Report 3, section 4.II)
+
+Write every use case in this exact order. Keep each item short; a reader should grasp it in one pass.
+
+1. Heading `### n.m Name`, then a 3-row header table: `Use Case ID | Use Case Name`, `Created By | Created Date`, `Primary Actors | Secondary Actors`. The ID is `UC-nn` from the use case list.
+2. `Description`: one sentence, "As a … I want … so that …".
+3. `Trigger`: one sentence naming the event that starts the use case.
+4. `Preconditions` and `Postconditions`: numbered, one line each, at most 5 items.
+5. `Normal Flow`: numbered happy path only. One action per step, one actor per step (`Actor` or `System`), at most 20 words. No conditions, no errors, no "if/when/or".
+6. `Alternative Flows`: valid branches where the use case still succeeds. Format `<step><letter>. <condition> → <system response>`, for example `3a.`. Write `None.` if empty.
+7. `Exception Flows`: branches that fail or stop. Same format as item 6, with the message code where one exists, for example `(MSG04)`. Write `None.` if empty.
+8. `Business Rules`: IDs only. `Non-Functional Requirements`, `Priority`: copy from the source, else `—`. `Messages`: list the codes used, else `—`.
+9. `Business Rule Definitions`: one-line table, kept until the appendix holds these definitions.
+
+Rules for flows:
+- Each case appears once. Do not repeat a Normal Flow step or an Exception case under Alternative Flows.
+- Reference message codes (`MSGnn` from Appendix V.2) instead of retyping message text. Never invent a code.
+- A long rule, list, or policy goes to Business Rules or the appendix, not into a flow line.
+- Keep the actor in the header consistent with who performs step 1.
+
 ## Change history
 
-Git history is the authoritative record of document author, date, and change description. Change History tables and ChangeLog tabs are generated at build time. Do not add or edit manual versions, authors, dates, or ChangeLog records.
+Git and GitHub commit history are the authoritative record of document author, date, and change description. Change History tables and ChangeLog tabs are generated at build time. Do not add or edit manual document versions or ChangeLog records. Exception: the `Created By` and `Created Date` cells of a use case header may be filled by hand. Leave blank when unknown; never guess.
 
 ## Work tracking
 

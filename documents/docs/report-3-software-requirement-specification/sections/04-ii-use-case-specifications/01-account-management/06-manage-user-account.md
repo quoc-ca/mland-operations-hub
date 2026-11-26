@@ -1,16 +1,17 @@
 ### 1.6 Manage User Account
 
-#### Primary Actors
-
-Admin
-
-#### Secondary Actors
-
-Mail Gateway
+| Use Case ID | UC-06 | Use Case Name | Manage User Account |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Admin | Secondary Actors | Mail Gateway |
 
 #### Description
 
-As an Admin, I want to create, view, and update platform user accounts so that the system maintains accurate account records for customers and internal operational users.
+As an Admin, I want to create, view, and update platform user accounts so that customer and internal account records stay accurate.
+
+#### Trigger
+
+An Admin opens User Account Management.
 
 #### Preconditions
 
@@ -19,59 +20,62 @@ As an Admin, I want to create, view, and update platform user accounts so that t
 3. The requested account operation is within the Admin's permitted scope.
 4. Required account information is available for the selected operation.
 
+#### Postconditions
+
+1. A valid account is created or updated per the confirmed operation.
+2. System records the acting Admin, change time, and audit details.
+3. Role assignment and account locking remain separate (UC-07, UC-08).
+4. Sensitive credentials are never displayed or written to ordinary logs.
+
 #### Normal Flow
 
-**Manage User Account**
-
-1. The Admin opens the User Account Management function.
-2. The system displays searchable user-account records and permitted account fields.
-3. The Admin selects an existing account or starts a new account record.
-4. The Admin enters or updates the permitted account information.
-5. The system validates the account data and checks for duplicate identity information.
-6. The Admin reviews and confirms the operation.
-7. The system creates or updates the account record and records the acting Admin and change time.
-8. For a new Staff or Manager account, the system records a mandatory invitation with the pending Account before queuing its email after commit.
-9. The system displays the saved account and the invitation's actual delivery state; creation alone does not mean the email was sent.
+1. Admin opens User Account Management.
+2. System displays searchable user-account records and permitted account fields.
+3. Admin selects an existing account.
+4. Admin updates the permitted account information.
+5. System validates the account data and checks for duplicate identity information.
+6. Admin reviews and confirms the operation.
+7. System saves the account record with the acting Admin and change time.
+8. System displays the saved account record.
 
 #### Alternative Flows
 
-**Email belongs to a Member:** Admin may review and export a JSON preview of the Member's retail and workshop obligations. Current preview records are marked DEMO and cannot prove that accepted work is clear. Live retirement and email release remain deferred; creation stops until real obligation checks and a separate approval are available. An Admin or Carrier identity cannot be replaced through this flow.
+3a. Admin starts a new Staff or Manager account → System creates the pending account, records a mandatory invitation, queues email after commit, and shows actual delivery state.
 
-**Step 3 — Account cannot be found**
+#### Exception Flows
 
-The system displays a not-found result and allows the Admin to retry the search without exposing unrelated account data.
+3b. Account cannot be found → System displays a not-found result and allows retry without exposing unrelated data.
 
-**Step 5 — Required data is missing, invalid, or duplicated**
+5a. Email belongs to a Member → Admin may export a DEMO JSON preview of obligations; creation stops until live retirement is approved; Admin/Carrier cannot be replaced.
 
-The system displays validation errors and does not create or update the account.
+5b. Required data is missing, invalid, or duplicated → System shows validation errors and does not save the account.
 
-**Step 6 — Admin cancels**
+6a. Admin cancels → System discards unsaved changes and leaves the account unchanged.
 
-The system discards unsaved changes and leaves the existing account unchanged.
+7a. Account save fails → System rolls back the operation, shows an error, and preserves the previous state.
 
-**Step 7 — Account save fails**
-
-The system rolls back the incomplete operation, displays an error, and preserves the previous account state.
-
-**Step 8 — Account notification cannot be delivered**
-
-The account operation remains recorded, while the notification failure is recorded for retry or operational follow-up.
-
-#### Postconditions
-
-- A valid account is created or updated according to the confirmed operation.
-- The system records the acting Admin, change time, and applicable audit information.
-- This use case does not assign roles or change account lock status; those actions belong to UC7 and UC8.
-- Sensitive credentials are not displayed or written to ordinary logs.
+3c. Invitation email fails delivery → Account remains recorded and the notification failure is logged for retry or follow-up.
 
 #### Business Rules
 
 BR-07-01, BR-07-02, BR-07-03
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-07-01 | Only an authorized Admin may create or update platform user-account records through this use case. |
 | BR-07-02 | A new Staff or Manager requires an intended email, a bound Firebase UID, and active location assignment. The Admin cannot supply its password or skip the invitation. |
 | BR-07-03 | Role assignment and account locking are separate controlled operations and must not be changed implicitly by account editing. |

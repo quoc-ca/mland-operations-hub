@@ -1,45 +1,64 @@
 ﻿### 1.5 Manage Personal Profile
 
-#### Primary Actors
-
-Member
-
-#### Secondary Actors
-
-Firebase Authentication
+| Use Case ID | UC-05 | Use Case Name | Manage Personal Profile |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | Firebase Authentication |
 
 #### Description
 
-A Member views and updates their own permitted profile information. Firebase controls verification of the sign-in email.
+As a Member, I want to view and update my own permitted profile information so that my contact details stay accurate.
+
+#### Trigger
+
+A Member opens Profile.
 
 #### Preconditions
 
-The Member is authenticated with an active account and owns the requested profile.
-
-#### Normal Flow
-
-1. The Member opens Profile and sees their name, sign-in email, phone and saved delivery addresses.
-2. The Member may explicitly request or resend a Firebase verification email and reload the verification state.
-3. After the email is verified, the Member edits permitted name or phone fields.
-4. The system validates and saves those fields and displays the updated profile.
-
-#### Alternative Flows
-
-**Unverified email:** Protected profile changes remain unavailable. A Firebase verification-send failure leaves the account in place and shows safe recovery guidance.
-
-**Invalid session, values or ownership:** The system denies the action or shows field-level errors without changing the stored profile.
-
-**Save failure:** Previous values remain available and the Member may retry.
+1. The Member is authenticated with an active account.
+2. The Member owns the requested profile.
 
 #### Postconditions
 
-- Only the owner's permitted profile fields change.
-- Role, status, password and authorization remain unchanged.
-- A change to sign-in email uses the separate Firebase verified-email flow, not ordinary profile save.
+1. Only the owner's permitted profile fields change.
+2. Role, status, password, and authorization remain unchanged.
+3. Sign-in email changes use the separate Firebase verified-email flow.
+
+#### Normal Flow
+
+1. Member opens Profile.
+2. System displays name, sign-in email, phone, and saved delivery addresses.
+3. Member edits permitted name or phone fields.
+4. System validates and saves the updated fields.
+5. System displays the updated profile.
+
+#### Alternative Flows
+
+2a. Member requests or resends a Firebase verification email → Firebase sends the email and System reloads the verification state.
+
+#### Exception Flows
+
+3a. Email is unverified → Protected profile changes stay unavailable; verification-send failure shows safe recovery guidance.
+
+4a. Session, values, or ownership are invalid → System denies the action or shows field errors without changing the profile.
+
+4b. Save fails → Previous values remain available and Member may retry.
 
 #### Business Rules
 
 BR-05-01, BR-05-02, BR-06-01, BR-06-02, BR-06-03
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

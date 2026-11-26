@@ -1,212 +1,176 @@
 ### 2.3 Manage Products
 
-#### Primary Actors
-
-Staff, Manager with product-management permission.
-
-#### Secondary Actors
-
-Cloud Storage Service, where product images are stored; Workshop Management, which owns the shared branch list.
+| Use Case ID | UC-12 | Use Case Name | Manage Products |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Staff, Manager | Secondary Actors | Cloud Storage Service, Workshop Management |
 
 #### Description
 
-As an authorized catalogue maintainer, I want to create draft products, find them by status, keep their content, images, sizes and stock at each branch up to date, control the sale of each size and at each branch, and delete products that are no longer sold, so that the catalogue data stays valid without changing accepted orders.
+As an authorized catalogue maintainer, I want to create, update, manage stock and sale status, and soft-delete products so that catalogue data stays accurate without altering accepted orders.
 
-This use case includes the following sub-flows:
+#### Trigger
 
-- Find Products in the Management List
-- Create Draft Product
-- Create Product as Manager
-- Update Product Content and Images
-- Manage Branch Stock
-- Add Sizes at a Branch
-- Update Quantity and Sale Status per Size
-- Update Quantity of Several Sizes
-- Delete Product
+A Staff or Manager with product-management permission opens the Product Management List.
 
 #### Preconditions
 
-1. The actor is signed in through the shared Account Management sign-in, the account is active, and the current role is Staff or Manager with product-management permission.
-2. For an update or delete, the product exists and has not been deleted.
-3. For a stock change, the branch is an active branch from the shared branch list maintained by Workshop Management (a Manager may also change the quantity at an inactive branch), and a Staff account has at least one assigned branch.
+1. Actor is signed in with an active Staff or Manager account and product-management permission.
+2. For an update or delete, the product exists and is not deleted.
+3. For a stock change, the branch is active in Workshop Management and Staff has at least one assigned branch.
+
+#### Postconditions
+
+1. A new product is saved as Unpublished with a Draft review record, SKUs, and branch stock rows.
+2. Sizes added later exist only at the adding branch and follow UC-14 to UC-16 for pricing.
+3. Valid updates are saved and audited; pre-publication content changes reset the review to Draft.
+4. Hiding, stopping sale, price changes, or deletion never cancel valid holds, accepted orders, or history.
+5. Failed or unauthorized operations leave the previous state unchanged.
 
 #### Normal Flow
 
 **Find Products in the Management List**
 
-1. The actor opens the Product Management List. A Staff member with one assigned branch sees the list filtered on that branch; a Manager or a Staff member with several branches sees all branches.
-2. The system shows the status tabs All, Drafts, Products to review, Rejected, Ready to publish, Published, Hidden and Prices to review, each with the number of products (for Prices to review, the number of prices waiting for a decision) that match the current search, category and branch. Each non-deleted product belongs to exactly one status tab, and the tab that needs the actor's action is highlighted when its count is above 0.
-3. The actor selects a tab and optionally searches by product code, name or SKU and filters by category or branch. Filters apply as soon as they change (the search about 300 ms after typing stops or on Enter), return to the first page and are kept in the page address; Clear filters removes them.
-4. The system lists 20 products per page in a fixed order; deleted products are not listed. Each row shows the product code and name, category, the total stock at the filtered branch (or at all branches) with the available quantity when it is lower, and the status tab name; a SKU match shows the matching size, and with a branch filter a product stopped at that branch shows "Selling stopped at this branch" (MSG66). A tab without products shows its own empty message (MSG67).
-5. A Manager can publish, hide or show the product again from the row (UC-17). A Staff member, while the list is filtered on one of their active branches where the product is sold, can select Stop selling at branch or Resume selling at branch, as in Manage Branch Stock. Any actor can open the product's details.
+1. Actor opens the Product Management List.
+2. System displays status tabs with counts matching current search, category, and branch filters.
+3. Actor selects a status tab and enters search keywords or category and branch filters.
+4. System lists 20 non-deleted products per page, showing branch-stopped labels (MSG66) or empty-tab messages (MSG67).
+5. Actor opens a product's details, publishes/hides as Manager (UC-17), or toggles branch sale as Staff.
 
 **Create Draft Product**
 
-1. The actor opens the Product Management List and selects New product, which opens the New Product screen.
-2. The actor enters the name (1–200 characters), description (1–5,000 characters), an active category, 1–25 distinct sizes from 5 to 29, and for each size a proposed price (positive whole VND). The actor selects at least one active branch and enters, for each selected branch, a quantity for every size (whole number, 0 or more; default 0; each quantity field also has − and + buttons that change it by 1 and never below 0). The branch selector shows only active branches, and a Staff can select only assigned branches. Images are optional for a draft.
-3. The system validates all data.
-4. The system assigns a stable numeric product code and one read-only SKU per size in the format `SP{product code}-S{size}`, for example `SP000001-S09`.
-5. The system saves the product as Unpublished with a Draft review record, creates one stock row per size at each selected branch, marks each size as on sale, and records an audit entry. The product is not approved, priced or published automatically.
-6. The system shows the product code and SKUs (MSG09).
+1. Actor selects New product on the Product Management List.
+2. Actor enters name, description, active category, 1–25 sizes (5–29), proposed prices, branches, and quantities.
+3. System validates all submitted product, size, price, and branch data.
+4. System assigns a unique product code and one read-only SKU per size.
+5. System saves the product as Unpublished with a Draft review record, stock rows, and an audit entry.
+6. System displays the created product code and SKUs (MSG09).
 
 **Create Product as Manager**
 
-1. A Manager opens New product. The price of each size is labelled Selling price, at least one image is required, and the Manager chooses After creation: Unpublished (default; the price is applied but customers do not see the product) or Publish now.
-2. The Manager enters the data as in Create Draft Product and saves.
-3. The system creates the product as in Create Draft Product steps 3–6.
-4. The screen then sends, one after another, the submission (UC-14), the approval with the entered prices (UC-15), the application of the price of each size (UC-16) and, if chosen, the publication (UC-17). Each step is its own command with its own record and audit entry, and the system checks every condition again.
-5. The system confirms the result of the last step. Staff do not have this option and submit the product for approval under UC-14.
+1. Manager opens New product, enters product details, at least one image, selling prices, and post-creation publication choice.
+2. Manager saves the new product.
+3. System creates the draft product as in Create Draft Product steps 3–6.
+4. System sends submission (UC-14), approval (UC-15), price application (UC-16), and optional publication (UC-17) sequentially.
+5. System confirms the result of the final completed step.
 
 **Update Product Content and Images**
 
-1. The actor finds the product as in Find Products in the Management List and opens it in Product Management Details.
-2. The system displays the product, its sizes and SKUs, review status, proposed, approved and applied prices, publication status, images and, for each size at each branch, the remaining, held and available quantity and the sale status at that branch. For each price proposal and review version it also shows who submitted it and when, the submitter's branches at that time, and who decided it and when (see UC-14 and UC-15). A Staff sees every branch, but edit buttons outside the Staff's scope are hidden or disabled.
-3. The actor changes the name, description or category, or adds, replaces, reorders or removes images (JPEG, PNG or WebP, up to 10 images, each at most 5,000,000 bytes, with alt text of 1–200 characters).
-4. The system checks that the data is still the latest version and validates the changes.
-5. The system saves the changes, records an audit entry and confirms (MSG10).
-6. If the product has never been published, the change invalidates any submitted or approved version and returns the review record to Draft; the actor must submit it again under UC-14. If the product has been published before, valid content and image changes apply directly without a new review.
+1. Actor opens a product in Product Management Details.
+2. System displays product details, SKUs, review history, prices, images, and per-branch stock.
+3. Actor updates name, description, category, or images within size, format, count, and alt-text limits.
+4. System verifies the latest product version and validates all changes.
+5. System saves changes, records an audit entry, and confirms (MSG10); pre-publication edits reset review to Draft.
 
 **Manage Branch Stock**
 
-1. The actor selects Add branch, or selects a branch the product is already sold at.
-2. To add a branch, the actor selects an active branch the product is not sold at yet, enters a quantity for every existing size (default 0) and may tick new sizes with their quantity and price, as in Add Sizes at a Branch. To change existing stock, the actor enters a new quantity for one size at that branch, or selects Stop sale at branch or Resume sale at branch.
-3. The system checks, at the time of the request, that the branch is within the actor's scope: a Manager may act at every active branch; a Staff only at branches currently assigned to the account.
-4. For a quantity change, the system checks that the new quantity is not lower than the quantity held by valid holds at that branch, using the latest hold data. Stock at other branches is not affected.
-5. The system saves the change, records an audit entry and confirms (MSG10). At a branch where sale is stopped, the product keeps its quantities and history but customers cannot select that branch for it; other branches keep selling.
+1. Actor selects Add branch or chooses an existing selling branch.
+2. Actor enters quantities for a new branch, updates a size quantity, or toggles branch sale status.
+3. System verifies the branch is within Actor's scope.
+4. System checks that any new quantity is not below valid holds at that branch.
+5. System saves the change, records an audit entry, and confirms (MSG10).
 
 **Add Sizes at a Branch**
 
-1. On the tab of a branch the product is sold at, the actor selects Add sizes. The button is not shown when the branch already has 25 sizes.
-2. The actor chooses one or more sizes from 5 to 29 that the branch does not have yet. For a size the product already has, the actor enters only the quantity at this branch; for a new size, the actor also enters a price (a proposed price for a Staff, a selling price for a Manager).
-3. The system checks the actor's branch scope, that the branch is active, the latest product version and every row.
-4. The system saves all rows in one operation: a new size gets its SKU, is on sale and has no applied price yet; only this branch gets a stock row for it, and other branches do not sell it until they add their own quantity. The system records an audit entry.
-5. For a product that has been published before, the screen then sends the price of each new size as its own command: for a Staff, the proposal is submitted for approval (UC-14) and the size cannot be bought until a Manager approves and applies the price; for a Manager, the proposal is submitted, approved at the entered price (UC-15) and, when "Apply the price right after approving" stays ticked, applied (UC-16). For a product that has never been published, the price of a new size joins the initial review; a Pending, Approved or Rejected review returns to Draft and must be submitted again.
-6. The system confirms which sizes were added and the state of their prices (MSG64). A size of the product without a stock row at the branch being viewed shows "Not sold at this branch" (MSG65).
+1. Actor selects Add sizes on a selling branch tab.
+2. Actor selects new sizes (5–29), enters quantities, and enters prices for sizes new to the product.
+3. System verifies branch scope, active branch status, latest version, and all row values.
+4. System saves new stock rows and SKUs in one operation and records an audit entry.
+5. System submits, approves, and optionally applies new size prices per UC-14 to UC-16.
+6. System confirms added sizes and price states (MSG64); unstocked sizes at a branch show MSG65.
 
 **Update Quantity and Sale Status per Size**
 
-1. The actor selects a size of the product.
-2. The actor enters a new quantity for the size at a branch, or selects Stop sale or Resume sale for the size.
-3. The system checks that the new quantity is not lower than the quantity currently held by valid holds at that branch, using the latest hold data.
-4. For Stop sale or Resume sale by a Staff, the system checks that every active branch that sells the size is assigned to the Staff; inactive branches are not counted. For Resume sale, the system also checks the size data and price; it does not publish the product.
-5. The system saves the change, records an audit entry and confirms (MSG10). A stopped size keeps its quantity at every branch, shows a label and cannot be added to a cart at any branch; other sizes are not affected.
+1. Actor selects a product size.
+2. Actor enters a new branch quantity or selects Stop sale or Resume sale for the size.
+3. System checks that the new quantity is not below valid holds at that branch.
+4. System verifies Staff branch assignment across all active selling branches for size sale-status changes.
+5. System saves the change, records an audit entry, and confirms (MSG10).
 
 **Update Quantity of Several Sizes**
 
-1. The actor opens Edit quantities of several sizes for one branch and selects sizes one by one or as a size range.
-2. The actor enters one number and chooses Add (added to the remaining quantity, for a restock) or Set to (replaces it), then may still change any row.
-3. The system checks every changed size as in step 3 above before sending anything; only sizes whose quantity changes are saved.
-4. The system saves each size as its own change with its own audit entry; a size that fails does not affect the others. It confirms with the number of sizes saved (MSG10), or lists the sizes that failed and why (MSG54).
+1. Actor opens Edit quantities of several sizes for one branch and selects sizes.
+2. Actor enters a value and chooses Add or Set to, adjusting individual rows as needed.
+3. System validates every changed size against valid holds before sending.
+4. System saves and audits each changed size individually and confirms the saved count (MSG10).
 
 **Delete Product**
 
-1. The actor selects Delete on a product.
-2. The system asks for confirmation (MSG15).
-3. The actor confirms.
-4. The system soft-deletes the product, records the actor and time, removes it from the catalogue and the normal management list, and confirms (MSG16). SKUs and historical decisions are kept and never reused.
+1. Actor selects Delete on a product.
+2. System requests confirmation (MSG15).
+3. Actor confirms deletion.
+4. System soft-deletes the product, records actor and time, removes it from public/management lists, and confirms (MSG16).
 
 #### Alternative Flows
 
-**All sub-flows — Actor is not authorized or the session has expired**
+F2a. Tab counts fail to load → Management list still loads with tabs shown without counts.
 
-The system rejects the request without exposing internal product data (MSG01, MSG02) and records the rejected attempt according to the audit policy. Admin, Guest and Member cannot manage products.
+C2a. Another product already has the same name → Form displays a duplicate-name warning with links (MSG56) without blocking save.
 
-**Create Step 3 / Update Step 4 — Invalid data**
+B2a. Manager updates quantity at a deactivated branch → System allows quantity-only edits at "Branch #{id}" while blocking Stop/Resume sale.
 
-The system identifies each invalid field (MSG08), such as a name or description out of range, an inactive category, a duplicate or out-of-range size, a non-positive price or a negative quantity, and saves nothing.
+#### Exception Flows
 
-**Create Step 2 — Another product already has the same name**
+A1a. Actor is unauthorized or session expired → System rejects the request without exposing internal data (MSG01, MSG02) and logs it.
 
-The form shows "{N} products already have this name" with a link to each one (MSG56). Names are compared after trimming, collapsing extra spaces and ignoring case; Vietnamese accents still count. The warning does not block saving, and it is not shown if the check cannot be loaded.
+C2b. Branch is outside Actor's scope → System rejects the request (MSG01) and makes no changes.
 
-**Manager Create Step 4 — A later step fails**
+C3a. No branch selected, or branch is inactive/unknown → System flags the branch field as invalid (MSG08) and creates nothing.
 
-The product that was saved is kept. The detail page reports the step that failed, and Publish now continues from the missing step.
+C3b. Submitted product, size, price, or quantity is invalid → System flags invalid fields (MSG08) and saves nothing.
 
-**Create Step 2 / Branch Stock Step 3 — Branch is outside the actor's scope**
+M4a. A later Manager creation step fails → Saved product is kept; detail page reports the failed step for continuation.
 
-The system rejects the request (MSG01) and changes nothing, even when the request is sent directly to the API. A Staff with no assigned branch cannot create products or change stock. A Staff can view the products and stock of every branch, but can change content, images and proposed prices only for a product sold at one or more of the Staff's assigned branches.
+U3a. Actor attempts to change or remove a saved size → System rejects the change (MSG13).
 
-**Create Step 3 — No branch selected, or the branch is inactive or unknown**
+U3b. Image breaks validation rules or upload fails → System rejects invalid images (MSG11) or keeps previous images on storage failure (MSG12).
 
-The system identifies the branch field as invalid (MSG08) and creates nothing.
+U3c. Actor removes the last usable image of a published product → System rejects the removal (MSG27).
 
-**Branch Stock Step 2 — Branch is already added**
+B2b. Branch is already added → System rejects the request (MSG08) and creates no duplicate stock row.
 
-The system rejects the request (MSG08) and creates no duplicate stock row. A stock row is never deleted; stopping sale at the branch is used instead of removing it.
+B2c. Inactive branch change is attempted by Staff or status toggled → System rejects it as an unknown branch (MSG08).
 
-**Branch Stock Step 2 — Branch has been deactivated**
+S3a. Size already exists at the branch → System rejects the whole request (MSG62) and creates nothing.
 
-Stock that remains at an inactive branch is shown as "Branch #{id}" with a note that the branch is no longer active, and has no Stop sale or Resume sale button. Only a Manager can change its quantity, for example to count stock or set it to 0 when the branch closes, through the per-branch or the per-size quantity change. Adding an inactive branch, changing the sale status there, or any change there by a Staff is rejected as an unknown branch (MSG08). If the branch source cannot answer, the request is not rejected for this reason. Customers still cannot buy at an inactive branch.
+S3b. Product is not sold at the branch, or branch is inactive → System rejects the request (MSG63, MSG08) and creates nothing.
 
-**Update Step 3 — Actor tries to change or remove a size**
+S3c. Size row is invalid → System identifies the invalid row (MSG08) and creates nothing.
 
-The system rejects the change (MSG13). Saved sizes and SKUs cannot be changed or removed, including in drafts and hidden products; new sizes are added through Add Sizes at a Branch.
+S5a. A price step fails after adding sizes → Added sizes are kept; System reports the unfinished size (MSG73) for follow-up.
 
-**Add Sizes Step 3 — Size already exists at the branch**
+U4a. Data was modified concurrently by another user → System rejects the stale change and prompts reload (MSG03).
 
-The system rejects the whole request (MSG62) when a chosen size already has stock at this branch, or a new size of an Add branch request already exists on the product, and creates nothing.
+Q3a. New quantity is below held quantity → System rejects the update and displays the held quantity (MSG14).
 
-**Add Sizes Step 3 — Product is not sold at the branch, or the branch is inactive**
+E4a. One or more sizes fail in batch edit → Valid sizes are saved; System lists failed sizes and reasons (MSG54).
 
-The system rejects the request (MSG63) when the product has no stock at the branch, or treats an inactive branch as unknown (MSG08), and creates nothing.
+D3a. Actor cancels deletion → System makes no changes.
 
-**Add Sizes Step 3 — Invalid row**
+D4a. Request targets a soft-deleted product → System rejects all edits, reviews, pricing, publication, or cart actions (MSG17).
 
-The system identifies the invalid row (MSG08), such as a size outside 5–29, a size chosen twice, a new size without a price or a price sent for an existing size, and creates nothing.
-
-**Add Sizes Step 5 — A price step fails**
-
-The added sizes are kept. A Staff member's price that could not be submitted stays under Drafts not sent in the Prices to review tab; for a Manager, the steps already done are kept. The system reports the size whose price is not finished (MSG73), and the actor carries on in the Price proposals section.
-
-**Find Step 2 — Tab counts cannot be loaded**
-
-The list still loads and the tabs are shown without counts.
-
-**Update Step 3 — Image is invalid or upload fails**
-
-The system rejects an image that breaks the type, size, count or alt-text rules (MSG11). If storage fails, the system keeps the previous images, saves no broken link and allows a retry (MSG12).
-
-**Update Step 3 — Actor removes the last usable image of a published product**
-
-The system rejects the removal (MSG27).
-
-**Update Step 4 / Quantity Step 3 / Branch Stock Step 4 — Data changed by another user**
-
-The system rejects the stale change, asks the actor to reload and review the latest data (MSG03), and overwrites nothing.
-
-**Quantity Step 3 / Branch Stock Step 4 — Quantity is lower than the held quantity**
-
-The system rejects the new quantity and shows the quantity held at that branch (MSG14).
-
-**Delete Step 3 — Actor cancels**
-
-The system changes nothing.
-
-**Any step after delete — Request targets a deleted product**
-
-The system rejects editing, submitting, approving, applying a price, publishing, resuming sale or adding to a cart, including through an old link or code (MSG17).
-
-**Any save — Save, audit or response failure**
-
-The system keeps the previous state and saves no partial product, variant, image or audit record. If the response is lost, the actor checks the saved state before retrying; a retry of the same request does not create a duplicate product or SKU (MSG04).
-
-#### Postconditions
-
-- A valid new product exists as Unpublished with a Draft review record, one SKU per size and one stock row per size at each selected branch.
-- Sizes added later exist only at the branch where they were added, with their prices following UC-14 to UC-16.
-- Valid updates are saved and audited; content changes before the first publication require a new review.
-- Hiding, stopping sale, changing price or deleting does not cancel valid holds, change accepted orders or remove history.
-- Failed or unauthorized operations leave the previous state unchanged.
+A5a. Save, audit, or response fails → System preserves previous state; idempotent retry avoids duplicate products or SKUs (MSG04).
 
 #### Business Rules
 
 GBR-15, GBR-16, GBR-24, GBR-33, GBR-34, BR-12-01, BR-12-02, BR-12-03, BR-12-04, BR-12-05, BR-12-06, BR-12-07, BR-12-08, BR-12-09, BR-12-10, BR-12-11
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+MSG01, MSG02, MSG03, MSG04, MSG08, MSG09, MSG10, MSG11, MSG12, MSG13, MSG14, MSG15, MSG16, MSG17, MSG27, MSG54, MSG56, MSG62, MSG63, MSG64, MSG65, MSG66, MSG67, MSG73
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | GBR-15 | A product is created with 1–25 sizes from 5 to 29, each with a fixed SKU; saved sizes cannot be changed or removed, but a new size may be added later at one selling branch. Quantity is kept per size at each branch and the price is shared by all branches. |
 | GBR-16 | Hiding, stopping sale of a size or at a branch, changing price or deleting a product never cancels valid holds, changes accepted orders or removes history; deletion is a soft delete. |
 | GBR-24 | Quantity and sale status are kept per size at each branch; a Staff member manages stock only at assigned active branches and changes content, images and proposed prices only of products sold at one of them. |
