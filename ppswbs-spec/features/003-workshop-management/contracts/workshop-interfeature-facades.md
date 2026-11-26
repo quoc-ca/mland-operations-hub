@@ -544,6 +544,12 @@ VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED } 
 - **New-booking block (proposed, task T174):** FE-001 exposes a read on `AccountFacade` that says a MEMBER is retiring; 003.1 checks it under the group-creation lock (FR-062).
 - **Status:** proposed until FE-001's owner confirms the signal (the `NO_SHOW` rule is decided 2026-11-25: never blocks); the local mock `MockMemberReplacementBookingReader` returns DEMO/UNAVAILABLE only and never authorizes retirement.
 
+## Sessions of a cancelled ticket — 003.2 provider for 003.1 (added 2026-11-26, BUG-E2E-0045; decided by Hồ Hoàng Quốc)
+
+- `getCancelledTicketSessions(ticketReference) -> List<SessionEntitlementProjection>`: the sessions the ticket held when
+  it was cancelled (released ones plus any it still keeps because they had started). Empty when the ticket is unknown
+  or not cancelled. Read only; no QR and no person data. 003.1 uses it for the buyer's view of a cancelled ticket.
+
 ## Explicitly not decided here
 
 - Java package names beyond the existing feature `facade` package, concrete

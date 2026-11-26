@@ -184,6 +184,7 @@ public class TicketFolioApiService {
                         .consentRecordedAt(Instant.now())
                         .createdAt(Instant.now())
                         .build());
+                auditChargeAdded(charge, actor, correlation);
                 return charge.getChargeReference();
             });
         } else {
@@ -207,10 +208,25 @@ public class TicketFolioApiService {
                         .consentRecordedAt(Instant.now())
                         .createdAt(Instant.now())
                         .build());
+                auditChargeAdded(charge, actor, correlation);
                 return charge.getChargeReference();
             });
         }
         return toDto(folio, true);
+    }
+
+    /** BUG-E2E-0042: a charge raises what the customer owes, so who added it and when is audited. */
+    private void auditChargeAdded(SettlementCharge charge, CurrentAccountActor actor, String correlation) {
+        audits.save(SettlementBusinessAudit.builder()
+                .auditReference("AUDIT-" + UUID.randomUUID())
+                .aggregateType("SETTLEMENT_CHARGE")
+                .aggregateReference(charge.getChargeReference())
+                .actionCode("CHARGE_ADDED")
+                .actorReference("account:" + actor.accountId())
+                .reasonReference(charge.getReasonReference())
+                .correlationReference(correlation)
+                .createdAt(Instant.now())
+                .build());
     }
 
     @Transactional
