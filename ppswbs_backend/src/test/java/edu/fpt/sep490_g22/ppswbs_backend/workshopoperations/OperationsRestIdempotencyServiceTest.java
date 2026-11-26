@@ -31,6 +31,20 @@ class OperationsRestIdempotencyServiceTest {
         return new OperationsRestIdempotencyService(manager, repository, new ObjectMapper());
     }
 
+    private static final Runnable ALLOWED = OperationsRestIdempotencyService.AUTHORIZED_BY_CALLER;
+
+    @Test
+    void refusedCallerGetsNoStoredResponseAndRunsNothing() {
+        RuntimeException refused = new RuntimeException("forbidden");
+        AtomicInteger mutations = new AtomicInteger();
+
+        assertThatThrownBy(() -> service().execute(() -> { throw refused; }, "key-0", "REST:SLOT_UPDATE", "slot/1",
+                new Command("A"), Result.class, () -> { mutations.incrementAndGet(); return new Result("new"); }))
+                .isSameAs(refused);
+        assertThat(mutations).hasValue(0);
+        verifyNoInteractions(repository, manager);
+    }
+
     @Test
     void sameKeyAndSemanticCommandReplaysOriginalResponseWithoutSecondMutation() {
         when(repository.findFirstByOperationReference("key-1")).thenReturn(Optional.empty());
@@ -39,11 +53,11 @@ class OperationsRestIdempotencyServiceTest {
                 .thenReturn(FacadeCommandIdempotencyManager.ClaimResult.alreadyCompleted(completed("key-1", "{\"value\":\"ok\"}")));
 
         AtomicInteger mutations = new AtomicInteger();
-        assertThat(service().execute("key-1", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
+        assertThat(service().execute(ALLOWED, "key-1", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
                 () -> { mutations.incrementAndGet(); return new Result("ok"); }).value()).isEqualTo("ok");
 
         when(repository.findFirstByOperationReference("key-1")).thenReturn(Optional.of(completed("key-1", "{\"value\":\"ok\"}")));
-        assertThat(service().execute("key-1", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
+        assertThat(service().execute(ALLOWED, "key-1", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
                 () -> { mutations.incrementAndGet(); return new Result("wrong"); }).value()).isEqualTo("ok");
         assertThat(mutations).hasValue(1);
         verify(manager, times(1)).completeClaim(eq(7L), eq(1L), any(), isNull(), eq("{\"value\":\"ok\"}"));
@@ -56,7 +70,7 @@ class OperationsRestIdempotencyServiceTest {
         existing.setSemanticFingerprint("different");
         when(repository.findFirstByOperationReference("key-2")).thenReturn(Optional.of(existing));
 
-        assertThatThrownBy(() -> service().execute("key-2", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
+        assertThatThrownBy(() -> service().execute(ALLOWED, "key-2", "REST:PACKAGE_CREATE", "package", new Command("A"), Result.class,
                 () -> new Result("new"))).isInstanceOf(WorkshopIdempotencyConflictException.class);
         verifyNoInteractions(manager);
     }
@@ -67,7 +81,7 @@ class OperationsRestIdempotencyServiceTest {
         when(manager.acquireClaim(anyString(), eq("key-3"), anyString(), anyString()))
                 .thenReturn(FacadeCommandIdempotencyManager.ClaimResult.inProgress());
 
-        assertThatThrownBy(() -> service().execute("key-3", "REST:SESSION_UPDATE", "session/1", new Command("A"), Result.class,
+        assertThatThrownBy(() -> service().execute(ALLOWED, "key-3", "REST:SESSION_UPDATE", "session/1", new Command("A"), Result.class,
                 () -> new Result("new"))).isInstanceOf(WorkshopIdempotencyInProgressException.class);
     }
 
@@ -78,7 +92,7 @@ class OperationsRestIdempotencyServiceTest {
                 .thenReturn(FacadeCommandIdempotencyManager.ClaimResult.acquired(9L, 2L));
         RuntimeException failure = new RuntimeException("business failure");
 
-        assertThatThrownBy(() -> service().execute("key-4", "REST:SLOT_UPDATE", "slot/1", new Command("A"), Result.class,
+        assertThatThrownBy(() -> service().execute(ALLOWED, "key-4", "REST:SLOT_UPDATE", "slot/1", new Command("A"), Result.class,
                 () -> { throw failure; })).isSameAs(failure);
         verify(manager).abandonClaim(9L, 2L);
         verify(manager, never()).completeClaim(anyLong(), anyLong(), any(), any(), any());

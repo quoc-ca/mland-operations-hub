@@ -38,6 +38,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service.Wor
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -134,14 +136,15 @@ class TicketChangeServiceTest {
         verify(operations, never()).replaceTicketSessions(any());
     }
 
-    @Test
-    void adminWithABuyerProofIsRefusedAndNeverTreatedAsGuest() {
+    @ParameterizedTest
+    @EnumSource(value = ActorRole.class, names = {"ADMIN", "CARRIER"})
+    void adminOrCarrierWithABuyerProofIsRefusedAndNeverTreatedAsGuest(ActorRole role) {
         TicketFolioContext ctx = createDefaultContext(0L, Instant.now().plus(48, ChronoUnit.HOURS));
         when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
         when(finalBills.findByBookingReference(TICKET_CODE)).thenReturn(Optional.of(createDefaultFolio(100_000L)));
         TicketChangeRequestDto req = new TicketChangeRequestDto(TicketChangeType.ADVANCE, List.of(TARGET_SESSION_1), List.of(FROM_SESSION_1),
                 null, "bvr-proof-1234567890", "Admin request");
-        CurrentAccountActor admin = new CurrentAccountActor(77L, ActorRole.ADMIN, ActorStatus.ACTIVE, false, List.of());
+        CurrentAccountActor admin = new CurrentAccountActor(77L, role, ActorStatus.ACTIVE, false, List.of());
 
         assertThatThrownBy(() -> service.changeTicketSessions(TICKET_CODE, req, IDEMPOTENCY_KEY, "CORR-ADMIN", admin))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class)

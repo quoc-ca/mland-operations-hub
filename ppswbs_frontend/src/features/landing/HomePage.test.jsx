@@ -35,6 +35,14 @@ function renderHomePage({
   );
 }
 
+function signedInRole(role) {
+  vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
+    account: { role },
+    status: 'authenticated',
+    refetch: vi.fn(),
+  });
+}
+
 describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -70,6 +78,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('renders Member chip and, with an upcoming ticket, its real time and a link to that booking', async () => {
+    signedInRole('MEMBER');
     const start = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString();
     vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([
       {
@@ -99,6 +108,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('says there is no upcoming workshop and offers no QR link when the Member has no confirmed ticket', async () => {
+    signedInRole('MEMBER');
     vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     expect(await screen.findByText(/Bạn chưa có buổi workshop nào sắp tới/i)).toBeInTheDocument();
@@ -106,6 +116,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('opens dropdown menu with account options when user chip is clicked', () => {
+    signedInRole('MEMBER');
     renderHomePage({ initialAuthState: { status: 'signed-in' } });
     const memberChip = screen.getByRole('button', { name: /Tùy chọn tài khoản/i });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
@@ -125,6 +136,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('displays real dynamic account name and email username without hardcoding', () => {
+    signedInRole('MEMBER');
     const mockUser = {
       displayName: 'Đặng Ngọc Sơn',
       email: 'ngocson@mland.vn',
@@ -261,7 +273,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(within(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).getAllByRole('listitem')).toHaveLength(7);
   });
 
-  it('renders Ecosystem Hub with 6 services and 4 internal operation portals', () => {
+  it('renders Ecosystem Hub with 6 services and no internal portal for a Guest', () => {
     renderHomePage();
     expect(screen.getByText('🔨 Đặt lịch Workshop')).toBeInTheDocument();
     expect(screen.getByText('💍 Mua nhẫn Ready Rings')).toBeInTheDocument();
@@ -270,22 +282,25 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(screen.getByText('🎫 Tra cứu vé & Booking')).toBeInTheDocument();
     expect(screen.getByText('🚚 Tra cứu đơn hàng')).toBeInTheDocument();
 
-    expect(screen.getByRole('link', { name: /Staff Vận hành/i })).toHaveAttribute(
-      'href',
-      '/operations/sessions',
-    );
-    expect(screen.getByRole('link', { name: 'Quản trị Sản phẩm' })).toHaveAttribute(
-      'href',
-      '/catalogue-management/products',
-    );
-    expect(screen.getByRole('link', { name: 'Quản lý Ưu đãi' })).toHaveAttribute(
-      'href',
-      '/promotion-management/programs',
-    );
-    expect(screen.getByRole('link', { name: /Admin Tài khoản/i })).toHaveAttribute(
-      'href',
-      '/admin/accounts',
-    );
+    expect(screen.queryByRole('region', { name: /Cổng/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Admin Tài khoản/i })).toBeNull();
+  });
+
+  it.each([
+    ['STAFF', ['/operations/sessions', '/design-review-requests', '/catalogue-management/products']],
+    ['MANAGER', ['/operations/sessions', '/design-review-requests', '/catalogue-management/products', '/promotion-management/programs']],
+    ['ADMIN', ['/admin/accounts']],
+  ])('offers %s only its own portals', (role, expected) => {
+    signedInRole(role);
+    const { container } = renderHomePage({ initialAuthState: { status: 'signed-in' } });
+    const links = [...container.querySelectorAll('.landing-portals-bar a')].map(link => link.getAttribute('href'));
+    expect(links).toEqual(expected);
+  });
+
+  it.each(['MEMBER', 'CARRIER'])('shows no internal portal to %s', (role) => {
+    signedInRole(role);
+    const { container } = renderHomePage({ initialAuthState: { status: 'signed-in' } });
+    expect(container.querySelector('.landing-portals-bar')).toBeNull();
   });
 
   it('renders Customer Reviews with 4.9 rating and Showroom Footer', () => {
@@ -301,6 +316,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
   });
 
   it('shows the whole landing page in English when the language is en', async () => {
+    signedInRole('MEMBER');
     vi.spyOn(workshopApi, 'listMemberBookingGroups').mockResolvedValue([]);
     renderHomePage({ language: 'en', initialAuthState: { status: 'signed-in' } });
     expect(screen.getByText('YOUR OWN CRAFTING EXPERIENCE')).toBeInTheDocument();
@@ -328,20 +344,26 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(links[4]).toHaveAttribute('href', '/profile');
   });
 
-  it('hides ring design, custom, and AI support links for staff and admin roles', () => {
-    vi.spyOn(useCurrentAccountModule, 'useCurrentAccount').mockReturnValue({
-      account: { role: 'STAFF' },
-      status: 'authenticated',
-      refetch: vi.fn(),
-    });
-    renderHomePage({ initialAuthState: { status: 'signed-in' } });
+  it.each(['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'])('offers %s no Member journey, cart or Member menu entry', (role) => {
+    signedInRole(role);
+    const { container } = renderHomePage({ initialAuthState: { status: 'signed-in' } });
+    expect(screen.queryByText('ACTIVE · MEMBER')).not.toBeInTheDocument();
+    expect(screen.queryByText('🚚 Tra cứu đơn hàng')).not.toBeInTheDocument();
+    expect(container.querySelector('.main-topbar-cart')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Tùy chọn tài khoản/i }));
+    const targets = within(screen.getByRole('menu')).getAllByRole('menuitem').map(item => item.getAttribute('href'));
+    for (const path of ['/my/designs', '/member/orders', '/me/loyalty', '/me/saved-vouchers', '/member/consultations', '/account/my-custom-orders']) {
+      expect(targets).not.toContain(path);
+    }
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
     expect(within(nav).queryByRole('link', { name: 'Cấu hình nhẫn' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Custom' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('floating-ai-chat-btn')).not.toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
+    if (role !== 'CARRIER') {
+      expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
+    }
 
     expect(screen.queryByText('🎨 Chế tác theo yêu cầu')).not.toBeInTheDocument();
     expect(screen.queryByText('🤖 Trợ lý AI tư vấn')).not.toBeInTheDocument();

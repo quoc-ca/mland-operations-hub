@@ -1,9 +1,9 @@
 # Route access and 404 masking matrix
 
 **Date created**: 2026-11-20
-**Date updated**: 2026-11-20
+**Date updated**: 2026-11-26
 **Author**: Phan Sơn
-**Last updated by**: Phan Sơn
+**Last updated by**: Hồ Hoàng Quốc
 
 **Status:** Decision recorded from the product-direction session on 2026-11-20. This document is the shared browser-route inventory; a feature remains authoritative for its server-side action and resource authorization.
 
@@ -26,6 +26,7 @@ The allowlist is exact and role groups are not inherited: `ADMIN` is not a Manag
 | `/admin/accounts`, `/admin/roles` | ADMIN | 001 | Account lifecycle and role catalogue only. |
 | `/admin/notifications/*` | ADMIN, MANAGER | 007 | Explicit shared notification-management capability; the `/admin` prefix is historical and is not an inference rule. A later route rename requires its own approved compatibility plan. |
 | `/carrier`, `/carrier/stats` | CARRIER | 008 | CARRIER may also use public routes and the explicitly allowed password self-service route. It has no Member commerce/history capability. |
+| `/staff/home` | STAFF | 014 | Staff home; the Manager home is `/manager/home` (owner decision 2026-11-26). |
 | `/staff/retail-*` | STAFF | 008 | Manager access requires an explicit future FE-008 rule; it is not inherited from Manager's global Workshop authority. |
 | `/manager/retail-payment-reconciliations`, `/manager/home`, `/manager/dashboard` | MANAGER | 008, 013, 010 | Admin parameter access never grants these Manager routes. |
 | `/catalogue-management/*` | STAFF, MANAGER | 002 | Shared catalogue-work capability; each write is still action-authorized by FE-002. |

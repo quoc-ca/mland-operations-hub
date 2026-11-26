@@ -506,8 +506,9 @@ public class TicketChangeService {
     /** Step 4: who is asking and how the buyer's authority is shown. */
     Requester authorizeRequester(CurrentAccountActor actor, TicketFolioContext ctx, String reason,
                                  String buyerVerificationReference) {
-        // Admin has no authority over buyer operations (003.1) and must not pass as a Guest with a buyer proof.
-        if (actor != null && actor.role() == ActorRole.ADMIN) {
+        // Only an anonymous caller is a Guest: Admin and Carrier have no authority over buyer operations (003.1).
+        if (actor != null && actor.role() != ActorRole.MEMBER && actor.role() != ActorRole.STAFF
+                && actor.role() != ActorRole.MANAGER) {
             throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
         }
         if (actor != null && actor.role() == ActorRole.MEMBER) {

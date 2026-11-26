@@ -73,6 +73,8 @@ const ECOSYSTEM_SERVICES = [
   { id: 'orders', key: 'orders', url: '/member/orders' },
 ];
 
+const MEMBER_SERVICE_IDS = ['custom', 'ai-support', 'orders'];
+
 /**
  * Đánh giá khách hàng thực tế (Node 402:2952)
  */
@@ -117,16 +119,15 @@ export default function HomePage() {
     (currentUser?.email ? currentUser.email.split('@')[0] : '') ||
     t('common.memberFallbackName');
 
-  const userRole = account?.role || 'MEMBER';
-  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
-  const visibleEcosystemServices = ECOSYSTEM_SERVICES.filter((srv) => {
-    if (isStaffOrAdmin && (srv.id === 'custom' || srv.id === 'ai-support')) {
-      return false;
-    }
-    // Admin is not a Member: no member order history tile.
-    return !(isAuthenticated && userRole === 'ADMIN' && srv.id === 'orders');
-  });
-  const isAdminUser = isAuthenticated && userRole === 'ADMIN';
+  const userRole = isAuthenticated ? account?.role || null : null;
+  const isMember = userRole === 'MEMBER';
+  // Member journeys that a Guest may also start; hidden from every other signed-in role (and until the role is known).
+  const isCustomerView = !isAuthenticated || isMember;
+  const visibleEcosystemServices = ECOSYSTEM_SERVICES.filter(
+    (srv) => isCustomerView || !MEMBER_SERVICE_IDS.includes(srv.id),
+  );
+  const isShopStaff = userRole === 'STAFF' || userRole === 'MANAGER';
+  const hasPortal = isShopStaff || userRole === 'ADMIN';
 
   const workshopPackages = useMemo(() => {
     if (!livePackages) {
@@ -185,7 +186,7 @@ export default function HomePage() {
   }, [liveRings, t, format]);
 
   useEffect(() => {
-    if (!isAuthenticated || (account?.role && account.role !== 'MEMBER')) { setNextTicket(null); setTicketLookupDone(false); return undefined; }
+    if (!isAuthenticated || account?.role !== 'MEMBER') { setNextTicket(null); setTicketLookupDone(false); return undefined; }
     let active = true;
     (async () => {
       try {
@@ -339,7 +340,7 @@ export default function HomePage() {
         {/* ================================================================
             KHỐI 0: MEMBER QUICK-ACTION BAR (KHI ĐÃ ĐĂNG NHẬP)
             ================================================================ */}
-        {isAuthenticated && (
+        {isMember && (
           <section
             className="landing-member-quick-bar"
             aria-label={t('member.barLabel')}
@@ -507,7 +508,7 @@ export default function HomePage() {
               >
                 <h4 className="landing-service-title">
                   {t(`ecosystem.${srv.key}.title`)}
-                  {srv.id === 'orders' && isAuthenticated && orderCount > 0 && (
+                  {srv.id === 'orders' && isMember && orderCount > 0 && (
                     <span className="landing-badge-count">{orderCount}</span>
                   )}
                 </h4>
@@ -516,53 +517,48 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="landing-portals-bar" role="region" aria-label={t('portals.label')}>
-            <span>🏢 <strong>{t('portals.heading')}</strong></span>
-            {/* Admin has no part in the operations portals; only account management is offered. */}
-            {!isAdminUser && (
-              <>
-                <Link
-                  to="/operations/sessions"
-                  className={`landing-portal-link ${userRole === 'STAFF' ? 'active-role' : ''}`}
-                  title={t('portals.staffTitle')}
-                >
-                  {t('portals.staff')} {userRole === 'STAFF' && '★'}
+          {/* Internal portals: only for the roles that may open them (route-access-matrix.md). */}
+          {hasPortal && (
+            <div className="landing-portals-bar" role="region" aria-label={t('portals.label')}>
+              <span>🏢 <strong>{t('portals.heading')}</strong></span>
+              {isShopStaff && (
+                <>
+                  <Link
+                    to="/operations/sessions"
+                    className={`landing-portal-link ${userRole === 'STAFF' ? 'active-role' : ''}`}
+                    title={t('portals.staffTitle')}
+                  >
+                    {t('portals.staff')} {userRole === 'STAFF' && '★'}
+                  </Link>
+                  <span className="landing-portal-separator">|</span>
+                  <Link to="/design-review-requests" className="landing-portal-link active-role" title={t('portals.designTitle')}>
+                    {t('portals.design')} ★
+                  </Link>
+                  <span className="landing-portal-separator">|</span>
+                  <Link
+                    to="/catalogue-management/products"
+                    className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
+                    title={t('portals.catalogueTitle')}
+                  >
+                    {t('portals.catalogue')}
+                  </Link>
+                </>
+              )}
+              {userRole === 'MANAGER' && (
+                <>
+                  <span className="landing-portal-separator">|</span>
+                  <Link to="/promotion-management/programs" className="landing-portal-link active-role" title={t('portals.promotionTitle')}>
+                    {t('portals.promotion')}
+                  </Link>
+                </>
+              )}
+              {userRole === 'ADMIN' && (
+                <Link to="/admin/accounts" className="landing-portal-link active-role" title={t('portals.adminTitle')}>
+                  {t('portals.admin')} ★
                 </Link>
-                <span className="landing-portal-separator">|</span>
-                <Link
-                  to="/design-review-requests"
-                  className={`landing-portal-link ${userRole === 'STAFF' || userRole === 'MANAGER' ? 'active-role' : ''}`}
-                  title={t('portals.designTitle')}
-                >
-                  {t('portals.design')} {(userRole === 'STAFF' || userRole === 'MANAGER') && '★'}
-                </Link>
-                <span className="landing-portal-separator">|</span>
-                <Link
-                  to="/catalogue-management/products"
-                  className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-                  title={t('portals.catalogueTitle')}
-                >
-                  {t('portals.catalogue')}
-                </Link>
-                <span className="landing-portal-separator">|</span>
-                <Link
-                  to="/promotion-management/programs"
-                  className={`landing-portal-link ${userRole === 'MANAGER' ? 'active-role' : ''}`}
-                  title={t('portals.promotionTitle')}
-                >
-                  {t('portals.promotion')}
-                </Link>
-                <span className="landing-portal-separator">|</span>
-              </>
-            )}
-            <Link
-              to="/admin/accounts"
-              className={`landing-portal-link ${userRole === 'ADMIN' ? 'active-role' : ''}`}
-              title={t('portals.adminTitle')}
-            >
-              {t('portals.admin')} {userRole === 'ADMIN' && '★'}
-            </Link>
-          </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ================================================================

@@ -221,7 +221,6 @@ export const messagesTicket = {
     // ChangeRequestsPage
     'cr.title': 'Yêu cầu đổi vé',
     'cr.intro': 'Các thay đổi chỉ vướng một quy tắc mà Staff hoặc Manager có thể nới. Duyệt sẽ áp dụng ngay một lượt đổi được tính.',
-    'cr.adminNote': 'Tài khoản Admin không tham gia xử lý đổi vé. Staff và Manager xử lý hàng đợi này.',
     'cr.status': 'Trạng thái',
     'cr.refresh': 'Làm mới',
     'cr.empty': 'Không tìm thấy yêu cầu đổi vé nào.',
@@ -486,7 +485,6 @@ export const messagesTicket = {
     'picker.locationFallback': 'Location {reference}',
     'cr.title': 'Change requests',
     'cr.intro': 'Changes that only fail on a rule a Staff member or a Manager may lift. Approval applies one counted change now.',
-    'cr.adminNote': 'Admin accounts have no part in ticket changes. Staff and Managers handle this queue.',
     'cr.status': 'Status',
     'cr.refresh': 'Refresh',
     'cr.empty': 'No change requests found.',

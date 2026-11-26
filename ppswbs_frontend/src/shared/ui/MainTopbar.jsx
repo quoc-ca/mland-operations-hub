@@ -133,10 +133,13 @@ export default function MainTopbar() {
     resolvedFullName ||
     (userEmail ? userEmail.split('@')[0] : t('account.fallbackName'));
 
-  const userRole = profileData?.role || account?.role || 'MEMBER';
+  // Unknown while a signed-in profile loads: neither Member nor internal entries show until the role is known.
+  const userRole = isAuthenticated ? profileData?.role || account?.role || null : null;
+  const isMember = userRole === 'MEMBER';
+  // Member journeys that a Guest may also start (route-access-matrix.md).
+  const isCustomerView = !isAuthenticated || isMember;
   const isCarrier = userRole === 'CARRIER';
   const isInternal = ['STAFF', 'MANAGER', 'ADMIN'].includes(userRole);
-  const isStaffOrAdmin = isAuthenticated && (userRole === 'STAFF' || userRole === 'ADMIN');
 
   const isRingDesignActive =
     (location.pathname.includes('/design') &&
@@ -172,7 +175,7 @@ export default function MainTopbar() {
               >
                 Workshop
               </Link>
-              {!isStaffOrAdmin && (
+              {isCustomerView && (
                 <Link
                   to="/workshops/PKG-COUPLE-SILVER/design"
                   className={`main-topbar-link ${isRingDesignActive ? 'active' : ''}`}
@@ -187,7 +190,7 @@ export default function MainTopbar() {
               >
                 Ready Rings
               </Link>
-              {!isStaffOrAdmin && (
+              {isCustomerView && (
                 <Link
                   to="/design-requests/new"
                   className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
@@ -214,7 +217,7 @@ export default function MainTopbar() {
               >
                 {t('nav.reviews')}
               </Link>
-              {userRole === 'MEMBER' && (
+              {isMember && (
                 <Link
                   to="/member/consultations"
                   className={`main-topbar-link ${location.pathname.startsWith('/member/consultations') ? 'active' : ''}`}
@@ -227,7 +230,7 @@ export default function MainTopbar() {
         </nav>
 
         <div className="main-topbar-tools">
-          {!isCarrier && (
+          {isCustomerView && (
             <Link
               to="/cart"
               className="main-topbar-cart"
@@ -287,32 +290,32 @@ export default function MainTopbar() {
                       <Link to="/profile" className="main-topbar-dropdown-item" role="menuitem">
                         <span>👤</span> {t('menu.profile')}
                       </Link>
-                      {userRole !== 'ADMIN' && (
+                      {isMember && (
                         <Link to="/my/designs" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💍</span> {t('menu.savedDesigns')}
                         </Link>
                       )}
-                      {userRole === 'MEMBER' && (
+                      {isMember && (
                         <Link to="/member/consultations" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💬</span> {t('menu.designConsult')}
                         </Link>
                       )}
-                      {userRole === 'MEMBER' && (
+                      {isMember && (
                         <Link to="/account/my-custom-orders" className="main-topbar-dropdown-item" role="menuitem">
                           <span>🔨</span> {t('menu.customOrders')}
                         </Link>
                       )}
-                      {userRole !== 'ADMIN' && (
+                      {isMember && (
                         <Link to="/member/orders" className="main-topbar-dropdown-item" role="menuitem">
                           <span>📦</span> {t('menu.myOrders')}
                         </Link>
                       )}
-                      {userRole !== 'ADMIN' && (
+                      {isMember && (
                         <Link to="/me/loyalty" className="main-topbar-dropdown-item" role="menuitem">
                           <span>💎</span> {t('menu.loyalty')}
                         </Link>
                       )}
-                      {userRole !== 'ADMIN' && (
+                      {isMember && (
                         <Link to="/me/saved-vouchers" className="main-topbar-dropdown-item" role="menuitem">
                           <span>🎟️</span> {t('menu.myVouchers')}
                         </Link>
