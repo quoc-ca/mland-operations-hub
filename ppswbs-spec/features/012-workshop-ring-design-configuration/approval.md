@@ -1,9 +1,9 @@
 # Feature-012 Approval Record
 
-Date created: 2026-11-08
-Date updated: 2026-11-22
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
 ## Status
 
@@ -13,6 +13,46 @@ Last updated by: Ngô Tiến Đạt
 > The 2026-11-22 change request is not approved for implementation until the
 > saved-design recommendation, consultation handoff and retired booking flow
 > have been reviewed again.
+
+## Proposed 2026-11-26 full-scope rebaseline — not approved
+
+The Member-only general/package-filtered design flow, retired Guest/booking
+commands, saved-design recommendation/consultation boundary, new Admin-only
+difficulty policy, FE-09 editor, immutable version schema, customer/Admin APIs,
+server-side level/recommendation fields and historical read behavior form one
+proposed revision. The earlier 2026-11-09 full-stack approval and 2026-11-22
+visual approval below do not cover this revision. No checkbox below is
+reinterpreted as approval. Before code handoff, Ngô Tiến Đạt must approve the
+exact updated spec, plan, design, data-model, customer/Admin contracts,
+migration design and written FE-09 Admin visual baseline; the decision record
+must identify scope, date and exact content revision. Phan Sơn is the
+responsible updater, not the approver.
+
+The 2026-11-26 user clarifications narrow FE-09 delivery to ring difficulty,
+keep new unscored options visible but disabled, require standard and optional
+non-personal preview examples, require server-verified preview proof before
+publication, and retain audit for at least five years with referenced policy
+versions kept longer. These clarify the proposed revision; they do not approve
+the Admin API, schema, visual design or implementation.
+
+Further 2026-11-26 decisions in the same proposed revision: Signature Silver
+925 includes 3g; excess mass remains an advisory design estimate. Every active
+published model must keep a full-default score and remain at or below the
+too-risky cutoff across policy/catalogue publication. General discovery keeps
+Copper/Steel models without attaching them to a Silver workshop; package pages
+filter compatible models. Copper/Steel have no incompatible package advice;
+S925-to-S999 Silver Clay advice discloses the material difference. The
+publication preview must show exhaustive model impact, and publish must reject
+an unsafe candidate atomically. The static seed check found 12/12 models
+scoreable with maximum 4.7000 under current values; this is not runtime proof.
+
+The review-ready proposed revision is summarized in
+`review-for-approval.md` with candidate fingerprint
+`0fcb4666b9631b5226f42d2eef79f5a2f82f6bcad13775eb6c236865e9cdb246`.
+This fingerprint identifies the review candidate, not an approval.
+Feature-013's current Member-only consultation spec
+postdates its approval and must be revalidated for this handoff. FE-09 has a
+separate pending `approval.md`. None of these statements records approval.
 
 ## Visual baseline approval — 2026-11-22
 

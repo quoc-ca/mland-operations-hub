@@ -1,32 +1,36 @@
 # Date created: 2026-11-08
-# Date updated: 2026-11-22
+# Date updated: 2026-11-26
 # Author: Ngô Tiến Đạt
-# Last updated by: Ngô Tiến Đạt
+# Last updated by: Phan Sơn
 
 openapi: 3.1.0
 info:
   title: Feature-012 Workshop Ring Design Configuration API
-  version: 0.5.0
+  version: 0.6.0
   description: >-
-    Authoritative contract for Guest and Member workshop ring configuration,
-    supporting Silver/Copper/Stainless Steel, sizes 6-29 with perimeter in mm,
-    dual-view SVG, thickness and width sliders, and multi-gemstone placement.
+    Proposed Member-only workshop ring design contract. Public catalogue reads
+    support general discovery and optional compatible-package filtering;
+    protected draft, evaluation and history commands require an active Member.
+    Published-model scores include complete defaults and one effective policy.
+    This revision has no Guest session or booking attachment command.
 servers:
   - url: /api/v1
 tags:
   - name: Workshop Ring Design
+security:
+  - bearerAuth: []
 paths:
   /workshop-design-options:
     get:
+      security: []
       tags: [Workshop Ring Design]
-      summary: Get package-scoped design options
+      summary: Get general design options or options filtered by compatible package
       operationId: getWorkshopDesignOptions
       parameters:
         - $ref: '#/components/parameters/PackageReference'
-        - $ref: '#/components/parameters/BranchReference'
       responses:
         '200':
-          description: Active package-scoped options and rule metadata
+          description: Active general or package-filtered options, complete model defaults and rule metadata
           content:
             application/json:
               schema:
@@ -35,13 +39,26 @@ paths:
         '422': { $ref: '#/components/responses/BusinessInvalid' }
         '503': { $ref: '#/components/responses/RulesUnavailable' }
   /workshop-designs:
+    get:
+      tags: [Workshop Ring Design]
+      summary: List the active Member's own designs and history
+      operationId: listMyWorkshopDesigns
+      responses:
+        '200':
+          description: Owner-safe design summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DesignResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
     post:
       tags: [Workshop Ring Design]
-      summary: Create a workshop configured-design draft
+      summary: Create a Member configured-design draft
       operationId: createWorkshopDesign
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/GuestDesignSession'
       requestBody:
         required: true
         content:
@@ -55,7 +72,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
         '400': { $ref: '#/components/responses/InvalidInput' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/BusinessInvalid' }
@@ -66,14 +83,13 @@ paths:
       operationId: getWorkshopDesign
       parameters:
         - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
       responses:
         '200':
           description: Design projection
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
   /workshop-designs/{designId}/versions:
@@ -83,7 +99,6 @@ paths:
       operationId: saveWorkshopDesignVersion
       parameters:
         - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
       requestBody:
@@ -98,7 +113,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
         '400': { $ref: '#/components/responses/InvalidInput' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/BusinessInvalid' }
@@ -110,7 +125,6 @@ paths:
       operationId: evaluateWorkshopDesign
       parameters:
         - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
       requestBody:
@@ -125,7 +139,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
         '400': { $ref: '#/components/responses/InvalidInput' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/BusinessInvalid' }
@@ -137,14 +151,13 @@ paths:
       operationId: getWorkshopDesignRecommendation
       parameters:
         - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
       responses:
         '200':
           description: Owner-safe non-blocking workshop recommendation
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WorkshopRecommendation' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/RulesUnavailable' }
@@ -155,7 +168,6 @@ paths:
       operationId: archiveWorkshopDesign
       parameters:
         - $ref: '#/components/parameters/DesignId'
-        - $ref: '#/components/parameters/GuestDesignSession'
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatchVersion'
       responses:
@@ -164,19 +176,38 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DesignResponse' }
-        '401': { $ref: '#/components/responses/SessionExpired' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /workshop-designs/{designId}/restore:
+    post:
+      tags: [Workshop Ring Design]
+      summary: Restore an archived Member design without rewriting prior versions
+      operationId: restoreWorkshopDesign
+      parameters:
+        - $ref: '#/components/parameters/DesignId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchVersion'
+      responses:
+        '200':
+          description: Restored owner-safe projection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/AccessDenied' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
   parameters:
     PackageReference:
       name: packageReference
-      in: query
-      required: true
-      schema: { type: string, minLength: 1, maxLength: 128 }
-    BranchReference:
-      name: branchReference
       in: query
       required: false
       schema: { type: string, minLength: 1, maxLength: 128 }
@@ -196,25 +227,26 @@ components:
       in: header
       required: true
       schema: { type: integer, minimum: 1 }
-    GuestDesignSession:
-      name: X-Guest-Design-Session
-      in: header
-      required: false
-      schema: { type: string, minLength: 16, maxLength: 128 }
-      description: Opaque Guest session reference; never a raw identity or database ID.
   schemas:
     DesignOptionsResponse:
       type: object
-      required: [packageReference, rulesVersion, materials, shapes, sizes, components, attachments, engravingConfig]
+      description: >-
+        Active options awaiting an Admin score remain visible but disabled.
+        Active published models are always fully scored, valid and at or below
+        the too-risky cutoff; publication commands reject a change that would
+        disable one. With no package filter, all active published models appear;
+        if persisted data violates the invariant, return a safe unavailable
+        error rather than silently omitting a model or inventing a score.
+      required: [rulesVersion, materials, shapes, sizes, components, attachments, engravingConfig, models]
       properties:
-        packageReference: { type: string }
-        rulesVersion: { type: string }
+        packageReference: { type: string, nullable: true, description: Explicit compatible package filter; null for general discovery }
+        rulesVersion: { type: string, description: Immutable effective difficulty-policy version used for returned option/model scores }
         materials:
           type: array
           description: Active workshop materials (Silver 925, Copper, Stainless Steel 316L; Gold deactivated).
           items:
             type: object
-            required: [reference, name]
+            required: [reference, name, selectable]
             properties:
               reference: { type: string }
               name: { type: string }
@@ -223,13 +255,15 @@ components:
               unitPrice: { type: string, nullable: true }
               currency: { type: string, nullable: true }
               difficultyScore: { type: string, nullable: true }
+              selectable: { type: boolean, description: False for an active option missing a score in the effective policy }
+              unavailableReason: { type: string, enum: [DIFFICULTY_SCORE_PENDING], nullable: true }
               imageUrl: { type: string, nullable: true }
         shapes:
           type: array
           description: Workshop shapes and surface textures (classic, beveled, single twist, wave, ball-peen, flat band).
           items:
             type: object
-            required: [reference, name]
+            required: [reference, name, selectable]
             properties:
               reference: { type: string }
               name: { type: string }
@@ -237,6 +271,8 @@ components:
               priceAdjustment: { type: string, nullable: true }
               currency: { type: string, nullable: true }
               difficultyScore: { type: string, nullable: true }
+              selectable: { type: boolean }
+              unavailableReason: { type: string, enum: [DIFFICULTY_SCORE_PENDING], nullable: true }
               imageUrl: { type: string, nullable: true }
         sizes:
           type: array
@@ -246,7 +282,7 @@ components:
           type: array
           items:
             type: object
-            required: [reference, name]
+            required: [reference, name, selectable]
             properties:
               reference: { type: string }
               name: { type: string }
@@ -257,6 +293,8 @@ components:
               unitPrice: { type: string, nullable: true }
               currency: { type: string, nullable: true }
               difficultyScore: { type: string, nullable: true }
+              selectable: { type: boolean }
+              unavailableReason: { type: string, enum: [DIFFICULTY_SCORE_PENDING], nullable: true }
               imageUrl: { type: string, nullable: true }
               maxQuantity: { type: integer, nullable: true }
               allowedPlacements:
@@ -266,7 +304,7 @@ components:
           type: array
           items:
             type: object
-            required: [reference, name]
+            required: [reference, name, selectable]
             properties:
               reference: { type: string }
               name: { type: string }
@@ -275,6 +313,8 @@ components:
               unitPrice: { type: string, nullable: true }
               currency: { type: string, nullable: true }
               difficultyScore: { type: string, nullable: true }
+              selectable: { type: boolean }
+              unavailableReason: { type: string, enum: [DIFFICULTY_SCORE_PENDING], nullable: true }
               imageUrl: { type: string, nullable: true }
               maxQuantity: { type: integer, nullable: true }
               allowedPlacements:
@@ -310,28 +350,37 @@ components:
           type: array
           items:
             type: object
-            required: [modelReference, name]
+            required: [modelReference, name, materialReference, shapeReference, defaultComponents, defaultAttachments, difficultyScore, difficultyLevel, selectable]
             properties:
               modelReference: { type: string }
               name: { type: string }
               description: { type: string, nullable: true }
               imageUrl: { type: string, nullable: true }
-              materialReference: { type: string, nullable: true }
-              shapeReference: { type: string, nullable: true }
+              materialReference: { type: string }
+              shapeReference: { type: string }
+              defaultComponents:
+                type: array
+                items: { $ref: '#/components/schemas/ComponentSelection' }
+              defaultAttachments:
+                type: array
+                items: { $ref: '#/components/schemas/AttachmentSelection' }
+              difficultyScore: { type: string, description: Server-evaluated complete model-default score under rulesVersion }
+              difficultyLevel: { type: string, enum: [EASY, MEDIUM, HARD, VERY_HARD] }
+              selectable: { type: boolean, const: true }
     CreateDesignRequest:
       type: object
       additionalProperties: false
-      required: [packageReference, startMode]
+      required: [startMode]
       properties:
-        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        packageReference: { type: string, minLength: 1, maxLength: 128, nullable: true, description: Explicit compatible package context; omitted for general design }
         sourceModelReference: { type: string, minLength: 1, maxLength: 128, nullable: true }
         startMode: { type: string, enum: [PUBLISHED_MODEL, BLANK] }
     SaveDesignVersionRequest:
       type: object
       additionalProperties: false
-      required: [packageReference, materialReference, shapeReference, ringSize, components, attachments, engraving]
+      required: [materialReference, shapeReference, ringSize, components, attachments, engraving]
       properties:
-        packageReference: { type: string, minLength: 1, maxLength: 128 }
+        packageReference: { type: string, minLength: 1, maxLength: 128, nullable: true, description: Optional explicit compatible package context; omission retains the design's current context }
         materialReference: { type: string, minLength: 1, maxLength: 128 }
         shapeReference: { type: string, minLength: 1, maxLength: 128 }
         ringSize: { type: string, minLength: 1, maxLength: 64 }
@@ -418,10 +467,10 @@ components:
         price: { type: number, default: 100000.00 }
     DesignResponse:
       type: object
-      required: [designId, packageReference, designVersion, status, validation, evaluation]
+      required: [designId, designVersion, status, validation, evaluation]
       properties:
         designId: { type: string }
-        packageReference: { type: string }
+        packageReference: { type: string, nullable: true }
         designVersion: { type: integer, minimum: 1 }
         status: { type: string, enum: [DRAFT, SAVED, ARCHIVED] }
         validation: { $ref: '#/components/schemas/ValidationResult' }
@@ -430,15 +479,16 @@ components:
         recommendation: { $ref: '#/components/schemas/WorkshopRecommendation' }
     WorkshopRecommendation:
       type: object
-      required: [recommendationCode, packageReference, reason, advisory, rulesVersion]
+      required: [recommendationCode, reason, advisory, rulesVersion]
       properties:
         recommendationCode:
           type: string
-          enum: [SIGNATURE_SILVER, SIGNATURE_BRASS, SILVER_CLAY, WAX_CASTING]
-        packageReference: { type: string, minLength: 1, maxLength: 128 }
-        packageUrl: { type: string, format: uri-reference }
+          enum: [SIGNATURE_SILVER, SIGNATURE_BRASS, SILVER_CLAY, WAX_CASTING, NO_COMPATIBLE_PACKAGE, TOO_RISKY]
+        packageReference: { type: string, nullable: true, minLength: 1, maxLength: 128 }
+        packageUrl: { type: string, format: uri-reference, nullable: true }
         reason: { type: string, minLength: 1, maxLength: 500 }
         note: { type: string, nullable: true, maxLength: 500 }
+        materialDisclosure: { type: string, nullable: true, maxLength: 500, description: Required when suggesting an S999 Silver Clay workshop for a saved S925 design; no saved material changes automatically }
         advisory: { type: boolean, const: true }
         rulesVersion: { type: string, minLength: 1, maxLength: 64 }
     ValidationResult:
@@ -462,6 +512,11 @@ components:
           type: string
           pattern: '^(0|[1-9][0-9]*)(\\.[0-9]+)?$'
           nullable: true
+        difficultyLevel:
+          type: string
+          enum: [EASY, MEDIUM, HARD, VERY_HARD, TOO_RISKY]
+          nullable: true
+          description: Server-derived from the same immutable policy version as difficultyScore; absent for unreconstructible legacy evaluations.
         estimatedWeightGrams:
           type: string
           nullable: true
@@ -485,26 +540,6 @@ components:
           items: { type: string }
         rulesVersion: { type: string, minLength: 1, maxLength: 64 }
         advisory: { type: boolean, const: true }
-    AttachDesignRequest:
-      deprecated: true
-      description: Retired historical schema; booking attachment is not supported in the current Feature-012 baseline.
-      type: object
-      additionalProperties: false
-      required: [bookingReference, packageReference, branchReference]
-      properties:
-        bookingReference: { type: string, minLength: 1, maxLength: 128 }
-        packageReference: { type: string, minLength: 1, maxLength: 128 }
-        branchReference: { type: string, minLength: 1, maxLength: 128 }
-    BookingDesignSnapshot:
-      deprecated: true
-      description: Retired historical schema; use the Feature-004 custom-design snapshot boundary instead.
-      type: object
-      required: [designReference, designVersion, packageReference, snapshot]
-      properties:
-        designReference: { type: string }
-        designVersion: { type: integer, minimum: 1 }
-        packageReference: { type: string }
-        snapshot: { type: object, additionalProperties: true }
     Error:
       type: object
       required: [code, message, correlationId]
@@ -519,8 +554,8 @@ components:
     InvalidInput:
       description: Invalid transport or field input
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
-    SessionExpired:
-      description: Missing or expired Guest session/identity
+    Unauthorized:
+      description: Missing or invalid active Member identity
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     AccessDenied:
       description: Ownership or permission denied
@@ -532,7 +567,7 @@ components:
       description: Stale, duplicate or idempotency conflict
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     BusinessInvalid:
-      description: Package, branch or option business validation failure
+      description: Package or option business validation failure
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     RulesUnavailable:
       description: Rules/catalogue dependency unavailable

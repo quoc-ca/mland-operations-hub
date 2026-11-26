@@ -1,12 +1,12 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-26
 **Author**: Phan Son
 **Last updated by**: Phan Sơn
 
 **Version**: 0.10
-**Status**: Working Agreement (Updated 2026-11-25: Google integration retired; Member-only design, review and consultation actions)
+**Status**: Working Agreement (2026-11-26 Admin-only ring-difficulty authority confirmed in session; technical design proposed)
 
 > This working agreement summarizes product context and shared design constraints. [Report 2 scope](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/01-scope-purpose.md), [constraints](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/02-assumptions-constraints.md), and [decision evidence](../documents/docs/report-2-project-management-plan/sections/02-i-project-overview/07-evidences.md) govern business scope; Report 3 governs detailed requirements. The [constitution](.specify/memory/constitution.md) governs architecture. This update records the group's confirmed technical decisions; it does not reconcile unrelated business-source conflicts or approve feature designs.
 
@@ -62,7 +62,7 @@ as part of Feature-004 human review.
 | Member | Authenticated customer | Uses own profile/history, workshop booking, independent Design Request, retail/loyalty, consultation, and custom-manufacturing journeys. May create a Design Request when the request satisfies its ownership, consent, and review policy. |
 | Staff | Internal business actor | Maintains product catalogue and available-to-sell quantities; checks in participants; reviews independent Design Requests only within the approved operational scope; prepares paid retail orders; prepares custom-order quote inputs; records pickup/GHTK handoff. |
 | Manager | Internal business actor | Has global operational scope for actions that the owning feature explicitly authorizes to `MANAGER`; Workshop Location assignment is organizational, not a Manager authorization boundary. Manages workshop schedule, staff assignment, capacity, materials, closures, promotions/vouchers, and dashboard; reviews independent Design Requests when the approved policy requires Manager authority; approves custom-order full quotes and configures quote/queue policy. |
-| Admin | Internal technical/operational actor | Manages accounts, fixed-role reference, account status, operational parameters, and approved integration credentials. Does not replace Staff/Manager business approval unless an explicit feature authority allows it. |
+| Admin | Internal technical/operational actor | Manages accounts, fixed-role reference, account status, operational parameters, and approved integration credentials. The Feature-012 exception makes Admin the sole owner of workshop-ring difficulty scores, coefficients and thresholds; it grants no other Staff/Manager business approval or non-difficulty catalogue authority. |
 | SSO Provider | External identity service | Firebase Authentication is the current identity baseline; configured sign-in methods establish identity and issue Firebase ID tokens. Provider identity/claims do not confer Mland roles. |
 | Payment Gateway | External provider | VNPay, the sole V1 payment provider for workshop deposits, retail orders, and one-time custom-order payments. |
 | AI API | External provider | If enabled, a paid Gemini API may support the separately scoped Basic AI Support capability and approved catalogue price suggestions. It does not analyse Feature-004 images, review designs, quote custom orders, or make custom-manufacturing decisions. |

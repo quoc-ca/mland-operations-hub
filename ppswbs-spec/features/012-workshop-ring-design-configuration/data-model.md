@@ -1,19 +1,19 @@
 # Feature-012 Data Model — Workshop Ring Design Configuration
 
-Date created: 2026-11-08
-Date updated: 2026-11-22
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
-**Status:** IMPLEMENTED BASELINE; 2026-11-22 lifecycle and recommendation change documented; implementation pending.
+**Status:** Historical implemented baseline plus proposed 2026-11-26 Admin difficulty model; lifecycle and policy changes pending approval/implementation.
 
 ## 1. Ownership boundary
 
 Feature-012 owns configured-design lifecycle, option selections, evaluation
-snapshots and archive/audit evidence. Workshop
-Booking owns booking, session, capacity, payment and ticket records. Catalogue
-and Manager administration own the source option/rule facts consumed by this
-feature.
+snapshots and archive/audit evidence. Workshop Booking owns booking, session,
+capacity, payment and ticket records. Catalogue and Manager administration own
+non-difficulty option facts. Feature-012 owns the Admin-published difficulty
+policy and the evaluation snapshots that consume it.
 
 Feature-012 must not create direct repository dependencies on Workshop Booking,
 Workshop Operations or Product Management. Cross-feature validation uses public
@@ -30,7 +30,7 @@ Logical name: `configured_design`
 | `design_reference` | Yes | Opaque external reference; never a raw database ID in a public DTO. |
 | `owner_type` | Yes | `MEMBER`. |
 | `owner_reference` | Yes | Member account reference. |
-| `package_reference` | Yes | Opaque selected workshop package reference. |
+| `package_reference` | No | Opaque workshop package reference only when the Member explicitly starts from or selects a compatible package; null for general discovery. |
 | `source_model_reference` | No | Published catalogue model used as the starting point. |
 | `design_type` | Yes | `configured_design`; source catalogue models remain `catalogue_model`. |
 | `current_version` | Yes | Latest successful Save/Evaluate version. |
@@ -48,13 +48,13 @@ Logical name: `configured_design_version`
 | --- | --- | --- |
 | `design_reference` | Yes | Parent configured-design reference. |
 | `design_version` | Yes | Monotonic version within the design aggregate. |
-| `package_reference` | Yes | Package context used for validation. |
+| `package_reference` | No | Explicit package context used for compatibility validation when present; null does not imply a Silver package. |
 | `material_reference` | Yes | Selected base material (`MAT-SILVER-925`, `MAT-COPPER`, `MAT-STAINLESS-STEEL`). |
 | `shape_reference` | Yes | Selected base shape (`SHP-CLASSIC-ROUND`, `SHP-BEVELED`, `SHP-SINGLE-TWIST`, `SHP-WAVE`, `SHP-BALL-PEEN`, `SHP-FLAT-BAND`). |
 | `ring_size` | Yes | Validated size value (`6` through `29`); millimeter perimeter = `size + 40mm`. |
 | `component_snapshot` | Yes | Closed JSON snapshot containing component list, attachments, engraving, dimensions (`thicknessMm`, `bandWidthMm`), and polar `gemstonePositions` (angle, coordinates). |
-| `evaluation_snapshot` | Yes after evaluate | Estimate, difficulty, currency, rules version and validation result. |
-| `lifecycle_status` | Yes | Version state and attach/lock state. |
+| `evaluation_snapshot` | Yes after evaluate | Estimate, difficulty score and level, recommendation outcome, currency, rules version and validation result, all bound to the same effective difficulty policy. |
+| `lifecycle_status` | Yes | Current version state; booking attach/lock values are historical-read only. |
 | `created_at` | Yes | Immutable creation timestamp. |
 
 Each successful Save/Evaluate creates a new immutable version. A version cannot
@@ -154,7 +154,7 @@ data or unnecessary personal data.
 ## 3. Invariants
 
 1. `design_type` distinguishes catalogue models from configured designs.
-2. Every validated design uses active options compatible with its package.
+2. Every validated design uses active options; when a package is explicitly selected, those options and the source model must also be compatible with that package.
 3. A configured version has one base material and one base shape in V1.
 4. Gemstone/attachment quantities are positive and placement values are validated.
 5. Estimate, difficulty and `rules_version` are stored as one evaluation snapshot.
@@ -181,7 +181,7 @@ data or unnecessary personal data.
 23. Custom-image `contrast` and `sharpness` are persisted integers in `0..100`, default 50.
 24. Saved previews must be reconstructible from persisted safe image/reference data.
 25. Feature-012 messages and preview labels use one active locale and valid UTF-8 without mojibake.
-21. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Rings with $M \le 3.0\text{g}$ use base unit price; every 1 gram exceeding 3.0g incurs an excess surcharge (120.000 ₫/g for Silver).
+26. Material cost calculates mass $M = \frac{(P + \pi T) \cdot T \cdot W}{1000} \cdot D$. Signature Silver 925 includes 3g; mass above 3g produces an advisory excess-material estimate (120.000 ₫/g for Silver), not an automatic payable workshop charge.
 
 ## 4. Keys, uniqueness and concurrency
 
@@ -202,15 +202,15 @@ be reconciled with repository Flyway history before migration.
 ### 2.10 Custom-order reference snapshot
 
 Feature-004 receives a server-built immutable snapshot through the public facade.
-The snapshot records the selected design version, package context, material,
+The snapshot records the selected design version, optional explicit package context, material,
 shape, size, components, attachments, engraving, dimensions and evaluation
 metadata where available. It does not expose the Guest session value or private
 Member data.
 
-Only `DRAFT` and `VALIDATED` versions may create this snapshot. A version already
-attached to or locked by a workshop booking cannot be reused directly; cloning
-creates a new lineage version first. Changes to the source design never mutate an
-existing custom-order snapshot.
+The current Member flow may project an owner-visible `SAVED` version after
+ownership and status validation. Legacy booking-attached/locked rows require an
+approved read-only compatibility projection. Changes to the source design never
+mutate an existing custom-order snapshot.
 
 ## 5. Retention and deletion
 
@@ -237,11 +237,136 @@ to a workshop ticket. Feature-004 may request an immutable owner-verified
 snapshot from any readable design state; the custom-order module owns the
 snapshot boundary and all later quote/order behavior.
 
-Evaluation reads catalogue data through the Manager-owned rule facade. It stores
-safe input/output, currency, timestamp and `rules_version`; Feature-012 does not
-own a fixed numerical formula. P2.9 snapshot envelope and decimal-string money
-representation remain mandatory.
+Evaluation reads non-difficulty option facts from the catalogue boundary and
+one immutable Admin-published difficulty policy owned by Feature-012. It stores
+safe input/output, difficulty level, recommendation outcome, currency, timestamp
+and `rules_version`; a historical read uses that snapshot rather than current
+policy values. P2.9 snapshot envelope and decimal-string money representation
+remain mandatory.
 
-Remaining gates are physical schema/migration approval after checking versions
-through `V102`, session-store implementation, rule-facade implementation,
-booking-facade implementation and formal approval.
+## 7. Proposed difficulty policy model — 2026-11-26
+
+Feature-012 owns an immutable `ring_difficulty_policy_version` aggregate and
+versioned `ring_difficulty_option_score` entries keyed by option kind and opaque
+option reference. A version includes the standard-engraving and per-image
+coefficients, ordered level cutoffs, Wax Casting cutoff, gemstone-count cutoff,
+status, publish actor/time, and an immutable audit record of old/new values.
+Exactly one version is effective, complete for the active options at its
+publication time. Options activated later remain pending and unselectable until
+the next complete publication. The physical table, key, uniqueness,
+FK and migration contract are proposed here; they require Tech Lead approval.
+An active published model is independently checked using its full default
+material, shape, component and attachment snapshot. It must use active valid
+references, have every contribution under the effective policy and score no
+higher than that policy's too-risky cutoff. A model cannot be published, nor an
+option it requires retired, when this invariant would fail. An explicit model
+retirement is a separate catalogue operation; policy publication never hides
+models as a side effect.
+
+Publication validates every active option has exactly one non-negative score
+with at most four decimal places, all required coefficients are present and
+non-negative, level cutoffs strictly increase, Wax cutoff is below the too-risky
+cutoff, and gemstone cutoff is an integer below the aggregate limit of 10.
+Validation uses the whole candidate; no partial option update is visible.
+An active option added by Manager without a score in the effective policy is
+still returned to customer option reads, but with `selectable: false` and
+`unavailableReason: DIFFICULTY_SCORE_PENDING`. It cannot be selected for a new
+draft or evaluation, and it cannot be referenced by an active published model.
+The Admin candidate must supply its score before the next
+complete policy can be published. Manager catalogue DTOs exclude difficulty fields.
+
+A preview with at least one evaluable standard example and no blocking
+published model creates an
+expiring proof record containing only an opaque reference, Admin account
+reference, canonical candidate digest (option entries sorted by kind/reference
+and decimal strings normalized to four places), expected active policy version,
+catalogue revision,
+creation time and expiry (15 minutes). Neither full candidate,
+sample input/output nor Member data is retained in that record. Required
+standard examples and optional Admin examples are evaluated transiently. A
+publish checks the proof against the authenticated Admin, exact candidate,
+still-effective version and unchanged catalogue revision. Inside the same
+publication transaction it recomputes every active published model using its
+complete defaults, rejecting the candidate with affected model codes if any
+model becomes invalid, unscored or `TOO_RISKY`; a completed idempotent replay is
+looked up first so it succeeds after proof expiry. Expired proof is deleted.
+
+The publication audit is append-only for at least five years under Report 3
+DBR-36. A superseded immutable policy version and its scores remain while any
+retained design version references them; deleting an unreferenced version after
+the applicable audit period requires a separate approved retention operation.
+
+The migration design seeds the first version from existing catalogue
+`difficulty_score` values, engraving coefficients `0.5000` and `0.3000`, level
+cutoffs `3/6/9/11`, Wax cutoff `9` and gemstone cutoff `5`. Existing catalogue
+score columns remain legacy compatibility data and cease to be evaluation
+authority after cutover. No applied Flyway migration is edited. Existing
+`ring_designs.difficulty_score` and `rules_version` are retained; new evaluation
+snapshots additionally retain level and recommendation outcome. Records without
+those fields do not acquire a fabricated historical outcome.
+
+The existing `ring_designs.difficulty_score` column is `DECIMAL(10,4)`, while
+the proposed per-option input range can produce a larger valid sum. The
+append-only migration must widen the stored result to `DECIMAL(18,4)` and
+reject a candidate whose maximum legally selectable configuration would exceed
+that range. This is a storage-safety bound, not a customer-facing `/10` scale.
+The physical design must permit nullable package context for new general
+catalogue designs and general-catalogue models while preserving legacy package
+references. Package-filtered customer reads return only compatible models;
+unfiltered reads return all active eligible models. Existing seeded Copper/Steel
+models currently point at the Silver package and require an append-only data
+correction so no incompatible package relationship remains. Source-model
+defaults must be projected and evaluated in full rather than reduced to
+material and shape.
+
+One publish transaction checks the expected active version, persists the new
+complete version and audit evidence, then changes the effective pointer. A
+duplicate idempotent command returns its original result; stale concurrent
+publish returns conflict and leaves the previous version effective. Recovery or
+rollback publishes a new version copied from a prior one; it never rewrites
+an immutable policy or saved design version.
+
+The old `V102`, Guest-session and booking-facade gates above are historical;
+repository migration files were observed through `V203` on 2026-11-26.
+Remaining current gates are the applied-database baseline check, append-only
+policy migration, Member-only customer-contract rebaseline, Admin API/visual
+approval and formal Tech Lead approval.
+
+## 8. Proposed physical mapping and append-only upgrade
+
+This is a schema design for Tech Lead review, not an executable migration. The
+implementation team must inspect the applied `flyway_schema_history` and
+current schema before choosing the next migration number. Never edit V110,
+V142, V194 or another applied migration.
+
+| Physical object | Proposed columns and constraints |
+| --- | --- |
+| `ring_difficulty_policy_versions` | Unsigned bigint PK, unique opaque `rules_version`, non-negative `DECIMAL(18,4)` engraving and image coefficients, ordered `DECIMAL(18,4)` cutoffs, gemstone count cutoff, Admin actor reference and `DATETIME(6)` publication time. Rows are immutable. |
+| `ring_difficulty_option_scores` | Unsigned bigint PK, FK to policy version with `ON DELETE RESTRICT`, kind/reference, non-negative `DECIMAL(18,4)` score, unique `(policy_version_id, kind, option_reference)`. References are validated against the catalogue at publication; no cross-table polymorphic FK is invented. |
+| `ring_difficulty_effective_policy` | One row keyed by the ring-policy scope with FK to the currently effective policy. A locked update in the publication transaction atomically switches the pointer; old versions remain immutable. |
+| `ring_difficulty_catalogue_revision` | One monotonic revision row for the active model/default and referenced-option set. Every model publication, default edit, active-state change and relevant option activation/retirement locks and advances it in the same transaction after preserving the model invariant. Preview proof binds this revision; publish compares it under lock. |
+| `ring_difficulty_preview_proofs` | Unique hash of an opaque proof reference, Admin account reference, canonical candidate digest, expected effective policy FK, expected catalogue revision, `created_at` and `expires_at`. No candidate, examples, model payload or Member data is stored. Expired rows are purged; completed idempotent replay is checked before proof validation. |
+| `ring_difficulty_publication_audit` | Append-only actor, timestamp, previous/new policy FK, reason/correlation and old/new values or stable policy references. Retain at least five years; access is Admin/audit-scoped. |
+| Existing `ring_designs` | Widen `difficulty_score` to `DECIMAL(18,4)`; permit null `package_reference` for general designs; add nullable FK to policy version and versioned evaluation snapshot fields for level, recommendation code/package/material disclosure and evaluation time. Keep old `rules_version`, score, legacy status/booking fields and rows readable; new writes use only Member and current lifecycle values. |
+| Existing `ring_catalogue_models` | Permit null `package_reference`. An append-only data correction sets the four active Copper/Steel model package references to null; Silver models retain the verified compatible association. Existing model codes and default JSON remain unchanged. |
+
+Publication obtains the effective-policy and catalogue-revision locks in a
+documented stable order, validates the complete candidate and active-model
+defaults, inserts version/scores/audit, then switches the pointer in one
+transaction. Catalogue writes use the catalogue-revision lock and the current
+policy to reject a model publication/default edit/option retirement that would
+leave an active model invalid, unscored or too risky. A concurrent change
+invalidates an older preview and returns conflict without partial publication.
+The customer options read uses one policy and catalogue snapshot; a general
+read includes all active published models, and a package read filters by actual
+package/material compatibility.
+
+Seed policy values from active catalogue scores and existing coefficients and
+cutoffs. Before the effective pointer is exposed, validate every active model
+using its full defaults. The 12 rows seeded in V142 pass a static reference and
+formula check (12/12, maximum 4.7000), but the migration must fail safely if
+the applied database has different active models or scores. Preserve older
+design results without mass recalculation. A failed schema or seed step leaves
+the old runtime baseline until a separately approved deployment/cutover;
+physical cleanup of unreferenced policy and audit rows remains a separate
+retention operation.

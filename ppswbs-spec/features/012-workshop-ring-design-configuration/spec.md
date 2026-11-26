@@ -1,11 +1,11 @@
 # Feature-012 — Workshop Ring Design Configuration
 
-Date created: 2026-11-01
-Date updated: 2026-11-24
-Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+**Date created**: 2026-11-01
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
-Status: `MEMBER-ONLY REBASELINE — IMPLEMENTATION PLAN REQUIRED`
+Status: `MEMBER-ONLY REBASELINE + ADMIN DIFFICULTY POLICY PROPOSED — IMPLEMENTATION PLAN/APPROVAL REQUIRED`
 
 ## 1. Purpose and boundary
 
@@ -13,8 +13,9 @@ Feature-012 lets an authenticated, active Member configure and save one or more
 workshop-ring designs from catalogue-controlled parameters. It supports
 published models, blank designs, shape, material, ring size, gemstones,
 components, attachments and engraving. The backend validates compatibility and
-calculates advisory estimate/difficulty values through the Manager-owned rule
-facade.
+calculates advisory estimate/difficulty values through its own server-owned rule
+boundary. Only an authorized Admin may configure and publish difficulty policy
+values; Manager retains only separately authorized non-difficulty catalogue work.
 
 Guest users may see the configurator entry point, catalogue options, preview
 explanation and the sign-in CTA. A Guest may change parameters in a local,
@@ -29,6 +30,15 @@ Member saves a design, the system may show an advisory workshop recommendation;
 all other workshop discovery actions remain visible. Feature-012 does not create
 booking, payment, quote, custom order, or ticket records.
 
+## Clarifications
+
+### Session 2026-11-26
+
+- Q: How is a new Manager-added ring option shown before Admin publishes its difficulty score? → A: Visible but disabled for customer selection.
+- Q: How long are superseded policy versions and publication audit retained? → A: Audit for at least five years; versions longer while referenced by a saved design.
+- Q: What must remain true for an active published model after an Admin policy change? → A: Its complete default configuration remains valid, fully scored and below or at the too-risky cutoff; customer-edited variants are evaluated separately.
+- Q: How is the Signature Silver 925 3g allowance treated? → A: 3g is included, not a hard design limit; excess mass is an advisory surcharge, not an automatic workshop charge.
+
 ## 2. Actors and permissions
 
 | Action | Guest | Member | Staff | Manager | Admin |
@@ -39,7 +49,8 @@ booking, payment, quote, custom order, or ticket records.
 | View design/history | Deny private data | Own designs only | Deny by default | Approved operational projection | Technical/audit projection |
 | Archive/restore | Deny | Own unsubmitted design | Deny | Deny | Deny |
 | View workshop recommendation | Public explanation | Own saved design | Deny | Business context | Deny |
-| Change catalogue/rules | Deny | Deny | Deny unless separately granted | Allow | Technical settings only |
+| Change non-difficulty ring-catalogue fields | Deny | Deny | Deny unless separately granted | Allow where the catalogue contract grants it | Deny |
+| Preview/publish difficulty policy | Deny | Deny | Deny | Deny | Allow for an active authorized Admin only |
 
 Member identity and account status are checked by the backend on every protected
 operation. The client cannot supply owner, role, price, difficulty or rule
@@ -50,20 +61,26 @@ version to obtain access.
 ```text
 Guest/Member sees design entry
   → Guest protected action prompts sign-in
-  → Member selects model or blank design
+  → Member selects a published model or a blank design, from general discovery or a compatible workshop page
   → selects parameters and sees local preview
   → Save/Evaluate with Idempotency-Key and If-Match-Version when applicable
-  → server validates options/package rules and calculates advisory result
+  → server validates active options and any selected package context, then calculates an advisory result
   → Member sees saved version, summary and recommendation
 ```
 
 Options are returned by the backend and are never hard-coded as authoritative
 frontend data. The preview is local and clearly marked as a preview until the
-server accepts the version.
+server accepts the version. The general design catalogue includes all active
+published models; a workshop page shows only models compatible with that
+package. A general-catalogue design has no selected package until the Member
+chooses one explicitly; a recommendation never silently selects it. The four
+currently seeded Copper/Steel models remain in general discovery and lead to
+consultation rather than an incompatible Silver workshop package.
 
 ## 4. Parameters and validation
 
-The backend validates active options, package compatibility, ring size,
+The backend validates active options, package compatibility when a package was
+explicitly selected, ring size,
 dimensions, gemstone/component quantities, attachment placement, engraving
 limits and image preprocessing bounds. The current UI rules include a maximum
 aggregate of 10 gemstones, at most 2 text engravings, 2 symbol engravings and
@@ -72,7 +89,75 @@ aggregate of 10 gemstones, at most 2 text engravings, 2 symbol engravings and
 The server-owned evaluation result may contain safe validation reasons,
 estimated price, currency, difficulty score, warnings, evaluation timestamp and
 `rules_version`. Estimate and difficulty are advisory only; they do not change
-workshop package price, payment or manufacturing quote.
+workshop package price, payment or manufacturing quote. The Signature Silver
+925 workshop includes 3g of silver. A heavier design remains valid and shows
+the estimated excess-material amount; the workshop process confirms any amount
+actually payable.
+
+### 4.1 Admin-owned difficulty policy — proposed 2026-11-26
+
+The configurable values are the difficulty contribution for each material,
+shape, gemstone/component and attachment reference; the one-time standard
+engraving coefficient; the per-image coefficient; the ordered difficulty-level
+cutoffs; the Wax Casting difficulty cutoff; and the Silver Clay total-gemstone
+cutoff. The additive formula, quantity multiplication, four-decimal `HALF_UP`
+rounding and recommendation precedence are fixed by this feature, not editable
+formula text. Ring size, dimensions, price, density and placement are outside
+this difficulty policy.
+
+An Admin reviews a before/after preview on representative, non-personal
+designs, then confirms one atomic publication of a complete policy version.
+Invalid values, an incomplete option-score set, stale publication version or
+storage failure leave the previously effective version unchanged. The published
+version is immutable and auditable with Admin actor, time and old/new values;
+reverting means publishing another version. New catalogue options cannot become
+evaluable until an Admin-supplied difficulty score is published. A newly active
+option without a score remains visible in customer options with
+`selectable: false` and `unavailableReason: DIFFICULTY_SCORE_PENDING`; the UI
+disables selection and explains why. It cannot enter a new draft or evaluation.
+Manager catalogue commands must not accept or overwrite difficulty fields.
+An active published model is stronger than an ordinary selectable option:
+its complete default material, shape, components and attachments must remain
+active, compatible with its publication context, fully scored and at or below
+the candidate too-risky cutoff. Preview reports every active model and its
+before/after eligibility; publish
+rejects the whole candidate with model-specific reasons if any active model
+would fail. Model publication and catalogue option retirement apply the same
+invariant against the effective policy; they cannot silently disable or hide an
+already published model. Deliberate model retirement is a separate catalogue
+action. Newly active unscored options may still appear disabled when no active
+published model depends on them.
+
+Preview always compares the current and candidate policy on server-owned
+standard non-personal examples spanning a basic design, gemstone and engraving
+cases, threshold boundaries and overlapping recommendation conditions. An Admin
+may add non-personal examples; no saved Member design or identity is accepted.
+If a valid catalogue example cannot realize a standard case, the response marks
+that case unavailable rather than inventing a score. No publication proof is
+issued if every standard example is unavailable. A preview with any blocking
+model returns the impact table but no publication proof. An eligible preview
+stores only an opaque proof reference, Admin account reference, digest of the
+exact candidate, expected active and catalogue versions and 15-minute expiry.
+It stores no example
+contents or Member data. Publication requires matching, unexpired server-side
+proof and revalidates the complete candidate and every active published model
+within the publication transaction. A concurrent catalogue change invalidates
+the proof and requires a new preview. Missing, expired or mismatched
+proof cannot publish; a completed identical idempotent retry still replays its
+original result after proof expiry.
+
+Publication audit retains actor, time and old/new values for at least five
+years under Report 3 DBR-36. An inactive policy version remains available while
+any retained design references it, even beyond five years. Neither period is
+borrowed from the three-year Member design-history rule.
+
+Each successful new evaluation uses exactly one effective policy version.
+Previously saved design versions retain their original score, level,
+recommendation outcome and rules version; viewing them does not silently
+re-evaluate under current policy. Older records with only score/version retain
+those stored fields and receive a historical level/recommendation only when the
+corresponding legacy policy and input are reconstructible. A score can exceed
+10; no customer UI may append `/10`.
 
 ## 5. Lifecycle and persistence
 
@@ -92,24 +177,40 @@ compatibility projection; they do not authorize new Guest actions.
 
 ## 6. Workshop recommendation
 
-Recommendation is calculated from server-owned evaluation data after a Member
-saves a design:
+Recommendation is calculated on the server from the same effective difficulty
+policy used for the saved evaluation, in this precedence:
 
-- more than five gemstones → recommend Silver Clay;
-- difficulty above nine → recommend Wax Casting and show that it requires two
-  sessions on two different days;
-- if neither rule applies, use the approved material/category mapping for the
-  applicable Signature workshop.
+1. Above the configured too-risky cutoff, return `TOO_RISKY` and no workshop
+   recommendation. Explain the consultation/custom-design path without creating
+   a request or hiding general workshop discovery.
+2. Otherwise, above the configured Wax Casting difficulty cutoff, recommend Wax
+   Casting only when the selected material is supported; explain its two
+   sessions separated by at least two foundry working dates.
+3. Otherwise, above the configured total-gemstone cutoff, recommend Silver Clay
+   for the silver material family only. For a saved S925 design, explicitly
+   disclose that the suggested Silver Clay workshop uses S999; the saved S925
+   material does not change.
+4. Otherwise use the approved material/category mapping for the applicable
+   Signature workshop. If no compatible package exists, return no package
+   recommendation and show consultation and general discovery.
+
+The starting cutoffs correspond to the current observed behavior: level
+boundaries `3/6/9/11`, Wax Casting `>9`, Silver Clay `>5` gemstones. They are
+seed values for the proposed policy, not evidence of accuracy. Classification
+and recommendation thresholds change only through Admin publication.
 
 The recommendation is advisory. It does not force a package, hide other
 workshops, create a booking, or mutate payment. The saved-design page displays
 `Recommended`, a link to the suggested workshop detail, and the approved reason
 text while keeping the general workshop discovery action visible.
+The material-compatibility check applies before returning any suggested
+package. Copper and Steel 316L currently have no approved compatible workshop
+package and therefore receive no package recommendation at any score.
 
 ## 7. Member-only API baseline
 
 ```text
-GET  /api/v1/workshop-design-options          # public catalogue/options only
+GET  /api/v1/workshop-design-options          # public general options, optional package filter
 GET  /api/v1/workshop-designs                 # Member only
 POST /api/v1/workshop-designs                 # Member only
 GET  /api/v1/workshop-designs/{designId}      # owner/authorized projection
@@ -120,8 +221,8 @@ POST /api/v1/workshop-designs/{designId}/restore
 ```
 
 All mutations require `Idempotency-Key`; versioned mutations require
-`If-Match-Version`. There is no current `attach-to-booking` command and no
-There is no `X-Guest-Design-Session` or `X-Guest-Session` authorization path.
+`If-Match-Version`. There is no current `attach-to-booking` command,
+`X-Guest-Design-Session` or `X-Guest-Session` authorization path.
 
 ## 8. Security, privacy and integration
 
@@ -166,7 +267,9 @@ state. No unauthenticated retry may create or mutate a design.
 1. Guest sees the design entry, can browse public options and can change local
    preview parameters, but the first configure/save/evaluate action opens sign-in
    and makes no protected API call.
-2. Active Member can create and save a model-based or blank design.
+2. Active Member can create and save a model-based or blank design from general
+   discovery or a compatible workshop page. Published-model evaluation includes
+   every default component and attachment, not only material and shape.
 3. Member can view only own designs and history; another Member receives a safe
    authorization error.
 4. Invalid/inactive/incompatible options are rejected before version creation.
@@ -174,8 +277,22 @@ state. No unauthenticated retry may create or mutate a design.
    backend validation.
 6. Save/Evaluate creates immutable versions and stale updates return `409`.
 7. Archive preserves history and does not hard-delete rows.
-8. Saved design with more than five gemstones recommends Silver Clay; difficulty
-   above nine recommends Wax Casting with the two-session/two-day note.
+8. Server-owned policy classifies and recommends in the precedence above,
+   including no workshop recommendation beyond the too-risky cutoff; threshold
+   equality follows the documented strict `>` rule.
 9. Recommendation never hides other workshops or changes booking/payment state.
 10. Feature-012 never creates or locks a booking/ticket design attachment.
 11. Feature-004 can consume only an immutable Member-owned snapshot.
+12. Active Admin can preview and publish a complete policy; Manager and all
+    other actors cannot read its private administration API or mutate any
+    difficulty value through catalogue commands.
+13. A new policy affects only later evaluations. Historical design reads retain
+    their prior score and version, and simultaneous/stale Admin publications
+    cannot partially replace the effective policy.
+14. Admin preview lists every active published model's before/after score and
+    eligibility. Publish is rejected atomically when a model would lose a
+    required score, become invalid or exceed the candidate too-risky cutoff;
+    catalogue activation/retirement cannot bypass this guard.
+15. A 3.5g Silver 925 design remains valid and shows an advisory excess-material
+    amount. Copper/Steel designs remain scoreable without a false workshop
+    recommendation; Silver Clay advice for S925 discloses S999.
