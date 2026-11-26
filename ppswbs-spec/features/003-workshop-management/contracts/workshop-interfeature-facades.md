@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -518,10 +518,15 @@ the operation; a rename is still possible through the owner of 006:**
 
 ```text
 restoreVoucherForCancelledTicket(RestoreVoucherCommand) -> VoucherRestorationOutcome   (proposed)
-RestoreVoucherCommand        { groupCode, ticketCode, cancellationKind }               (proposed; opaque references only)
+RestoreVoucherCommand        { groupCode, ticketCode, partRef, cancellationKind }      (proposed; opaque references only)
 VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED }        (proposed)
 ```
 
+- `partRef` (added 2026-11-26, BUG-E2E-0049; decided by Hồ Hoàng Quốc): the
+  ticket's reference in the accepted benefit, `L{line}-T{ordinal}`, which 003.3
+  takes from the 003.1 ticket context. The owner of the benefit finds the ticket
+  part by `partRef`, never by `ticketCode`; `ticketCode` identifies the call in
+  outcome keys and proof references.
 - Idempotent per `groupCode`: the first call restores (`RESTORED`) or finds the
   voucher no longer valid (`EXPIRED`, never extended); every later call for the
   same `groupCode` returns `ALREADY_RESTORED` (or the stored `EXPIRED`) and

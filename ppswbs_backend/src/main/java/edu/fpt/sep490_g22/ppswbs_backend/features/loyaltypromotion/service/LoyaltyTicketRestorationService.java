@@ -36,7 +36,7 @@ public class LoyaltyTicketRestorationService {
     public VoucherRestorationOutcome restore(RestoreVoucherCommand command) {
         Instant now = Instant.now(clock);
         LoyaltyPartLifecycleService.TicketRestoration result = partLifecycle.cancelTicketByMland(
-                command.groupCode(), command.ticketCode(), now, benefit -> validity.consumedAndEnded(benefit, now));
+                command.groupCode(), command.ticketCode(), command.partRef(), now, benefit -> validity.consumedAndEnded(benefit, now));
         if (result.expired()) {
             return VoucherRestorationOutcome.EXPIRED;
         }
