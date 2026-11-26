@@ -44,6 +44,17 @@ public class WorkshopRingDesignController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/{designId}/technical-projection")
+    public ResponseEntity<WorkshopRingDesignTechnicalProjectionDto> getTechnicalProjection(
+            @PathVariable String designId) {
+        var actor = ActorContext.requireCurrentActor();
+        if (actor.role() != ActorRole.ADMIN && actor.role() != ActorRole.MANAGER) {
+            throw RingDesignException.forbidden("DESIGN_ACCESS_DENIED", "Chỉ Admin hoặc Manager mới có quyền xem technical projection.");
+        }
+        WorkshopRingDesignTechnicalProjectionDto dto = applicationService.getTechnicalProjection(designId);
+        return ResponseEntity.ok(dto);
+    }
+
     @PostMapping("/{designId}/versions")
     public ResponseEntity<DesignResponseDto> saveWorkshopDesignVersion(
             @PathVariable String designId,

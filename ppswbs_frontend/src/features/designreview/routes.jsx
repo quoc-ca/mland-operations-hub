@@ -1,6 +1,5 @@
 import React from 'react';
 import { RequireSession } from '../../shared/auth/RequireSession';
-import PriceProposalAiPage from './pricing/PriceProposalAiPage';
 import AiSupportPage from './public/AiSupportPage';
 import ReviewDetailPage from './review/ReviewDetailPage';
 import ReviewQueuePage from './review/ReviewQueuePage';
@@ -28,17 +27,17 @@ export const designReviewRoutes = [
   {
     path: '/account/my-custom-orders',
     element: (
-      <RequireSession>
-        <MaskAdmin><MyCustomOrdersPage /></MaskAdmin>
-      </RequireSession>
+      <RoleArea roles={['MEMBER']}>
+        <MyCustomOrdersPage />
+      </RoleArea>
     ),
   },
   {
     path: '/account/my-custom-orders/:customOrderId',
     element: (
-      <RequireSession>
-        <MaskAdmin><CustomOrderDetailPage /></MaskAdmin>
-      </RequireSession>
+      <RoleArea roles={['MEMBER']}>
+        <CustomOrderDetailPage />
+      </RoleArea>
     ),
   },
   {
@@ -71,14 +70,6 @@ export const designReviewRoutes = [
       <RoleArea roles={INTERNAL}>
         <ReviewDetailPage />
       </RoleArea>
-    ),
-  },
-  {
-    path: '/price-proposals/:proposalId/ai-suggestions',
-    element: (
-      <RequireSession>
-        <PriceProposalAiPage />
-      </RequireSession>
     ),
   },
 ];

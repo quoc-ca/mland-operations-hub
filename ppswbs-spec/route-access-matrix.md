@@ -34,9 +34,10 @@ The allowlist is exact and role groups are not inherited: `ADMIN` is not a Manag
 | `/operations/sessions*`, `/operations/packages`, `/operations/package-add-ons` | STAFF, MANAGER | 003.2 | Staff remains location/session-scoped at the server; Manager authority is only for actions FE-003.2 explicitly grants. |
 | `/operations/admin`, `/operations/locations`, `/operations/slots`, `/operations/package-availability`, `/operations/late-payments`, `/operations/audit` | MANAGER | 003.2 / 003.1 | These are Manager operational-administration/review routes; they are not made Staff-visible by their shared `/operations` prefix. |
 | `/settlement*` | STAFF, MANAGER | 003.3 | Each page/action retains the feature's Staff assignment and Manager decision checks. |
-| `/design-review-requests*`, `/price-proposals/*/ai-suggestions` | STAFF, MANAGER | 004 | Reviewer authority and resource scope stay server-owned. |
+| `/design-review-requests*`, `/staff/custom-orders`, `/manager/custom-orders` | STAFF, MANAGER | 004 | Reviewer and custom manufacturing order capability; authority and resource scope stay server-owned. (Lưu ý: `/price-proposals/*/ai-suggestions` là dead route đã được loại bỏ hoàn toàn). |
 | `/review-moderation*` | STAFF, MANAGER | 011 | Moderation authority stays server-owned. |
 | `/operations/consultations` | STAFF, MANAGER | 013 Staff Consultation Chat | Staff scope and Manager global authority are server-owned. |
+| `/api/v1/workshop-designs/*/technical-projection`, `/api/v1/reviews/*/technical-projection` | ADMIN, MANAGER | 012, 011 | Technical audit projection API; commercial pricing and customer personal details masked. |
 
 ## Self-service and public boundaries
 

@@ -92,9 +92,22 @@ export const MATERIAL_DENSITIES = {
 };
 
 export const BASE_WEIGHT_LIMIT_GRAMS = 3.0;
+export const BASE_MATERIAL_PRICE_SILVER = 900000;
+export const BASE_MATERIAL_PRICE_COPPER = 750000;
+export const BASE_MATERIAL_PRICE_STEEL = 750000;
+
+export const EXCESS_MATERIAL_PRICE_PER_GRAM = 120000;
+
+// Legacy export compatibility
 export const EXCESS_RATE_PER_GRAM_SILVER = 120000;
-export const EXCESS_RATE_PER_GRAM_COPPER = 40000;
-export const EXCESS_RATE_PER_GRAM_STEEL = 50000;
+export const EXCESS_RATE_PER_GRAM_COPPER = 120000;
+export const EXCESS_RATE_PER_GRAM_STEEL = 120000;
+
+export function getBaseMaterialPrice(materialReference = 'MAT-SILVER-925') {
+  if (materialReference === 'MAT-COPPER') return BASE_MATERIAL_PRICE_COPPER;
+  if (materialReference === 'MAT-STAINLESS-STEEL') return BASE_MATERIAL_PRICE_STEEL;
+  return BASE_MATERIAL_PRICE_SILVER;
+}
 
 export function calculateRingVolumeMm3(size, thicknessMm = 1.8, bandWidthMm = 3.5) {
   const P = getRingCircumferenceMm(size);
@@ -115,10 +128,13 @@ export function estimateExcessMaterialCost(weightGrams, materialReference = 'MAT
   const w = Number(weightGrams) || 0;
   if (w <= BASE_WEIGHT_LIMIT_GRAMS) return 0;
   const excess = w - BASE_WEIGHT_LIMIT_GRAMS;
-  let rate = EXCESS_RATE_PER_GRAM_SILVER;
-  if (materialReference === 'MAT-COPPER') rate = EXCESS_RATE_PER_GRAM_COPPER;
-  else if (materialReference === 'MAT-STAINLESS-STEEL') rate = EXCESS_RATE_PER_GRAM_STEEL;
-  return Math.round(excess * rate);
+  return Math.round(excess * EXCESS_MATERIAL_PRICE_PER_GRAM);
+}
+
+export function estimateTotalMaterialCost(weightGrams, materialReference = 'MAT-SILVER-925') {
+  const basePrice = getBaseMaterialPrice(materialReference);
+  const excessCost = estimateExcessMaterialCost(weightGrams, materialReference);
+  return basePrice + excessCost;
 }
 
 export function calculateDefaultAngles(count) {
@@ -283,6 +299,8 @@ export function derivePreviewModel(draft, t = viT) {
   const estimatedWeightGrams = estimateRingWeightGrams(ringSize, thicknessMm, bandWidthMm, draft.materialReference);
   const excessWeightGrams = Math.max(0, Math.round((estimatedWeightGrams - BASE_WEIGHT_LIMIT_GRAMS) * 100) / 100);
   const excessMaterialCost = estimateExcessMaterialCost(estimatedWeightGrams, draft.materialReference);
+  const baseMaterialPrice = getBaseMaterialPrice(draft.materialReference);
+  const totalMaterialCost = baseMaterialPrice + excessMaterialCost;
 
   return {
     material,
@@ -295,6 +313,8 @@ export function derivePreviewModel(draft, t = viT) {
     estimatedWeightGrams,
     excessWeightGrams,
     excessMaterialCost,
+    baseMaterialPrice,
+    totalMaterialCost,
     gemstones,
     stones,
     attachments,
