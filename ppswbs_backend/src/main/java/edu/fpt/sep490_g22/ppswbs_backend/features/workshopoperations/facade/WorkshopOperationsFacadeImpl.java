@@ -183,6 +183,12 @@ public class WorkshopOperationsFacadeImpl implements WorkshopOperationsFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.List<SessionEntitlementProjection> getCancelledTicketSessions(String ticketReference) {
+        return attendanceTicketService.getCancelledTicketSessions(ticketReference);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean isStaffAssignedToBooking(StaffBookingAssignmentQuery query) {
         if (query == null || query.staffAccountId() == null || query.bookingReference() == null) return false;
         return entitlementRepository.findActiveByBookingReference(query.bookingReference()).stream()

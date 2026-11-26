@@ -145,6 +145,32 @@ class TicketFolioApiServiceTest {
         assertThat(response.statuses()).containsOnlyKeys("TK-1").containsEntry("TK-1", "FINALIZED");
     }
 
+    /** BUG-E2E-0042: adding a charge writes one audit row naming the actor. */
+    @Test
+    void addCharge_writesAnAuditRowNamingTheActor() {
+        TicketFolioContext ctx = new TicketFolioContext("TK-1", "GRP-1", "LINE-1", "PKG-1", 1L, List.of("SES-1"), 30L);
+        SettlementFinalBill folio = SettlementFinalBill.builder().billReference("BILL-1").bookingReference("TK-1")
+                .lifecycleStatus("OPEN").postPromotionAmountVnd(100_000L).acceptedDepositAmountVnd(20_000L)
+                .remainingAmountVnd(80_000L).build();
+        when(booking.getTicketFolioContext("TK-1")).thenReturn(Optional.of(ctx));
+        when(bills.findByBookingReferenceForUpdate("TK-1")).thenReturn(Optional.of(folio));
+        when(operations.serviceStarted("LINE-1")).thenReturn(true);
+        when(charges.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(folioBalances.balanceOf(folio)).thenReturn(new FolioBalanceService.FolioBalance(130_000L, 0L, 130_000L));
+
+        service.addCharge("TK-1", "KEY-charge-audit-0001", "CORR-1",
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.ChargeCommandDto(
+                        null, null, null, "Extra stone", 50_000L, "asked at the counter", true), staff);
+
+        org.mockito.ArgumentCaptor<edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit> audit =
+                org.mockito.ArgumentCaptor.forClass(
+                        edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit.class);
+        org.mockito.Mockito.verify(audits).save(audit.capture());
+        assertThat(audit.getValue().getActionCode()).isEqualTo("CHARGE_ADDED");
+        assertThat(audit.getValue().getActorReference()).isEqualTo("account:20");
+        assertThat(audit.getValue().getReasonReference()).isEqualTo("asked at the counter");
+    }
+
     @Test
     void readFolioStatuses_refusesAMember() {
         assertThatThrownBy(() -> service.readFolioStatuses(List.of("TK-1"), memberBuyer))

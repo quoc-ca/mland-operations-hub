@@ -195,12 +195,13 @@ public class LoyaltyPartLifecycleService {
      * given back, a held one is always released.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public TicketRestoration cancelTicketByMland(String groupCode, String ticketCode, java.time.Instant now,
+    public TicketRestoration cancelTicketByMland(String groupCode, String ticketCode, String partRef,
+                                                 java.time.Instant now,
                                                  java.util.function.Predicate<AcceptedBenefit> voucherExpired) {
-        AuthoritativeOutcome probe = ticketMlandOutcome(groupCode, ticketCode, now, 0, "restore");
+        AuthoritativeOutcome probe = ticketMlandOutcome(groupCode, ticketCode, partRef, now, 0, "restore");
         BenefitEffectSupport.Locked locked = effects.lockFor(probe);
         AcceptedBenefit benefit = locked.benefit();
-        AuthoritativeOutcome outcome = ticketMlandOutcome(groupCode, ticketCode, now,
+        AuthoritativeOutcome outcome = ticketMlandOutcome(groupCode, ticketCode, partRef, now,
                 benefit.getSourceOutcomeVersion(), benefit.getAcceptedTermsDigest());
         ComponentState before = benefit.getVoucherState();
         boolean expired = before == ComponentState.CONSUMED && voucherExpired.test(benefit);
@@ -208,13 +209,13 @@ public class LoyaltyPartLifecycleService {
         return new TicketRestoration(before, benefit.getVoucherState(), expired);
     }
 
-    private static AuthoritativeOutcome ticketMlandOutcome(String groupCode, String ticketCode, java.time.Instant now,
-                                                           long version, String snapshotRef) {
+    private static AuthoritativeOutcome ticketMlandOutcome(String groupCode, String ticketCode, String partRef,
+                                                           java.time.Instant now, long version, String snapshotRef) {
         return new AuthoritativeOutcome(edu.fpt.sep490_g22.ppswbs_backend.features.loyaltypromotion.facade.SourceKind.WORKSHOP,
                 groupCode, "workshopsettlement", "mland-cancel-" + ticketCode, version,
                 OutcomeKind.WORKSHOP_TICKET_MLAND_CANCELLATION, now, null,
                 snapshotRef == null || snapshotRef.isBlank() ? "restore" : snapshotRef, true,
-                "cancellation:" + ticketCode, ticketCode);
+                "cancellation:" + ticketCode, partRef);
     }
 
     private BenefitResult cancelTicket(AuthoritativeOutcome outcome, BenefitEffectSupport.Locked locked,

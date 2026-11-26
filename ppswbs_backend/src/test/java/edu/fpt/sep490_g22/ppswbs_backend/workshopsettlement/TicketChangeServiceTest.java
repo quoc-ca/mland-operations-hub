@@ -1055,6 +1055,8 @@ class TicketChangeServiceTest {
         assertThat(audit.getAllValues()).anySatisfy(a -> {
             assertThat(a.getActionCode()).isEqualTo("TICKET_LOCATION_CHANGED");
             assertThat(a.getReasonReference()).isEqualTo("from=10;to=20");
+            // BUG-E2E-0043 (003.2 FR-052): the stored actor is "account:<id>", so the audit screen can name it.
+            assertThat(a.getActorReference()).isEqualTo("account:" + BUYER_ACCOUNT_ID);
         });
         verify(requestRepository, never()).save(any(SettlementTicketChangeRequest.class));
     }

@@ -612,7 +612,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
           </button>
         </form>
 
-        <footer style={{ marginTop: '1.5rem', fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {/* Not a <footer>: the global footer style paints it navy and hides these links (BUG-E2E-0031). */}
+        <div style={{ marginTop: '1.5rem', fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {!isForgot && (
             <div>
               {isRegister ? t('auth.haveAccount') : t('auth.noAccount')}{' '}
@@ -632,7 +633,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
               </Link>
             </div>
           )}
-        </footer>
+        </div>
       </div>
     </div>
   );

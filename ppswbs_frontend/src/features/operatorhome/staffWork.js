@@ -9,6 +9,7 @@ const ZONE = 'Asia/Ho_Chi_Minh';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dateInVietnam = time => new Date(time).toLocaleDateString('en-CA', { timeZone: ZONE });
 const clock = (time, language) => new Date(time).toLocaleTimeString(language === 'en' ? 'en-GB' : 'vi-VN', { timeZone: ZONE, hour: '2-digit', minute: '2-digit' });
+const dayMonth = time => new Date(time).toLocaleDateString('en-GB', { timeZone: ZONE, day: '2-digit', month: '2-digit' });
 const listOf = data => (Array.isArray(data) ? data : data?.items || data?.content || []);
 // Without a translator (the rail badge counts only need how many tasks there are) the texts are built in Vietnamese.
 const viText = (key, params) => translate(operatorHomeMessages, 'vi', key, params);
@@ -34,7 +35,8 @@ export function workshopTasks(sessions, now = Date.now(), t = viText, language =
       const start = new Date(session.scheduledStartAt).getTime();
       const end = new Date(session.scheduledEndAt).getTime();
       const opens = session.checkInOpensAt ? new Date(session.checkInOpensAt).getTime() : start;
-      const when = clock(start, language);
+      // A session of another day also says which day, so two unfinalized sessions never look alike (BUG-E2E-0036).
+      const when = dateInVietnam(start) === today ? clock(start, language) : `${clock(start, language)} ${dayMonth(start)}`;
       const where = session.locationName ? ` · ${session.locationName}` : '';
       const name = t('task.session', { time: when }) + where;
       if (session.state === 'IN_PROGRESS' && now > end) {

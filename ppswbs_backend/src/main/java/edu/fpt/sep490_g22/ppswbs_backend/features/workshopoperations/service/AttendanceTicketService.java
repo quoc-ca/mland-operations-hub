@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.AttendanceTicketRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.CapacityHoldRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketEntitlementReleaseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketSessionEntitlementRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.*;
@@ -23,6 +24,7 @@ public class AttendanceTicketService {
 
     private final AttendanceTicketRepository ticketRepository;
     private final TicketSessionEntitlementRepository entitlementRepository;
+    private final TicketEntitlementReleaseRepository releaseRepository;
     private final CapacityHoldRepository capacityHoldRepository;
 
     /**
@@ -102,13 +104,7 @@ public class AttendanceTicketService {
             }
             List<TicketSessionEntitlement> entitlements = entitlementRepository.findByTicketId(ticket.getId());
             List<SessionEntitlementProjection> sessionProjections = entitlements.stream()
-                    .map(e -> new SessionEntitlementProjection(
-                            UUID.fromString(e.getSession().getReference()),
-                            e.getSession().getLocation() != null ? e.getSession().getLocation().getId() : null,
-                            e.getSession().getScheduledStartAt(),
-                            e.getSession().getScheduledEndAt(),
-                            e.getSession().getLocation() != null ? e.getSession().getLocation().getDisplayName() : null
-                    ))
+                    .map(e -> projection(e.getSession()))
                     .toList();
 
             projections.add(new DeliverySafeTicket(
@@ -120,6 +116,31 @@ public class AttendanceTicketService {
         }
 
         return new DeliverySafeTicketSet(projections);
+    }
+
+    /** Sessions of a cancelled ticket: released at cancellation plus the entitlements it still keeps. */
+    @Transactional(readOnly = true)
+    public List<SessionEntitlementProjection> getCancelledTicketSessions(String ticketReference) {
+        AttendanceTicket ticket = ticketReference == null ? null
+                : ticketRepository.findByReference(ticketReference).orElse(null);
+        if (ticket == null || ticket.getValidityState() != TicketValidityState.CANCELLED) {
+            return List.of();
+        }
+        Map<String, WorkshopSession> sessions = new LinkedHashMap<>();
+        releaseRepository.findByTicketIdOrderByIdAsc(ticket.getId())
+                .forEach(release -> sessions.put(release.getSession().getReference(), release.getSession()));
+        entitlementRepository.findByTicketId(ticket.getId())
+                .forEach(entitlement -> sessions.put(entitlement.getSession().getReference(), entitlement.getSession()));
+        return sessions.values().stream().map(AttendanceTicketService::projection).toList();
+    }
+
+    private static SessionEntitlementProjection projection(WorkshopSession session) {
+        return new SessionEntitlementProjection(
+                UUID.fromString(session.getReference()),
+                session.getLocation() != null ? session.getLocation().getId() : null,
+                session.getScheduledStartAt(),
+                session.getScheduledEndAt(),
+                session.getLocation() != null ? session.getLocation().getDisplayName() : null);
     }
 
     private String generateUniqueTicketCode() {
