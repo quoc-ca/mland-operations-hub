@@ -132,11 +132,7 @@ public class WorkshopRingDesignFacadeImpl implements WorkshopRingDesignFacade {
         }
         if (opt.isEmpty()) return Optional.empty();
         RingDesign d = opt.get();
-        if (d.getOwnerType() == RingDesignOwnerType.GUEST_SESSION) {
-            d.setOwnerType(RingDesignOwnerType.MEMBER);
-            d.setOwnerReference(String.valueOf(memberAccountId));
-            designRepository.save(d);
-        } else if (d.getOwnerType() != RingDesignOwnerType.MEMBER || !String.valueOf(memberAccountId).equals(d.getOwnerReference())) {
+        if (d.getOwnerType() != RingDesignOwnerType.MEMBER || !String.valueOf(memberAccountId).equals(d.getOwnerReference())) {
             return Optional.empty();
         }
         return Optional.of(toConsultationOption(d));

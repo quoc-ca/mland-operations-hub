@@ -89,6 +89,10 @@ public class WorkshopRingDesignIntegrationTest {
     private final String memberUidB = "uid-member-b-ring-it";
     private final Long memberAccountIdB = 4002L;
 
+    private final String adminToken = "token-admin-ring-it";
+    private final String adminUid = "uid-admin-ring-it";
+    private final Long adminAccountId = 4099L;
+
     @BeforeEach
     void setUp() {
         when(tokenVerificationService.verify(memberToken)).thenReturn(
@@ -104,6 +108,13 @@ public class WorkshopRingDesignIntegrationTest {
                 new CurrentAccountActor(memberAccountIdB, ActorRole.MEMBER, ActorStatus.ACTIVE, true, List.of())));
         when(accountFacade.resolveAccount(memberUidB)).thenReturn(Optional.of(
                 new AccountSummary(memberAccountIdB, ActorRole.MEMBER, ActorStatus.ACTIVE, "member-b-ring@mland.vn", Instant.now(), Instant.now())));
+
+        when(tokenVerificationService.verify(adminToken)).thenReturn(
+                new VerifiedIdentity(adminUid, "admin-ring@mland.vn", true, Instant.now()));
+        when(accountFacade.resolveActor(adminUid, true)).thenReturn(Optional.of(
+                new CurrentAccountActor(adminAccountId, ActorRole.ADMIN, ActorStatus.ACTIVE, true, List.of())));
+        when(accountFacade.resolveAccount(adminUid)).thenReturn(Optional.of(
+                new AccountSummary(adminAccountId, ActorRole.ADMIN, ActorStatus.ACTIVE, "admin-ring@mland.vn", Instant.now(), Instant.now())));
 
         if (ringMaterialRepository.findByMaterialCode("MAT-SILVER-925").isEmpty()) {
             ringMaterialRepository.save(RingMaterial.builder()
@@ -453,5 +464,40 @@ public class WorkshopRingDesignIntegrationTest {
         org.junit.jupiter.api.Assertions.assertNotNull(preserved.getComponentSnapshot());
         org.junit.jupiter.api.Assertions.assertEquals("MAT-SILVER-925", preserved.getMaterialReference());
         org.junit.jupiter.api.Assertions.assertEquals("BKG-LOCK-001", preserved.getBookingReference());
+    }
+
+    @Test
+    void testTechnicalProjection_AdminAccessAndMasking() throws Exception {
+        CreateDesignRequest createReq = CreateDesignRequest.builder()
+                .packageReference("PKG-COUPLE")
+                .startMode("BLANK")
+                .build();
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/workshop-designs")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .header("Idempotency-Key", "idemp-tech-proj-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        Map<?, ?> resp = objectMapper.readValue(createResult.getResponse().getContentAsString(), Map.class);
+        String designId = (String) resp.get("designId");
+
+        // Member calling /technical-projection -> 403 Forbidden
+        mockMvc.perform(get("/api/v1/workshop-designs/" + designId + "/technical-projection")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("DESIGN_ACCESS_DENIED"));
+
+        // Admin calling /technical-projection -> 200 OK with technical fields, NO estimatedPrice
+        mockMvc.perform(get("/api/v1/workshop-designs/" + designId + "/technical-projection")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.designId").value(designId))
+                .andExpect(jsonPath("$.packageReference").value("PKG-COUPLE"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.estimatedPrice").doesNotExist())
+                .andExpect(jsonPath("$.ownerReference").doesNotExist());
     }
 }

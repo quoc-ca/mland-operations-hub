@@ -62,6 +62,18 @@ public class ReviewController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/{reviewId}/technical-projection")
+    public ResponseEntity<edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewTechnicalProjectionDto> getTechnicalProjection(
+            @PathVariable String reviewId) {
+        var actor = ActorContext.requireCurrentActor();
+        if (actor.role() != ActorRole.ADMIN && actor.role() != ActorRole.MANAGER) {
+            throw edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.service.ReviewManagementException
+                    .forbidden("REVIEW_NOT_AUTHORIZED", "Chỉ Admin hoặc Manager mới có quyền xem technical projection của đánh giá.");
+        }
+        var dto = applicationService.getTechnicalProjection(reviewId);
+        return ResponseEntity.ok(dto);
+    }
+
     @PatchMapping("/{reviewId}")
     public ResponseEntity<ReviewDto> editReview(
             @PathVariable String reviewId,

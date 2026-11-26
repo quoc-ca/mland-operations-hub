@@ -325,6 +325,31 @@ public class ReviewApplicationService {
         return mapToReviewDto(review, replyDto, owner || isInternalModerator, canEdit);
     }
 
+    @Transactional(readOnly = true)
+    public edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewTechnicalProjectionDto getTechnicalProjection(String reviewId) {
+        if (reviewId == null || reviewId.isBlank()) {
+            throw ReviewManagementException.badRequest("REVIEW_INPUT_INVALID", "ID đánh giá không hợp lệ.");
+        }
+        Review review = reviewRepository.findById(reviewId.trim())
+                .orElseThrow(() -> ReviewManagementException.notFound("REVIEW_NOT_FOUND",
+                        "Không tìm thấy đánh giá với ID: " + reviewId));
+        boolean hasReply = replyRepository.findByReviewId(reviewId.trim()).isPresent();
+        return edu.fpt.sep490_g22.ppswbs_backend.features.reviewmanagement.dto.ReviewTechnicalProjectionDto.builder()
+                .id(review.getId())
+                .targetType(review.getTargetType())
+                .targetReference(review.getTargetReference())
+                .packageId(review.getPackageId())
+                .rating(review.getRating())
+                .status(review.getStatus())
+                .imageCount(review.getImageList() != null ? review.getImageList().size() : 0)
+                .bodyTextLength(review.getBodyText() != null ? review.getBodyText().length() : 0)
+                .version(review.getVersion())
+                .hasReply(hasReply)
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
+                .build();
+    }
+
     @Deprecated
     public ReviewDto getReviewDetail(String reviewId) {
         return getReviewDetail(reviewId, null);

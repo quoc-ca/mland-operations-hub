@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { useRole } from '../../../shared/auth/useRole';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Field, Loading, useCommand } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
@@ -37,7 +38,8 @@ export default function AiSupportPage() {
     return null;
   });
 
-  const isMember = status === 'signed-in';
+  const role = useRole();
+  const isMember = status === 'signed-in' && role === 'MEMBER';
   const defaultLimit = isMember ? 10 : 3;
   const currentLimit = quota ? quota.limit : defaultLimit;
   const currentRemaining = quota ? quota.remaining : defaultLimit;

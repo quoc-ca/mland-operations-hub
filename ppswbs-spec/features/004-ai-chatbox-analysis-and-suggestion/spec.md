@@ -37,16 +37,20 @@ Without consent, the image cannot be stored or submitted.
 | See feature entry/description | Allow | Allow | Allow | Allow | Allow |
 | Start custom request | Deny; prompt sign-in | Allow for own account | Deny as customer | Deny as customer | Deny |
 | Upload/read request images | Deny | Own request only | Authorized review projection | Authorized review projection | Technical projection only |
-| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Audit projection only |
+| View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Full view (Admin oversight) |
 | Submit revision after clarification | Deny | Own request only | Deny | Deny | Deny |
 | Review request | Deny | Deny | Allow | Allow | Deny |
 | Write decision explanation | Deny | Deny | Mandatory explanation | Mandatory explanation | Deny |
-| Prepare/approve quote | Deny | View own quote/payment state | Prepare if assigned | Approve business quote | Deny |
+| Prepare/approve quote | Deny | View own quote/payment state | Prepare quote (all Staff in V1) | Approve business quote | Deny |
 | Pay custom order | Deny | Own order, full payment | Deny | Deny | Deny |
 
 All Member actions require Firebase identity, an active Mland Member account,
 resource ownership and current request/version state. Client-supplied role,
 owner, status, quote, or reviewer fields are ignored.
+
+> [!NOTE]
+> **Legacy Route Removal (26/11/2026):** Tuyến đường riêng lẻ `/price-proposals/:proposalId/ai-suggestions` là dead route/thử nghiệm prototype cũ không có liên kết từ giao diện người dùng và đã được loại bỏ hoàn toàn. Toàn bộ thao tác soạn và duyệt báo giá được tích hợp trực tiếp trên trang quản lý yêu cầu thiết kế (`/design-review-requests/:id`) và danh sách đơn chế tác (`/staff/custom-orders`, `/manager/custom-orders`).
+
 
 ## 3. Customer flow
 

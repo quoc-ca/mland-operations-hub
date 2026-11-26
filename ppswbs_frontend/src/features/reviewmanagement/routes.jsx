@@ -16,9 +16,9 @@ export const reviewManagementRoutes = [
   { path: '/reviews', element: <ReviewsHomePage /> },
   { path: '/reviews/:reviewId', element: <ReviewDetailPage /> },
   { path: '/reviews/guest/lookup', element: <Navigate to="/reviews" replace /> },
-  { path: '/reviews/new', element: <RequireSession><CreateReviewPage /></RequireSession> },
-  { path: '/reviews/orders/:orderId', element: <RequireSession><OrderReviewPage /></RequireSession> },
-  { path: '/reviews/:reviewId/edit', element: <RequireSession><EditReviewPage /></RequireSession> },
+  { path: '/reviews/new', element: <RoleArea roles={['MEMBER']}><CreateReviewPage /></RoleArea> },
+  { path: '/reviews/orders/:orderId', element: <RoleArea roles={['MEMBER']}><OrderReviewPage /></RoleArea> },
+  { path: '/reviews/:reviewId/edit', element: <RoleArea roles={['MEMBER']}><EditReviewPage /></RoleArea> },
   // The separate "Các sản phẩm, trải nghiệm có thể đánh giá" page was folded into the "Chưa đánh giá" tab (2026-11-23).
   { path: '/reviews/eligible-sources', element: <Navigate to="/reviews" replace /> },
   { path: '/review-moderation', element: <RoleArea roles={['STAFF', 'MANAGER']}><ModerationQueuePage /></RoleArea> },

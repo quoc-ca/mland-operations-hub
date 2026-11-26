@@ -91,7 +91,7 @@ public class WorkshopRingDesignExceptionHandler {
                 .code("INTERNAL_SERVER_ERROR")
                 .message("Đã xảy ra lỗi nội bộ máy chủ.")
                 .correlationId(correlationId)
-                .details(List.of(ex.getClass().getSimpleName() + ": " + ex.getMessage()))
+                .details(List.of("Đã xảy ra lỗi nội bộ không mong muốn. Vui lòng thử lại sau."))
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
