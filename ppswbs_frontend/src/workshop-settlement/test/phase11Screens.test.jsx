@@ -7,6 +7,8 @@ import { settlementRoutes } from '../routes';
 import { clearRoleCache } from '../../shared/auth/useRole';
 import { PROFILE, asRole, useFreshRole } from './helpers';
 
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
+
 useFreshRole();
 
 const FOLIO = '/api/v1/workshop-tickets/TK-1/folio';

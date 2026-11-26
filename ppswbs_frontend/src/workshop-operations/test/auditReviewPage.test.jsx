@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes, fakeSession } from '../../test/render';
@@ -6,6 +6,8 @@ import { clearRoleCache } from '../../shared/auth/useRole';
 import { executePrivateStateCleanup } from '../../shared/auth/privateStateCleanup';
 import { operationsRoutes } from '../routes';
 import { activeFilterCount, formatTime, hasReversedRange, shortRef, toQuery, writeFilters } from '../components/auditReviewModel';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 const OPS = 'GET /api/v1/workshop-audit/operations-events';
 const SETTLEMENT = 'GET /api/v1/workshop-audit/settlement-records';

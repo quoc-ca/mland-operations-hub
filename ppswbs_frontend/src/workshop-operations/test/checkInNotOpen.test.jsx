@@ -1,5 +1,5 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
@@ -7,6 +7,8 @@ import { clearRoleCache } from '../../shared/auth/useRole';
 import { operationsRoutes } from '../routes';
 import { checkInNotOpenText } from '../pages/OperationsSessionPage';
 import { formatDateTime } from '../../shared/i18n/I18nProvider';
+
+vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 // 003.2 T126 (CHK014): 409 CHECK_IN_NOT_OPEN carries checkInOpensAt; the desk says when check-in opens.
 const CHECK_IN = 'POST /api/v1/workshop-sessions/session-1/check-ins';

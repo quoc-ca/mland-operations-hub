@@ -342,7 +342,7 @@ export default function MainTopbar() {
                               </Link>
                             </>
                           )}
-                          {(userRole === 'MANAGER' || userRole === 'ADMIN') && (
+                          {userRole === 'MANAGER' && (
                             <>
                               <Link
                                 to="/catalogue-management/products"
