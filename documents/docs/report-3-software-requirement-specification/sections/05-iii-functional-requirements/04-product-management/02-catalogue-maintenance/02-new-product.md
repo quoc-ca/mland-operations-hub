@@ -20,6 +20,6 @@ This screen allows Staff and Managers to:
 | Sizes, proposed prices and quantities | Size buttons plus From size / To size, **Add range**, **Select all** and **Clear**, with a shared value applied to the chosen sizes. Saved sizes cannot be changed or removed later; new sizes can be added later at a selling branch from Product Management Details. |
 | Price per size | "Proposed price (₫)" for Staff; "Selling price (₫)" for a Manager, applied on creation without a review step. |
 | Quantity per branch | Nonnegative integer quantity of each size at each selected branch, with − / + buttons. |
-| Images | **Add images (n/10)** (JPEG, PNG or WebP, at most 5 MB each), a required image description of at most 200 characters, move up/down and **Remove**; a Manager must add at least one image. |
+| Images | **Add images (n/10)** (JPEG, PNG or WebP, at most 5,000,000 bytes each), a required image description of at most 200 characters, move up/down and **Remove**; a Manager must add at least one image. |
 | After creating | Manager only: "Not published yet" (saved with prices applied, hidden from customers) or "Publish now". |
 | Create product / Cancel | Creates the product and opens its management details, or abandons the form; when a Manager chooses "Publish now", the button reads **Create and publish**. |

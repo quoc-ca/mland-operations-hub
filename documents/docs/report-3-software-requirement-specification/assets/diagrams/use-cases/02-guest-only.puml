@@ -19,8 +19,7 @@ rectangle "Mland Operations System" {
   usecase "Register Account" as UC01
   usecase "Sign In" as UC02
   usecase "Reset Password" as UC03
-  usecase "Browse Product Catalogue" as UC10
-  usecase "View Product Details" as UC11
+  usecase "Browse and View Products" as UC10
   usecase "Browse Workshop Packages" as UC19
   usecase "View Workshop Package Details" as UC20
   usecase "Preview Workshop Ring Designer" as UC36P
@@ -43,7 +42,6 @@ Guest --> UC01
 Guest --> UC02
 Guest --> UC03
 Guest --> UC10
-Guest --> UC11
 Guest --> UC19
 Guest --> UC20
 Guest --> UC36P
