@@ -6,6 +6,8 @@
 
 The module stores approved templates, durable notification requests and delivery attempts. Business modules create requests after their own transaction commits; SMTP delivery cannot change the business result.
 
+{{r4-cd-notification-management width=100% align=center}}
+
 ### 7.2 Sequence Diagram — Create Notification after Business Commit
 
 {{r4-sd-create-notification-after-business-commit width=100% align=center}}

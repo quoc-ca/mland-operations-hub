@@ -2,65 +2,71 @@
 
 > **Retired (confirmed 2026-11-25):** use case 30 is not part of the platform; no specification or implementation exists for it. The text below is kept only as history and must not be implemented.
 
-#### Primary Actors
-
-Manager
-
-#### Secondary Actors
-
-None
+| Use Case ID | UC-30 | Use Case Name | Configure Holiday and Off-Day Exception |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Manager | Secondary Actors | None |
 
 #### Description
 
-Allows the Manager to configure holidays, closures, off-days, capacity overrides, and other calendar exceptions that affect workshop availability.
+As a Manager, I want to configure holidays, closures, off-days, and capacity overrides so that workshop availability reflects calendar exceptions.
+
+#### Trigger
+
+A Manager opens the calendar exception configuration screen.
 
 #### Preconditions
 
 1. The Manager is authenticated and authorized.
-2. The exception date and applicable location/session scope are valid.
+2. The exception date and applicable location or session scope are valid.
 3. The Manager has reviewed any existing bookings affected by the exception.
-
 
 #### Postconditions
 
-- The calendar exception is saved with its scope and active state.
-- A closed date/session is removed from new booking availability.
-- Existing confirmed bookings are not silently cancelled.
+1. The calendar exception is saved with its scope and active state.
+2. A closed date or session is removed from new booking availability.
+3. Existing confirmed bookings are not silently cancelled.
 
 #### Normal Flow
 
-**Configure Holiday and Off-Day Exception**
-
-1. The Manager opens calendar exception configuration.
-2. The Manager selects a date and optionally a branch or session scope.
-3. The Manager sets the exception as closed, open with an override, or otherwise operationally defined.
-4. The system validates the date, scope, overlap, and impact on existing schedules/bookings.
-5. The Manager confirms the exception.
-6. The system saves the exception and recalculates affected availability.
+1. Actor opens calendar exception configuration.
+2. Actor selects a date and optionally a branch or session scope.
+3. Actor sets the exception as closed, open with an override, or operationally defined.
+4. System validates the date, scope, overlap, and impact on existing schedules and bookings.
+5. Actor confirms the exception.
+6. System saves the exception and recalculates affected availability.
 
 #### Alternative Flows
 
-**Step 3 — Exception conflicts with another active exception**
+4a. Existing booking is affected → System warns the Manager and requires an operational decision before applying a closure.
 
-The system displays the conflict and asks the Manager to resolve it.
+#### Exception Flows
 
-**Step 4 — Existing booking is affected**
+3a. Exception conflicts with another active exception → System displays the conflict and asks the Manager to resolve it.
 
-The system warns the Manager and requires an authorized operational decision before a closure can be applied.
+5a. Manager cancels → No exception is saved.
 
-**Step 5 — Manager cancelsNo exception is saved.**
-
-**Step 6 — Save fails**
-
-The system displays an error and leaves the previous calendar state unchanged.
+6a. Save fails → System displays an error and leaves the previous calendar state unchanged.
 
 #### Business Rules
 
 BR-26-01, BR-26-02
 
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
+
 #### Business Rule Definitions
 
 | ID | Rule Definition |
-|---|---|
+| --- | --- |
 | BR-26-01 | An active closure or off-day exception prevents new bookings for its configured date/location/session scope. |
 | BR-26-02 | A calendar exception must not silently cancel or invalidate existing confirmed bookings. |

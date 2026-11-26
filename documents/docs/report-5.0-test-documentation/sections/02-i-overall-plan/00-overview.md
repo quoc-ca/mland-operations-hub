@@ -4,8 +4,8 @@ This part defines what is tested in the Personalized Product Sales and Workshop 
 
 | Tracker | Document | Content |
 | --- | --- | --- |
-| 5.1 | Report5.1_Unit Test_PPSWBS | Unit test cases per backend function |
-| 5.2 | Report5.2_Integration Test_PPSWBS | Integration test cases per module |
-| 5.3 | Report5.3_System Test_PPSWBS | System test cases for functional requirements (end-to-end workflows) |
+| 5.1 | Report-5.1_Unit Test | Unit test cases per backend function |
+| 5.2 | Report-5.2_Integration Test | Integration test cases per module |
+| 5.3 | Report-5.3_System Test_FRs | System test cases for functional requirements (end-to-end workflows) |
 | 5.4 | Report-5.4_System Test_NFRs | System test cases for non-functional requirements (security, performance) |
 | 5.5 | Report-5.5_Acceptance Test Scripts | User acceptance test scripts and exploratory sessions |

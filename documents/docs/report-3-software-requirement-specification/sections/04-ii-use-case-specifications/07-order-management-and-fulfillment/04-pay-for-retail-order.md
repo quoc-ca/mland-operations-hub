@@ -1,98 +1,85 @@
 ### 7.4 Pay for Retail Order
 
-#### Primary Actors
-
-Member.
-
-#### Secondary Actors
-
-VNPay Payment Gateway.
+| Use Case ID | UC-55 | Use Case Name | Pay for Retail Order |
+| --- | --- | --- | --- |
+| Created By |  | Created Date |  |
+| Primary Actors | Member | Secondary Actors | VNPay Payment Gateway |
 
 #### Description
 
 As a Member, I want to pay the full frozen retail amount through VNPay so that matching verified evidence completes exactly one sale while expiry or late evidence receives safe handling.
 
+#### Trigger
+
+A Member is sent to VNPay after Đặt hàng or selects Thanh toán on an unpaid order in Chờ thanh toán.
+
 #### Preconditions
 
-1. The platform is available and a complete retail order, original quote and attributable hold/attempt exist.
-2. Human initiation/result access requires verified active Member ownership. A signed provider callback does not require a live Member browser session or grant a human business role.
-3. The applicable VNPay and attempt/deadline contracts are approved for operation; merchant-specific signature, terminal-status and recovery controls must be verified before operation.
+1. The platform is available and a complete retail order, original quote, and hold/attempt exist.
+2. Human initiation requires verified active Member ownership; signed callbacks require no live session.
+3. Applicable VNPay, signature, terminal-status, and recovery contracts are approved for operation.
 
 #### Postconditions
 
-- An eligible verified payment accepted strictly before original hold expiry makes the order paid and consumes exact held quantities/applicable benefits once.
-- Without timely accepted success, unpaid holds expire/release at the original boundary. First success accepted at/after expiry is a recorded operational exception, not automatic payment eligibility or fulfilment.
-- Duplicate evidence repeats no settlement effects and does not undo an already accepted sale; frozen terms/history and minimized evidence remain intact.
+1. Verified payment accepted strictly before hold expiry marks the order paid and consumes held quantities/benefits once.
+2. Without timely accepted success, unpaid holds expire at the original boundary; late success becomes a reconciliation exception.
+3. Duplicate evidence repeats no settlement effects and never undoes an accepted sale.
 
 #### Normal Flow
 
-**Pay for Retail Order**
-
-1. The owning Member is sent to VNPay right after Đặt hàng, or presses Thanh toán on an order in Chờ thanh toán.
-2. The system checks current human access and retrieves its frozen full payable amount/currency/reference, original hold/deadlines and eligible attempt.
-3. The system opens the VNPay link stored for the checkout and its frozen full-amount attempt. The link lasts until the hold expires 10 minutes after checkout acceptance; pressing Thanh toán again reopens the same link and creates no second VNPay transaction or new deadlines.
-4. The Member completes the external payment and returns to Purchase Order History.
-5. VNPay sends successful signed IPN evidence, the normal confirmation channel.
-6. The system verifies signature, exact payment/order reference, frozen full amount/currency, successful status and current original attempt/hold/benefit bindings.
-7. The system accepts payment only if verification and payment acceptance finish strictly before original hold expiry with an eligible active hold, ensuring that sale settlement and expiry release cannot both apply.
-8. The system records one paid sale, consumes its held variant quantities and settles applicable bound benefits once, with safe evidence and preserved original terms.
-9. The system shows the owning Member the recorded verified result in Purchase Order History at the tab of that order (Chờ lấy hàng for GHTK, Chờ nhận tại cửa hàng for pickup, Tất cả when the checkout mixes both), removes only purchased unchanged cart lines while preserving subsequent edits/additions, lets Staff start preparation and uses the existing optional-email workflow at approved milestones.
+1. Member initiates payment for an unpaid retail order from checkout.
+2. System checks ownership and retrieves the frozen payable amount, reference, and original hold.
+3. System opens the stored VNPay link valid until the 10-minute hold expires.
+4. Member completes payment on VNPay and returns to Purchase Order History.
+5. VNPay sends signed IPN evidence to the system.
+6. System verifies signature, reference, frozen amount, currency, status, and active hold bindings.
+7. System accepts payment strictly before hold expiry and settles held quantities and benefits once.
+8. System cleans up unchanged purchased cart lines and notifies the Member at approved milestones.
+9. System displays the paid order in Purchase Order History for Staff preparation.
 
 #### Alternative Flows
 
-**Steps 1 and 2 — Wrong owner, inactive/revoked account or ineligible human action**
+1a. Member presses Thanh toán on an order in Chờ thanh toán → System reopens the same stored VNPay link without creating a second transaction or new deadlines.
 
-Deny initiation/private result access without exposing another order or creating a new attempt. This does not turn a human role into payment-confirmation authority.
+4a. Member leaves VNPay without paying → Purchase Order History opens Chờ thanh toán with a countdown; Member may press Thanh toán to reopen the link or Hủy đơn to release held items back to the cart (late payment goes to Manager reconciliation).
 
-**Step 3 — Initiation failure or uncertain provider response**
+6a. Catalogue price changes or item unpublishes after valid hold → System uses the original frozen quote and deadlines without repricing.
 
-Display the recorded pending/error state and retain the original eligible hold. Timeout or an unknown result creates no second attempt or new deadlines; the Member may reopen the existing link while valid.
+#### Exception Flows
 
-**Step 4 — Member leaves VNPay without paying**
+2a. Wrong owner, inactive account, or ineligible action → System denies access without exposing another order or creating a new attempt.
 
-Purchase Order History opens Chờ thanh toán with a countdown to the hold deadline. The Member may press Thanh toán to reopen the same link, or Hủy đơn, which releases the held quantities, voucher and points and returns the rings to the cart. A payment that still arrives after the cancellation goes to the Manager reconciliation queue.
+3a. Initiation failure or uncertain provider response → System displays the recorded pending/error state and retains the original eligible hold without new deadlines.
 
-**Step 4 — Browser return or Member claim reports success**
+4b. Browser return or Member claim reports success without verified evidence → System displays informational status only and does not mark paid, deduct stock, or start preparation.
 
-Display only an informational return and the recorded order state. Without verified accepted evidence, do not mark paid, deduct quantity or start preparation; continue evidence processing/recovery as eligible.
+5a. No valid IPN recorded when the 10-minute hold ends → Signed QueryDR checks an opened unconfirmed payment about every 5 minutes for 60 minutes; verified failure/expiry releases the order, while verified success or unresolved payment goes to Manager reconciliation. (Open difference checked 2026-11-25: Feature-008 requires expiry at 10 minutes; current code keeps opened payments in QueryDR recovery then queues for Manager.)
 
-**Step 6 — Invalid signature/reference/amount/currency/status or unknown payment**
+6b. Invalid signature, reference, amount, currency, status, or unknown payment → System rejects settlement authority, retains actual outcome, and allows no manual paid override.
 
-Reject as settlement authority and safely retain actual processing outcome. Do not repair mismatches, assert paid or allow manual Staff/Admin paid overrides.
+6c. Duplicate, reordered, or concurrent IPN/QueryDR evidence → System preserves an accepted sale and records a no-change duplicate result without repeating stock/point/quota effects.
 
-**Steps 5 to 7 — No valid IPN recorded**
+7a. First acceptance at/after expiry or hold already released → System queues a payment exception for Manager reconciliation without reviving the hold, fulfilling, or auto-refunding.
 
-When the 10-minute hold ends, signed QueryDR checks an opened but unconfirmed payment about every 5 minutes for 60 minutes. A verified failure or expiry releases the order; a verified success goes to the Manager reconciliation queue; a still unresolved payment is also queued. API success alone is insufficient.
+7b. No timely accepted success (not started, verified failure, or expiry) → System expires the unpaid order and releases held quantities, voucher, and points once.
 
-**Steps 6 to 8 — Duplicate, reordered or concurrent IPN/QueryDR evidence**
-
-Preserve an already accepted sale and record a duplicate/no-change processing result without another stock/point/quota/paid/fulfilment effect. Conflicting or retired/replaced generation evidence cannot settle a replacement quote.
-
-**Step 7 — First payment acceptance exactly at/after expiry, or hold already released**
-
-Treat as a minimized payment exception for manual shop follow-up even if VNPay's payment timestamp or Mland's receipt was earlier. Place it in the Manager reconciliation queue. Never revive the hold, automatically mark an unpaid order paid, fulfil, settle a replacement order or refund automatically.
-
-**Step 7 — No timely accepted success when the hold ends**
-
-For a checkout with no payment started, or with a verified failure or expiry, expire the unpaid order and release the held quantities, voucher and points without sale deduction or compensating refund credit. Verified settlement and release remain mutually exclusive.
-
-**Steps 6 to 8 — Catalogue price change or unpublish after a valid hold**
-
-Use the original frozen quote and eligibility under unchanged original deadlines. Do not reprice the held order; expired holds and stale carts receive no revival/protection.
-
-**Steps 8 and 9 — Settlement/state failure, result read failure or notice failure**
-
-Preserve established evidence and show safe pending/retry guidance without partial paid success or repeated settlement. Optional email failure never undoes a sale; recorded order status remains available. Paid cart cleanup preserves all subsequent Member edits/additions.
-
-**Steps 6 and 7 — Verified definitive terminal failure before paid acceptance**
-
-A matched, verified definitive terminal failure ends the attempt; the unpaid quantity and benefit reservations are released once when the hold ends. Nonterminal/unknown outcomes do not qualify. Later success after release becomes an exception; reordered failure never undoes an accepted sale. A new checkout creates a new order/attempt after revalidation.
-
-> **Open difference (checked 2026-11-25):** Feature-008 requires an unpaid VNPay hold to expire at its 10-minute deadline. The current code keeps an opened payment without verified failure evidence in QueryDR recovery and then queues it for the Manager.
+8a. Settlement, state, read, or optional email failure → System preserves established evidence and completed sales, showing safe guidance while keeping subsequent cart edits intact.
 
 #### Business Rules
 
 BR-55-01, BR-55-02, BR-55-03, BR-55-04, BR-55-05, BR-55-06, BR-55-07, BR-55-08, BR-55-09
+
+#### Non-Functional Requirements
+
+—
+
+#### Priority
+
+—
+
+#### Messages
+
+—
 
 #### Business Rule Definitions
 

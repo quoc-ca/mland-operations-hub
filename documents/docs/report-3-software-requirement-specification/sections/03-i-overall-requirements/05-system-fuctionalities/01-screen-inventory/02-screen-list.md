@@ -1,4 +1,5 @@
 #### b. Screen List
+::: {.docx-table width="100%" columns="5%,15%,25%,55%" repeat-header="false"}
 
 | # | Screen Name | Feature | Description |
 | --- | --- | --- | --- |
@@ -97,3 +98,5 @@
 | 97 | Carrier Orders | Order Management and Fulfillment | Allows the Carrier to see GHTK shipments from every Mland branch and record the courier's status steps. |
 | 98 | Carrier Statistics | Order Management and Fulfillment | Displays the Carrier's shipment statistics for a chosen period. |
 | 99 | Custom Order Operations | Custom Manufacturing | Allows Staff and Managers to follow paid custom orders by stage and record production and handover. |
+
+:::
