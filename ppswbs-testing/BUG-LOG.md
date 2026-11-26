@@ -865,3 +865,435 @@ Mọi lỗi phát hiện trong quá trình kiểm thử Unit, Integration hoặc
   - Screenshot: ![Hộp thoại từ chối](master-e2e/screenshots/P2-C6-01--hop-thoai-tu-choi.jpg)
 - Sửa tại: thêm khóa `cr.rejectBody` (vi: "Vé {code}. Từ chối sẽ giữ nguyên lịch hiện tại của vé.", en tương ứng) trong `messages.ticket.js`; hộp thoại dùng khóa này khi từ chối.
 - Kiểm lại: test mới "describes rejecting, not approving, in the reject dialog" đạt; `i18n.test.jsx` đạt (commit `5e3aa9c8`). Chưa xem hộp thoại trên trình duyệt vì hàng chờ không còn yêu cầu PENDING.
+
+## BUG-E2E-0027 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR (spec chưa nói rõ khách phải thấy dòng add-on; cần owner 003.3 xác nhận)
+- Phân loại / Gán cho: Frontend / Spec 003.3
+- Mô tả lỗi: Folio phía Member không liệt kê dòng add-on, chỉ hiện tổng và các khoản thu. Chi tiết vé có hiện tổng "Add-on đã xác nhận 50.000 ₫" nhưng không có tên add-on.
+- Các bước tái hiện:
+  1. Staff thêm add-on 50.000 ₫ vào vé `GRP-DDCC15E83B9145F88651-L0-T1`, thu đủ.
+  2. Member mở `/workshop-tickets/GRP-DDCC15E83B9145F88651-L0-T1/folio`.
+- Kết quả mong đợi: Khách thấy từng khoản phụ thu (tên, số tiền) tạo nên tổng.
+- Thực tế quan sát: Tổng 760.000 ₫ nhưng không có dòng "Bộ kit khăn lau..." 50.000 ₫; phía Staff thì có.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0028 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking / 006
+- Kịch bản liên quan: S1, S0 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.1 / 006
+- Mô tả lỗi: Giá tham khảo ở trang gói khác giá báo khi đặt.
+- Các bước tái hiện:
+  1. Mở gói Silver 925 (900.000 ₫).
+  2. Chọn ca, 2 vé, "Đặt ngay".
+- Kết quả mong đợi: Trang gói nói rõ trần giảm tự động và điều kiện voucher, hoặc giá khớp báo giá.
+- Thực tế quan sát: Member thấy 810.000 ₫/vé nhưng báo giá 825.000 ₫ (trần giảm 150.000 ₫ cho cả giỏ). Guest thấy 710.000 ₫ "sau voucher MLWS100" (voucher chỉ cho Member) nhưng báo giá 825.000 ₫.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0029 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking
+- Kịch bản liên quan: S0 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.1
+- Mô tả lỗi: Thông báo tra cứu thất bại chưa dịch.
+- Các bước tái hiện:
+  1. Guest tra cứu một mã nhóm với email sai trên giao diện tiếng Việt.
+- Kết quả mong đợi: Thông báo tiếng Việt.
+- Thực tế quan sát: Hiện "Chưa đọc được nhóm đặt chỗ" kèm "Booking not found" (API 404).
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0030 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking
+- Kịch bản liên quan: S1 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend
+- Mô tả lỗi: Banner "giao dịch chờ thanh toán" làm trang bị cuộn ngang ở khung hẹp.
+- Các bước tái hiện:
+  1. Cửa sổ rộng khoảng 670px, giữ chỗ 2 vé.
+- Kết quả mong đợi: Banner nằm trong khung nhìn.
+- Thực tế quan sát: Banner tràn phải, xuất hiện thanh cuộn ngang.
+- Bằng chứng:
+  - Screenshot: ![S1-0030--banner-cho-thanh-toan-tran-ngang.jpg](master-e2e/screenshots/S1-0030--banner-cho-thanh-toan-tran-ngang.jpg)
+
+## BUG-E2E-0031 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 001-account-management
+- Kịch bản liên quan: S0 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 001
+- Mô tả lỗi: Dòng "Chưa có tài khoản? Đăng ký ngay" ở trang đăng nhập khó đọc.
+- Các bước tái hiện:
+  1. Mở `/login`.
+- Kết quả mong đợi: Đủ tương phản (WCAG AA).
+- Thực tế quan sát: Chữ liên kết xanh trên nền xanh đậm.
+- Bằng chứng:
+  - Screenshot: ![S0-0031--dang-ky-ngay-tuong-phan-thap.jpg](master-e2e/screenshots/S0-0031--dang-ky-ngay-tuong-phan-thap.jpg)
+
+## BUG-E2E-0032 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking
+- Kịch bản liên quan: S2 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.1
+- Mô tả lỗi: Ô mã đặt chỗ gợi ý sai định dạng.
+- Các bước tái hiện:
+  1. Guest mở `/workshop-booking/lookup`.
+- Kết quả mong đợi: Gợi ý theo dạng `GRP-…`.
+- Thực tế quan sát: Placeholder `e.g. WG-20261113-ABCD`.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0033 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S2 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3
+- Mô tả lỗi: Trang folio của khách không có nút quay lại và hiện ô "Mã điều chỉnh" không có hướng dẫn.
+- Các bước tái hiện:
+  1. Member mở "Xem hóa đơn thanh toán của vé".
+- Kết quả mong đợi: Có đường quay lại; ô điều chỉnh có giải thích hoặc chỉ hiện khi cần.
+- Thực tế quan sát: Không có nút quay lại; ô "Mã điều chỉnh" đứng trơ.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0034 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking
+- Kịch bản liên quan: S2 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.1
+- Mô tả lỗi: Ô "Email người nhận vé" không có tên truy cập (nhãn không gắn với input).
+- Các bước tái hiện:
+  1. Mở chi tiết vé, bấm "Gửi vé cho người đi cùng".
+- Kết quả mong đợi: Input có accessible name.
+- Thực tế quan sát: Cây truy cập ghi textbox không tên.
+- Bằng chứng:
+  - Screenshot: ![S2-0034--o-email-nguoi-nhan.jpg](master-e2e/screenshots/S2-0034--o-email-nguoi-nhan.jpg)
+
+## BUG-E2E-0035 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.2
+- Mô tả lỗi: Bảng điều phối ca hiện hai chuỗi UUID ở cột "Ca".
+- Các bước tái hiện:
+  1. Staff mở `/operations/sessions`.
+- Kết quả mong đợi: Hiện tên khung giờ / gói dễ đọc.
+- Thực tế quan sát: Mỗi dòng hiện hai UUID.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0036 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 014-navigation-shell / 003.2
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 014
+- Mô tả lỗi: Việc "chưa chốt điểm danh" ở trang chủ Staff không ghi ngày.
+- Các bước tái hiện:
+  1. Staff mở `/staff/home`.
+- Kết quả mong đợi: Mỗi việc ghi ngày và giờ.
+- Thực tế quan sát: Chỉ có giờ, nên hai dòng "Buổi 09:30" trông như trùng.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0037 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend / Backend 003.3
+- Mô tả lỗi: Thông báo `SESSION_NOT_STARTED` lộ trạng thái thô "IN PROGRESS".
+- Các bước tái hiện:
+  1. Staff thêm add-on cho vé của ca chưa bắt đầu.
+- Kết quả mong đợi: Dùng nhãn "Đang diễn ra".
+- Thực tế quan sát: Thông báo ghi "chuyển ca sang IN PROGRESS".
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0038 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3
+- Mô tả lỗi: Nút "Chốt folio" vẫn bật trên folio đã chốt.
+- Các bước tái hiện:
+  1. Thu đủ số còn nợ để folio chuyển "Đã chốt".
+- Kết quả mong đợi: Nút ẩn hoặc vô hiệu.
+- Thực tế quan sát: `disabled = false` (không bấm thử).
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0039 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3
+- Mô tả lỗi: Bảng dòng add-on phía Staff hiện trạng thái chưa dịch và mã nội bộ, cột bị bóp ở khung hẹp.
+- Các bước tái hiện:
+  1. Staff thêm add-on, xem bảng "Dòng / Mô tả" ở khung khoảng 670px.
+- Kết quả mong đợi: Trạng thái "Đã xác nhận", cột đọc được.
+- Thực tế quan sát: `CONFIRMED`, `SETTLE-CHARGE-…`, mô tả xuống dòng từng từ.
+- Bằng chứng:
+  - Screenshot: ![S3-0039--bang-addon-confirmed.jpg](master-e2e/screenshots/S3-0039--bang-addon-confirmed.jpg)
+
+## BUG-E2E-0040 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking / 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S2 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: SPEC-GAP (chưa kết luận là lỗi)
+- Phân loại / Gán cho: Spec 003
+- Mô tả lỗi: Chưa rõ Guest có được quản lý đơn đặt bằng tài khoản Member chỉ bằng mã nhóm và một thông tin liên hệ hay không.
+- Các bước tái hiện:
+  1. Chưa đăng nhập, tra cứu đơn của Member bằng mã nhóm và đúng email.
+- Kết quả mong đợi: Spec nói rõ quyền xem QR, đổi lịch, hủy vé, gửi vé của Guest với đơn thuộc Member.
+- Thực tế quan sát: Thấy QR của cả 2 vé và các nút "Đổi lịch", "Hủy vé", "Gửi vé cho người đi cùng" (không bấm). FR-048/FR-049 và 003.3 cho Guest chứng minh bằng liên hệ nhưng không nói riêng đơn Member.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0041 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: S3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: SPEC-GAP (chưa đối chiếu hết spec)
+- Phân loại / Gán cho: Spec 003.2
+- Mô tả lỗi: Cần xác nhận hạn cuối của check-in và việc ca quá giờ vẫn "Đang diễn ra".
+- Các bước tái hiện:
+  1. Ngày 26/11, 18:45, Staff check-in vé `GRP-DDCC15E83B9145F88651-L0-T1` của ca 25/11 09:30–12:00 chưa chốt điểm danh.
+- Kết quả mong đợi: Spec nói rõ check-in còn hợp lệ đến khi nào.
+- Thực tế quan sát: Check-in được chấp nhận (HTTP 200); ca vẫn "Đang diễn ra".
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0042 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S3, S4 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: SPEC-GAP (chưa tìm thấy spec bắt buộc; cần owner 003.3 xác nhận)
+- Phân loại / Gán cho: Spec / Backend 003.3
+- Mô tả lỗi: Thêm add-on vào folio không có dòng nào trên màn "Nhật ký audit".
+- Các bước tái hiện:
+  1. Staff thêm add-on 50.000 ₫ vào vé `GRP-DDCC15E83B9145F88651-L0-T1` (khoảng 18:46 ngày 26/11).
+  2. Manager mở `/operations/audit`, xem cả tab "Vận hành" và "Quyết toán".
+- Kết quả mong đợi: Thao tác làm tăng tiền khách phải trả có dòng audit ghi người thực hiện và thời điểm, hoặc spec nói rõ không cần.
+- Thực tế quan sát: Có `FOLIO_CASH_COLLECTED` và `FOLIO_FINALIZED` lúc 18:46:27, không có dòng thêm add-on. Tìm trong `workshopsettlement/service` cũng không thấy mã hành động audit cho việc thêm add-on.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0043 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes / 003.2 audit review
+- Kịch bản liên quan: S4 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Backend 003.3
+- Mô tả lỗi: Tab "Quyết toán" hiện người thực hiện là số trần ở các dòng đổi lịch.
+- Các bước tái hiện:
+  1. Manager mở `/operations/audit?tab=settlement`.
+  2. Xem các dòng `TICKET_CHANGE_*` ngày 25/11 19:24–19:25.
+- Kết quả mong đợi: FR-052: hiển thị người thực hiện như FR-051 (id tài khoản kèm tên).
+- Thực tế quan sát: Hiện `2`, `8`; các dòng `FOLIO_CASH_COLLECTED` thì hiện đủ tên kèm id.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0044 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: S4 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR (chưa đối chiếu spec)
+- Phân loại / Gán cho: Frontend / Spec 003.2
+- Mô tả lỗi: "Chốt điểm danh" thực hiện ngay sau một lần bấm, không hỏi xác nhận.
+- Các bước tái hiện:
+  1. Staff mở một ca "Đang diễn ra", bấm "Chốt điểm danh".
+- Kết quả mong đợi: Hộp xác nhận nêu số vé đã và chưa check-in trước khi chốt.
+- Thực tế quan sát: Ca chuyển ngay sang "Đã chốt điểm danh"; các nút đổi trạng thái bị khoá.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0045 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.1-workshop-booking / 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S6, S5 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MAJOR
+- Phân loại / Gán cho: Backend 003.1 / 003.3 (chưa xác định tầng)
+- Mô tả lỗi: Vé đã đổi lịch rồi huỷ hiển thị lại buổi cũ.
+- Các bước tái hiện:
+  1. Member đổi vé `GRP-56841B2845374F45B043-L0-T1` từ 28/11 09:30–12:00 sang 28/11 13:00–16:00; trang chi tiết hiện buổi mới.
+  2. Huỷ chính vé đó.
+  3. Xem chi tiết nhóm đặt chỗ.
+- Kết quả mong đợi: Vé đã huỷ hiện buổi tại thời điểm huỷ: 28/11 13:00–16:00, Mland Hà Nội – Hoàn Kiếm.
+- Thực tế quan sát: Hiện "Buổi 1: Thứ 7, 28/11/2026 (09:30)", không có giờ kết thúc và chi nhánh.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0046 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S6, S5 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend / Spec 003.3
+- Mô tả lỗi: Vé đã huỷ và folio đã đóng vẫn hiện số còn phải trả.
+- Các bước tái hiện:
+  1. Member huỷ vé `GRP-56841B2845374F45B043-L0-T1` (đã trả 200.000 ₫ trên 825.000 ₫).
+  2. Xem chi tiết vé và trang folio của vé.
+- Kết quả mong đợi: Không trình bày như khoản còn nợ: ẩn, hiện 0, hoặc ghi rõ không phải thu.
+- Thực tế quan sát: Chi tiết vé "Còn phải trả 625.000 ₫"; folio "Đã đóng" nhưng "Số còn nợ 625.000 ₫".
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0047 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: N4 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend / Backend 003.2
+- Mô tả lỗi: Thông báo từ chối check-in vé đã huỷ chưa dịch.
+- Các bước tái hiện:
+  1. Manager mở ca `/operations/sessions/c8742ce2-e69e-11f1-b811-c2df278ecca3` (25/11 13:00).
+  2. Nhập mã vé đã huỷ `GRP-56841B2845374F45B043-L0-T1`, bấm "Check-in".
+- Kết quả mong đợi: Thông báo tiếng Việt.
+- Thực tế quan sát: HTTP 409, giao diện hiện "Ticket is CANCELLED, check-in rejected".
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0048 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: N3 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3
+- Mô tả lỗi: Member mở folio của vé không thuộc mình bị đưa về trang chủ mà không có thông báo.
+- Các bước tái hiện:
+  1. Member đăng nhập, mở `/workshop-tickets/GRP-3046E8AD870F4A849DDA-L0-T1/folio`.
+- Kết quả mong đợi: Trang báo không có quyền xem hoặc không tìm thấy vé; không lộ dữ liệu.
+- Thực tế quan sát: API trả 403 (không lộ dữ liệu), trình duyệt chuyển về `/` không có thông báo.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang quan sát được.
+
+## BUG-E2E-0049 — FIXED
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S7 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: BLOCKER
+- Phân loại / Gán cho: Backend 006 loyalty-promotion / 003.3
+- Mô tả lỗi: Member chọn hoàn tiền cho vé bị Mland huỷ ca thì API trả 500; không mở được yêu cầu hoàn tiền.
+- Các bước tái hiện:
+  1. Member đặt và trả cọc 200.000 ₫ cho vé `GRP-12E056299860454A8137-L0-T1`, ca 10/12/2026 16:00–19:00 Hoàn Kiếm (vé duy nhất của ca).
+  2. Manager "Yêu cầu hủy ca", lý do `INSTRUCTOR_UNAVAILABLE` (API 202, ca "Đang yêu cầu hủy").
+  3. Member mở `/workshop-tickets/GRP-12E056299860454A8137-L0-T1/remedy`, chọn "Hoàn tiền vé này (100%)", "Gửi câu trả lời", "Xác nhận".
+- Kết quả mong đợi: Ghi nhận câu trả lời, mở yêu cầu hoàn 200.000 ₫ trong hàng đợi hoàn tiền, gửi liên kết nhập tài khoản.
+- Thực tế quan sát: `POST /api/v1/workshop-tickets/{ticketCode}/mland-remedy/answers` trả 500 cả 2 lần thử; giao diện hiện "An unexpected error occurred". Sau đó folio vẫn "Đang mở", hàng đợi hoàn tiền trống, ca vẫn "Đang yêu cầu hủy".
+- Nguyên nhân (từ stack trace staging và đọc code, chưa tái hiện bằng test): `TicketMlandRemedyService.executeRemedyRefund` gọi `restoreVoucherForCancelledTicket(new RestoreVoucherCommand(ctx.groupCode(), ticketCode, …))`. `LoyaltyPartLifecycleService.ticketMlandOutcome` dùng `ticketCode` (`GRP-…-L0-T1`) làm `partRef`, trong khi phần quyền lợi được khoá theo mã `L0-T1` (`WorkshopBookingFacadeImpl` dựng `partRef = "L{line}-T{ordinal}"`). `find(parts, partRef)` ném `LoyaltyException` "This branch order is not part of the accepted checkout." nên cả giao dịch rollback và trả 500. `LoyaltyWorkshopFacadeIT` dùng `t-1` cho cả hai mã nên không bắt được; `TicketMlandRemedyServiceTest` mock `LoyaltyFacade`.
+- Phạm vi suy ra từ code (chưa chạy): nhánh tự hoàn tiền khi hết hạn trả lời cũng đi qua `executeRemedyRefund`, nên khả năng lỗi tương tự với nhóm Member có quyền lợi loyalty.
+- Hướng sửa đề xuất (owner 006 / 003.3 tự quyết): truyền `ctx` partRef vào lệnh, hoặc 006 đổi mã vé sang partRef; thêm test với mã vé thật dạng `GRP-…-L0-T1`.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
+  - Console / Log (backend staging 26/11): `19:31:57 … correlationId=bdcd0722-9fd3-4e62-ab66-8da99cd60436: This branch order is not part of the accepted checkout.` và `19:32:53 … correlationId=a843aec0-dbe4-41ea-8a59-c7b35d4dd642` (cùng lỗi), stack `LoyaltyPartLifecycleService.find:318 ← cancelTicket:225 ← cancelTicketByMland:207`. Mã hiển thị trên UI (`21d0a696-…`, `2425a362-…`) khác mã trong log vì `AccountExceptionHandler.resolveCorrelationId` sinh UUID mới mỗi lần gọi khi request không có `X-Correlation-Id`; khớp theo thời điểm.
+- Sửa tại: thêm `partRef` vào `RestoreVoucherCommand` (006), 003.3 truyền `ctx.partRef()`, cập nhật contract facade (BE-DESIGN-0014, phương án A).
+- Kiểm lại: test tái hiện `restoreVoucherFindsTheTicketByItsPartReferenceNotItsTicketCode` đỏ trước khi sửa (cùng thông báo như staging), sau sửa đạt; 95 test của các lớp liên quan và 18 test Modulith đạt ngày 2026-11-26. Chưa commit, chưa deploy, chưa chạy lại S7 trên staging.
+
+## BUG-E2E-0050 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.3-workshop-settlement-and-changes
+- Kịch bản liên quan: S7 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.3
+- Mô tả lỗi: Trang chọn buổi thay thế là một danh sách phẳng rất dài, lựa chọn hoàn tiền nằm cuối cùng.
+- Các bước tái hiện:
+  1. Member mở trang `/remedy` của vé bị huỷ ca.
+- Kết quả mong đợi: Lọc hoặc phân trang theo ngày/chi nhánh, ẩn ca không khả dụng, lựa chọn hoàn tiền dễ thấy.
+- Thực tế quan sát: 252 radio (251 ca gồm cả ca "không khả dụng", cộng hoàn tiền ở cuối).
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
+
+## BUG-E2E-0051 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: S7 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR
+- Phân loại / Gán cho: Frontend 003.2
+- Mô tả lỗi: Danh sách lý do huỷ ca hiện mã hệ thống tiếng Anh.
+- Các bước tái hiện:
+  1. Manager mở một ca, mở "Xử lý ngoại lệ", xem "Chuyển giao hủy ca".
+- Kết quả mong đợi: Chỉ hiện mô tả tiếng Việt.
+- Thực tế quan sát: Mỗi mục có tiền tố như `INSTRUCTOR_UNAVAILABLE —`.
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
+
+## BUG-E2E-0052 — OPEN
+
+- Ngày: 2026-11-26
+- Phát hiện bởi: QA Agent (Hồ Hoàng Quốc chạy)
+- Feature: 003.2-workshop-operations
+- Kịch bản liên quan: S7 (staging, kịch bản gợi ý trong phiên test; chưa có file E2E v2)
+- Mức độ nghiêm trọng: MINOR (chưa đối chiếu spec)
+- Phân loại / Gán cho: Frontend / Spec 003.2
+- Mô tả lỗi: "Yêu cầu hủy ca" gửi ngay sau một lần bấm, không hỏi xác nhận.
+- Các bước tái hiện:
+  1. Manager điền lý do và ghi chú, bấm "Yêu cầu hủy ca".
+- Kết quả mong đợi: Hộp xác nhận nêu số vé bị ảnh hưởng.
+- Thực tế quan sát: Gửi ngay; ca chuyển "Đang yêu cầu hủy".
+- Bằng chứng:
+  - Screenshot: chưa lưu ảnh; bằng chứng là văn bản trang và request quan sát được.
