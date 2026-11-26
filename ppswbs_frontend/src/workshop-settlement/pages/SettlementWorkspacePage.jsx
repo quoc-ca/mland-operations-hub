@@ -291,7 +291,7 @@ export default function SettlementWorkspacePage() {
               <div><span>{t('ws.pending')}</span><strong>{fmt.money(bill.pendingAmount)}</strong></div>
             </div>
             <div className="ops-actions">
-              <button className="button primary" type="button" disabled={command.pending} onClick={() => run(key => api.finalize(ticketCode, key), t('ws.msg.finalized'))}>{t('ws.finalize')}</button>
+              <button className="button primary" type="button" disabled={command.pending || bill.status === 'FINALIZED' || bill.status === 'CLOSED'} onClick={() => run(key => api.finalize(ticketCode, key), t('ws.msg.finalized'))}>{t('ws.finalize')}</button>
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'debt' })}>{t('ws.recordDebt')}</button>}
               {isManager && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'closeDebt' })}>{t('ws.closeDebt')}</button>}
               {isManager && unsettled && <button className="button outline" type="button" onClick={() => setDangerous({ kind: 'handover' })}>{t('ws.allowHandover')}</button>}

@@ -41,7 +41,7 @@ public class RingDesign {
     @Column(name = "owner_reference", nullable = false, length = 128)
     private String ownerReference;
 
-    @Column(name = "package_reference", nullable = false, length = 128)
+    @Column(name = "package_reference", length = 128)
     private String packageReference;
 
     @Column(name = "source_model_reference", length = 128)
@@ -70,11 +70,29 @@ public class RingDesign {
     @Builder.Default
     private String currency = "VND";
 
-    @Column(name = "difficulty_score", precision = 10, scale = 4)
+    @Column(name = "difficulty_score", precision = 18, scale = 4)
     private BigDecimal difficultyScore;
 
     @Column(name = "rules_version", length = 64)
     private String rulesVersion;
+
+    @Column(name = "policy_version_id")
+    private Long policyVersionId;
+
+    @Column(name = "difficulty_level", length = 32)
+    private String difficultyLevel;
+
+    @Column(name = "recommendation_code", length = 64)
+    private String recommendationCode;
+
+    @Column(name = "recommended_package_reference", length = 128)
+    private String recommendedPackageReference;
+
+    @Column(name = "material_disclosure", length = 500)
+    private String materialDisclosure;
+
+    @Column(name = "evaluated_at")
+    private Instant evaluatedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)

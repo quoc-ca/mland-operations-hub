@@ -12,6 +12,6 @@
 
  - If an option or configuration is invalid or incompatible, the server rejects the evaluation and returns a safe validation reason; it does not auto-reject a custom-manufacturing request.
 
-The current difficulty formula and catalogue coefficients are documented in the Feature-012 formula reference. Workshop recommendation is advisory: more than five gemstones recommends Silver Clay; difficulty above nine recommends Wax Casting with a two-session/two-day note; otherwise the applicable Signature workshop is recommended. When both conditions apply, Wax Casting is the primary recommendation while all workshop discovery actions remain visible.
+The current difficulty formula and catalogue coefficients are documented in the Feature-012 formula reference. Under the proposed Admin-owned policy, workshop recommendation is advisory and server-owned: a score above the configured too-risky cutoff yields no workshop recommendation and explains the consultation/custom-design path; otherwise a score above the Wax Casting cutoff recommends Wax Casting with a two-session/two-day note; otherwise gemstone quantity above the Silver Clay cutoff recommends Silver Clay; otherwise the applicable Signature workshop is recommended. All general workshop discovery actions remain visible. Existing saved evaluations retain their recorded policy version and result.
  
 {{r3-algorithm width=100% align=center}}

@@ -309,7 +309,7 @@ class TicketMlandRemedyServiceTest {
 
         verify(bankRefunds).openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString());
         verify(operations).cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString());
-        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE,
+        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE, "L1-T1",
                 TicketCancellationKind.MLAND_CANCELLED));
         assertThat(response.voucherRestoration()).isEqualTo(new VoucherRestorationDto(true, null));
         verify(handoffCompletion).completeIfResolved(eq(offer.getCancelledSessionReference()), any());
@@ -566,7 +566,7 @@ class TicketMlandRemedyServiceTest {
 
         verify(bankRefunds).openRemainder(eq(TICKET_CODE), eq(GROUP_CODE), eq(RefundReason.MLAND_CANCELLATION), anyString(), anyString());
         verify(operations).cancelTicket(eq(OPS_TICKET_REF), anyString(), anyString(), anyString());
-        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE,
+        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, TICKET_CODE, "L1-T1",
                 TicketCancellationKind.MLAND_CANCELLED));
         verify(handoffCompletion).completeIfResolved(eq(offer.getCancelledSessionReference()), any());
         // T113: money goes back, so the folio stays open until the bank refund is REFUNDED.
@@ -903,7 +903,7 @@ class TicketMlandRemedyServiceTest {
                 .thenReturn(TicketCancellationOutcome.accepted(opsRef, List.of()));
         when(booking.groupLoyaltyOutcomeSource(GROUP_CODE)).thenReturn(new BookingGroupLoyaltyOutcomeSource(
                 true, "SNAP-1", 1, Instant.now().plus(7, ChronoUnit.DAYS), List.of()));
-        when(loyalty.restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, ticketCode,
+        when(loyalty.restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, ticketCode, "L1-" + ticketCode,
                 TicketCancellationKind.MLAND_CANCELLED))).thenReturn(facadeOutcome);
         when(remedyRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         return offer;
@@ -943,8 +943,8 @@ class TicketMlandRemedyServiceTest {
         assertThat(response.voucherRestoration()).isEqualTo(new VoucherRestorationDto(false, null));
         assertThat(response.refundRequestReference()).isEqualTo("REFUND-TK-B");
         assertThat(second.getVoucherRestorationOutcome()).isEqualTo("ALREADY_RESTORED");
-        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, "TK-A", TicketCancellationKind.MLAND_CANCELLED));
-        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, "TK-B", TicketCancellationKind.MLAND_CANCELLED));
+        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, "TK-A", "L1-TK-A", TicketCancellationKind.MLAND_CANCELLED));
+        verify(loyalty).restoreVoucherForCancelledTicket(new RestoreVoucherCommand(GROUP_CODE, "TK-B", "L1-TK-B", TicketCancellationKind.MLAND_CANCELLED));
         verify(loyalty, never()).restoreCancelledWorkshopBenefits(any());
     }
 

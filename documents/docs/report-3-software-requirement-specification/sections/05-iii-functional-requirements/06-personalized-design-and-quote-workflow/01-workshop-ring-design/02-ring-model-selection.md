@@ -15,7 +15,7 @@ The model list comes from the server's published catalogue option set; no design
 | Title and subtitle | "Mẫu gợi ý theo gói" with the explanation that models are standard templates prepared by the artisans. |
 | **Quay lại chọn mẫu** | Returns to Ring Design Entry. |
 | Model card | Image (when available), material tag ("Bạc Ý 925", "Đồng" or "Thép không gỉ"), model name and description. |
-| Estimated difficulty | "Độ khó ước tính: {score} / 10" with a difficulty label, shown when the model has a score. |
+| Estimated difficulty | "Độ khó ước tính: {score}" with the server-provided difficulty label, shown when the model has a score; the score has no fixed maximum. |
 | **Chọn mẫu này** | Opens Ring Configuration in model mode for the chosen model; clicking the card does the same. |
 | Empty state | "Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng." with a button that starts a blank design. |
 | Loading / error | "Đang tải danh sách mẫu thiết kế..." while loading; an error card when the options cannot be loaded. |

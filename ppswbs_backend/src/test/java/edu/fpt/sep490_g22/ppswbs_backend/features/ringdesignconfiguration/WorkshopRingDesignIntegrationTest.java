@@ -75,6 +75,9 @@ public class WorkshopRingDesignIntegrationTest {
     @Autowired
     private RingShapeRepository ringShapeRepository;
 
+    @Autowired
+    private RingDifficultyTestSeedHelper seedHelper;
+
     @MockitoBean
     private TokenVerificationService tokenVerificationService;
 
@@ -95,6 +98,7 @@ public class WorkshopRingDesignIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        seedHelper.ensureSeeded();
         when(tokenVerificationService.verify(memberToken)).thenReturn(
                 new VerifiedIdentity(memberUid, "member-ring@mland.vn", true, Instant.now()));
         when(accountFacade.resolveActor(memberUid, true)).thenReturn(Optional.of(

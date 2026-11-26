@@ -157,7 +157,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByText('Mẫu Nhẫn Cưới Classic')).toBeInTheDocument();
       expect(screen.getByText('Mẫu Nhẫn Xoắn Đôi')).toBeInTheDocument();
-      expect(screen.getByText(/2\.0 \/ 10/i)).toBeInTheDocument();
+      expect(screen.getByText('2.0')).toBeInTheDocument();
       expect(screen.getByText(/Dễ/i)).toBeInTheDocument();
     });
 
@@ -362,7 +362,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       expect(screen.getByText(/Mã thiết kế:/)).toBeInTheDocument();
       expect(screen.getByText('DSG-EVAL-789')).toBeInTheDocument();
       expect(screen.getByText('350.000 ₫')).toBeInTheDocument();
-      expect(screen.getByText('3.5 / 10')).toBeInTheDocument();
+      expect(screen.getByText('3.5')).toBeInTheDocument();
       expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Trung bình');
       expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Trung bình');
       expect(screen.getByTestId('proceed-booking-btn')).toBeInTheDocument();
@@ -383,7 +383,7 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', { session: fakeSession('signed-in') });
 
       expect(await screen.findByTestId('design-evaluation-page')).toBeInTheDocument();
-      expect(screen.getByText('9.4 / 10')).toBeInTheDocument();
+      expect(screen.getByText('9.4')).toBeInTheDocument();
       expect(screen.getByTestId('difficulty-badge')).toHaveTextContent('Rất khó');
       expect(screen.getByTestId('difficulty-note')).toHaveTextContent('Khuyến cáo người dùng đổi lại mẫu thiết kế');
       expect(screen.getByTestId('difficulty-very-hard-warning')).toBeInTheDocument();

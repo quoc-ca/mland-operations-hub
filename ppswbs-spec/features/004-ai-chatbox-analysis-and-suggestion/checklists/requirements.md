@@ -1,20 +1,39 @@
-# Requirements Checklist: Independent Feature-04
+# Specification Quality Checklist: Feature-004 Custom Design Request and Human Review
 
-> **Historical checklist (2026-11-20):** Superseded by the human-review requirements in `spec.md` and `research.md`.
+**Date created**: 2026-11-20
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Ngô Tiến Đạt
 
-- [ ] Guest Design Request is denied; only authenticated Member ownership is supported.
-- [ ] Description-only, image-only and combined request policy is explicit.
-- [ ] Human-review behavior is taken from the backend response; the frontend does not invent a review path.
-- [ ] Withdrawal/revision commands are not exposed by the current frontend contract.
-- [ ] Independent Design Request has no booking/payment/location/session/ticket fields.
-- [ ] No Feature-04 code imports or calls Workshop Booking/Operations/Settlement.
-- [ ] Account ownership is server-verified and cross-owner access is denied.
-- [ ] Image consent is affirmative, versioned and recorded before storage/provider call.
-- [ ] Input validation, prompt injection screening and provider output policy validation are explicit.
-- [ ] Image limit is 10 MB and 4096×4096; image rate limit is three attempts per five minutes.
-- [ ] Duplicate idempotent retries do not consume another image quota slot.
-- [ ] Temporary image deletion is required; the frontend does not retain raw image content.
-- [ ] AI cannot approve, reject, publish a price or mutate business state.
-- [ ] Staff/Manager review scope and separation of duties are explicit.
-- [ ] Price suggestion is advisory and Manager-controlled; Admin is technical/audit only.
-- [ ] OpenAPI, data model, design, tasks and tests use the independent boundary.
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Feature**: [spec.md](../spec.md)
+
+## Content Quality
+
+- [x] No implementation details in user requirements
+- [x] Focused on user value and business needs
+- [x] Written for non-technical stakeholders
+- [x] All mandatory sections completed
+
+## Requirement Completeness
+
+- [x] No [NEEDS CLARIFICATION] markers remain
+- [x] Requirements are testable and unambiguous
+- [x] Success criteria are measurable
+- [x] Success criteria are technology-agnostic
+- [x] All acceptance scenarios are defined (Scenarios 1–18)
+- [x] Edge cases are identified (session timeout, quote expiry, carrier transitions)
+- [x] Scope is clearly bounded
+- [x] Dependencies and assumptions identified
+
+## Feature Readiness
+
+- [x] All functional requirements have clear acceptance criteria
+- [x] User scenarios cover primary flows
+- [x] Feature meets measurable outcomes defined in Success Criteria
+- [x] Zero regression with Feature 008 (Method 1B dedicated shipment entity `custom_order_shipments`)
+- [x] VNPay 10-minute session strictly decoupled from 24–72h quote validity
+
+## Notes
+
+- Updated on 2026-11-26: Rebaselined VNPay transaction window to 10 minutes and formalized Method 1B Mock GHTK fulfillment linking.

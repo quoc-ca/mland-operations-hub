@@ -1,15 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Frontend foundation (002 T088): build with Vite, test with Vitest + Testing Library on jsdom.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     host: true,
     allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
-        target: process.env.BACKEND_URL || 'http://localhost:8080',
+        target: loadEnv(mode, process.cwd(), 'BACKEND_URL').BACKEND_URL
+          || process.env.VITE_PROXY_BACKEND_DEFAULT
+          || 'http://localhost:8080',
         changeOrigin: true,
       },
       '/__/auth': {
@@ -62,4 +64,4 @@ export default defineConfig({
     css: false,
     restoreMocks: true,
   },
-});
+}));

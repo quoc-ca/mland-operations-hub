@@ -16,7 +16,7 @@ data plan.
 | Public offer | Price | Included commercial facts | Session requirement | Collection / delivery fact |
 | --- | ---: | --- | --- | --- |
 | Signature Workshop — Brass | 750,000 VND per person/piece | Brass, maximum 10g; basic metalworking: torch heating, soldering and shaping; personalised ring | One 1–2 hour session | Customer takes the product home the same day |
-| Signature Workshop — Silver 925 | 900,000 VND per person/piece | Silver 925, maximum 4g; basic metalworking: torch heating, soldering and shaping; personalised ring | One 1–2 hour session | Customer takes the product home the same day |
+| Signature Workshop — Silver 925 | 900,000 VND per person/piece | Includes 3g of Silver 925; estimated excess silver is shown as an advisory material surcharge, with the payable amount confirmed through the workshop process; basic metalworking: torch heating, soldering and shaping; personalised ring | One 1–2 hour session | Customer takes the product home the same day |
 | Silver Clay Workshop — 5g package | 1,350,000 VND per person/piece | S999 Silver Clay, 5g included, standard ring design, up to five stones | One 2–3 hour session | Customer takes the product home the same day |
 | Silver Clay Workshop — 7g package | 1,950,000 VND per person/piece | S999 Silver Clay, 7g included, unlimited stones | One 2–3 hour session | Customer takes the product home the same day |
 | Wax Casting Workshop | 1,000,000 VND per person/piece | S999 / S925 / Gold; material cost is not included; session 1 is wax carving/shaping and session 2 is polishing/finishing | Two sessions; at least two foundry-working dates must fall between them | Not same-day pickup |

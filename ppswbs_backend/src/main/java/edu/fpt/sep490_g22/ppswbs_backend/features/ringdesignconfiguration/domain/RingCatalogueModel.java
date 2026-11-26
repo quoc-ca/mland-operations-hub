@@ -21,7 +21,7 @@ public class RingCatalogueModel {
     @Column(name = "model_code", nullable = false, unique = true, length = 64)
     private String modelCode;
 
-    @Column(name = "package_reference", nullable = false, length = 128)
+    @Column(name = "package_reference", length = 128)
     private String packageReference;
 
     @Column(name = "name", nullable = false, length = 255)

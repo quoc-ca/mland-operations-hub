@@ -14,7 +14,7 @@
 .cr-actions { display: flex; gap: 8px; white-space: nowrap; }
 
 /* Ticket folio tables: inside their panel, long references shortened, descriptions may wrap, buttons stay together. */
-.fl-table { width: 100%; table-layout: fixed; }
+.fl-table { width: 100%; min-width: 560px; table-layout: fixed; }
 /* Collections and folio lines share five columns so Amount, Status and Actions line up between the two tables. */
 .fl-table col.c-main { width: 14%; }
 .fl-table col.c-desc { width: 16%; }

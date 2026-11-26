@@ -14,6 +14,8 @@ import { BuyerProof, ProblemNotice, VoucherNotRestoredNotice } from '../ui';
 // The text of each refusal is mr.problem.<CODE>.
 const KNOWN_CODES = ['REPLACEMENT_SESSION_UNAVAILABLE', 'REPLACEMENT_SESSION_NOT_OFFERED', 'ANSWER_DEADLINE_EXPIRED'];
 
+const vietnamDay = time => (time ? new Date(time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : '');
+
 /**
  * Buyer answer to an Mland cancellation (FR-043): move to one offered equivalent session or take a refund. A Member is
  * proven by the sign-in; a Guest verifies with a code sent to the booking's contact. Only the buyer can answer, and the
@@ -35,6 +37,8 @@ export default function MlandRemedyPage() {
   const [proof, setProof] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState('');
+  const [place, setPlace] = useState('');
+  const [day, setDay] = useState('');
   const command = useCommand();
   const offer = useResource(() => (status === 'loading' ? Promise.resolve(null) : api.getMlandRemedy(ticketCode, opts)), [ticketCode, status]);
 
@@ -51,6 +55,12 @@ export default function MlandRemedyPage() {
   }
 
   const pending = data.outcome === 'PENDING_ANSWER';
+  const selectable = (data.offeredSessions || []).filter(session => session.selectable);
+  const places = [...new Set(selectable.map(session => session.locationName).filter(Boolean))];
+  const shown = selectable.filter(session => (!place || session.locationName === place)
+    && (!day || vietnamDay(session.startAt) === day));
+  // A choice the filters hide is no longer the visible answer.
+  const narrow = apply => value => { apply(value); if (choice !== 'REFUND') setChoice(''); };
   const refund = choice === 'REFUND';
   const chosenLocation = refund ? null : (data.offeredSessions || []).find(session => session.sessionReference === choice)?.locationName;
   const canSend = pending && (refund || choice) && (member || ((operator || !authenticated) && proof));
@@ -77,17 +87,31 @@ export default function MlandRemedyPage() {
         {pending && (
           <fieldset className="settlement-addon-options">
             <legend>{t('mr.chooseOne')}</legend>
-            {(data.offeredSessions || []).map(session => (
-              <label key={session.sessionReference} className="settlement-addon-option">
-                <input type="radio" name="remedy" value={session.sessionReference} disabled={!session.selectable}
-                  checked={choice === session.sessionReference} onChange={() => setChoice(session.sessionReference)} />
-                <span>{session.locationName ? `${session.locationName} – ` : ''}{fmt.dateTime(session.startAt)}{session.endAt ? ` – ${fmt.dateTime(session.endAt)}` : ''}{session.selectable ? '' : t('mr.notAvailable')}</span>
-              </label>
-            ))}
             <label className="settlement-addon-option">
               <input type="radio" name="remedy" value="REFUND" checked={refund} onChange={() => setChoice('REFUND')} />
               <span>{t('mr.refundOption')}</span>
             </label>
+            {selectable.length > 0 && (
+              <div className="wsp-inline-form">
+                {places.length > 1 && (
+                  <label>{t('mr.filterPlace')}
+                    <select value={place} onChange={event => narrow(setPlace)(event.target.value)}>
+                      <option value="">{t('mr.allPlaces')}</option>
+                      {places.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                  </label>
+                )}
+                <label>{t('mr.filterDay')}<input type="date" value={day} onChange={event => narrow(setDay)(event.target.value)} /></label>
+              </div>
+            )}
+            {shown.length === 0 && <p className="muted">{t('mr.noSession')}</p>}
+            {shown.map(session => (
+              <label key={session.sessionReference} className="settlement-addon-option">
+                <input type="radio" name="remedy" value={session.sessionReference}
+                  checked={choice === session.sessionReference} onChange={() => setChoice(session.sessionReference)} />
+                <span>{session.locationName ? `${session.locationName} – ` : ''}{fmt.dateTime(session.startAt)}{session.endAt ? ` – ${fmt.dateTime(session.endAt)}` : ''}</span>
+              </label>
+            ))}
           </fieldset>
         )}
         {pending && !member && <BuyerProof groupCode={data.groupCode} onReference={setProof} />}

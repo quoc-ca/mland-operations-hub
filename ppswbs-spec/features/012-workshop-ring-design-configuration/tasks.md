@@ -1,5 +1,10 @@
 # Feature-012 Tasks: Workshop Ring Design Configuration
 
+**Date created**: 2026-11-08
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
+
 > Superseding baseline 2026-11-22: booking attachment and the Feature-003
 > facade are retired. Current implementation tasks end at saved-design
 > recommendation and Feature-013 consultation handoff.
@@ -8,11 +13,6 @@
 > session persistence, Guest save, Guest evaluation and Guest design history are
 > retired. Member authentication is required for all server commands and
 > persisted design data; older Guest-session tasks are historical only.
-
-Date created: 2026-11-08  
-Date updated: 2026-11-22
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
 
 ## Phase 0 — Baseline and Decisions
 
@@ -102,7 +102,7 @@ Last updated by: Ngô Tiến Đạt
 
 ## Phase 8 — Release Gates
 
-- [ ] Giai đoạn 1: Quản trị danh mục động cho Manager (FE-09) — Xây dựng màn hình quản lý danh mục nhẫn cho Manager để cập nhật động các mẫu đá quý, chất liệu và phụ kiện thay vì sử dụng seed ban đầu.
+- [ ] Giai đoạn 1: Quản trị danh mục động cho Manager — chỉ các trường catalogue không ảnh hưởng độ khó. Mọi điểm/hệ số/ngưỡng và việc công bố bộ quy tắc thuộc Admin; FE-09 chỉ cung cấp hành trình UI Admin.
 - [ ] Giai đoạn 2: Phê duyệt chính thức Revision Figma — Cập nhật mã revision Figma chính thức khi Tech Lead và UI Designer hoàn thiện rà soát giao diện visual.
 
 ## Phase 9 — Quota, preprocessing, preview and encoding correction
@@ -117,4 +117,19 @@ Last updated by: Ngô Tiến Đạt
 - [x] Normalize Feature-012 message resources and SVG labels to UTF-8 with one active locale.
 - [x] Add unit, component, integration and Browser MCP E2E scenarios E2E-012-007 through E2E-012-011.
 - [x] Do not mark this phase complete until new execution evidence and screenshots exist.
+
+## Phase 10 — Proposed Admin-only difficulty policy (2026-11-26)
+
+The tasks below are unapproved implementation handoff work. Historical `[x]`
+markers above do not prove this scope exists or passes verification.
+
+- [ ] T026 Reconcile the complete Member-only Feature-012 and FE-09 revision, including general/package-filtered catalogue, Silver 925 3g advisory allowance, material-aware recommendation, customer/Admin OpenAPI, written Admin UI, DBR-36 retention and current Feature-013 handoff; obtain named Tech Lead approval of exact artifact revisions.
+- [ ] T027 Design an append-only Flyway migration and upgrade path for the complete immutable policy, option-score entries, expiring preview-proof metadata, audit, historical evaluation metadata, nullable general-design package context and correction of four Copper/Steel model package associations; widen stored score precision and validate candidate totals against it. Seed the first policy from current catalogue scores and hardcoded coefficients/thresholds without editing applied migrations or rewriting saved designs.
+- [ ] T028 Implement Feature-012 policy read, whole-candidate validation, required standard plus optional non-personal preview, exhaustive active-model impact, 15-minute server-side proof bound to policy/catalogue revisions and Admin-only publication with in-transaction model revalidation, expected-version concurrency, idempotency, atomic effective-pointer switch and minimized audit.
+- [ ] T029 Remove difficulty fields from Manager catalogue write contracts and reject attempts to change them; return newly active unscored options as visible but disabled when no active model uses them. Guard model publication and referenced-option retirement so no active published model silently loses complete scoring or eligibility.
+- [ ] T030 Make Member Save/Evaluate capture one policy version for score, level and material-compatible recommendation; evaluate every published-model default component/attachment, persist outputs in the immutable design snapshot and read historical results without current-policy recalculation. Support general designs without a selected package.
+- [ ] T031 Replace frontend local difficulty classification and package-choice constants with server-returned metadata; remove `/10`, display full model-default scores, general catalogue, Copper/Steel consultation-only outcome, S925-to-S999 Silver Clay disclosure and Silver 925 excess-mass advisory amount.
+- [ ] T032 Implement the FE-09 Admin UI tasks after the Feature-012 Admin API and visual contract are approved; see FE-09 `tasks.md`.
+- [ ] T033 Specify authorization, invalid/incomplete policy, all-model publication guard, catalogue retirement race, disabled unscored option, standard/optional preview, proof bypass/expiry/mismatch, threshold equality, 3.5g Silver surcharge, material compatibility/disclosure, simultaneous publish, duplicate retry, outage, history and old/new evaluation scenarios; execute and record fresh unit/integration/E2E evidence under the testing persona. No historical pass marker satisfies this task.
+- [ ] T034 Perform static cross-artifact and Modulith boundary review; verify the current migration baseline, route masking, API registration and source-to-task-to-scenario trace before handoff.
 

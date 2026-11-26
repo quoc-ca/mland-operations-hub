@@ -63,7 +63,7 @@ services:
         required: false
     environment:
       USE_POLLING: "true"
-      BACKEND_URL: "http://backend:8080"
+      VITE_PROXY_BACKEND_DEFAULT: "http://backend:8080"
     ports:
       - "${HOST_FE_PORT:-5173}:5173"
     volumes:

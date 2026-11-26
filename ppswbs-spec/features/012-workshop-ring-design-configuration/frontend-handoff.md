@@ -1,16 +1,27 @@
 # Feature-012 Frontend Handoff
 
-Date created: 2026-11-09  
-Date updated: 2026-11-22
-Author: Ngô Tiến Đạt  
-Last updated by: Ngô Tiến Đạt  
+**Date created**: 2026-11-09
+**Date updated**: 2026-11-26
+**Author**: Ngô Tiến Đạt
+**Last updated by**: Phan Sơn
 
-**Status:** Frontend implementation completed and verified across desktop and mobile; all 5 E2E test scenarios PASS.
+**Status:** Historical frontend baseline completed; the 2026-11-26 Admin difficulty-policy and disabled-option display below are proposed, unimplemented changes.
+
+The new customer options contract returns `selectable` and
+`unavailableReason: DIFFICULTY_SCORE_PENDING` for an active option without a
+score in the effective policy. Show that option, explain its disabled state,
+and prevent selection or Save/Evaluate with it. No active published model may
+reference such an option; catalogue/policy publication guards that invariant.
+Future difficulty
+labels and workshop recommendations must use the server evaluation snapshot;
+the older local thresholds and `/10` display in this historical handoff are
+not the proposed policy baseline.
 
 ## 1. Handoff objective
 
 Build the customer-facing React/Vite flow for workshop ring configuration from
-the approved Feature-012 contract and the Figma visual baseline. The experience
+the revised Feature-012 contract after Tech Lead approval and the customer
+Figma visual baseline. The experience
 must feel spacious and easy to scan: controls are grouped by purpose, every
 adjustment explains its effect, and the preview changes immediately as the user
 edits the local draft.
@@ -52,11 +63,16 @@ Figma assets or add a UI kit dependency solely because Figma uses Material 3.
 Use the existing browser-router convention. Proposed routes are:
 
 ```text
+/design/rings
+/design/rings/models
+/design/rings/blank
+/design/rings/configure
+/design/rings/:designId
 /workshops/:packageReference/design
 /workshops/:packageReference/design/models
 /workshops/:packageReference/design/blank
 /workshops/:packageReference/design/configure
-/workshops/:packageReference/design/:designId
+/workshops/:packageReference/design/:designId  # legacy detail redirect to /design/rings/:designId
 /my/designs
 ```
 
@@ -64,14 +80,15 @@ Route behavior:
 
 | Route/screen | Responsibility |
 | --- | --- |
-| Entry | Explain workshop-only configuration and start model/blank selection. |
-| Models | Render only published models returned for the selected package. |
+| General entry | Show all active eligible published models or blank design without choosing a workshop package. |
+| Package entry | Explain the selected workshop and start compatible model/blank selection. |
+| Models | Render all eligible published models in general discovery or only compatible models in package context. Model score includes full defaults. |
 | Blank | Initialize an empty draft from server-returned defaults. |
 | Configure | Render dynamic controls and the live `RingPreview`. |
 | Design detail/evaluation | Show the latest safe server version, validation, evaluation and next action. |
 | Member history | Show only the authenticated Member's designs and versions; support archive for eligible designs. |
 | Guest sign-in required | Safe recovery state when Guest attempts a protected command; do not create or reveal persisted design data. |
-| Branch recovery | Explain incompatibility and preserve the current design for correction/retry. |
+| Package recovery | Explain explicit package incompatibility and preserve the current design for correction/retry. |
 
 The booking flow remains owned by Feature-003. Feature-012 does not supply a
 current booking-attachment adapter; it supplies saved-design recommendation and
@@ -143,6 +160,8 @@ PreviewModel {
   estimatedWeightGrams: number
   excessWeightGrams: number
   excessMaterialCost: number
+  baseMaterialPrice: number
+  totalMaterialCost: number
   gemstones: [] // 1-to-1 component summary
   stones: [{ id, stoneIndex, reference, color, angleDeg, cx, cy }] // individual stone instances
   attachmentReferences[]
@@ -218,7 +237,8 @@ Rules:
 - Show three spacious cards as in node `457:1698`.
 - Each card has a title, one-sentence explanation and selected/unselected state.
 - Selecting a published model creates a configured-design lineage; it does not
-  mutate the catalogue model.
+  mutate the catalogue model. Populate all default gemstones and attachments
+  before Save/Evaluate; display the server's complete default score and level.
 - Blank design starts with server defaults and highlights required fields.
 - Disable the continue action while options are loading or the create command is
   pending.
@@ -227,7 +247,7 @@ Rules:
 
 - Group controls into material, shape/size, dimensions, gemstone/component, attachments and
   engraving sections according to the returned schema.
-- **Material Choices**: Render selectable cards for Silver 925 (`MAT-SILVER-925`), Copper (`MAT-COPPER`), and Stainless Steel 316L (`MAT-STAINLESS-STEEL`). Gold options are deactivated and not displayed.
+- **Material Choices**: Render cards for active Silver 925 (`MAT-SILVER-925`), Copper (`MAT-COPPER`), and Stainless Steel 316L (`MAT-STAINLESS-STEEL`); under the proposed policy, disable a returned card when `selectable` is false and explain `DIFFICULTY_SCORE_PENDING`. Gold options are deactivated and not displayed.
 - **Ring Size & Millimeter Perimeter**: Render accessible pills for sizes `6` through `29`. Each pill displays its number and corresponding perimeter: e.g., `Size 10 (50 mm)` and `Size 29 (69 mm)` ($P = \text{size} + 40\text{mm}$).
 - **Interactive Dimension Sliders**:
   - Ring thickness slider: min 1.0mm, max 3.0mm, step 0.1mm, default 1.8mm.
@@ -267,9 +287,10 @@ Rules:
 - While saving/evaluating, preserve the draft and disable duplicate submission.
 - On `DESIGN_VERSION_CONFLICT`, keep unsaved values in memory, load the latest
   version, and give the user an explicit reconcile/retry action.
-- On `DESIGN_BRANCH_INCOMPATIBLE`, show the recovery layout from node `457:1795`.
-- On Guest expiry, remove unusable session state and offer restart/login without
-  revealing internal data.
+- On `DESIGN_PACKAGE_INCOMPATIBLE`, preserve local input and offer a compatible
+  model or general design entry. Node `457:1795` is historical branch recovery.
+- On a Guest protected action, offer Member sign-in without sending a design
+  command or creating server-side session state.
 
 ### 7.5 Multi-Item Engraving, 160x160 Laser Cropper & Surface Texture Alert
 
@@ -311,11 +332,12 @@ Rules:
 - Implement live preview and responsive layouts.
 - Implement Save/Evaluate and evaluation summary.
 
-### Phase 3 — Persistence and booking boundary
+### Phase 3 — Persistence and recommendation boundary
 
 - Implement Member history/archive UI.
-- Implement Guest expiry and retry recovery.
-- Implement branch compatibility recovery and approved booking attach adapter.
+- Implement Guest sign-in recovery without a protected design command.
+- Implement general catalogue, compatible package filtering and saved-design
+  recommendation/consultation states without booking attachment.
 
 ### Phase 4 — Tests
 
@@ -324,7 +346,7 @@ Rules:
 - Immediate preview updates without network calls per slider movement.
 - Idempotency-key reuse on write retry.
 - `If-Match-Version` and stale-version recovery.
-- Loading, empty, validation, forbidden, expired-session, 422, 503 and retry
+- Loading, empty, validation, forbidden, sign-in-required, 422, 503 and retry
   states.
 - Estimate advisory label and no package/deposit mutation in the UI.
 - Desktop/mobile layout and keyboard/accessibility behavior.
@@ -336,8 +358,8 @@ The frontend agent must stop and report a blocker instead of inventing a
 compatibility layer when:
 
 - The OpenAPI response does not provide enough metadata to render a control.
-- The Guest opaque-session transport is not available in the shared HTTP client.
-- The booking facade does not expose the approved attach outcome/version.
+- A published model is missing a complete default score/level or references a
+  disabled option; the backend must enforce the catalogue/policy guard.
 - Backend error codes or headers differ from the Feature-012 contract.
 - The Figma revision is changed in a way that affects route, state or permission
   behavior and has not been approved.
@@ -355,6 +377,12 @@ contract:
 - Restore all engraving text and image previews from the saved response.
 - Never use transient `previewDataUrl` as the only restoration source.
 - Normalize all Feature-012 messages and labels to UTF-8 and the active locale.
+- Show Copper/Steel models in general discovery without a false Silver package
+  association; show only compatible models on a package page.
+- Show no workshop CTA for Copper/Steel or `TOO_RISKY`; disclose S999 material
+  when an S925 design receives Silver Clay advice.
+- Show Silver 925 estimated mass above 3g as an advisory excess amount, not an
+  invalid design or a payable workshop total.
 
 The implementation agent must add stable test IDs for counters, disabled add
 buttons, quota messages, both image sliders, every text preview and every image

@@ -614,13 +614,13 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
                     <><dt>{t('ticket.addOn')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentAddOnVnd, language)}</dd></>
                   )}
                   <dt>{t('ticket.paidSoFar')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentPaidVnd, language)}</dd>
-                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentBalanceDueVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.status === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.currentBalanceDueVnd, language)}</dd>
                 </>
               ) : (
                 <>
                   <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
                   <dt>{t('ticket.paidAtBooking')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd, language)}</dd>
-                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.remainingVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.status === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.remainingVnd, language)}</dd>
                 </>
               )}
               <dt>{t('ticket.collectionKind')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{collectionKindLabel(ticket.collectionKind, language)}</dd>

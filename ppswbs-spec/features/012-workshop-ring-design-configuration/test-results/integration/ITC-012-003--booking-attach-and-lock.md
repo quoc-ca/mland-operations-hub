@@ -1,6 +1,7 @@
 ---
 id: ITC-012-003
-status: PASS
+status: SUPERSEDED
+superseded_by: 2026-11-22 saved-design recommendation baseline
 feature: 012-workshop-ring-design-configuration
 test_level: integration
 test_case_type: N
@@ -15,7 +16,7 @@ test_method: shouldLockDesignOnBookingAttachmentAndPreserveOnRollback
 
 **Ngày tạo**: 2026-11-21
 **Tác giả**: Senior QA Engineer
-**Trạng thái**: PASS
+**Trạng thái**: SUPERSEDED (kết quả thực thi mã cũ: PASS)
 
 ## 1. Mục tiêu kiểm thử
 
@@ -44,6 +45,8 @@ Xác minh:
 - Khả năng phục hồi dữ liệu thiết kế khi có sự cố đặt chỗ.
 
 ## 5. Kết quả thực thi
+
+Ca này chỉ ghi nhận hành vi của luồng booking legacy trong mã hiện tại. Kết quả PASS bên dưới không xác nhận phạm vi Feature-012 đang đề xuất, vốn không gắn thiết kế vào booking.
 
 <!-- EXECUTION:START -->
 - Trạng thái: PASS

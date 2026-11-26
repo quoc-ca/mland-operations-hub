@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -518,10 +518,15 @@ the operation; a rename is still possible through the owner of 006:**
 
 ```text
 restoreVoucherForCancelledTicket(RestoreVoucherCommand) -> VoucherRestorationOutcome   (proposed)
-RestoreVoucherCommand        { groupCode, ticketCode, cancellationKind }               (proposed; opaque references only)
+RestoreVoucherCommand        { groupCode, ticketCode, partRef, cancellationKind }      (proposed; opaque references only)
 VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED }        (proposed)
 ```
 
+- `partRef` (added 2026-11-26, BUG-E2E-0049; decided by Hồ Hoàng Quốc): the
+  ticket's reference in the accepted benefit, `L{line}-T{ordinal}`, which 003.3
+  takes from the 003.1 ticket context. The owner of the benefit finds the ticket
+  part by `partRef`, never by `ticketCode`; `ticketCode` identifies the call in
+  outcome keys and proof references.
 - Idempotent per `groupCode`: the first call restores (`RESTORED`) or finds the
   voucher no longer valid (`EXPIRED`, never extended); every later call for the
   same `groupCode` returns `ALREADY_RESTORED` (or the stored `EXPIRED`) and
@@ -538,6 +543,12 @@ VoucherRestorationOutcome    { outcome: RESTORED | EXPIRED | ALREADY_RESTORED } 
 - **Rules:** spec FR-059–FR-061 in `../003.1-workshop-booking/spec.md`. By Account ID only; no QR, Magic Link, contact proof or gateway data; UNAVAILABLE when Operations or Settlement cannot be read.
 - **New-booking block (proposed, task T174):** FE-001 exposes a read on `AccountFacade` that says a MEMBER is retiring; 003.1 checks it under the group-creation lock (FR-062).
 - **Status:** proposed until FE-001's owner confirms the signal (the `NO_SHOW` rule is decided 2026-11-25: never blocks); the local mock `MockMemberReplacementBookingReader` returns DEMO/UNAVAILABLE only and never authorizes retirement.
+
+## Sessions of a cancelled ticket — 003.2 provider for 003.1 (added 2026-11-26, BUG-E2E-0045; decided by Hồ Hoàng Quốc)
+
+- `getCancelledTicketSessions(ticketReference) -> List<SessionEntitlementProjection>`: the sessions the ticket held when
+  it was cancelled (released ones plus any it still keeps because they had started). Empty when the ticket is unknown
+  or not cancelled. Read only; no QR and no person data. 003.1 uses it for the buyer's view of a cancelled ticket.
 
 ## Explicitly not decided here
 

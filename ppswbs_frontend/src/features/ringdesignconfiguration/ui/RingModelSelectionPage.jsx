@@ -117,9 +117,10 @@ export default function RingModelSelectionPage() {
               </p>
               {model.difficultyScore !== undefined && (() => {
                 const diff = getDifficultyMeta(model.difficultyScore, t);
+                const levelLabel = model.difficultyLevel ? (t(`difficulty.${model.difficultyLevel}`) || diff.label) : diff.label;
                 return (
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                    {t('models.estimatedDifficulty')}: <strong>{diff.score} / 10</strong> ({diff.label})
+                    {t('models.estimatedDifficulty')}: <strong>{diff.score}</strong> ({levelLabel})
                   </div>
                 );
               })()}

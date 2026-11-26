@@ -1339,7 +1339,12 @@ Chưa mô tả luồng. Giữ đây là mục nghiên cứu tiếp theo liên qu
 
 # FE-09 — Administrative Parameter Configuration
 
-Chưa mô tả luồng cấu hình tham số, cấu hình tích hợp và hỗ trợ kỹ thuật. Các tham số nghiệp vụ cần được chủ feature tương ứng xác định; chưa bổ sung tham số cho thuật toán thiết kế nhẫn đang được thiết kế lại.
+Luồng ADMIN cấu hình độ khó nhẫn hiện được mô tả ở
+[`features/009-administrative-parameter-configuration/spec.md`](features/009-administrative-parameter-configuration/spec.md)
+(đề xuất, chưa duyệt triển khai). Feature-012 sở hữu bộ quy tắc, API và kết quả
+đánh giá; FE-09 sở hữu màn hình/hành trình ADMIN. Manager chỉ quản lý các trường
+catalogue không ảnh hưởng độ khó. Các luồng tham số khác, cấu hình tích hợp và
+hỗ trợ kỹ thuật của FE-09 chưa được đặc tả bởi thay đổi này.
 
 <a id="fe-10"></a>
 
