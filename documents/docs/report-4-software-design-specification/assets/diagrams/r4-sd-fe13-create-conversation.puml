@@ -1,40 +1,45 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-13 Create Contextless or Design-Context Conversation
-actor "Member" as member
-participant "ConsultationController" as consultationController
-participant "ConsultationContextService" as contextService
-participant "ConsultationApplicationService" as consultationService
-participant "WorkshopDesignContextPort" as designPort
-participant "IndependentDesignRequestContextPort" as requestPort
-database "ConsultationConversationRepository" as conversationRepository
+actor "Member" as Actor
+participant "<<view>>\n:ConsultationPages" as Pages
+participant "<<controller>>\n:ConsultationController" as Controller
+participant "<<service>>\n:ConsultationContextService" as ContextService
+participant "<<service>>\n:ConsultationApplicationService" as Service
+participant "<<port>>\n:WorkshopDesignContextPort" as DesignPort
+participant "<<port>>\n:IndependentDesignRequestContextPort" as RequestPort
+participant "<<repository>>\n:ConsultationConversationRepository" as Repo
+participant "<<database>>\n:MySQL Database" as DB
 
-member -> consultationController : create optional context conversation
-activate consultationController
-consultationController -> contextService : validate context if supplied
-activate contextService
+Actor -> Pages : Create conversation with optional context
+activate Pages
+Pages -> Controller : POST conversation
+activate Controller
+Controller -> ContextService : validate context if supplied
+activate ContextService
 alt Feature-012 design context
-  contextService -> designPort : validate owned current version
-  activate designPort
-  designPort --> contextService : safe design context
-  deactivate designPort
+    ContextService -> DesignPort : validate owned current version
+    DesignPort --> ContextService : safe design context
 else Feature-004 request context
-  contextService -> requestPort : validate owned request/version
-  activate requestPort
-  requestPort --> contextService : safe request context
-  deactivate requestPort
-else no context
-  contextService --> consultationController : empty context accepted
+    ContextService -> RequestPort : validate owned request/version
+    RequestPort --> ContextService : safe request context
+else No context
+    ContextService --> Controller : empty context accepted
 end
-contextService --> consultationService : safe immutable context snapshot
-deactivate contextService
-consultationService -> conversationRepository : create OPEN conversation
-activate consultationService
-activate conversationRepository
-conversationRepository --> consultationService : conversation reference
-deactivate conversationRepository
-consultationService --> consultationController : conversation reference and safe context
-deactivate consultationService
-consultationController --> member : conversation reference and safe context
-deactivate consultationController
+ContextService --> Service : safe immutable context snapshot
+deactivate ContextService
+Controller -> Service : create conversation
+activate Service
+Service -> Repo : create OPEN conversation
+activate Repo
+Repo -> DB : INSERT conversation and context
+DB --> Repo : conversation reference
+Repo --> Service : conversation reference
+deactivate Repo
+Service --> Controller : conversation reference and safe context
+deactivate Service
+Controller --> Pages : HTTP 201
+deactivate Controller
+Pages --> Actor : Display new OPEN conversation
+deactivate Pages
 @enduml

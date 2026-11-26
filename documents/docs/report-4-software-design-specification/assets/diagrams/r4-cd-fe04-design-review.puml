@@ -1,31 +1,77 @@
 @startuml
-!include r4-diagram-style.puml
-title FE-04 Design Request and Human Review
-left to right direction
+skinparam style strictuml
 skinparam classAttributeIconSize 0
-class DesignRequestController <<controller>>
-class HumanReviewService <<service>>
-class ImageQualityService <<service>>
-class DesignRequest <<entity>>
-class DesignRequestImage <<entity>>
-class ImageConsent <<entity>>
-class HumanReviewDecision <<entity>>
-class DesignRequestRepository <<repository>>
-class HumanReviewDecisionRepository <<repository>>
-interface DesignSnapshotFacade <<facade>>
-class LegacyGuestAndAiCompatibility <<legacy>>
+hide circle
+hide empty members
+
+class DesignRequestPages #back:FFFFFF;header:D5E8D4;line:82B366 {
+  create request
+  upload up to five images
+  follow status and decision
+}
+class designRequestApi #back:FFFFFF;header:D5E8D4;line:82B366 {
+  createRequest()
+  getRequest()
+  submitClarification()
+}
+class DesignRequestController #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  requireMember()
+  validateCommand()
+  mapProjection()
+}
+class HumanReviewService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  createNeedReviewRequest()
+  recordDecision()
+  requireExplanation()
+}
+class ImageQualityService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  validateConsent()
+  validateImageQuality()
+}
+class DesignRequestRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  save()
+  findOwnedRequest()
+  updateStatus()
+}
+class HumanReviewDecisionRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  appendDecision()
+  appendAudit()
+}
+class DesignRequest #back:FFFFFF;header:F8CECC;line:B85450 {
+  requestReference
+  status
+  designVersion
+  decisionExplanation
+}
+class DesignRequestImage #back:FFFFFF;header:F8CECC;line:B85450 {
+  imageReference
+  qualityStatus
+  qualityReason
+}
+class ImageConsent #back:FFFFFF;header:F8CECC;line:B85450 {
+  consentVersion
+  purpose
+  consentedAt
+}
+class HumanReviewDecision #back:FFFFFF;header:F8CECC;line:B85450 {
+  decision
+  explanation
+  reviewerId
+}
+class DesignSnapshotFacade #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  getOwnedSnapshot()
+}
+
+DesignRequestPages --> designRequestApi
+designRequestApi --> DesignRequestController
 DesignRequestController --> HumanReviewService
 HumanReviewService --> ImageQualityService
+HumanReviewService --> DesignSnapshotFacade
 HumanReviewService --> DesignRequestRepository
 HumanReviewService --> HumanReviewDecisionRepository
-HumanReviewService --> DesignSnapshotFacade
+DesignRequestRepository --> DesignRequest
+HumanReviewDecisionRepository --> HumanReviewDecision
 DesignRequest "1" o-- "0..5" DesignRequestImage
 DesignRequest "1" o-- "0..1" ImageConsent
 DesignRequest "1" o-- "0..*" HumanReviewDecision
-LegacyGuestAndAiCompatibility ..> DesignRequestController : deprecated paths
-note right of LegacyGuestAndAiCompatibility
-Not a current business flow:
-Guest request, AI image analysis
-and AI price suggestion are legacy.
-end note
 @enduml

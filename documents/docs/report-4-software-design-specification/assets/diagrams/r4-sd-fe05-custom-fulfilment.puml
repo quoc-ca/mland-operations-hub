@@ -1,35 +1,129 @@
 @startuml
 !include r4-sequence-style.puml
-title FE-05 Fulfil Paid Custom Order
-actor "Staff" as staff
-actor "Manager" as manager
-actor "Member" as member
-participant "CustomOrderService" as orderService
-participant "ProductionFulfilmentFacade" as fulfilmentFacade
-database "CustomOrderRepository" as orderRepository
+title FE-05 Custom Manufacturing Fulfilment and GHTK Courier Terminal Sync
 
-staff -> orderService : open PAID order
-activate orderService
-orderService -> orderRepository : load paid order
-activate orderRepository
-orderRepository --> orderService : paid order
-deactivate orderRepository
-orderService -> fulfilmentFacade : start production
-activate fulfilmentFacade
-fulfilmentFacade --> orderService : IN_PRODUCTION
-deactivate fulfilmentFacade
-orderService --> staff : production started
-deactivate orderService
-staff -> orderService : record fulfilment handoff
-activate orderService
-orderService -> fulfilmentFacade : mark fulfilled
-activate fulfilmentFacade
-fulfilmentFacade --> orderService : FULFILLED
-deactivate fulfilmentFacade
-orderService --> member : order status update
-deactivate orderService
-manager -> orderService : close completed order
-activate orderService
-orderService --> manager : order closed
-deactivate orderService
+actor "Workshop Staff" as Staff
+actor "GHTK Courier\n(Role CARRIER)" as Courier
+actor "Member" as Member
+participant "<<view>>\n:StaffCustomOrdersPage" as StaffPages
+participant "<<view>>\n:CarrierOrdersPage" as CarrierPages
+participant "<<view>>\n:CustomOrderDetailPage" as MemberPages
+participant "<<controller>>\n:CustomManufacturingController" as Controller
+participant "<<service>>\n:CustomOrderService" as OrderService
+participant "<<service>>\n:CustomOrderShipmentService" as ShipmentService
+participant "<<service>>\n:CarrierShipmentService" as CarrierService
+participant "<<repository>>\n:CustomOrderRepository" as OrderRepo
+participant "<<repository>>\n:CustomOrderShipmentRepository" as ShipmentRepo
+participant "<<database>>\n:MySQL Database" as DB
+
+Staff -> StaffPages : Open IN_PRODUCTION order
+activate StaffPages
+StaffPages -> Controller : update status READY_FOR_FULFILMENT
+activate Controller
+Controller -> OrderService : updateProductionOrFulfilmentStatus(...)
+activate OrderService
+OrderService -> ShipmentService : createInitialShipment(order)
+activate ShipmentService
+ShipmentService -> ShipmentRepo : save S... / PENDING_PICKUP
+activate ShipmentRepo
+ShipmentRepo -> DB : INSERT custom_order_shipments
+activate DB
+DB --> ShipmentRepo : shipment saved
+deactivate DB
+ShipmentRepo --> ShipmentService : shipment created
+deactivate ShipmentRepo
+ShipmentService --> OrderService : initial shipment
+deactivate ShipmentService
+OrderService -> OrderRepo : save READY_FOR_FULFILMENT
+activate OrderRepo
+OrderRepo -> DB : UPDATE custom_orders
+DB --> OrderRepo : order updated
+OrderRepo --> OrderService : order updated
+deactivate OrderRepo
+OrderService --> Controller : order and tracking projection
+deactivate OrderService
+Controller --> StaffPages : tracking S... and packing action
+deactivate Controller
+StaffPages --> Staff : Display shipment PENDING_PICKUP
+deactivate StaffPages
+
+alt Staff attempts direct closure before delivery
+    Staff -> StaffPages : Click close order
+    StaffPages -> Controller : update status CLOSED
+    activate Controller
+    Controller -> OrderService : update status CLOSED
+    activate OrderService
+    OrderService -> ShipmentService : find shipment status
+    ShipmentService -> ShipmentRepo : findByCustomOrderReference()
+    ShipmentRepo -> DB : SELECT shipment status
+    DB --> ShipmentRepo : not DELIVERED
+    ShipmentRepo --> ShipmentService : shipment not delivered
+    OrderService --> Controller : HTTP 409 CUSTOM_ORDER_STATUS_CONFLICT
+    deactivate OrderService
+    Controller --> StaffPages : Display cannot close before delivery
+    deactivate Controller
+else Staff hands package to carrier
+    Staff -> StaffPages : Mark packed and ready for GHTK
+    StaffPages -> Controller : advance shipment READY_FOR_CARRIER
+    Controller -> OrderService : staffAdvanceShipmentToReadyForCarrier(ref)
+    OrderService -> ShipmentService : staffAdvanceToReadyForCarrier(ref)
+    ShipmentService -> ShipmentRepo : update READY_FOR_CARRIER
+    ShipmentRepo -> DB : UPDATE shipment status
+    DB --> ShipmentRepo : updated shipment
+    ShipmentRepo --> ShipmentService : shipment ready
+    ShipmentService --> StaffPages : awaiting carrier pickup
+end
+
+Courier -> CarrierPages : Open /carrier/orders
+activate CarrierPages
+CarrierPages -> CarrierService : listCarrierShipments()
+activate CarrierService
+CarrierService -> ShipmentService : listForCarrier()
+ShipmentService -> ShipmentRepo : find carrier shipments
+ShipmentRepo -> DB : SELECT READY_FOR_CARRIER shipments
+DB --> ShipmentRepo : shipment list
+ShipmentRepo --> ShipmentService : shipment list
+ShipmentService --> CarrierService : safe carrier projection
+CarrierService --> CarrierPages : display shipment S...
+deactivate CarrierService
+
+Courier -> CarrierPages : Mark pickup complete
+CarrierPages -> CarrierService : transition(HANDED_TO_CARRIER)
+activate CarrierService
+CarrierService -> ShipmentService : transitionCustomShipment(...)
+activate ShipmentService
+ShipmentService -> ShipmentRepo : lock and update shipment
+ShipmentRepo -> DB : UPDATE shipment HANDED_TO_CARRIER
+DB --> ShipmentRepo : updated shipment
+ShipmentRepo --> ShipmentService : shipment updated
+ShipmentService --> CarrierService : HANDED_TO_CARRIER
+deactivate ShipmentService
+CarrierService --> CarrierPages : shipment accepted
+deactivate CarrierService
+CarrierPages --> Courier : Display DELIVERING
+deactivate CarrierPages
+Member -> MemberPages : Open custom order details
+MemberPages --> Member : Display DELIVERING and GHTK tracking
+
+Courier -> CarrierPages : Mark delivery successful
+CarrierPages -> CarrierService : transition(DELIVERED)
+activate CarrierService
+CarrierService -> ShipmentService : transitionCustomShipment(...)
+activate ShipmentService
+ShipmentService -> ShipmentRepo : lock and update DELIVERED
+ShipmentRepo -> DB : UPDATE shipment DELIVERED
+DB --> ShipmentRepo : shipment delivered
+ShipmentRepo --> ShipmentService : shipment delivered
+ShipmentService -> OrderRepo : terminal sync custom order
+OrderRepo -> DB : UPDATE order CLOSED / DELIVERED
+DB --> OrderRepo : order closed
+OrderRepo --> ShipmentService : terminal sync complete
+ShipmentService --> CarrierService : DELIVERED
+deactivate ShipmentService
+CarrierService --> CarrierPages : delivery complete
+deactivate CarrierService
+CarrierPages --> Courier : Display DELIVERED
+
+Member -> MemberPages : Refresh custom order details
+MemberPages --> Member : Display CLOSED / DELIVERED
 @enduml

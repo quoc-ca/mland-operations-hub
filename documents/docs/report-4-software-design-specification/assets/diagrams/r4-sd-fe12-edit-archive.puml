@@ -1,38 +1,49 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-12 Edit or Archive Member Design
-actor "Member" as member
-participant "WorkshopRingDesignController" as designController
-participant "WorkshopRingDesignApplicationService" as designService
-database "RingDesignRepository" as designRepository
+actor "Member" as Actor
+participant "<<view>>\n:DesignPages" as Pages
+participant "<<controller>>\n:WorkshopRingDesignController" as Controller
+participant "<<service>>\n:WorkshopRingDesignApplicationService" as Service
+participant "<<repository>>\n:RingDesignRepository" as Repo
+participant "<<database>>\n:MySQL Database" as DB
 
-member -> designController : edit or archive owned design
-activate designController
-designController -> designService : command + If-Match-Version
-activate designService
-designService -> designRepository : check owner, state and version
-activate designRepository
-designRepository --> designService : current design state
-deactivate designRepository
-alt edit valid saved version
-  designService -> designRepository : create next immutable version
-  activate designRepository
-  designRepository --> designService : next design version
-  deactivate designRepository
-else archive
-  designService -> designRepository : set ARCHIVED soft state
-  activate designRepository
-  designRepository --> designService : archived design
-  deactivate designRepository
-else stale or foreign
-  designService --> designController : 403/409 safe error
+Actor -> Pages : Edit or archive owned design
+activate Pages
+Pages -> Controller : command + If-Match-Version
+activate Controller
+Controller -> Service : validate ownership, state and version
+activate Service
+Service -> Repo : check current design
+activate Repo
+Repo -> DB : SELECT design and version
+DB --> Repo : current design state
+Repo --> Service : current design state
+deactivate Repo
+alt Edit valid saved version
+    Service -> Repo : create next immutable version
+    activate Repo
+    Repo -> DB : INSERT next design version
+    DB --> Repo : next design version
+    Repo --> Service : next design version
+    deactivate Repo
+else Archive
+    Service -> Repo : set ARCHIVED soft state
+    activate Repo
+    Repo -> DB : UPDATE design state
+    DB --> Repo : archived design
+    Repo --> Service : archived design
+    deactivate Repo
+else Stale or foreign design
+    Service --> Controller : 403/409 safe error
 end
-designService --> designController : updated history projection
-deactivate designService
-designController --> member : updated history projection
-deactivate designController
-
-note over member,designController
-No hard delete and no booking lock in current flow.
+Service --> Controller : updated history projection
+deactivate Service
+Controller --> Pages : HTTP 200 / 403 / 409
+deactivate Controller
+Pages --> Actor : Display updated history or error
+deactivate Pages
+note over Actor,Pages
+No hard delete and no booking attachment in this flow.
 end note
 @enduml

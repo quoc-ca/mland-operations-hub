@@ -1,41 +1,97 @@
 @startuml
 !include r4-sequence-style.puml
-title FE-05 Manager Approves Quote and Member Pays in Full
-actor "Manager" as manager
-actor "Member" as member
-participant "CustomOrderService" as orderService
-participant "CustomOrderPaymentFacade" as paymentFacade
-participant "PaymentGatewayCheckoutPort" as paymentPort
-database "CustomOrderQuoteRepository" as quoteRepository
+title FE-05 Custom Order Full Payment with 10-Minute Session and IPN Polling
 
-manager -> orderService : approve quote + version
-activate orderService
-orderService -> quoteRepository : save approved quote and expiry
-activate quoteRepository
-quoteRepository --> orderService : approved quote
-deactivate quoteRepository
-orderService --> manager : quote approved
-deactivate orderService
-member -> orderService : open My Custom Orders
-activate orderService
-orderService --> member : approved quote projection
-deactivate orderService
-member -> paymentFacade : start full payment
-activate paymentFacade
-paymentFacade -> paymentPort : create checkout URL
-activate paymentPort
-paymentPort --> paymentFacade : payment redirect
-deactivate paymentPort
-paymentFacade --> member : payment redirect
-paymentPort --> paymentFacade : verified callback
-activate orderService
-paymentFacade -> orderService : apply PAID outcome idempotently
-orderService --> paymentFacade : PAID and production pending
-deactivate orderService
-deactivate paymentFacade
-paymentFacade --> member : PAID and production pending
+actor "Manager" as Manager
+actor "Member" as Member
+participant "<<view>>\n:CustomOrderDetailPage" as Pages
+participant "<<controller>>\n:VnpayBrowserReturnController" as ReturnController
+participant "<<service>>\n:CustomOrderService" as OrderService
+participant "<<facade>>\n:CustomOrderPaymentFacade" as PaymentFacade
+participant "<<port>>\n:PaymentGatewayCheckoutPort" as PaymentPort
+participant "<<payment>>\n:VNPay Gateway" as VNPay
+participant "<<database>>\n:MySQL Database" as DB
 
-note over member
-Expired unpaid quote cannot be paid.
+Manager -> Pages : Approve quote + version
+activate Pages
+Pages -> OrderService : approve quote
+activate OrderService
+OrderService -> DB : UPDATE quote APPROVED / expiry
+DB --> OrderService : quote approved
+OrderService --> Pages : approved quote
+deactivate OrderService
+Pages --> Manager : Display quote approved
+deactivate Pages
+
+Member -> Pages : Open My Custom Orders
+activate Pages
+Pages -> OrderService : load order and quote
+activate OrderService
+OrderService --> Pages : FULL_PAYMENT_PENDING projection
+deactivate OrderService
+Pages --> Member : Display full-payment action
+Member -> Pages : Click Pay with VNPay
+Pages -> OrderService : startFullPayment(orderRef)
+activate OrderService
+OrderService -> OrderService : vnp_ExpireDate = min(now + 10m, quote.expiresAt)
+OrderService -> PaymentFacade : create payment attempt
+activate PaymentFacade
+PaymentFacade -> PaymentPort : create checkout URL with expiry
+activate PaymentPort
+PaymentPort --> PaymentFacade : payment URL
+deactivate PaymentPort
+PaymentFacade --> OrderService : payment URL
+deactivate PaymentFacade
+OrderService --> Pages : payment URL
+deactivate OrderService
+Pages --> Member : Redirect browser to VNPay
+deactivate Pages
+
+alt Member presses browser Back from VNPay
+    Member -> Pages : Return through browser history
+    activate Pages
+    Pages -> Pages : pageshow event
+    Pages -> Pages : setActionLoading(false)
+    Pages --> Member : Unlock payment button without refresh
+    deactivate Pages
+end
+
+Member -> VNPay : Complete payment with response code 00
+activate VNPay
+par Browser return and client polling
+    VNPay --> ReturnController : GET /payment/vnpay/return
+    activate ReturnController
+    ReturnController -> ReturnController : extract custom order reference
+    ReturnController --> Pages : 302 /account/my-custom-orders/{ref}?vnp_ResponseCode=00
+    deactivate ReturnController
+    activate Pages
+    Pages --> Member : Show payment received banner
+    loop Poll every 1.5 seconds, maximum 8 times
+        Pages -> OrderService : loadOrder(orderRef)
+        OrderService -> DB : SELECT custom order status
+        DB --> OrderService : current status
+        OrderService --> Pages : order projection
+    end
+else VNPay IPN webhook
+    VNPay -> PaymentPort : POST signed IPN response code 00
+    activate PaymentPort
+    PaymentPort -> PaymentFacade : verify signature and outcome
+    PaymentFacade -> OrderService : applyVerifiedFullPayment(...)
+    activate OrderService
+    OrderService -> DB : UPDATE order PAID / production PENDING
+    DB --> OrderService : PAID
+    OrderService --> PaymentFacade : idempotent outcome applied
+    deactivate OrderService
+    PaymentPort --> VNPay : HTTP 200 / RspCode 00
+    deactivate PaymentPort
+end
+Pages --> Member : Polling observes PAID and hides payment action
+deactivate Pages
+deactivate VNPay
+
+note over Member,Pages
+Payment session expires after 10 minutes or at quote expiry, whichever comes first.
+An expired payment link may be recreated while the quote remains valid.
+Browser return alone never confirms payment.
 end note
 @enduml
