@@ -1,35 +1,44 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-12 Configure and Save Design Version
-actor "Member" as member
-participant "WorkshopRingDesignController" as designController
-participant "WorkshopRingDesignApplicationService" as designService
-participant "DesignRuleFacade" as ruleFacade
-database "RingDesignRepository" as designRepository
-database "RingDesignIdempotencyRecordRepository" as idempotencyRepository
+actor "Member" as Actor
+participant "<<view>>\n:DesignPages" as Pages
+participant "<<controller>>\n:WorkshopRingDesignController" as Controller
+participant "<<service>>\n:WorkshopRingDesignApplicationService" as Service
+participant "<<facade>>\n:DesignRuleFacade" as RuleFacade
+participant "<<repository>>\n:RingDesignRepository" as DesignRepo
+participant "<<repository>>\n:RingDesignIdempotencyRecordRepository" as IdempotencyRepo
+participant "<<database>>\n:MySQL Database" as DB
 
-member -> designController : save model/blank parameters
-activate designController
-designController -> designService : validate Member, key and version
-activate designService
-designService -> ruleFacade : validate catalogue options and limits
-activate ruleFacade
-ruleFacade --> designService : valid snapshot and rules version
-deactivate ruleFacade
-designService -> designRepository : save immutable version
-activate designRepository
-designRepository --> designService : saved design version
-deactivate designRepository
-designService -> idempotencyRepository : record command result
-activate idempotencyRepository
-idempotencyRepository --> designService : command recorded
-deactivate idempotencyRepository
-designService --> designController : SAVED design and safe summary
-deactivate designService
-designController --> member : SAVED design and safe summary
-deactivate designController
-
-note over member,designController
-Guest can preview locally but protected save requires sign-in.
+Actor -> Pages : Save model or blank parameters
+activate Pages
+Pages -> Controller : POST design + Idempotency-Key
+activate Controller
+Controller -> Service : validate Member, key and version
+activate Service
+Service -> RuleFacade : validate catalogue options and limits
+activate RuleFacade
+RuleFacade --> Service : valid snapshot and rules version
+deactivate RuleFacade
+Service -> DesignRepo : save immutable version
+activate DesignRepo
+DesignRepo -> DB : INSERT ring design version
+DB --> DesignRepo : saved design version
+DesignRepo --> Service : saved design version
+deactivate DesignRepo
+Service -> IdempotencyRepo : record command result
+activate IdempotencyRepo
+IdempotencyRepo -> DB : INSERT idempotency record
+DB --> IdempotencyRepo : command recorded
+IdempotencyRepo --> Service : command recorded
+deactivate IdempotencyRepo
+Service --> Controller : SAVED design and safe summary
+deactivate Service
+Controller --> Pages : HTTP 201 / HTTP 409
+deactivate Controller
+Pages --> Actor : Display saved design and workshop recommendation
+deactivate Pages
+note over Actor,Pages
+Guest can preview locally, but protected save requires sign-in.
 end note
 @enduml

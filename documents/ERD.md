@@ -18,10 +18,10 @@ Sơ đồ được chia theo bảng con sở hữu FK. Một bảng xuất hiệ
 | 1. Tài khoản, vai trò và audit | `users`, `roles`, `audit_logs` | 3 | 2 |
 | 2. Sản phẩm, đơn hàng, thanh toán và giao nhận | `categories`, `products`, `product_imgs`, `orders`, `order_items`, `payments`, `payment_transactions`, `delivery_infos` | 8 | 13 |
 | 3. Chi nhánh, slot, gói, vật liệu và booking | `workshop_locations`, `slots`, `workshop_packages`, `workshop_registration`, `workshop_exceptions`, `workshop_package_locations`, `material_locations`, `workshop_package_materials` | 8 | 17 |
-| 4. Thiết kế nhẫn, component và review ảnh | `materials`, `shape`, `gemstones`, `attachments`, `ring_designs`, `ring_design_gemstones`, `ring_design_attachments`, `custom_design_requests`, `custom_design_reviews` | 9 | 12 |
+| 4. Thiết kế nhẫn, component và review ảnh | `materials`, `shape`, `gemstones`, `attachments`, `ring_designs`, `ring_design_gemstones`, `ring_design_attachments`, `custom_design_requests`, `custom_design_reviews`, `custom_order_shipments` (V206) | 10 | 13 |
 | 5. Promotion, phạm vi chi nhánh và reservation/redemption | `promotions`, `promotion_locations`, `promotion_redemptions`, `payment_promotion_redemptions` | 4 | 11 |
 | 6. Loyalty, credit lot, hold, allocation và consumption | `loyalty_policies`, `loyalty_points`, `loyalty_redemptions`, `loyalty_allocations` | 4 | 14 |
-| **Tổng, không đếm lặp bảng tham chiếu** | | **36** | **69** |
+| **Tổng, không đếm lặp bảng tham chiếu** | | **37** | **70** |
 
 - Giữ đúng tên hiện tại: `delivery_infos`, `workshop_exceptions`, `workshop_registration` và `shape`. Cột PK của `delivery_infos` vẫn là `delivery_infor_id` như DB.md; ERD không tự đổi tên cột.
 - `users.role_id` là FK bắt buộc tới `roles`, **mỗi user một role**. Không có `user_roles` trong inventory và không vẽ quan hệ role N–N.
@@ -504,6 +504,39 @@ erDiagram
     }
     payments {
         bigint payment_id PK "external group"
+    }
+```
+
+### 3.7. Mở rộng Giao vận Chế tác Độc bản (Flyway V206 — Custom Order Shipments)
+
+Bảng vận đơn gia công độc lập theo Phương án 1B, liên kết $1 : 0..1$ với đơn hàng gia công `custom_orders` nhằm bảo vệ ranh giới kiến trúc và chống hồi quy phân hệ bán lẻ `retail_shipments`.
+
+```mermaid
+erDiagram
+    direction LR
+
+    custom_orders ||..o| custom_order_shipments : custom_order_id
+
+    custom_orders {
+        bigint id PK
+        varchar custom_order_reference UK
+        varchar status
+        varchar production_progress
+        varchar fulfilment_status
+    }
+
+    custom_order_shipments {
+        bigint id PK
+        bigint custom_order_id FK, UK
+        varchar tracking_number UK
+        varchar carrier_code
+        varchar status
+        varchar recipient_name
+        varchar recipient_phone
+        text shipping_address
+        datetime created_at
+        datetime updated_at
+        bigint version
     }
 ```
 

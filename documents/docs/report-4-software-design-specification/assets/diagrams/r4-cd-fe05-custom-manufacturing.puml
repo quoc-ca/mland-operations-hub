@@ -1,30 +1,115 @@
 @startuml
-!include r4-diagram-style.puml
-title FE-05 Personalized Design and Custom Manufacturing
-left to right direction
+skinparam style strictuml
 skinparam classAttributeIconSize 0
-class CustomManufacturingController <<controller>>
-class CustomOrderService <<service>>
-class CustomOrder <<entity>>
-class CustomOrderQuote <<entity>>
-class CustomOrderPaymentContext <<entity>>
-class CustomOrderPaymentFacade <<facade>>
-class CustomOrderRepository <<repository>>
-class CustomOrderQuoteRepository <<repository>>
-interface PaymentGatewayCheckoutPort <<port>>
-interface DesignRequestFacade <<facade>>
-class ProductionFulfilmentFacade <<facade>>
+hide circle
+hide empty members
+
+class CustomManufacturingPages #back:FFFFFF;header:D5E8D4;line:82B366 {
+  my custom orders
+  quote and payment
+  fulfilment tracking
+}
+class customOrderApi #back:FFFFFF;header:D5E8D4;line:82B366 {
+  getOrders()
+  startFullPayment()
+  getShipment()
+}
+class CustomManufacturingController #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  requireMemberOrOperator()
+  mapOrderProjection()
+}
+class CustomOrderService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  createOrder()
+  approveQuote()
+  startFullPayment()
+  updateProductionStatus()
+}
+class CustomOrderShipmentService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  createInitialShipment()
+  staffAdvanceToReadyForCarrier()
+  transition()
+  terminalSync()
+}
+class CarrierShipmentService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  listCarrierShipments()
+  transitionCustomShipment()
+}
+class CustomOrderRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  save()
+  findByReference()
+  lockById()
+}
+class CustomOrderQuoteRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  saveQuote()
+  findLatestQuote()
+}
+class CustomOrderShipmentRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  save()
+  findByOrderReference()
+  lockById()
+}
+class CustomOrder #back:FFFFFF;header:F8CECC;line:B85450 {
+  customOrderReference
+  status
+  productionStatus
+  fulfilmentStatus
+}
+class CustomOrderQuote #back:FFFFFF;header:F8CECC;line:B85450 {
+  quoteReference
+  totalAmount
+  expiresAt
+  paymentStatus
+}
+class CustomOrderPaymentContext #back:FFFFFF;header:F8CECC;line:B85450 {
+  merchantReference
+  status
+  transactionReference
+}
+class CustomOrderShipment #back:FFFFFF;header:F8CECC;line:B85450 {
+  trackingNumber
+  carrierCode
+  status
+  recipientPhone
+}
+enum CustomOrderShipmentStatus #back:FFFFFF;header:F8CECC;line:B85450 {
+  PENDING_PICKUP
+  READY_FOR_CARRIER
+  HANDED_TO_CARRIER
+  DELIVERED
+}
+class CustomOrderPaymentFacade #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  createFullPaymentUrl()
+  applyVerifiedPayment()
+}
+class DesignRequestFacade #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  getAcceptedSnapshot()
+}
+class ProductionFulfilmentFacade #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  startProduction()
+}
+class PaymentGatewayCheckoutPort #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  createRetailPaymentUrl()
+}
+
+CustomManufacturingPages --> customOrderApi
+customOrderApi --> CustomManufacturingController
 CustomManufacturingController --> CustomOrderService
+CustomManufacturingController --> CustomOrderShipmentService
 CustomOrderService --> DesignRequestFacade
 CustomOrderService --> CustomOrderRepository
 CustomOrderService --> CustomOrderQuoteRepository
 CustomOrderService --> CustomOrderPaymentFacade
+CustomOrderService --> CustomOrderShipmentService
+CustomOrderService --> ProductionFulfilmentFacade
 CustomOrderPaymentFacade --> PaymentGatewayCheckoutPort
+CarrierShipmentService --> CustomOrderShipmentService
+CustomOrderShipmentService --> CustomOrderShipmentRepository
+CustomOrderShipmentService --> CustomOrderRepository
+CustomOrderRepository --> CustomOrder
+CustomOrderQuoteRepository --> CustomOrderQuote
+CustomOrderShipmentRepository --> CustomOrderShipment
 CustomOrder "1" o-- "0..*" CustomOrderQuote
 CustomOrder "1" o-- "0..1" CustomOrderPaymentContext
-CustomOrderService --> ProductionFulfilmentFacade
-note right of CustomOrder
-One full-payment order lifecycle.
-No retail cart or deposit.
-end note
+CustomOrder "1" o-- "0..1" CustomOrderShipment
+CustomOrderShipment --> CustomOrderShipmentStatus
 @enduml

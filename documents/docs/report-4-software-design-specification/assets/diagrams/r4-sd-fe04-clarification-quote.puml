@@ -1,50 +1,72 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-04 Clarification, Quote Handoff and Full Payment
-actor "Member" as member
-actor "Staff" as staff
-actor "Manager" as manager
-participant "DesignRequestController" as requestController
-participant "HumanReviewService" as reviewService
-participant "CustomOrderService" as orderService
-participant "QuoteService" as quoteService
-participant "PaymentGatewayCheckoutPort" as paymentPort
 
-member -> requestController : submit clarification revision
-activate requestController
-requestController -> reviewService : validate ownership and version
-activate reviewService
-reviewService --> requestController : NEED_REVIEW after revision
-deactivate reviewService
-requestController --> member : clarification accepted for review
-deactivate requestController
-staff -> reviewService : accept with explanation
-activate reviewService
-reviewService -> orderService : hand off accepted snapshot
-activate orderService
-orderService -> quoteService : prepare quote
-activate quoteService
-quoteService --> orderService : quote draft
-deactivate quoteService
-orderService --> reviewService : quote handoff result
-deactivate orderService
-reviewService --> staff : accepted request recorded
-deactivate reviewService
-manager -> quoteService : approve quote
-activate quoteService
-quoteService --> manager : approved quote and expiry
-deactivate quoteService
-member -> orderService : open My Custom Orders
-activate orderService
-orderService --> member : approved quote projection
-deactivate orderService
-member -> paymentPort : pay full quoted amount
-activate paymentPort
-paymentPort --> orderService : verified full payment
-deactivate paymentPort
-orderService --> member : PAID order state
+actor "Member" as Member
+actor "Staff or Manager" as Reviewer
+participant "<<view>>\n:DesignRequestPages" as Pages
+participant "<<controller>>\n:DesignRequestController" as RequestController
+participant "<<service>>\n:HumanReviewService" as ReviewService
+participant "<<service>>\n:CustomOrderService" as OrderService
+participant "<<service>>\n:QuoteService" as QuoteService
+participant "<<port>>\n:PaymentGatewayCheckoutPort" as PaymentPort
+participant "<<database>>\n:MySQL Database" as DB
 
-note over member,manager
+Member -> Pages : Submit clarification revision
+activate Pages
+Pages -> RequestController : PATCH design request + version
+activate RequestController
+RequestController -> ReviewService : validate ownership and version
+activate ReviewService
+alt Invalid ownership or stale version
+    ReviewService --> RequestController : 403 / 409 error
+    RequestController --> Pages : HTTP 403 / HTTP 409
+    Pages --> Member : Display retry message
+else Clarification accepted
+    ReviewService -> DB : UPDATE request to NEED_REVIEW
+    DB --> ReviewService : revised request version
+    ReviewService --> RequestController : NEED_REVIEW after revision
+    RequestController --> Pages : HTTP 200
+    Pages --> Member : Display awaiting review
+    deactivate ReviewService
+    Reviewer -> ReviewService : Accept with mandatory explanation
+    activate ReviewService
+    ReviewService -> OrderService : hand off accepted snapshot
+    activate OrderService
+    OrderService -> QuoteService : prepare quote
+    activate QuoteService
+    QuoteService --> OrderService : quote draft
+    deactivate QuoteService
+    OrderService --> ReviewService : quote handoff result
+    deactivate OrderService
+    ReviewService --> Reviewer : accepted request recorded
+    deactivate ReviewService
+    Reviewer -> QuoteService : approve quote
+    activate QuoteService
+    QuoteService -> DB : save approved quote and expiry
+    DB --> QuoteService : approved quote
+    QuoteService --> Reviewer : approved quote and expiry
+    deactivate QuoteService
+    Member -> Pages : Open My Custom Orders
+    Pages -> OrderService : load approved quote
+    activate OrderService
+    OrderService --> Pages : approved quote projection
+    deactivate OrderService
+    Pages --> Member : Display full-payment action
+    Member -> PaymentPort : Pay full quoted amount
+    activate PaymentPort
+    PaymentPort -> OrderService : verified full payment
+    activate OrderService
+    OrderService -> DB : UPDATE order to PAID
+    DB --> OrderService : PAID order
+    OrderService --> PaymentPort : outcome applied
+    deactivate OrderService
+    PaymentPort --> Member : PAID order state
+    deactivate PaymentPort
+end
+deactivate RequestController
+deactivate Pages
+note over Member,Reviewer
 No deposit, cart line, split payment or indefinite unpaid hold.
 end note
 @enduml

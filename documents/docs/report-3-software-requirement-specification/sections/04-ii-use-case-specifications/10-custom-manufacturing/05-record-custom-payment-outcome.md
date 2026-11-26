@@ -11,7 +11,7 @@ As the System, I want to record the verified full payment of the active custom o
 
 #### Trigger
 
-The Payment Gateway sends a payment result for an approved custom order quote, or the quote deadline passes.
+The Payment Gateway sends a payment result (IPN webhook or QueryDR) for an approved custom order quote, or the quote deadline passes.
 
 #### Preconditions
 
@@ -23,10 +23,11 @@ The Payment Gateway sends a payment result for an approved custom order quote, o
 
 #### Normal Flow
 
-1. System receives a verified payment result from Payment Gateway.
+1. System receives a verified signed payment result from Payment Gateway.
 2. System matches the order and checks the amount against the active quote.
 3. System marks the quote and order paid and records the transaction reference.
 4. System moves the order to the waiting-for-production stage.
+5. Concurrent frontend polling requests receive the updated `PAID` state immediately, synchronizing user interface without requiring a second payment.
 
 #### Alternative Flows
 
@@ -38,11 +39,13 @@ None.
 
 2a. Late, replaced, or mismatched payment → System keeps the evidence for manual review, acknowledges the notification, and does not mark the order paid.
 
-2b. Deadline passes without payment → System treats the quote as expired and creates no final balance.
+2b. Quote deadline (24–72h) passes without payment → System treats the quote as expired and creates no final balance.
+
+2c. 10-minute gateway session expires while quote remains unexpired → System cancels the individual checkout session; order remains in `FULL_PAYMENT_PENDING` and allows re-initiating payment under UC-69.
 
 #### Business Rules
 
-BR-71-01, BR-71-02
+BR-71-01, BR-71-02, BR-71-03
 
 #### Non-Functional Requirements
 
@@ -62,3 +65,4 @@ BR-71-01, BR-71-02
 | --- | --- |
 | BR-71-01 | Only a verified payment of the exact amount of the latest, approved and unexpired quote for which it was started marks the order paid; other successful evidence is kept for manual review. |
 | BR-71-02 | An expired quote cannot be paid; a new quote version is required. |
+| BR-71-03 | Webhook IPN is the authoritative source for recording PAID; gateway session cancellation does not invalidate the underlying quote if within quote validity. |

@@ -1,61 +1,62 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-13 Staff/Manager Close and Member Soft-Hide Conversation
-actor "Member" as member
-actor "Staff" as staff
-actor "Manager" as manager
-participant "ConsultationController" as consultationController
-participant "ConsultationApplicationService" as consultationService
-database "ConsultationConversationRepository" as conversationRepository
-database "ConsultationAuditEventRepository" as auditRepository
+actor "Member" as Member
+actor "Staff or Manager" as Operator
+participant "<<view>>\n:ConsultationPages" as Pages
+participant "<<controller>>\n:ConsultationController" as Controller
+participant "<<service>>\n:ConsultationApplicationService" as Service
+participant "<<repository>>\n:ConsultationConversationRepository" as ConversationRepo
+participant "<<repository>>\n:ConsultationAuditEventRepository" as AuditRepo
+participant "<<database>>\n:MySQL Database" as DB
 
-staff -> consultationController : close in-scope conversation
-activate consultationController
-consultationController -> consultationService : verify Staff location scope
-activate consultationService
-consultationService -> conversationRepository : set CLOSED
-activate conversationRepository
-conversationRepository --> consultationService : conversation closed
-deactivate conversationRepository
-consultationService -> auditRepository : record close
-activate auditRepository
-auditRepository --> consultationService : audit recorded
-deactivate auditRepository
-consultationService --> consultationController : closed conversation
-deactivate consultationService
-consultationController --> staff : close result
-deactivate consultationController
-manager -> consultationController : close/reopen authorized conversation
-activate consultationController
-consultationController -> consultationService : verify Manager authority
-activate consultationService
-consultationService -> conversationRepository : update status
-activate conversationRepository
-conversationRepository --> consultationService : updated status
-deactivate conversationRepository
-consultationService --> consultationController : updated conversation
-deactivate consultationService
-consultationController --> manager : status result
-deactivate consultationController
-member -> consultationController : confirm soft-hide closed conversation
-activate consultationController
-consultationController -> consultationService : verify owner, CLOSED and version
-activate consultationService
-consultationService -> conversationRepository : set member-hidden flag
-activate conversationRepository
-conversationRepository --> consultationService : member visibility updated
-deactivate conversationRepository
-consultationService -> auditRepository : record member hide
-activate auditRepository
-auditRepository --> consultationService : audit recorded
-deactivate auditRepository
-consultationService --> consultationController : hidden from Member sidebar
-deactivate consultationService
-consultationController --> member : hide result
-deactivate consultationController
+Operator -> Pages : Close or update conversation
+activate Pages
+Pages -> Controller : PATCH conversation status
+activate Controller
+Controller -> Service : verify Staff/Manager authority
+activate Service
+Service -> ConversationRepo : update status
+activate ConversationRepo
+ConversationRepo -> DB : UPDATE conversation
+DB --> ConversationRepo : updated status
+ConversationRepo --> Service : updated conversation
+deactivate ConversationRepo
+Service -> AuditRepo : record operator action
+activate AuditRepo
+AuditRepo -> DB : INSERT audit event
+DB --> AuditRepo : audit recorded
+AuditRepo --> Service : audit recorded
+deactivate AuditRepo
+Service --> Controller : status result
+deactivate Service
+Controller --> Pages : HTTP 200 / 403 / 409
+deactivate Controller
+Pages --> Operator : Display status result
 
-note over member,manager
-Soft-hide removes the chat from Member sidebar only.
+Member -> Pages : Confirm soft-hide closed conversation
+Pages -> Controller : PATCH member visibility
+Controller -> Service : verify owner, CLOSED and version
+activate Service
+Service -> ConversationRepo : set member-hidden flag
+activate ConversationRepo
+ConversationRepo -> DB : UPDATE member visibility
+DB --> ConversationRepo : visibility updated
+ConversationRepo --> Service : visibility updated
+deactivate ConversationRepo
+Service -> AuditRepo : record member hide
+activate AuditRepo
+AuditRepo -> DB : INSERT audit event
+DB --> AuditRepo : audit recorded
+AuditRepo --> Service : audit recorded
+deactivate AuditRepo
+Service --> Controller : hidden from Member sidebar
+deactivate Service
+Controller --> Pages : HTTP 200 / 409
+Pages --> Member : Display hide result
+deactivate Pages
+note over Member,Operator
+Soft-hide removes the chat from the Member sidebar only.
 Messages and store history remain retained.
 end note
 @enduml

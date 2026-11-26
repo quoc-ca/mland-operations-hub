@@ -1,40 +1,46 @@
 @startuml
 !include r4-sequence-style.puml
 title FE-11 Member Creates Eligible Review
-actor "Member" as member
-participant "ReviewEligibilityController" as eligibilityController
-participant "ReviewController" as reviewController
-participant "ReviewService" as reviewService
-participant "WorkshopAttendanceReviewPort" as workshopPort
-participant "RetailFulfilmentReviewPort" as retailPort
-database "ReviewRepository" as reviewRepository
+actor "Member" as Actor
+participant "<<view>>\n:ReviewPages" as Pages
+participant "<<controller>>\n:ReviewEligibilityController" as EligibilityController
+participant "<<controller>>\n:ReviewController" as ReviewController
+participant "<<service>>\n:ReviewService" as Service
+participant "<<port>>\n:WorkshopAttendanceReviewPort" as WorkshopPort
+participant "<<port>>\n:RetailFulfilmentReviewPort" as RetailPort
+participant "<<repository>>\n:ReviewRepository" as Repo
+participant "<<database>>\n:MySQL Database" as DB
 
-member -> eligibilityController : request own eligible sources
-activate eligibilityController
-eligibilityController -> reviewService : resolve Member sources
-activate reviewService
-reviewService -> workshopPort : check CHECKED_IN attendance
-activate workshopPort
-workshopPort --> reviewService : eligible workshop sources
-deactivate workshopPort
-reviewService -> retailPort : check PICKED_UP/DELIVERED order lines
-activate retailPort
-retailPort --> reviewService : eligible retail sources
-deactivate retailPort
-reviewService --> eligibilityController : safe eligible source list
-deactivate reviewService
-eligibilityController --> member : eligible source list
-deactivate eligibilityController
-member -> reviewController : submit rating/text + idempotency key
-activate reviewController
-reviewController -> reviewService : validate source ownership and target
-activate reviewService
-reviewService -> reviewRepository : insert PUBLIC review atomically
-activate reviewRepository
-reviewRepository --> reviewService : review result or duplicate conflict
-deactivate reviewRepository
-reviewService --> reviewController : safe public projection
-deactivate reviewService
-reviewController --> member : public review projection
-deactivate reviewController
+Actor -> Pages : Open eligible review sources
+activate Pages
+Pages -> EligibilityController : GET eligible sources
+activate EligibilityController
+EligibilityController -> Service : resolve Member sources
+activate Service
+Service -> WorkshopPort : check CHECKED_IN attendance
+WorkshopPort --> Service : eligible workshop sources
+Service -> RetailPort : check PICKED_UP/DELIVERED order lines
+RetailPort --> Service : eligible retail sources
+Service --> EligibilityController : safe eligible source list
+deactivate Service
+EligibilityController --> Pages : HTTP 200 source list
+deactivate EligibilityController
+Pages --> Actor : Display eligible sources
+Actor -> Pages : Submit rating/text + idempotency key
+Pages -> ReviewController : POST review
+activate ReviewController
+ReviewController -> Service : validate source ownership and target
+activate Service
+Service -> Repo : insert PUBLIC review atomically
+activate Repo
+Repo -> DB : INSERT review
+DB --> Repo : review result or duplicate conflict
+Repo --> Service : review result
+deactivate Repo
+Service --> ReviewController : safe public projection
+deactivate Service
+ReviewController --> Pages : HTTP 201 or HTTP 409
+deactivate ReviewController
+Pages --> Actor : Display review result
+deactivate Pages
 @enduml

@@ -1,22 +1,80 @@
 @startuml
-!include r4-diagram-style.puml
-title FE-11 Review Management
-left to right direction
+skinparam style strictuml
 skinparam classAttributeIconSize 0
-class ReviewController <<controller>>
-class ReviewEligibilityController <<controller>>
-class ReviewModerationController <<controller>>
-class ReviewService <<service>>
-class Review <<entity>>
-class ReviewRevision <<entity>>
-class ReviewReply <<entity>>
-class ReviewModerationEvent <<entity>>
-class ReviewRepository <<repository>>
-class ReviewRevisionRepository <<repository>>
-class ReviewReplyRepository <<repository>>
-class ReviewModerationEventRepository <<repository>>
-interface WorkshopAttendanceReviewPort <<port>>
-interface RetailFulfilmentReviewPort <<port>>
+hide circle
+hide empty members
+
+class ReviewPages #back:FFFFFF;header:D5E8D4;line:82B366 {
+  public list and detail
+  create and edit own review
+}
+class reviewManagementApi #back:FFFFFF;header:D5E8D4;line:82B366 {
+  listReviews()
+  createReview()
+  moderateReview()
+}
+class ReviewController #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  create()
+  edit()
+  detail()
+}
+class ReviewEligibilityController #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  listEligibleSources()
+}
+class ReviewModerationController #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  moderate()
+  reply()
+}
+class ReviewService #back:FFFFFF;header:DAE8FC;line:6C8EBF {
+  resolveEligibility()
+  createPublicReview()
+  moderate()
+}
+class ReviewRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  save()
+  findPublic()
+  updateVisibility()
+}
+class ReviewRevisionRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  appendRevision()
+}
+class ReviewReplyRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  saveCurrentReply()
+}
+class ReviewModerationEventRepository #back:FFFFFF;header:FFF2CC;line:D6B656 {
+  appendEvent()
+}
+class Review #back:FFFFFF;header:F8CECC;line:B85450 {
+  targetType
+  rating
+  status
+  ownerReference
+}
+class ReviewRevision #back:FFFFFF;header:F8CECC;line:B85450 {
+  version
+  rating
+  text
+}
+class ReviewReply #back:FFFFFF;header:F8CECC;line:B85450 {
+  content
+  managerId
+}
+class ReviewModerationEvent #back:FFFFFF;header:F8CECC;line:B85450 {
+  action
+  reason
+  actorId
+}
+class WorkshopAttendanceReviewPort #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  findCheckedInSources()
+}
+class RetailFulfilmentReviewPort #back:FFFFFF;header:E1D5E7;line:9673A6 {
+  findFulfilledSources()
+}
+
+ReviewPages --> reviewManagementApi
+reviewManagementApi --> ReviewController
+reviewManagementApi --> ReviewEligibilityController
+reviewManagementApi --> ReviewModerationController
 ReviewController --> ReviewService
 ReviewEligibilityController --> ReviewService
 ReviewModerationController --> ReviewService
@@ -26,12 +84,11 @@ ReviewService --> ReviewReplyRepository
 ReviewService --> ReviewModerationEventRepository
 ReviewService --> WorkshopAttendanceReviewPort
 ReviewService --> RetailFulfilmentReviewPort
+ReviewRepository --> Review
+ReviewRevisionRepository --> ReviewRevision
+ReviewReplyRepository --> ReviewReply
+ReviewModerationEventRepository --> ReviewModerationEvent
 Review "1" o-- "0..*" ReviewRevision
 Review "1" o-- "0..1" ReviewReply
 Review "1" o-- "0..*" ReviewModerationEvent
-note right of ReviewService
-Guest public read only.
-Member creates/edits own review.
-Staff hide; Manager remove/reply.
-end note
 @enduml
