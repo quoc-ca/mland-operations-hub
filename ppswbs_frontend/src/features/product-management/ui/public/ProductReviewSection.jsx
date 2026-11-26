@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useReviewManagementApi, ReviewCard, ReviewForm, formatStars } from '../../../reviewmanagement';
-import { useAuth } from '../../../../shared/auth/AuthProvider';
+import { useRole } from '../../../../shared/auth/useRole';
 import { useT } from '../../../../shared/i18n/I18nProvider';
 import { Loading } from '../../../../shared/ui/components';
 import { messages } from '../messages';
@@ -29,14 +29,15 @@ export default function ProductReviewSection({ productId, productName }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const { status, userId } = useAuth();
-  const isAuthenticated = status === 'signed-in' || Boolean(userId);
+  // Only a Member can review (011's eligible sources are Member-only): asking for another role gets a 403, which leaves
+  // the page. Staff, Manager, Admin and Carrier see the public reviews without the review action.
+  const isMember = useRole() === 'MEMBER';
   const [eligibleItem, setEligibleItem] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
     const fetchEligible = api?.listEligibleSources || api?.getMemberEligibleSources;
-    if (!productId || !isAuthenticated || typeof fetchEligible !== 'function') {
+    if (!productId || !isMember || typeof fetchEligible !== 'function') {
       setEligibleItem(null);
       return;
     }
@@ -55,7 +56,7 @@ export default function ProductReviewSection({ productId, productName }) {
     return () => {
       active = false;
     };
-  }, [api, productId, isAuthenticated, attempt]);
+  }, [api, productId, isMember, attempt]);
 
   useEffect(() => {
     if (!productId) return undefined;

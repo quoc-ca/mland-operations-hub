@@ -23,7 +23,12 @@ export function BulkPriceBar({ count, onApply, onReset, labelKey = 'bulk.price',
   };
   return (
     <div className="size-bulk price-bulk">
-      <Field label={t(labelKey)} error={error}><input inputMode="numeric" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
+      <Field label={t(labelKey)} error={error}><input inputMode="numeric" value={amount} onChange={event => {
+        // Checked while typing; an empty box is only pointed out when applied.
+        const value = event.target.value;
+        setAmount(value);
+        setError(value.trim() && !isAmount(value.trim()) ? t('validation.amount') : null);
+      }} /></Field>
       <button type="button" className="button outline" disabled={count === 0 || !amount.trim()} onClick={apply}>{t('bulk.applyTo', { count })}</button>
       <button type="button" className="button outline" onClick={onReset}>{t(resetKey)}</button>
     </div>
@@ -208,6 +213,12 @@ function PendingBatch({ rows, api, reload, setNotice }) {
   const allChosen = rows.length > 0 && chosen.length === rows.length;
   const setAll = checked => setSelected(Object.fromEntries(rows.map(row => [row.variant.id, checked])));
 
+  // Checked while typing: each changed row's amount gets or loses its hint at once.
+  const changePrices = changes => {
+    setPrices(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => [keyOf(row), value])) }));
+    setErrors(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => [row.variant.id, isAmount(String(value).trim()) ? undefined : t('validation.amount')])) }));
+  };
+
   const approve = async () => {
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
@@ -243,7 +254,7 @@ function PendingBatch({ rows, api, reload, setNotice }) {
       {rows.length > 0 && (
         <>
           <BulkPriceBar count={chosen.length}
-            onApply={amount => setPrices(current => ({ ...current, ...Object.fromEntries(chosen.map(row => [keyOf(row), amount])) }))}
+            onApply={amount => changePrices(chosen.map(row => [row, amount]))}
             onReset={() => setPrices({})} />
           <div className="data-table" role="table" aria-label={t('batch.pendingTitle', { count: rows.length })}>
             <div className="data-row head batch" role="row">
@@ -263,7 +274,7 @@ function PendingBatch({ rows, api, reload, setNotice }) {
                 <span role="cell">
                   <input inputMode="numeric" aria-label={t('review.approvedFor', { size: row.variant.size })} value={priceOf(row)}
                     aria-invalid={errors[row.variant.id] ? true : undefined}
-                    onChange={event => { const { value } = event.target; setPrices(current => ({ ...current, [keyOf(row)]: value })); }} />
+                    onChange={event => changePrices([[row, event.target.value]])} />
                   {errors[row.variant.id] && <span className="field-error">{errors[row.variant.id]}</span>}
                 </span>
                 <span role="cell"><PriceGap proposed={row.proposal.proposedPrice} approved={priceOf(row)} /></span>
@@ -279,7 +290,12 @@ function PendingBatch({ rows, api, reload, setNotice }) {
           {errors.selection && <p className="field-error">{errors.selection}</p>}
           {rejecting && (
             <Field label={t('batch.rejectReason')} error={errors.reason}>
-              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => setReason(event.target.value)} />
+              <textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => {
+                const next = event.target.value;
+                setReason(next);
+                const problem = checkReason(next);
+                setErrors(current => ({ ...current, reason: problem ? t(problem) : undefined }));
+              }} />
             </Field>
           )}
           {!rejecting && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
@@ -341,6 +357,15 @@ function ProposeBatch({ rows, independent, api, reload, setNotice }) {
   const filled = chosen.filter(row => String(priceOf(row)).trim());
   const close = () => { setOpen(false); setErrors({}); setPrices({}); setSelected({}); batch.clear(); };
 
+  // Checked while typing; an empty row is left as it is, so only a typed wrong amount gets a hint.
+  const changePrices = changes => {
+    setPrices(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => [row.variant.id, value])) }));
+    setErrors(current => ({ ...current, ...Object.fromEntries(changes.map(([row, value]) => {
+      const typed = String(value).trim();
+      return [row.variant.id, typed && !isAmount(typed) ? t('validation.amount') : undefined];
+    })) }));
+  };
+
   const save = async submit => {
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
     const found = {};
@@ -386,7 +411,7 @@ function ProposeBatch({ rows, independent, api, reload, setNotice }) {
         <button type="button" className="button outline" onClick={chooseRange}>{t('propose.chooseRange')}</button>
       </div>
       <BulkPriceBar count={chosen.length} labelKey="bulk.proposedPrice" resetKey="bulk.clearPrices"
-        onApply={amount => setPrices(current => ({ ...current, ...Object.fromEntries(chosen.map(row => [row.variant.id, amount])) }))}
+        onApply={amount => changePrices(chosen.map(row => [row, amount]))}
         onReset={() => setPrices({})} />
       <div className="data-table" role="table" aria-label={t('propose.title')}>
         <div className="data-row head batch" role="row">
@@ -405,7 +430,7 @@ function ProposeBatch({ rows, independent, api, reload, setNotice }) {
             <span role="cell">
               <input inputMode="numeric" aria-label={t('propose.newFor', { size: row.variant.size })} value={priceOf(row)}
                 aria-invalid={errors[row.variant.id] ? true : undefined}
-                onChange={event => { const { value } = event.target; setPrices(current => ({ ...current, [row.variant.id]: value })); }} />
+                onChange={event => changePrices([[row, event.target.value]])} />
               {errors[row.variant.id] && <span className="field-error">{errors[row.variant.id]}</span>}
             </span>
             <span role="cell"><PriceGap proposed={row.variant.appliedPrice} approved={priceOf(row)} sameKey="bulk.sameApplied" /></span>

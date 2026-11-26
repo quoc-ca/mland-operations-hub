@@ -49,6 +49,22 @@ describe('T117 route masking of /promotion-management/*', () => {
   });
 });
 
+describe('R3b /me/loyalty and /me/saved-vouchers are Member-only (Session 2026-11-26)', () => {
+  const withNotFound = [...loyaltyPromotionRoutes, { path: '/404', element: <p>Không tìm thấy trang</p> }];
+
+  it.each([
+    ['STAFF', '/me/loyalty'], ['MANAGER', '/me/loyalty'], ['ADMIN', '/me/loyalty'], ['CARRIER', '/me/loyalty'],
+    ['STAFF', '/me/saved-vouchers'], ['MANAGER', '/me/saved-vouchers'], ['ADMIN', '/me/saved-vouchers'], ['CARRIER', '/me/saved-vouchers'],
+  ])('%s opening %s is replaced to /404 before any Member API call', async (role, path) => {
+    signInAs(role);
+    const calls = mockFetch({});
+    const { router } = renderRoutes(withNotFound, { path });
+    expect(await screen.findByText('Không tìm thấy trang')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/404');
+    expect(calls.filter(call => call.path.startsWith('/api/v1/members/'))).toEqual([]);
+  });
+});
+
 describe('006 REST operations', () => {
   const request = vi.fn(async () => ({}));
   const api = loyaltyApi(request);
@@ -155,6 +171,27 @@ describe('T030 programmes', () => {
     expect(posts[2].body.code).toMatch(/^ML[A-HJKMNP-Z2-9]{8}$/);
     expect(posts[2].headers['Idempotency-Key']).not.toBe(posts[1].headers['Idempotency-Key']);
   }, 20000); // three submissions with many typed fields: give a loaded machine time
+});
+
+describe('create form validates while typing (request 2026-11-26)', () => {
+  it('shows a hint as soon as a typed value is wrong, only on fields already typed, and drops it once fixed', async () => {
+    const user = userEvent.setup();
+    mockFetch({ [`GET ${C}`]: json(200, catalogue) });
+    open('/promotion-management/programs/new');
+    await screen.findByLabelText('Mã voucher');
+    const positive = 'Là số nguyên dương, không dấu chấm/phẩy, không bắt đầu bằng 0.';
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '4r');
+    expect(screen.getByText(/Phần trăm từ lớn hơn 0 đến 100/)).toBeInTheDocument();
+    expect(screen.queryByText(positive)).toBeNull(); // the cap was not typed yet
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '-30000');
+    expect(screen.getByText(positive)).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Phần trăm giảm (%)'));
+    await user.type(screen.getByLabelText('Phần trăm giảm (%)'), '10');
+    expect(screen.queryByText(/Phần trăm từ lớn hơn 0 đến 100/)).toBeNull();
+    await user.clear(screen.getByLabelText('Giảm tối đa (₫)'));
+    await user.type(screen.getByLabelText('Giảm tối đa (₫)'), '30000');
+    expect(screen.queryByText(positive)).toBeNull();
+  }, 20000);
 });
 
 describe('field errors clear once the value is fixed (review 2026-11-10)', () => {
@@ -390,6 +427,39 @@ describe('product voucher branches (Session 2026-11-09, T086)', () => {
   });
 });
 
+describe('edit and point policy forms validate while typing (request 2026-11-26)', () => {
+  it('edit form: a wrong value shows its hint at once and nothing is sent', async () => {
+    const user = userEvent.setup();
+    const calls = mockFetch({
+      [`GET ${P}/5`]: json(200, program({ version: '2' })),
+      [`GET ${P}/5/usage`]: json(200, voucherUsage),
+    });
+    open('/promotion-management/programs/5');
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }));
+    const form = screen.getByRole('heading', { name: 'Sửa chương trình' }).closest('form');
+    const name = within(form).getByLabelText('Tên chương trình');
+    await user.clear(name);
+    expect(within(form).getByText('Bắt buộc nhập.')).toBeInTheDocument();
+    await user.type(name, 'Giảm 12%');
+    expect(within(form).queryByText('Bắt buộc nhập.')).toBeNull();
+    expect(calls.some(call => call.method === 'PATCH')).toBe(false);
+  });
+
+  it('point policy: a hint shows while typing a wrong value', async () => {
+    const user = userEvent.setup();
+    mockFetch({ 'GET /api/v1/loyalty-policies/current': json(200, policy) });
+    open('/promotion-management/point-policy');
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }));
+    const percent = screen.getByLabelText('Tối đa % giá trị được trả bằng điểm');
+    await user.clear(percent);
+    await user.type(percent, '120');
+    expect(screen.getByText(/Phần trăm từ lớn hơn 0 đến 100/)).toBeInTheDocument();
+    await user.clear(percent);
+    await user.type(percent, '50');
+    expect(screen.queryByText(/Phần trăm từ lớn hơn 0 đến 100/)).toBeNull();
+  });
+});
+
 describe('T047 edit / pause / resume', () => {
   it('sends only the changed fields; on 409 loads the latest and keeps the edit', async () => {
     const user = userEvent.setup();
@@ -486,6 +556,7 @@ describe('T034 point policy', () => {
 
 describe('T040 My Loyalty', () => {
   it('shows balance, held, available, rules and history with paging', async () => {
+    signInAs('MEMBER');
     const user = userEvent.setup();
     mockFetch({
       'GET /api/v1/members/me/loyalty-accounts/current': json(200, account),
@@ -504,6 +575,7 @@ describe('T040 My Loyalty', () => {
   });
 
   it('a failed read shows the error, not numbers; an empty history has its own text', async () => {
+    signInAs('MEMBER');
     mockFetch({
       'GET /api/v1/members/me/loyalty-accounts/current': json(503, { code: 'DEPENDENCY_UNAVAILABLE', message: 'Down.' }),
       'GET /api/v1/members/me/loyalty-transactions': json(200, { items: [], nextCursor: null }),
@@ -577,12 +649,14 @@ describe('T070 public offers and voucher wallet', () => {
   });
 
   it('the wallet labels availability and has an empty state', async () => {
+    signInAs('MEMBER');
     mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [{ promotion: publicPromotion(), savedAt: '2026-11-01T00:00:00Z', availability: 'PAUSED' }], nextCursor: null }) });
     open('/me/saved-vouchers');
     expect(await screen.findByText('Đang tạm dừng')).toBeInTheDocument();
   });
 
   it('the wallet says when no use is left, in total or for this Member (US3.5, review 2026-11-10)', async () => {
+    signInAs('MEMBER');
     mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
       { promotion: publicPromotion({ id: '5' }), savedAt: '2026-11-01T00:00:00Z', availability: 'NO_USES_LEFT' },
       { promotion: publicPromotion({ id: '6', code: 'MLAND20' }), savedAt: '2026-11-02T00:00:00Z', availability: 'MEMBER_LIMIT_REACHED' },
@@ -704,6 +778,7 @@ describe('T078 session end and escaping (identity mocked: 001 has no Firebase si
   });
 
   it('a 401 on My Loyalty ends the Member session', async () => {
+    signInAs('MEMBER');
     const session = fakeSession();
     mockFetch({
       'GET /api/v1/members/me/loyalty-accounts/current': json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'x' }),
@@ -951,6 +1026,7 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
   });
 
   it('the wallet splits valid from expired or unusable vouchers, with counts', async () => {
+    signInAs('MEMBER');
     const user = userEvent.setup();
     mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
       { promotion: publicPromotion({ id: '5', name: 'Còn dùng' }), savedAt: '2026-11-01T00:00:00Z', availability: 'ACTIVE' },
@@ -1029,6 +1105,7 @@ describe('Kho Voucher and Voucher của tôi: saved state and tabs', () => {
   });
 
   it('the saved-voucher page is titled Voucher của tôi', async () => {
+    signInAs('MEMBER');
     mockFetch({ 'GET /api/v1/members/me/saved-vouchers': json(200, { items: [], nextCursor: null }) });
     open('/me/saved-vouchers');
     expect(await screen.findByRole('heading', { name: 'Voucher của tôi' })).toBeInTheDocument();

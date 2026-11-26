@@ -8,25 +8,31 @@ import { fromProductImages, ImageEditor, imagesPayload, imagesPending } from '..
 import { MissingNote, sectionClass, useProductCommand } from '../ProductDetailPage';
 import { NoticeAt } from '../notices';
 import { StaffImage } from '../StaffImage';
+import { changedRowKeys, useLiveHints } from '../../../application/useLiveHints';
 
 /** T050 / FR images: replaces the whole ordered list (PUT products/{id}/images) after uploads are READY. */
 export function ImagesSection({ product, api, reload, setNotice, deleted, outOfScope = false, missing = {} }) {
   const t = useT(messages);
   const [images, setImages] = useState(null);
-  const [hints, setHints] = useState({});
+  const { hints, submit: showHints, change: checkLive, reset: resetHints } = useLiveHints();
+  const checkAll = list => {
+    const found = checkImages(list);
+    if (imagesPending(list)) found.images = 'image.notReady';
+    return found;
+  };
+  const changeImages = next => { checkLive(changedRowKeys('images', images, next, image => image.localId), checkAll(next)); setImages(next); };
   const command = useProductCommand({ reload, setNotice });
   const editing = images !== null;
 
   const save = async () => {
     setNotice(null); // a new action replaces the previous outcome, even when it is refused here (Session 2026-11-04)
-    const found = checkImages(images);
-    if (imagesPending(images)) found.images = 'image.notReady';
-    setHints(found);
+    const found = checkAll(images);
+    showHints(found);
     if (Object.keys(found).length) return;
     const outcome = await command.run(key => api.replaceImages(key, product.id, { expectedVersion: product.version, images: imagesPayload(images) }), { key: 'images.saved', params: { count: images.length }, at: 'images' }, ACTIONS.images);
     if (outcome.ok) setImages(null);
   };
-  const cancel = () => { setImages(null); setHints({}); command.reset(); };
+  const cancel = () => { setImages(null); resetHints(); command.reset(); };
 
   const errors = {
     ...Object.fromEntries(Object.entries(hints).map(([key, value]) => [key, t(value)])),
@@ -37,7 +43,7 @@ export function ImagesSection({ product, api, reload, setNotice, deleted, outOfS
     <section className={sectionClass(missing.images)} aria-labelledby="images-title">
       <div className="card-head">
         <h2 id="images-title">{t('section.images')}</h2>
-        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => setImages(fromProductImages(product.images))}>{t('edit')}</button>}
+        {!editing && !deleted && !outOfScope && <button type="button" className="button outline" onClick={() => { resetHints(); setImages(fromProductImages(product.images)); }}>{t('edit')}</button>}
       </div>
       <MissingNote messageKey={missing.images} />
       {!editing ? (
@@ -56,7 +62,7 @@ export function ImagesSection({ product, api, reload, setNotice, deleted, outOfS
           : <p className="muted">{t('image.none')}</p>
       ) : (
         <>
-          <ImageEditor images={images} onChange={setImages} errors={errors} disabled={command.pending} />
+          <ImageEditor images={images} onChange={changeImages} errors={errors} disabled={command.pending} />
           <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
           <div className="actions form-actions">
             <button type="button" className="button primary" onClick={save} disabled={command.pending}>{command.pending ? t('saving') : t('save')}</button>

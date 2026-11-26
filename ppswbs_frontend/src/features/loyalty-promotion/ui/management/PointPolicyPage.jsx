@@ -10,6 +10,14 @@ import { PageTop } from './PromotionManagementLayout';
 
 const FIELDS = ['earnUnitAmount', 'redeemPointValue', 'minRedeemPoints', 'maxRedeemPercent'];
 
+/** Hints (i18n keys) for the policy form. */
+function checkPolicy(form) {
+  const found = {};
+  ['earnUnitAmount', 'redeemPointValue', 'minRedeemPoints'].forEach(key => { if (!isPositive(form[key].trim())) found[key] = 'validation.positive'; });
+  if (!isPercent(form.maxRedeemPercent.trim())) found.maxRedeemPercent = 'validation.percent';
+  return found;
+}
+
 /**
  * T034 point policy: current rates with version; a change applies only to transactions accepted afterwards. The
  * form keeps its values on error; on 409 the latest policy is shown so the Manager can confirm again. "Saved" is
@@ -24,18 +32,16 @@ export default function PointPolicyPage() {
   const [form, setForm] = useState(null);
   const [notice, setNotice] = useState(null);
   const command = useCommand();
-  const { errorOf, setHints, clear } = useFieldErrors(command.error, t);
+  const { errorOf, setHints, clear, check, reset } = useFieldErrors(command.error, t);
 
   if (policy.loading && !policy.data) return <Loading />;
   if (!policy.data) return <ErrorNotice error={policy.error} messages={messages} onRetry={policy.reload} />;
   const data = policy.data;
 
-  const startEdit = () => { setNotice(null); command.reset(); setForm(Object.fromEntries(FIELDS.map(key => [key, data[key]]))); };
+  const startEdit = () => { setNotice(null); command.reset(); reset(); setForm(Object.fromEntries(FIELDS.map(key => [key, data[key]]))); };
   const save = async event => {
     event.preventDefault();
-    const found = {};
-    ['earnUnitAmount', 'redeemPointValue', 'minRedeemPoints'].forEach(key => { if (!isPositive(form[key].trim())) found[key] = 'validation.positive'; });
-    if (!isPercent(form.maxRedeemPercent.trim())) found.maxRedeemPercent = 'validation.percent';
+    const found = checkPolicy(form);
     setHints(found);
     if (Object.keys(found).length) return;
     const body = { expectedVersion: data.version, ...Object.fromEntries(FIELDS.map(key => [key, form[key].trim()])) };
@@ -73,7 +79,13 @@ export default function PointPolicyPage() {
           <div className="form-grid">
             {FIELDS.map(key => (
               <Field key={key} label={t(`policy.${key}`)} error={errorOf(key)}>
-                <input inputMode={key === 'maxRedeemPercent' ? 'decimal' : 'numeric'} value={form[key]} onChange={event => { clear(key); setForm(current => ({ ...current, [key]: event.target.value })); }} />
+                <input inputMode={key === 'maxRedeemPercent' ? 'decimal' : 'numeric'} value={form[key]} onChange={event => {
+                  // Validate while typing.
+                  const value = event.target.value;
+                  clear(key);
+                  check([key], checkPolicy({ ...form, [key]: value }));
+                  setForm(current => ({ ...current, [key]: value }));
+                }} />
               </Field>
             ))}
           </div>

@@ -119,7 +119,7 @@ function ProposeAgain({ variant, note, api, reload, setNotice }) {
   const fieldError = serverFieldErrors(command.error).proposedPrice || localError;
   return (
     <form className="amount-form" onSubmit={submit} noValidate aria-label={t('price.propose')}>
-      <Field label={t('price.newPrice')} error={fieldError}><input inputMode="numeric" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
+      <Field label={t('price.newPrice')} error={fieldError}><input inputMode="numeric" value={amount} onChange={event => { setAmount(event.target.value); setLocalError(isAmount(event.target.value) ? null : t('validation.amount')); }} /></Field>
       <ErrorNotice error={command.error} messages={messages} onReload={reload} />
       <div className="actions">
         <button type="submit" className="button primary small" disabled={command.pending}>{t('price.submit')}</button>

@@ -200,7 +200,7 @@ function ChangePriceForm({ variant, current, api, reload, setNotice, note, at })
   const fieldError = serverFieldErrors(command.error).proposedPrice || serverFieldErrors(command.error).approvedPrice || localError;
   return (
     <form className="amount-form" onSubmit={submit} noValidate aria-label={t('price.change')}>
-      <Field label={t('price.newPrice')} error={fieldError}><input inputMode="numeric" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
+      <Field label={t('price.newPrice')} error={fieldError}><input inputMode="numeric" value={amount} onChange={event => { setAmount(event.target.value); setLocalError(isAmount(event.target.value) ? null : t('validation.amount')); }} /></Field>
       <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />
       <ErrorNotice error={command.error} messages={messages} onReload={reload} />
       <div className="actions">
@@ -228,7 +228,7 @@ function AmountForm({ label, hint, initial, send, action, notice, reload, setNot
   const fieldError = serverFieldErrors(command.error).proposedPrice || localError;
   return (
     <form className="amount-form" onSubmit={submit} noValidate>
-      <Field label={label} error={fieldError} hint={hint}><input inputMode="numeric" value={amount} onChange={event => setAmount(event.target.value)} /></Field>
+      <Field label={label} error={fieldError} hint={hint}><input inputMode="numeric" value={amount} onChange={event => { setAmount(event.target.value); setLocalError(isAmount(event.target.value) ? null : t('validation.amount')); }} /></Field>
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
       <div className="actions">
         <button type="submit" className="button primary" disabled={command.pending}>{t('save')}</button>
@@ -294,8 +294,8 @@ export function PriceDecision({ proposal, note, api, reload, setNotice }) {
   return (
     <form className="amount-form" onSubmit={submit} noValidate>
       {mode === 'APPROVE'
-        ? <Field label={t('price.approvedAmount')} error={serverErrors.approvedPrice || localError}><input inputMode="numeric" value={approvedPrice} onChange={event => setApprovedPrice(event.target.value)} /></Field>
-        : <Field label={t('decision.reason')} error={serverErrors.reason || localError}><textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => setReason(event.target.value)} /></Field>}
+        ? <Field label={t('price.approvedAmount')} error={serverErrors.approvedPrice || localError}><input inputMode="numeric" value={approvedPrice} onChange={event => { setApprovedPrice(event.target.value); setLocalError(isAmount(event.target.value) ? null : t('validation.amount')); }} /></Field>
+        : <Field label={t('decision.reason')} error={serverErrors.reason || localError}><textarea value={reason} maxLength={LIMITS.reasonMax} onChange={event => { setReason(event.target.value); const problem = checkReason(event.target.value); setLocalError(problem ? t(problem) : null); }} /></Field>}
       {mode === 'APPROVE' && <ApplyNowToggle checked={applyNow} onChange={setApplyNow} />}
       <ErrorNotice error={command.error} messages={messages} onRetry={command.retry} onReload={reload} />
       <div className="actions">

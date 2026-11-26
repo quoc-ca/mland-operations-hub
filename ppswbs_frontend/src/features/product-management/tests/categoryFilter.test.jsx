@@ -17,6 +17,20 @@ const listCalls = calls => calls.filter(call => call.method === 'GET' && call.pa
 const empty = { items: [], page: 0, pageSize: 20, totalElements: '0' };
 beforeEach(() => clearRoleCache());
 
+describe('category form checks while typing (request 2026-11-26)', () => {
+  it('an emptied name shows its hint at once and loses it when typed again', async () => {
+    const user = userEvent.setup();
+    mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage) });
+    open('/catalogue-management/categories');
+    const name = await screen.findByLabelText('Tên danh mục');
+    await user.type(name, 'A');
+    await user.clear(name);
+    expect(screen.getByText('Bắt buộc nhập.')).toBeInTheDocument();
+    await user.type(name, 'Nhẫn đính hôn');
+    expect(screen.queryByText('Bắt buộc nhập.')).toBeNull();
+  });
+});
+
 describe('FR-062 category status filter', () => {
   it('lists every category by default and sends no active filter', async () => {
     const calls = mockFetch({ [`GET ${M}/categories`]: json(200, categoryPage) });
