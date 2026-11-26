@@ -4,7 +4,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.Custom
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.dao.CustomOrderShipmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrder;
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderShipment;
-import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CarrierShipmentDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.CarrierShipmentDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.CustomShipmentCarrierPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CustomOrderShipmentService {
+public class CustomOrderShipmentService implements CustomShipmentCarrierPort {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     public static final String CUSTOM_SHIPMENT_PREFIX = "CUST_SHIP_";

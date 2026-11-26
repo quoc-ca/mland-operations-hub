@@ -1,7 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.controller;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
-import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.dto.CarrierShipmentDtos;
+import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.facade.CarrierShipmentDtos;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.entity.RetailShipmentStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.readyringsales.service.CarrierShipmentService;
 import jakarta.servlet.http.HttpServletRequest;

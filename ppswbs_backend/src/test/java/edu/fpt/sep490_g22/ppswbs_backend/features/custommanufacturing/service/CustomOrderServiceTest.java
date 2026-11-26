@@ -353,6 +353,7 @@ class CustomOrderServiceTest {
     @DisplayName("staffAdvanceShipmentToReadyForCarrier delegates to CustomOrderShipmentService and returns updated order")
     void staffAdvanceShipmentToReadyForCarrier_Delegates() {
         when(customOrderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        when(customOrderRepository.save(testOrder)).thenReturn(testOrder);
 
         var dto = customOrderService.staffAdvanceShipmentToReadyForCarrier(orderId);
 
