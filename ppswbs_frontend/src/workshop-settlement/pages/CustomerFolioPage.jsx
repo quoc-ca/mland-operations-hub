@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
 import { Loading, useCommand, useResource } from '../../shared/ui/components';
@@ -54,7 +54,7 @@ export default function CustomerFolioPage() {
   const [contact, setContact] = useState({ ...EMPTY_CONTACT });
   const [guestFolio, setGuestFolio] = useState(null);
   const command = useCommand();
-  const own = useResource(() => (member ? api.getFolio(ticketCode) : Promise.resolve(null)), [ticketCode, member]);
+  const own = useResource(() => (member ? api.getFolio(ticketCode, { suppressAccessDenied: true }) : Promise.resolve(null)), [ticketCode, member]);
 
   if (status === 'loading') return <CustomerPage title={t('cf.title')}><Loading /></CustomerPage>;
 
@@ -72,6 +72,7 @@ export default function CustomerFolioPage() {
   if (member) {
     return (
       <CustomerPage title={t('cf.title')}>
+        <p><Link to="/workshop-booking/lookup">{t('cf.back')}</Link></p>
         {own.loading ? <Loading /> : own.data ? (
           <>
             <FolioView folio={own.data} />

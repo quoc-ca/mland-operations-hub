@@ -55,6 +55,7 @@ export default function FolioCorrectionLookup({ api, ticketCode, initialReferenc
   return (
     <section className="folio-correction-view" aria-label={t('correction.lookupAria')}>
       <h3>{t('correction.title')}</h3>
+      <p className="muted small">{t('correction.hint')}</p>
       <form className="wsp-inline-form" onSubmit={submit}>
         <label>{t('correction.inputLabel')}
           <input value={reference} onChange={event => setReference(event.target.value)} autoComplete="off" maxLength={128} />

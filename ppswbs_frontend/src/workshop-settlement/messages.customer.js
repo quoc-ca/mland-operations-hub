@@ -3,6 +3,7 @@ export const messagesCustomer = {
   vi: {
     // CustomerFolioPage
     'cf.title': 'Thanh toán vé',
+    'cf.back': '← Quay lại vé của tôi',
     'cf.intro': 'Nhập email hoặc số điện thoại bạn đã dùng để đặt chỗ. Thông tin được gửi bảo mật và không được lưu trên trang này.',
     'cf.folioAria': 'Folio vé',
     'cf.total': 'Tổng',
@@ -61,6 +62,7 @@ export const messagesCustomer = {
   },
   en: {
     'cf.title': 'Ticket payment',
+    'cf.back': '← Back to my tickets',
     'cf.intro': 'Enter the email or phone number you used to book. It is sent securely and is not kept on this page.',
     'cf.folioAria': 'Ticket folio',
     'cf.total': 'Total',

@@ -90,7 +90,7 @@ function ReasonFields({ ticketCode, setTicketCode, reasonCode, setReasonCode, re
         {t('ses.corr.reasonCode')}
         <select value={reasonCode} onChange={e => setReasonCode(e.target.value)}>
           {CHECKIN_CORRECTION_REASONS.map(code => (
-            <option key={code} value={code}>{code} — {t(`ses.reason.checkin.${code}`)}</option>
+            <option key={code} value={code}>{t(`ses.reason.checkin.${code}`)}</option>
           ))}
         </select>
       </label>
@@ -683,7 +683,7 @@ export default function OperationsSessionPage() {
               onChange={e => setRecoveryReasonCode(e.target.value)}
             >
               {RECOVERY_REASONS.map(code => (
-                <option key={code} value={code}>{code} — {t(`ses.reason.recovery.${code}`)}</option>
+                <option key={code} value={code}>{t(`ses.reason.recovery.${code}`)}</option>
               ))}
             </select>
           </label>
@@ -767,7 +767,7 @@ export default function OperationsSessionPage() {
             {t('ses.cancel.reason')}
             <select value={cancelReasonCode} onChange={e => setCancelReasonCode(e.target.value)}>
               {CANCELLATION_REASONS.map(code => (
-                <option key={code} value={code}>{code} — {t(`ses.reason.cancel.${code}`)}</option>
+                <option key={code} value={code}>{t(`ses.reason.cancel.${code}`)}</option>
               ))}
             </select>
           </label>

@@ -36,7 +36,9 @@ export function classifyGroupPaymentOutcome({ responseCode, groupStatus, error, 
     return {
       kind: 'LOOKUP_ERROR',
       title: { key: 'return.lookupError.title' },
-      message: error.detail || error.message ? { text: error.detail || error.message } : { key: 'return.lookupError.message' },
+      // BUG-E2E-0029: the server text is English; an unknown group has its own translated wording.
+      message: error.status === 404 || error.code === 'BOOKING_NOT_FOUND' ? { key: 'lookup.notFound' }
+        : error.detail || error.message ? { text: error.detail || error.message } : { key: 'return.lookupError.message' },
     };
   }
   // FR-032 (T172): the browser came back from the gateway without success and the server reports no live attempt, so the
