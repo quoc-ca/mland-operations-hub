@@ -51,10 +51,14 @@ public class TicketChangeOptionsApiService {
     private final TicketChangeService changes;
     private final WorkshopSettlementAuthorizationService authorization;
 
-    /** Member who owns the group, Staff in the ticket's location assigned to one of its sessions, Manager. */
+    /**
+     * Member who owns the group, Staff in the ticket's location assigned to one of its sessions, Manager. LATE_ARRIVAL
+     * is for Staff and Manager only (FR-044b).
+     */
     @Transactional(readOnly = true)
     public ChangeOptionsDto forActor(String ticketCode, TicketChangeType type, List<UUID> from,
                                      CurrentAccountActor actor) {
+        WorkshopSettlementAuthorizationService.requireLateArrivalStaff(type, actor);
         String code = requiredCode(ticketCode);
         TicketFolioContext ctx = booking.getTicketFolioContext(code)
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
@@ -82,6 +86,7 @@ public class TicketChangeOptionsApiService {
         if (request == null || !request.hasOneProof()) {
             throw new WorkshopSettlementValidationException("ONE_PROOF_REQUIRED");
         }
+        WorkshopSettlementAuthorizationService.requireLateArrivalStaff(request.type(), null);
         TicketFolioContext ctx = booking.getTicketFolioContext(code)
                 .orElseThrow(WorkshopSettlementNotFoundException::new);
         SettlementFinalBill folio = finalBills.findByBookingReference(code)

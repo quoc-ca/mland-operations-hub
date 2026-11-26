@@ -2,6 +2,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementBusinessAuditRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.TicketChangeDtos.TicketChangeType;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -87,6 +88,18 @@ public class WorkshopSettlementAuthorizationService {
             throw deny(actor.accountId().toString(), "STAFF_OR_MANAGER_REQUIRED");
         }
         return actor;
+    }
+
+    /**
+     * 003.3 FR-044b (decided 2026-11-26): late-arrival support is entered by Staff or a Manager only; a buyer (Member or
+     * Guest) changes ADVANCE only. Checked before any buyer proof or contact, so the refusal says nothing about the
+     * ticket. The Staff scope and assignment check stays where it was.
+     */
+    static void requireLateArrivalStaff(TicketChangeType type, CurrentAccountActor actor) {
+        if (type == TicketChangeType.LATE_ARRIVAL
+                && (actor == null || actor.role() != ActorRole.STAFF && actor.role() != ActorRole.MANAGER)) {
+            throw new WorkshopSettlementAuthorizationException("LATE_ARRIVAL_STAFF_ONLY");
+        }
     }
 
     private void requireActive(CurrentAccountActor actor) {

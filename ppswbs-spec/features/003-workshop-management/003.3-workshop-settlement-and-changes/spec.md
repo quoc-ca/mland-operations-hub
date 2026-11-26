@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-26
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -575,6 +575,26 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   replacement is counted by `Asia/Ho_Chi_Minh` calendar date, applies to advance
   changes as well as late arrival, and exempts Mland (FR-062); a change may move
   the ticket to another location where the Package is sold, with no Manager (FR-058, FR-059).)*
+  *(Amended 2026-11-26, FR-044b: the customer's own online change is an advance change only; late-arrival support
+  is done by Staff of the ticket's location or a Manager at the shop. "The customer may act online within these
+  rights" means the advance change.)*
+- **FR-044b — who may use which change type** *(decided 2026-11-26 by Hồ Hoàng Quốc, owner Feature 003;
+  tasks T206–T210)*:
+  (1) A Member or a Guest buyer may request only `ADVANCE`. At least 24 hours before the start of the session
+  being changed (the earlier one when both move) it is auto-approved under FR-045a. Under 24 hours and not yet
+  started it waits in the Staff/Manager queue (existing mechanism, 202). A session that has already started is
+  never changed or queued as `ADVANCE`, whoever asks: the request is refused with
+  `409 ADVANCE_CHANGE_WINDOW_EXPIRED`, consumes no allowance and no buyer proof, and the screen tells the customer
+  to contact the shop (with the location name, and its phone number when the data has one).
+  (2) `LATE_ARRIVAL` is allowed only to Staff of the ticket's location (the FR-059 (a) scope and assignment rule
+  is unchanged) or a Manager. Every other caller (Member, Guest, Carrier, Admin, no account) gets
+  `403 LATE_ARRIVAL_STAFF_ONLY`, on the single-ticket change, the group change and both change-option routes,
+  the Guest lookup included. The refusal is decided before the buyer proof or contact is checked, so it reveals
+  nothing about the ticket.
+  (3) Nothing else changes: the 003.2 rules for which session may be moved, capacity, reschedule quota, the
+  allowance, price-increase confirmation and the 7-day window (FR-062) stay. No migration. A `LATE_ARRIVAL`
+  request already waiting in the queue is still decided by Staff or a Manager as before. A retry with the
+  idempotency key of an already stored change replays the stored result.
 - **FR-045**: The package price stays frozen, so a change never lowers the price
   and never creates a refund. A ticket moved outside its voucher scope loses
   its allocated voucher discount; used points stay. A ticket moved into scope
@@ -603,6 +623,10 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   reason, and a request that only a Manager could allow (quota exhausted, the
   allowance used, outside the window) goes to the Staff/Manager queue instead.
   Mland-caused changes are not customer changes and never take this path.
+  *(Amended 2026-11-26, FR-044b: an online change by the buyer is `ADVANCE` only, so the late-arrival part of
+  condition 2 now applies only to a change entered by Staff of the ticket's location or a Manager; "outside the
+  window" is queued only while the session being changed has not started, otherwise it is refused with
+  `ADVANCE_CHANGE_WINDOW_EXPIRED`.)*
   *(Queue and group change decided 2026-11-14, T117/T118)*: a request that only a
   Manager could allow is stored as `settlement_ticket_change_requests` and
   answered 202; a Manager approves (equal to an FR-054 grant followed by one
@@ -620,7 +644,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   routes. A decision is recorded under the deciding account.)*
 
 
-- **FR-044a — listing the sessions a ticket may move to** *(decided 2026-11-16 by Hồ Hoàng Quốc, owner Feature 003; tasks T176–T181)*:
+- **FR-044a — listing the sessions a ticket may move to** *(decided 2026-11-16 by Hồ Hoàng Quốc, owner Feature 003; tasks T176–T181;
+  amended 2026-11-26, FR-044b: `type=LATE_ARRIVAL` is answered only to Staff of the ticket's location or a Manager;
+  every other caller, the Guest lookup included, gets `403 LATE_ARRIVAL_STAFF_ONLY`)*:
   the system MUST offer read-only `GET /workshop-tickets/{ticketCode}/change-options` (Member who owns the group, Staff in
   the ticket's location, Manager) and `POST /workshop-tickets/{ticketCode}/change-option-lookups` (Guest, one contact proof
   of the group; same proof, uniform 404 and rate limit as `folio-lookups`; never an OTP), so a customer or Staff picks from
@@ -945,6 +971,12 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or serve external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-26 — who may change which way (owner Hồ Hoàng Quốc, "phương án C")
+
+- Q: May a customer pick late-arrival support online? → A: No. Member and Guest change `ADVANCE` only; `LATE_ARRIVAL` is for Staff of the ticket's location or a Manager, everyone else gets `403 LATE_ARRIVAL_STAFF_ONLY` on the single change, the group change and both option routes (FR-044b).
+- Q: What does a customer get under 24 hours, and after the session started? → A: Under 24 hours and not started: the existing Staff/Manager queue. Started: no online change and no queue; contact the shop (FR-044b).
+- Q: Do the 003.2 rules, the data model or waiting requests change? → A: No. Source/target rules, capacity, quota, allowance, price confirmation and the 7-day window stay; no migration; a waiting `LATE_ARRIVAL` request can still be approved.
 
 ### Session 2026-11-17 — Package availability per location (open questions for the owner)
 
@@ -1567,6 +1599,14 @@ none, with a buyer-confirmed price effect.
    2, the session being changed, and the change is not blocked by session 1
    (when one change moves both sessions, from the earlier of them) (FR-044,
    clarified 2026-11-15; the code follows in T130).
+5. **Given** a Member or Guest buyer, **When** they ask for `LATE_ARRIVAL` (a
+   change or its option list), **Then** `403 LATE_ARRIVAL_STAFF_ONLY` and
+   nothing changes; Staff of the ticket's location or a Manager succeed as
+   before (FR-044b, added 2026-11-26).
+6. **Given** a session that has already started, **When** an `ADVANCE` change of
+   it is requested, **Then** it is refused with
+   `ADVANCE_CHANGE_WINDOW_EXPIRED`, nothing is queued or consumed, and the
+   screen tells the customer to contact the shop (FR-044b, added 2026-11-26).
 
 ### User Story 11 — A refund account is replaced or returned for re-entry (P2)
 

@@ -284,6 +284,40 @@ class TicketChangeOptionsApiServiceTest {
     }
 
     @Test
+    @DisplayName("FR-044b: LATE_ARRIVAL is 403 LATE_ARRIVAL_STAFF_ONLY for anyone but Staff and Manager, Guest included")
+    void lateArrivalIsForStaffAndManagerOnly() {
+        for (ActorRole role : ActorRole.values()) {
+            if (role == ActorRole.STAFF || role == ActorRole.MANAGER) {
+                continue;
+            }
+            assertThatThrownBy(() -> service.forActor(TICKET, TicketChangeType.LATE_ARRIVAL, List.of(first),
+                    actor(BUYER, role, 10L)))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                    .hasMessageContaining("LATE_ARRIVAL_STAFF_ONLY");
+        }
+        assertThatThrownBy(() -> service.forGuest(TICKET, new GuestChangeOptionLookupRequest(
+                "buyer@example.com", null, TicketChangeType.LATE_ARRIVAL, null)))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("LATE_ARRIVAL_STAFF_ONLY");
+        // Refused before the contact is checked and before anything is read.
+        verify(access, never()).verifyCustomerAccess(any(), any(), any(), any());
+        verify(operations, never()).ticketChangeOptions(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("FR-044b: assigned Staff and a Manager still read the LATE_ARRIVAL list; other Staff are refused as before")
+    void lateArrivalForStaffAndManager() {
+        when(operations.staffAssignedToBooking(200L, "L1")).thenReturn(true);
+
+        assertThat(service.forActor(TICKET, TicketChangeType.LATE_ARRIVAL, null, actor(200L, ActorRole.STAFF, 10L)))
+                .isNotNull();
+        assertThat(service.forActor(TICKET, TicketChangeType.LATE_ARRIVAL, null, actor(300L, ActorRole.MANAGER)))
+                .isNotNull();
+        assertThatThrownBy(() -> service.forActor(TICKET, TicketChangeType.LATE_ARRIVAL, null,
+                actor(201L, ActorRole.STAFF, 99L))).hasMessageContaining("LOCATION_SCOPE_DENIED");
+    }
+
+    @Test
     @DisplayName("T183: every option and each session of a pair carries its location name; a location needs no Manager")
     void locationNamesOnOptionsAndPairs() {
         Instant start = firstStart;

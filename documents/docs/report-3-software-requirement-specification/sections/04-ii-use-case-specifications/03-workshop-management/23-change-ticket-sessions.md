@@ -14,7 +14,7 @@ As the buyer, an assigned Staff member, or a Manager, I want to select valid rep
 
 #### Preconditions
 
-1. The ticket folio is open, and the request is an advance change (24 hours before the changed session) or late-arrival support (before the old session ends).
+1. The ticket folio is open. A Member or Guest requests an advance change of a session that has not started; late-arrival support is entered only by assigned Staff of the ticket's location or a Manager (before the old session ends).
 2. The actor is the owning Member or a buyer-verified Guest; assigned Staff or a Manager acting for the buyer gives a reason and the buyer proof.
 
 #### Postconditions
@@ -38,7 +38,15 @@ The buyer confirms the new schedule and amount; the increase is added to the che
 
 **Step 3 — Only a Manager could allow it**
 
-When the quota is full, the change is used, or the advance window is closed, the request is queued for a decision.
+When the quota is full, the change is used, or fewer than 24 hours remain before a session that has not started, the request is queued for a Staff or Manager decision.
+
+**Step 1 — The session has already started**
+
+A Member or Guest cannot change it online; the screen asks them to contact the shop (branch name shown). An advance change of a started session is refused and never queued.
+
+**Step 3 — A buyer asks for late-arrival support**
+
+The system refuses it; only Staff or a Manager may enter it.
 
 **Step 3 — Target is invalid or full**
 
@@ -46,7 +54,7 @@ The system refuses the change; a target after the 7th calendar day following the
 
 #### Business Rules
 
-BR-85-01, BR-85-02, BR-85-03, BR-85-04
+BR-85-01, BR-85-02, BR-85-03, BR-85-04, BR-85-05
 
 #### Business Rule Definitions
 
@@ -56,3 +64,4 @@ BR-85-01, BR-85-02, BR-85-03, BR-85-04
 | BR-85-02 | A change never lowers the price or creates a refund. |
 | BR-85-03 | Several tickets of one group change all or none. |
 | BR-85-04 | Changing to another location is marked draft in one part of the spec and approved in another; to be confirmed. |
+| BR-85-05 | Members and Guests make advance changes only; late-arrival support is limited to assigned Staff of the ticket's location or a Manager. |
