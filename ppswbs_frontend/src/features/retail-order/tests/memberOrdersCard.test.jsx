@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { vi, describe, expect, it } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { json, mockFetch, renderRoutes } from '../../../test/render';
 import { readyRingSalesRoutes } from '../routes/routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 // Thinh, 2026-11-23: on a completed order the product opens its product page; only "Bấm để xem chi tiết" opens the
 // order details.

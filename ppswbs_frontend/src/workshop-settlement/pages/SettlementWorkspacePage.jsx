@@ -112,7 +112,7 @@ export default function SettlementWorkspacePage() {
   const http = useHttp();
   const api = createSettlementApi(http);
   const role = useRole();
-  const isManager = role === 'MANAGER' || role === 'ADMIN';
+  const isManager = role === 'MANAGER';
   // A link from another screen (the attendance roster) opens the folio of a ticket: ?ticket=GRP-…-L1-T1.
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedTicket = (searchParams.get('ticket') || '').trim();

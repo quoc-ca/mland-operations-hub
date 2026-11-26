@@ -183,6 +183,10 @@ public class TicketSettlementCancellationService {
         String channel;
         String buyerProof;
 
+        // Admin has no authority over buyer operations (003.1) and must not pass as a Guest with a buyer proof.
+        if (actor != null && actor.role() == ActorRole.ADMIN) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             // Member must be the buyer who owns the group
             if (buyerMemberAccountId == null || !buyerMemberAccountId.equals(actor.accountId())) {

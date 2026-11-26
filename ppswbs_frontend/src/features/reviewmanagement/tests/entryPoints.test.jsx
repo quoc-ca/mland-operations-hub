@@ -1,9 +1,11 @@
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { reviewManagementRoutes } from '../routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 const PROFILE = 'GET /api/v1/accounts/me/profile';
 const LIST = 'GET /api/v1/reviews';

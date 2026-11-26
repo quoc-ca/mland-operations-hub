@@ -425,6 +425,23 @@ class TicketMlandRemedyServiceTest {
     }
 
     @Test
+    @DisplayName("Admin may neither read nor answer a remedy offer, even with a buyer proof")
+    void adminIsRefusedForReadAndAnswer() {
+        TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");
+        when(booking.getTicketFolioContext(TICKET_CODE)).thenReturn(Optional.of(ctx));
+        SettlementTicketMlandRemedy offer = createPendingRemedy(TICKET_CODE, Instant.now().plus(48, ChronoUnit.HOURS));
+        when(remedyRepository.findByTicketCodeAndOutcome(TICKET_CODE, "PENDING_ANSWER")).thenReturn(Optional.of(offer));
+        CurrentAccountActor admin = new CurrentAccountActor(77L, ActorRole.ADMIN, ActorStatus.ACTIVE, false, List.of());
+        TicketRemedyAnswerRequestDto request = new TicketRemedyAnswerRequestDto(TicketRemedyAnswer.REFUND, "bvr-" + "a".repeat(20));
+
+        assertThatThrownBy(() -> service.getOffer(TICKET_CODE, admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class);
+        assertThatThrownBy(() -> service.answerOffer(TICKET_CODE, request, IDEMPOTENCY_KEY, "CORR", admin))
+                .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                .hasMessageContaining("STAFF_OR_MANAGER_REQUIRED");
+    }
+
+    @Test
     @DisplayName("T116: answerOffer by Staff outside the ticket's location, or suspended, is refused before the proof")
     void answerOffer_staffOutOfScopeOrInactive_isRefused() {
         TicketFolioContext ctx = createContext(TICKET_CODE, OPS_TICKET_REF, 0L, "L1-T1");

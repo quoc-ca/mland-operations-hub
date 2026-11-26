@@ -1,9 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { fakeSession, json, mockFetch, renderRoutes } from '../../../test/render';
 import { clearRoleCache } from '../../../shared/auth/useRole';
 import { designReviewRoutes } from '../routes';
+
+vi.mock('../../../shared/auth/RouteAccessGuard', () => import('../../../test/passThroughGuard'));
 
 beforeEach(() => {
   clearRoleCache();

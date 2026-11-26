@@ -269,6 +269,10 @@ public class TicketMlandRemedyService {
         String ticket = ticketCode.trim();
         TicketFolioContext ctx = booking.getTicketFolioContext(ticket)
                 .orElseThrow(() -> new WorkshopSettlementNotFoundException("TICKET_NOT_FOUND"));
+        // Admin has no authority over buyer operations (003.1) and must not pass as a Guest with a buyer proof.
+        if (actor != null && actor.role() == ActorRole.ADMIN) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             if (ctx.buyerMemberAccountId() == null || !ctx.buyerMemberAccountId().equals(actor.accountId())) {
                 throw new WorkshopSettlementAuthorizationException("NOT_GROUP_OWNER");
@@ -449,6 +453,10 @@ public class TicketMlandRemedyService {
         String channel;
         String buyerProof;
 
+        // Admin has no authority over buyer operations (003.1) and must not pass as a Guest with a buyer proof.
+        if (actor != null && actor.role() == ActorRole.ADMIN) {
+            throw new WorkshopSettlementAuthorizationException("STAFF_OR_MANAGER_REQUIRED");
+        }
         if (actor != null && actor.role() == ActorRole.MEMBER) {
             if (buyerMemberAccountId == null || !buyerMemberAccountId.equals(actor.accountId())) {
                 throw new WorkshopSettlementAuthorizationException("NOT_GROUP_OWNER");

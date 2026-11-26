@@ -1,7 +1,6 @@
 import React from 'react';
 import { installStackedTableLabels } from './stackedTables';
-import { RequireSession } from '../shared/auth/RequireSession';
-import { RouteAccessGuard } from '../shared/auth/RouteAccessGuard';
+import { RoleArea } from '../shared/auth/RoleArea';
 import { useT } from '../shared/i18n/I18nProvider';
 import { sharedMessages } from '../shared/ui/messages';
 import OperationsDashboardPage from './pages/OperationsDashboardPage';
@@ -19,21 +18,17 @@ installStackedTableLabels();
  * link back to itself; a signed-in actor outside the set is replaced to /404 before the page renders or calls the API.
  * The backend still decides every permission.
  */
-function RoleArea({ roles, children }) {
+function Area({ roles, children }) {
   const t = useT(sharedMessages);
-  return (
-    <RequireSession requiredText={t('session.required')}>
-      <RouteAccessGuard allowedRoles={roles}>{children}</RouteAccessGuard>
-    </RequireSession>
-  );
+  return <RoleArea roles={roles} requiredText={t('session.required')}>{children}</RoleArea>;
 }
 
 function StaffArea({ children }) {
-  return <RoleArea roles={['STAFF', 'MANAGER']}>{children}</RoleArea>;
+  return <Area roles={['STAFF', 'MANAGER']}>{children}</Area>;
 }
 
 function ManagerArea({ children }) {
-  return <RoleArea roles={['MANAGER']}>{children}</RoleArea>;
+  return <Area roles={['MANAGER']}>{children}</Area>;
 }
 
 export const operationsRoutes = [

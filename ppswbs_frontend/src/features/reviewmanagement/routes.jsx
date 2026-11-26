@@ -10,6 +10,7 @@ import EditReviewPage from './ui/EditReviewPage';
 import ModerationQueuePage from './ui/ModerationQueuePage';
 import ModerationDetailPage from './ui/ModerationDetailPage';
 import './reviewmanagement.css';
+import { RoleArea } from '../../shared/auth/RoleArea';
 
 export const reviewManagementRoutes = [
   { path: '/reviews', element: <ReviewsHomePage /> },
@@ -20,6 +21,6 @@ export const reviewManagementRoutes = [
   { path: '/reviews/:reviewId/edit', element: <RequireSession><EditReviewPage /></RequireSession> },
   // The separate "Các sản phẩm, trải nghiệm có thể đánh giá" page was folded into the "Chưa đánh giá" tab (2026-11-23).
   { path: '/reviews/eligible-sources', element: <Navigate to="/reviews" replace /> },
-  { path: '/review-moderation', element: <RequireSession><ModerationQueuePage /></RequireSession> },
-  { path: '/review-moderation/:reviewId', element: <RequireSession><ModerationDetailPage /></RequireSession> },
+  { path: '/review-moderation', element: <RoleArea roles={['STAFF', 'MANAGER']}><ModerationQueuePage /></RoleArea> },
+  { path: '/review-moderation/:reviewId', element: <RoleArea roles={['STAFF', 'MANAGER']}><ModerationDetailPage /></RoleArea> },
 ];

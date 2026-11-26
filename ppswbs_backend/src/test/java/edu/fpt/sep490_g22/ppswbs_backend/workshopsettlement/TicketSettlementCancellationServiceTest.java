@@ -332,6 +332,23 @@ class TicketSettlementCancellationServiceTest {
         }
 
         @Test
+        @DisplayName("Admin holding a buyer proof is refused and never treated as a Guest")
+        void adminWithProofThrowsForbidden() {
+            TicketFolioContext context = createContext(TICKET_1, OPS_REF_1, Instant.now().plus(48, ChronoUnit.HOURS), 0L, "L0-T1");
+            when(booking.getTicketFolioContext(TICKET_1)).thenReturn(Optional.of(context));
+            when(cancellationRepository.existsByTicketCode(TICKET_1)).thenReturn(false);
+            when(bills.findByBookingReference(TICKET_1)).thenReturn(Optional.of(createOpenBill(TICKET_1)));
+            CurrentAccountActor admin = new CurrentAccountActor(77L, ActorRole.ADMIN, ActorStatus.ACTIVE, false, List.of());
+
+            CancellationRequestDto request = new CancellationRequestDto("Admin cancel", "OTP-REF-123");
+
+            assertThatThrownBy(() -> service.cancelTicket(TICKET_1, request, VALID_IDEMPOTENCY_KEY, "corr-admin", admin))
+                    .isInstanceOf(WorkshopSettlementAuthorizationException.class)
+                    .hasMessage("STAFF_OR_MANAGER_REQUIRED");
+            verify(booking, never()).consumeBuyerProof(any());
+        }
+
+        @Test
         @DisplayName("Guest buyer without verification reference throws 403 BUYER_VERIFICATION_REQUIRED")
         void guestWithoutProofThrowsForbidden() {
             Instant firstSessionStart = Instant.now().plus(48, ChronoUnit.HOURS);
