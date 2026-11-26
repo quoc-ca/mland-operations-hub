@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { RequireSession } from '../../../../shared/auth/RequireSession';
+import { useRole } from '../../../../shared/auth/useRole';
 import { useEnumLabel, useFormat, useT } from '../../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, useResource } from '../../../../shared/ui/components';
 import { FlashToast } from '../FlashToast';
@@ -60,6 +61,11 @@ export function StaffOrders({ initialTab }) {
   const format = useFormat();
   const t = useT(retailMessages);
   const statusLabel = useEnumLabel(retailMessages, 'staff.shipment');
+  // Counter cash and the handover are Staff only; a Manager of the branch packs pickup orders and GHTK parcels like
+  // Staff (FR-08-045, T089, C2/T090). Unknown role: no counter button until it loads.
+  const role = useRole();
+  const counter = role === 'STAFF';
+  const packer = role === 'STAFF' || role === 'MANAGER';
   const wanted = LEGACY_TABS[initialTab] || initialTab;
   const [tab, setTab] = useState(TABS.includes(wanted) ? wanted : 'PREPARING');
   const [search, setSearch] = useState('');
@@ -160,17 +166,17 @@ export function StaffOrders({ initialTab }) {
     <div className="order-tabs" role="tablist" aria-label={t('staff.branchWork')}>{TABS.map(key => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{t(`staff.tab.${key}`)}{key !== 'HISTORY' && counts[key] ? <span className="order-tab-count">{counts[key]}</span> : null}</button>)}</div>
     {desk.error && <ErrorNotice error={desk.error} onRetry={desk.reload} />}
     {shipments.error && <ErrorNotice error={shipments.error} onRetry={shipments.reload} />}
-    {tab === 'AWAITING_CASH' && <p className="muted small">{t('staff.whenTheCustomerPaysAt')}</p>}
+    {counter && tab === 'AWAITING_CASH' && <p className="muted small">{t('staff.whenTheCustomerPaysAt')}</p>}
     <FlashToast message={notice} onDone={() => setNotice('')} />
     {error && <ErrorNotice error={error} />}
     {visible.length === 0 && <div className="order-empty"><p>{term ? t('staff.noMatchingOrder') : t('staff.nothingLeftInThisTab')}</p></div>}
     {visible.map(item => item.kind === 'PICKUP'
-      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} onConfirmCash={confirmCash} onPrepare={prepare} onHandOver={handOver} />
+      ? <PickupCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} counter={counter} packer={packer} onConfirmCash={confirmCash} onPrepare={prepare} onHandOver={handOver} />
       : <ShipmentCard key={item.key} item={item} open={openKey === item.key} onToggle={() => toggle(item)} busy={busyId === item.key} format={format} branchName={branchName} detail={details[item.row.id]} onAdvance={advance} />)}
   </section>;
 }
 
-function PickupCard({ item, open, onToggle, busy, format, branchName, onConfirmCash, onPrepare, onHandOver }) {
+function PickupCard({ item, open, onToggle, busy, format, branchName, counter, packer, onConfirmCash, onPrepare, onHandOver }) {
   const t = useT(retailMessages);
   const time = useDisplayTime();
   const { row } = item;
@@ -202,11 +208,11 @@ function PickupCard({ item, open, onToggle, busy, format, branchName, onConfirmC
       <span className="order-more">{open ? t('common.showLess') : t('common.clickForDetails')}</span>
       <span className="order-sum">{item.tab === 'AWAITING_CASH' ? t('staff.toCollect') : t('common.total')} <strong>{format.money(order.payableAmount)}</strong></span>
     </div>
-    {item.tab === 'AWAITING_CASH' && <div className="order-actions">
+    {counter && item.tab === 'AWAITING_CASH' && <div className="order-actions">
       <button type="button" className="button primary" disabled={busy} onClick={() => onConfirmCash(item)}>{busy ? t('staff.saving') : t('staff.confirmCollected', { payableAmount: format.money(order.payableAmount) })}</button>
     </div>}
-    {item.tab === 'PREPARING' && <div className="order-actions"><span className="muted">{cash ? t('staff.cashCollected') : t('staff.paidByVnpay')}</span><button type="button" className="button primary" disabled={busy} onClick={() => onPrepare(item)}>{busy ? t('staff.saving') : t('staff.packedAndReady')}</button></div>}
-    {item.tab === 'TO_HAND_OVER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onHandOver(item)}>{busy ? t('staff.saving') : t('staff.handToCustomer')}</button></div>}
+    {item.tab === 'PREPARING' && <div className="order-actions"><span className="muted">{cash ? t('staff.cashCollected') : t('staff.paidByVnpay')}</span>{packer && <button type="button" className="button primary" disabled={busy} onClick={() => onPrepare(item)}>{busy ? t('staff.saving') : t('staff.packedAndReady')}</button>}</div>}
+    {counter && item.tab === 'TO_HAND_OVER' && <div className="order-actions"><button type="button" className="button primary" disabled={busy} onClick={() => onHandOver(item)}>{busy ? t('staff.saving') : t('staff.handToCustomer')}</button></div>}
   </article>;
 }
 
