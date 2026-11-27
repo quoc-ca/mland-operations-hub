@@ -10,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 /**
  * Serves the bytes of a public product image (T070, interfaces "MediaStoragePort", FR-031/036).
@@ -67,6 +68,11 @@ public class PublicMediaService {
     public PublicMedia openForManagement(String rawMediaId, String actorId) {
         return serve(parse(rawMediaId), (mediaId, object) -> images.existsOnLiveProduct(mediaId)
                 || (actorId.equals(object.getUploadedBy()) && !images.existsByMediaObjectId(mediaId)));
+    }
+
+    /** A READY image another feature's record still references; that feature has already authorized the reader. */
+    PublicMedia openOwned(String rawMediaId, BooleanSupplier stillReferenced) {
+        return serve(parse(rawMediaId), (mediaId, object) -> stillReferenced.getAsBoolean());
     }
 
     private interface Visibility {

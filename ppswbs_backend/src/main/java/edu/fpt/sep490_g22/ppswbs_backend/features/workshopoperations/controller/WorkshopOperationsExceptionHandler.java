@@ -80,6 +80,19 @@ public class WorkshopOperationsExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource Not Found", ex.getMessage(), correlationId);
     }
 
+    /** 003.2 FR-073: the chosen package cover image cannot be used; nothing changed. */
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageImageInvalidException.class)
+    public ResponseEntity<ProblemDetailResponse> handlePackageImageInvalid(RuntimeException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "PACKAGE_IMAGE_INVALID", "Package Image Invalid", ex.getMessage(),
+                resolveCorrelationId(request));
+    }
+
+    @ExceptionHandler(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageImageNotFoundException.class)
+    public ResponseEntity<ProblemDetailResponse> handlePackageImageNotFound(RuntimeException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "WORKSHOP_PACKAGE_IMAGE_NOT_FOUND", "Image Not Found",
+                ex.getMessage(), resolveCorrelationId(request));
+    }
+
     @ExceptionHandler(WorkshopValidationException.class)
     public ResponseEntity<ProblemDetailResponse> handleValidation(
             WorkshopValidationException ex, HttpServletRequest request) {

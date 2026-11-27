@@ -502,6 +502,24 @@ perform refunds or connect to external sales channels.
 
 ## Clarifications
 
+### Session 2026-11-27 package cover image (owner Hồ Hoàng Quốc)
+
+- Q: How many images does a Workshop Package have, and is one required? → A: At most one cover image, optional. Without it the customer screens keep the artwork they showed before (FR-073).
+- Q: Who uploads it and in which formats? → A: An active Manager, on the package management screen; JPEG, PNG or WebP up to 5 MB (FR-073).
+
+- **FR-073** *(package cover image, 2026-11-27)*: A Workshop Package MAY have one
+  cover image. An active Manager MUST be able to set, replace and remove it while
+  creating or editing a `DRAFT` or `PUBLISHED` Package; a `RETIRED` Package
+  stays read-only. An edit carries the whole Package, so an edit without an image
+  removes it. A new image MUST be a JPEG, PNG or WebP file of at most 5,000,000
+  bytes that the acting Manager uploaded; keeping the current image needs no new
+  upload, whoever uploaded it. A refused image leaves the Package unchanged. The
+  public MUST see the image of a `PUBLISHED` Package only; an active Manager sees
+  it in every state. The storage provider address is never exposed. The package
+  list, package detail and home package cards MUST show the image, and MUST keep
+  the previous artwork when there is none or it cannot be loaded. A replaced or
+  removed image is released to the catalogue media retention rules (feature 002).
+
 ### Session 2026-11-27 session page scope (owner Hồ Hoàng Quốc)
 
 - Q: Does the session page keep the late-payment queue? → A: No. The Manager queue has its own screen, `/operations/late-payments`, reached from the menu (FR-070).

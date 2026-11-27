@@ -180,6 +180,29 @@ paths:
         '401': { $ref: '#/components/responses/Problem' }
         '403': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
+  /workshop-packages/{packageId}/image:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Cover image of one published Workshop Package (spec FR-073)
+      description: >-
+        Bytes of the current cover image, streamed by the backend with Cache-Control no-store; never a provider
+        URL or redirect. 404 WORKSHOP_PACKAGE_IMAGE_NOT_FOUND when the Package is not PUBLISHED, has no image
+        or the image is no longer readable.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/PackageImage' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /workshop-package-management/packages/{packageId}/image:
+    parameters: [ { $ref: '#/components/parameters/PackageId' } ]
+    get:
+      summary: Manager preview of a Workshop Package cover image in any lifecycle state (spec FR-073)
+      responses:
+        '200': { $ref: '#/components/responses/PackageImage' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-packages/{packageId}/locations:
     parameters: [ { $ref: '#/components/parameters/PackageId' } ]
     get:
@@ -722,6 +745,12 @@ components:
     Package: { description: Workshop Package, content: { application/json: { schema: { $ref: '#/components/schemas/Package' } } } }
     PackageList: { description: Published Workshop Packages, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
     PackageManagementList: { description: Workshop Packages across lifecycle states for Manager package management, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Package' } } } } }
+    PackageImage:
+      description: Image bytes
+      content:
+        image/jpeg: { schema: { type: string, format: binary } }
+        image/png: { schema: { type: string, format: binary } }
+        image/webp: { schema: { type: string, format: binary } }
     AddOn: { description: Fixed workshop add-on, content: { application/json: { schema: { $ref: '#/components/schemas/AddOn' } } } }
     AddOnList: { description: Active fixed workshop add-ons, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AddOn' } } } } }
     CustomerSessionAvailabilityList: { description: Customer-selectable Package sessions; remaining capacity is a non-guaranteed selection snapshot, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CustomerSessionAvailability' } } } } }
@@ -814,6 +843,15 @@ components:
         sameLocationRequired: { type: boolean }
         minimumSameDaySlotGap: { type: integer, minimum: 0, description: Required number of configured slots between selected sessions on the same local date; 0 disables this rule. }
         requiredFoundryWorkingDaysBetweenSessions: { type: integer, minimum: 0, description: Minimum number of Monday-Friday local dates strictly between chronological selected sessions; Saturday and Sunday are excluded. Use 0 when no foundry-working-date rule applies. }
+        imageMediaId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Cover image (spec FR-073), uploaded first through POST /catalogue-management/media-uploads (feature
+            002, MEDIA_MANAGE). Omitted or null means no image, also on PATCH. A new value must be a READY image
+            uploaded by the acting Manager, else 400 PACKAGE_IMAGE_INVALID and nothing changes; the current value
+            is accepted as is. The image is read from the .../image routes.
     Package:
       allOf:
         - { $ref: '#/components/schemas/PackageWrite' }
@@ -1115,6 +1153,8 @@ components:
             - TICKET_QR_REVOKED
             - INSUFFICIENT_CAPACITY
             - PACKAGE_NOT_AVAILABLE_AT_LOCATION   # proposed 2026-11-17, spec FR-039 (409 on discovery at an inactive pair)
+            - PACKAGE_IMAGE_INVALID   # spec FR-073 (400 on package create/update)
+            - WORKSHOP_PACKAGE_IMAGE_NOT_FOUND   # spec FR-073 (404 on the image routes)
             - SLOT_OVERLAP_CONFLICT
             - DUPLICATE_SESSION
             - OPTIMISTIC_LOCK_CONFLICT

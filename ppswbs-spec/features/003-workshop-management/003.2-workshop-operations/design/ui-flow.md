@@ -108,3 +108,10 @@ Manager tắt một ô (spec không yêu cầu, Tech Lead duyệt theo Figma). B
 ## Trang audit workshop (US7, duyệt 2026-11-17)
 
 Mockup `design/audit-review-mockup.html` (SHA-256 12 ký tự `930ab62b658b`) được Hồ Hoàng Quốc duyệt ngày 2026-11-17 thay cho Figma; chi tiết trong `approval.md`. Route `/operations/audit`, chỉ Manager, hai tab Vận hành và Quyết toán, bộ lọc riêng từng tab, tải thêm bằng con trỏ, các trạng thái tải/rỗng/lỗi/lỗi lọc, dạng thẻ dưới 768 px.
+
+## Package cover image (spec FR-073, decided 2026-11-27)
+
+| Screen / flow | Entry and actor | Loading / empty / validation / success / error states | Recovery |
+| --- | --- | --- | --- |
+| Package create/edit form, `WorkshopPackageManagementPage` | Manager | Optional file field (JPEG, PNG, WebP, up to 5,000,000 bytes) with preview and "Remove image"; another type or a larger file is refused before upload; saving is disabled while the image uploads; upload failure keeps the form and the previous image and says why; a refused image (`PACKAGE_IMAGE_INVALID`) is shown on save | Choose the file again; remove the image to save without it |
+| Package list, package detail, home package cards | Public | Image of the published package; the previous artwork when there is none or it fails to load | Reload |

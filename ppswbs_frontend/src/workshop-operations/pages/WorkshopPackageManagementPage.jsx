@@ -9,6 +9,7 @@ import { ConfirmDialog, ErrorNotice, Field, Loading, SuccessNotice, useCommand, 
 import { HeaderActions } from '../../shared/ui/OperationsShell';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createWorkshopPackageApi } from '../api/packageApi';
+import { PackageImageField } from '../components/PackageImageField';
 import '../workshop-operations.css';
 import '../../shared/ui/workspace.css';
 
@@ -22,6 +23,7 @@ const emptyForm = {
   sameLocationRequired: true,
   minimumSameDaySlotGap: '0',
   requiredFoundryWorkingDaysBetweenSessions: '0',
+  imageMediaId: null,
 };
 
 function toForm(item) {
@@ -36,6 +38,7 @@ function toForm(item) {
     sameLocationRequired: item.sameLocationRequired !== false,
     minimumSameDaySlotGap: String(item.minimumSameDaySlotGap ?? 0),
     requiredFoundryWorkingDaysBetweenSessions: String(item.requiredFoundryWorkingDaysBetweenSessions ?? 0),
+    imageMediaId: item.imageMediaId || null,
   };
 }
 
@@ -50,6 +53,7 @@ function toPayload(form) {
     sameLocationRequired: Boolean(form.sameLocationRequired),
     minimumSameDaySlotGap: Number(form.minimumSameDaySlotGap),
     requiredFoundryWorkingDaysBetweenSessions: Number(form.requiredFoundryWorkingDaysBetweenSessions),
+    imageMediaId: form.imageMediaId || null,
   };
 }
 
@@ -67,7 +71,8 @@ function validate(form, t) {
   return errors;
 }
 
-function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode }) {
+function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode, api, savedPackage }) {
+  const [uploading, setUploading] = useState(false);
   const t = useT(messages);
   const ts = useT(sharedMessages);
   const set = field => event => setForm(current => ({ ...current, [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
@@ -84,7 +89,9 @@ function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode 
       <label className="package-checkbox"><input type="checkbox" checked={form.sameLocationRequired} onChange={set('sameLocationRequired')} /> {t('pkg.form.sameLocation')}</label>
     </div>
     <Field label={t('pkg.form.description')} error={errors.description}><textarea value={form.description} onChange={set('description')} maxLength={1000} /></Field>
-    <div className="actions form-actions"><button className="button primary" type="submit" disabled={pending}>{pending ? t('pkg.form.saving') : mode === 'edit' ? t('pkg.form.save') : t('pkg.form.createDraft')}</button><button className="button outline" type="button" onClick={onCancel} disabled={pending}>{ts('cancel')}</button></div>
+    <PackageImageField api={api} savedPackage={savedPackage} value={form.imageMediaId} disabled={pending} onBusy={setUploading}
+      onChange={imageMediaId => setForm(current => ({ ...current, imageMediaId }))} />
+    <div className="actions form-actions"><button className="button primary" type="submit" disabled={pending || uploading}>{pending ? t('pkg.form.saving') : mode === 'edit' ? t('pkg.form.save') : t('pkg.form.createDraft')}</button><button className="button outline" type="button" onClick={onCancel} disabled={pending}>{ts('cancel')}</button></div>
   </form>;
 }
 
@@ -100,6 +107,8 @@ export default function WorkshopPackageManagementPage() {
   const [mode, setMode] = useState(null);
   const [errors, setErrors] = useState({});
   const [notice, setNotice] = useState('');
+  // A new number per opened form, so an upload still running for the previous one cannot reach this one.
+  const [formSession, setFormSession] = useState(0);
   const [retireTarget, setRetireTarget] = useState(null);
   const command = useCommand();
   const packages = useMemo(() => Array.isArray(resource.data) ? resource.data : [], [resource.data]);
@@ -114,8 +123,8 @@ export default function WorkshopPackageManagementPage() {
     );
   }
 
-  const startCreate = () => { setMode('create'); setSelected(null); setForm({ ...emptyForm }); setErrors({}); setNotice(''); };
-  const startEdit = item => { setMode('edit'); setSelected(item); setForm(toForm(item)); setErrors({}); setNotice(''); };
+  const startCreate = () => { setFormSession(n => n + 1); setMode('create'); setSelected(null); setForm({ ...emptyForm }); setErrors({}); setNotice(''); };
+  const startEdit = item => { setFormSession(n => n + 1); setMode('edit'); setSelected(item); setForm(toForm(item)); setErrors({}); setNotice(''); };
   const save = async event => {
     event.preventDefault();
     const found = validate(form, t);
@@ -144,9 +153,9 @@ export default function WorkshopPackageManagementPage() {
 
   return <div className="wsp-workspace">
     <main className="wsp-main"><div className="wsp-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><HeaderActions><button className="button primary" type="button" onClick={startCreate}>{t('pkg.create')}</button></HeaderActions><p className="muted">{t('pkg.intro')}</p>
-      <SuccessNotice>{notice}</SuccessNotice><ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} /><ErrorNotice error={command.error} onRetry={command.retry} />
+      <SuccessNotice>{notice}</SuccessNotice><ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} /><ErrorNotice error={command.error} messages={messages} onRetry={command.retry} />
       {resource.loading ? <Loading /> : <section className="wsp-panel"><div className="wsp-panel-head"><h2>{t('pkg.all')}</h2><span>{t('records', { count: packages.length })}</span></div>{packages.length === 0 ? <div className="empty-state"><p>{t('pkg.empty')}</p><button className="button outline" type="button" onClick={startCreate}>{t('pkg.createFirst')}</button></div> : <div className="package-admin-grid">{packages.map(item => <article className="package-admin-card" key={item.packageId}><div className="package-admin-card-head"><div><span className="ops-status">{stateLabel(item.state)}</span><h3>{item.name}</h3></div><code>#{item.packageId}</code></div><p>{item.description}</p><dl><div><dt>{t('pkg.price')}</dt><dd>{fmt.money(String(item.publicPrice))}</dd></div><div><dt>{t('pkg.tickets')}</dt><dd>{item.minParticipants}–{item.maxParticipants}</dd></div><div><dt>{t('pkg.sessions')}</dt><dd>{item.requiredSessionCount}</dd></div></dl><div className="ops-actions">{item.state !== 'RETIRED' && <button className="button outline small" type="button" onClick={() => startEdit(item)}>{t('pkg.edit')}</button>}{item.state === 'PUBLISHED' && <button className="button danger small" type="button" onClick={() => setRetireTarget(item)}>{t('pkg.retire')}</button>}</div></article>)}</div>}</section>}
-      {mode && <PackageForm form={form} setForm={setForm} errors={errors} pending={command.pending} onSubmit={save} onCancel={() => setMode(null)} mode={mode} />}
+      {mode && <PackageForm key={formSession} api={api} savedPackage={selected} form={form} setForm={setForm} errors={errors} pending={command.pending} onSubmit={save} onCancel={() => setMode(null)} mode={mode} />}
       {selected?.state === 'DRAFT' && mode === 'edit' && <section className="wsp-panel draft-publish-panel"><div><h2>{t('pkg.draftReady')}</h2><p>{t('pkg.draftReadyBody')}</p></div><button className="button primary" type="button" disabled={command.pending} onClick={() => transition(selected, 'PUBLISHED')}>{t('pkg.publishDraft')}</button></section>}
       <ConfirmDialog open={Boolean(retireTarget)} title={t('pkg.retireTitle')} confirmLabel={t('pkg.retireConfirm')} danger pending={command.pending} onCancel={() => setRetireTarget(null)} onConfirm={() => transition(retireTarget, 'RETIRED')}><p>{t('pkg.retireBody')}</p></ConfirmDialog>
     </main></div>;

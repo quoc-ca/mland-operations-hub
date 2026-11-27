@@ -449,6 +449,15 @@
   width: fit-content;
 }
 
+.landing-workshop-card .package-image {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
 .landing-workshop-name {
   font-size: 18px;
   font-weight: 700;

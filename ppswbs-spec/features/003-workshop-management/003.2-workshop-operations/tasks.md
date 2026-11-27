@@ -706,3 +706,12 @@ Mapping: FR-069 → T202, T200.
 Evidence for T203–T205 (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
 
 Mapping: FR-070 → T203, T206. FR-071 → T204, T206. FR-072 → T205, T206, T207.
+
+## Package cover image (spec FR-073, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T216 **Done 2026-11-27** [Spec] FR-073, contract `workshop-operations.openapi.yaml`, data-model, `design/ui-flow.md`, `design/architecture.md`.
+- [x] T217 **Done 2026-11-27** [BE] `V208__workshop_package_image.sql`, `SharedMediaFacade`, package attach/release and the two image routes with their security rules. Check: JUnit for attach, replace, remove, refusal and visibility; Modulith verification; migration on MySQL. Evidence: `WorkshopPackageServiceTest`, `WorkshopPackageImageMysqlIT` (MySQL, V208), `WorkshopPackageContractIT`, `ModulithArchitectureTests` passed; full `mvnw test` 3140 tests, 1 failure (missing Problem.code values), fixed and the contract class rerun passed, 16 skipped.
+- [x] T218 **Done 2026-11-27** [FE] Upload, preview and removal on package management; image on package list, detail and home cards with the previous artwork as fallback. Check: Vitest. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 174 files, 1447 tests passed; `npm run build` passed.
+- [ ] T219 [Test] Browser check against a live stack as Manager and Guest, with a real upload.
+
+Mapping: FR-073 → T216–T219. Depends: T216 → T217 → T218 → T219.
