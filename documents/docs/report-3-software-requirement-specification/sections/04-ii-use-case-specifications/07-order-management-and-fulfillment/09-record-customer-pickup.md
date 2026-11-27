@@ -1,4 +1,4 @@
-### 7.9 Record Customer Pickup
+### 7.6 Record Customer Pickup
 
 | Use Case ID | UC-60 | Use Case Name | Record Customer Pickup |
 | --- | --- | --- | --- |

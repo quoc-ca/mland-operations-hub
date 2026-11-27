@@ -1,4 +1,4 @@
-### 7.10 Mark Order as Prepared for Carrier
+### 7.7 Mark Order as Prepared for Carrier
 
 | Use Case ID | UC-61 | Use Case Name | Mark Order as Prepared for Carrier |
 | --- | --- | --- | --- |

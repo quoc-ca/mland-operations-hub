@@ -1,4 +1,4 @@
-### 7.6 View Order Details
+### 7.4 View Order Details
 
 | Use Case ID | UC-57 | Use Case Name | View Order Details |
 | --- | --- | --- | --- |

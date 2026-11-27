@@ -75,16 +75,16 @@
 |71|MSG71|Error|A Member saves a voucher that must be saved, but no use is left to claim or the Member has already used their use (UC-47).|All claimed. / You have used your use of this code.|
 |72|MSG72|Information|A product or workshop package price includes the best voucher, or a better voucher must be saved first (UC-47).|"Price after voucher {code}" / "Price after voucher {code} · at {branches}" / "Save code: {value} off"|
 |73|MSG73|Warning|Sizes are added at a branch, but a later step for the price of a new size (submit, approve or apply) fails; the sizes and the steps already done are kept (UC-12, UC-14, UC-15).|"Sizes {sizes} were added, but the price of size {failed} is not finished. Carry on in the Price section."|
-|74|MSG74|Error|A cart quantity is not a whole number from 1 to 99, or is above the quantity left at the branch (UC-52, UC-53).|The quantity must be from 1 to 99. / The branch has only {availableQuantity} of this item left.|
+|74|MSG74|Error|A cart quantity is not a whole number from 1 to 99, or is above the quantity left at the branch (UC-53).|The quantity must be from 1 to 99. / The branch has only {availableQuantity} of this item left.|
 |75|MSG75|Error|The Member presses Mua hàng with no cart line ticked (UC-53).|Select at least one item to buy.|
 |76|MSG76|Warning|Mua lại could not put some rings of a past order back in the cart (UC-53, UC-56).|Could not add {items} again: not enough stock or no longer sold. The other items are already ticked.|
 |77|MSG77|Error|GHTK is chosen at checkout without a delivery address, or GHTK does not deliver to the address (UC-54).|Add and choose a delivery address before using GHTK. / GHTK does not deliver to this address yet. Choose store pickup or another address.|
 |78|MSG78|Error|The lines chosen for checkout are no longer in the cart (UC-54).|The items you chose are no longer in the cart.|
-|79|MSG79|Success|A retail order is placed, for VNPay or for cash at the counter (UC-54, UC-55).|Order placed, opening the VNPay payment page… / Order placed. Please go to {branch} before {deadline} and pay cash on pickup.|
-|80|MSG80|Error|The order is placed but the VNPay page does not open (UC-55).|The order is placed but the VNPay page did not open. Press pay to try again, or pay later from My orders.|
-|81|MSG81|Success|The VNPay payment of a retail order is verified (UC-55).|Payment successful. Mland is preparing your order.|
-|82|MSG82|Warning|The hold of an unpaid retail order has ended (UC-55, UC-56).|The hold has ended. If VNPay does not confirm a payment, the order will cancel itself and give back the voucher and points.|
-|83|MSG83|Success|Staff marks a pickup order ready, hands it to the customer or records the counter cash (UC-58 to UC-60).|Order {code} is packed and waits for the customer. / Order {code} handed to the customer. / Order {code}: {payableAmount} collected, order completed.|
+|79|MSG79|Success|A retail order is placed, for VNPay or for cash at the counter (UC-54).|Order placed, opening the VNPay payment page… / Order placed. Please go to {branch} before {deadline} and pay cash on pickup.|
+|80|MSG80|Error|The order is placed but the VNPay page does not open (UC-54).|The order is placed but the VNPay page did not open. Press pay to try again, or pay later from My orders.|
+|81|MSG81|Success|The VNPay payment of a retail order is verified (UC-54).|Payment successful. Mland is preparing your order.|
+|82|MSG82|Warning|The hold of an unpaid retail order has ended (UC-54, UC-56).|The hold has ended. If VNPay does not confirm a payment, the order will cancel itself and give back the voucher and points.|
+|83|MSG83|Success|Staff marks a pickup order ready, hands it to the customer or records the counter cash (UC-59, UC-60).|Order {code} is packed and waits for the customer. / Order {code} handed to the customer. / Order {code}: {payableAmount} collected, order completed.|
 |84|MSG84|Error|An account that is not an active GHTK partner account opens the partner shipment page (UC-61).|This account is not an active GHTK partner account.|
 |85|MSG85|Error|The dashboard or one of its parts cannot be loaded (UC-64).|The dashboard could not be loaded. You can try again. / The trend charts could not be loaded. / The best sellers could not be loaded.|
 |86|MSG86|Error|The Manager chooses an invalid dashboard filter, such as a period entirely in the future (UC-64).|Invalid filter (for example a period entirely in the future). Keeping the last valid result.|

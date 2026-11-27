@@ -1,4 +1,4 @@
-### 7.5 View Purchase Order History
+### 7.3 View Purchase Order History
 
 | Use Case ID | UC-56 | Use Case Name | View Purchase Order History |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ A Member opens Purchase Order History.
 
 3b. Catalogue changed, legacy snapshot, or retired recipient data → System keeps recorded historical facts, leaves missing legacy options unknown, and hides retired recipient data.
 
-5a. Member selects Thanh toán, Hủy đơn, or Mua lại → System routes to UC55 payment, cancels the unpaid order, or adds available rings back to the cart (UC53).
+5a. Member selects Thanh toán, Hủy đơn, or Mua lại → System routes to UC-54 payment, cancels the unpaid order, or adds available rings back to the cart (UC53).
 
 5b. Member selects Đánh giá or Xem đánh giá on a delivered/picked-up order → System opens the review screen for unreviewed products (UC75) or displays existing reviews.
 
