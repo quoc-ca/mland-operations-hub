@@ -76,7 +76,7 @@ describe('recent events', () => {
     expect(items[2]).toHaveTextContent('DENIED_MANAGER_REQUIRED');
     expect(within(section).queryByText('Nguồn Settlement chưa được bao gồm.')).not.toBeInTheDocument();
     expect(within(section).queryByText(/Một phần dữ liệu đang thiếu/)).not.toBeInTheDocument();
-    expect(within(section).getByRole('link', { name: 'Mở nhật ký audit' })).toHaveAttribute('href', '/operations/audit');
+    expect(within(section).getByRole('link', { name: 'Mở lịch sử thao tác' })).toHaveAttribute('href', '/operations/audit');
     expect(document.body.textContent).not.toMatch(/secret reason/);
   });
 

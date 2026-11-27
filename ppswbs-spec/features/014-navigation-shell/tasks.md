@@ -15,7 +15,7 @@
 | T020 | Dropped (no review-moderation queue) |
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-27
+**Date updated**: 2026-11-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -189,3 +189,8 @@ FE = `ppswbs_frontend/src`. Task numbers continue from T037.
 
 - [x] T046 **Done 2026-11-27** [FE] Badge `customers/custom-orders-ops` for Manager and Staff, and `customers/consultations` for the Manager (`shared/nav/useNavBadges.js`, `features/operatorhome/staffWork.js`, spec FR-005). Evidence: `npx vitest run src/shared src/features/operatorhome src/features/designreview src/features/manager-dashboard` 31 files, 202 tests passed; `npm run build` passed; no browser check; not committed.
 - [x] T047 **Done 2026-11-27** [BE][FE] Filter `unclaimed` on `GET /api/v1/consultations` (013 contract), a "Chưa tiếp nhận" option in the consultation inbox, and the badge tab opens it (spec FR-005; agreement with the 013 owner confirmed by Hồ Hoàng Quốc). Evidence: `npx vitest run src/shared src/features/operatorhome src/features/consultationchat src/features/designreview src/features/manager-dashboard` 34 files, 218 tests passed; `npm run build` passed; `mvnw -Dtest=Consultation*Test test` (ConsultationApplicationServiceTest 8/8) and `mvnw -Dtest=DesignReferenceOwnershipIT,ModulithArchitectureTests test` exit 0; no MySQL run of the new queries and no browser check; not committed.
+
+## Tab names (decided 2026-11-28 by Hồ Hoàng Quốc)
+
+- [x] T048 **Done 2026-11-28** [FE] Renamed eleven tabs and kept the Sessions section of the administration page under `locations` (`shared/nav/navModel.js`, `shared/ui/OperationsShell.jsx`, spec "Session 2026-11-28"). Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 175 files, 1457 tests passed; `npm run build` passed; no browser check. Same day: the Vietnamese wording inside the pages was aligned with the new names (including "add-on" to "dịch vụ thêm") and the English retail and activity-filter labels; full run after that change: 175 files, 1457 tests passed, build passed.
+- [x] T049 **Done 2026-11-28** [FE] Aligned the names outside the tab bar (top menu, public home, Staff home, page headings, member, carrier and retail-order labels) and renamed "Tổng quan", "Nhập từ Excel" and "Vận đơn" (spec "Session 2026-11-28"). Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 175 files, 1457 tests passed; `npm run build` passed; no browser check.

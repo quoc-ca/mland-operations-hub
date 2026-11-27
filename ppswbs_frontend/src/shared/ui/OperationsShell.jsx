@@ -154,7 +154,7 @@ function CarrierTopRight() {
  * every permission.
  */
 export default function OperationsShell() {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const { language } = useLanguage();
   const t = useT(operationsShellMessages);
   const role = useRole();
@@ -169,7 +169,7 @@ export default function OperationsShell() {
     return next;
   });
 
-  const here = locate(pathname, search);
+  const here = locate(pathname);
   const groups = visibleGroups(role);
   const tabs = here ? visibleTabs(here.group, role) : [];
   const actions = here ? pageActions(here, pathname) : [];

@@ -17,9 +17,9 @@ const admin = role => role === 'ADMIN';
  */
 export const GROUPS = [
   {
-    id: 'home', icon: 'dash', vi: 'Dashboard', en: 'Dashboard',
+    id: 'home', icon: 'dash', vi: 'Tổng quan', en: 'Dashboard',
     tabs: [
-      { id: 'dashboard', vi: 'Dashboard', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
+      { id: 'dashboard', vi: 'Tổng quan', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
       { id: 'staff-home', vi: 'Trang chủ', en: 'Home', to: '/staff/home', match: ['/staff/home'], visible: role => role === 'STAFF' },
       { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) && !admin(role) },
       // ADMIN lands on account management (no Mland operations pages for Admin, spec 003.2 FR-012c).
@@ -37,7 +37,7 @@ export const GROUPS = [
         id: 'list', vi: 'Danh sách sản phẩm', en: 'Product catalogue', to: '/catalogue-management/products', visible: staffOrManager,
         match: ['/catalogue-management/products', '/catalogue-management/products/*', '/catalogue-management/imports*'],
         actions: [
-          { id: 'import', vi: 'Import Excel', en: 'Bulk import', to: '/catalogue-management/imports' },
+          { id: 'import', vi: 'Nhập từ Excel', en: 'Excel import', to: '/catalogue-management/imports' },
           { id: 'new', vi: 'Thêm sản phẩm', en: 'New product', to: '/catalogue-management/products/new', primary: true },
         ],
       },
@@ -60,33 +60,33 @@ export const GROUPS = [
     tabs: [
       { id: 'design-review', vi: 'Duyệt thiết kế', en: 'Design review', to: '/design-review-requests', match: ['/design-review-requests*'], visible: staffOrManager },
       { id: 'custom-orders-ops', vi: 'Đơn gia công', en: 'Custom orders', to: '/staff/custom-orders', match: ['/staff/custom-orders*', '/manager/custom-orders*'], visible: staffOrManager },
-      { id: 'consultations', vi: 'Tư vấn khách hàng', en: 'Customer consultation', to: '/operations/consultations?status=OPEN&unclaimed=true', match: ['/operations/consultations*'], visible: staffOrManager },
+      { id: 'consultations', vi: 'Tư vấn', en: 'Consultation', to: '/operations/consultations?status=OPEN&unclaimed=true', match: ['/operations/consultations*'], visible: staffOrManager },
       { id: 'reviews', vi: 'Đánh giá', en: 'Reviews', to: '/review-moderation', match: ['/review-moderation*'], visible: staffOrManager },
     ],
   },
   {
     id: 'retail', icon: 'shop', vi: 'Bán lẻ', en: 'Retail',
     tabs: [
-      { id: 'orders', vi: 'Đơn bán lẻ chi nhánh', en: 'Branch retail orders', to: '/staff/retail-orders', match: ['/staff/retail-*'], visible: staffOrManager },
-      { id: 'reconciliation', vi: 'Đối soát thanh toán bán lẻ', en: 'Retail payment reconciliation', to: '/manager/retail-payment-reconciliations', match: ['/manager/retail-payment-reconciliations*'], visible: manager },
+      { id: 'orders', vi: 'Đơn bán lẻ', en: 'Retail orders', to: '/staff/retail-orders', match: ['/staff/retail-*'], visible: staffOrManager },
+      { id: 'reconciliation', vi: 'Đối soát thanh toán', en: 'Payment reconciliation', to: '/manager/retail-payment-reconciliations', match: ['/manager/retail-payment-reconciliations*'], visible: manager },
     ],
   },
   {
     id: 'workshop', icon: 'cal', vi: 'Workshop', en: 'Workshop',
     tabs: [
       {
-        id: 'sessions', vi: 'Bảng điều phối ca', en: 'Session board', viStaff: 'Ca của tôi', enStaff: 'My sessions',
+        id: 'sessions', vi: 'Điều phối ca', en: 'Session board', viStaff: 'Ca của tôi', enStaff: 'My sessions',
         to: '/operations/sessions', match: ['/operations/sessions*'], visible: notAdmin,
       },
       {
-        id: 'locations', vi: 'Chi nhánh và khung giờ', en: 'Locations & slots', to: '/operations/admin?tab=locations', match: ['/operations/admin*', '/operations/locations', '/operations/slots'], visible: manager,
+        id: 'locations', vi: 'Chi nhánh và lịch ca', en: 'Locations & schedule', to: '/operations/admin?tab=locations', match: ['/operations/admin*', '/operations/locations', '/operations/slots'], visible: manager,
         actions: [{ id: 'new-slot', vi: 'Thêm khung giờ', en: 'Add slot', to: '/operations/admin?tab=slots', primary: true }],
       },
       {
         id: 'packages', vi: 'Gói workshop', en: 'Workshop packages', to: '/operations/packages', match: ['/operations/packages*', '/workshop-packages*'], visible: manager,
       },
-      { id: 'availability', vi: 'Hiệu lực gói', en: 'Package availability', to: '/operations/package-availability', match: ['/operations/package-availability*'], visible: manager },
-      { id: 'add-ons', vi: 'Add-on gói', en: 'Package add-ons', to: '/operations/package-add-ons', match: ['/operations/package-add-ons*'], visible: manager },
+      { id: 'availability', vi: 'Chi nhánh áp dụng gói', en: 'Package locations', to: '/operations/package-availability', match: ['/operations/package-availability*'], visible: manager },
+      { id: 'add-ons', vi: 'Dịch vụ thêm của gói', en: 'Package add-ons', to: '/operations/package-add-ons', match: ['/operations/package-add-ons*'], visible: manager },
     ],
   },
   {
@@ -94,8 +94,8 @@ export const GROUPS = [
     tabs: [
       { id: 'folio', vi: 'Hóa đơn vé', en: 'Ticket bill', to: '/settlement', match: ['/settlement'], visible: staffOrManager },
       { id: 'cash-close', vi: 'Chốt sổ tiền mặt', en: 'Cash close', to: '/settlement/cash-close?view=confirmation', match: ['/settlement/cash-close*'], visible: staffOrManager },
-      { id: 'late-payments', vi: 'Thanh toán về trễ', en: 'Late payments', to: '/operations/late-payments', match: ['/operations/late-payments*'], visible: manager },
-      { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Reconciliation list', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
+      { id: 'late-payments', vi: 'Thanh toán trễ', en: 'Late payments', to: '/operations/late-payments', match: ['/operations/late-payments*'], visible: manager },
+      { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Collection reconciliation', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
       { id: 'absorbed', vi: 'Khoản thiếu Mland chịu', en: 'Absorbed undercharges', to: '/settlement/absorbed-undercharges', match: ['/settlement/absorbed-undercharges*'], visible: manager },
     ],
   },
@@ -105,7 +105,7 @@ export const GROUPS = [
       { id: 'change-requests', vi: 'Yêu cầu đổi vé', en: 'Change requests', to: '/settlement/change-requests?status=PENDING', match: ['/settlement/change-requests*'], visible: notAdmin },
       { id: 'ticket-actions', vi: 'Hỗ trợ đổi vé và hủy', en: 'Change & cancellation support', to: '/settlement/ticket-actions', match: ['/settlement/ticket-actions*'], visible: staffOrManager },
       { id: 'refunds', vi: 'Hàng đợi hoàn tiền', en: 'Refund queue', to: '/settlement/refunds?status=WAITING', match: ['/settlement/refunds*'], visible: manager },
-      { id: 'cases', vi: 'Sự vụ và bồi hoàn', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
+      { id: 'cases', vi: 'Hồ sơ quyết toán', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
       { id: 'refund-key', vi: 'Thay khóa hoàn tiền', en: 'Refund key', to: '/settlement/refund-account-key', match: ['/settlement/refund-account-key*'], visible: manager },
     ],
   },
@@ -113,15 +113,15 @@ export const GROUPS = [
     id: 'system', icon: 'gear', vi: 'Hệ thống', en: 'System',
     tabs: [
       { id: 'email-templates', vi: 'Mẫu thông báo email', en: 'Email templates', to: '/admin/notifications/templates', match: ['/admin/notifications/templates*'], visible: managerOrAdmin },
-      { id: 'delivery-logs', vi: 'Nhật ký gửi thư', en: 'Delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: managerOrAdmin },
+      { id: 'delivery-logs', vi: 'Nhật ký gửi email', en: 'Email delivery logs', to: '/admin/notifications/requests', match: ['/admin/notifications/requests*'], visible: managerOrAdmin },
       { id: 'ring-difficulty', vi: 'Độ khó thiết kế nhẫn', en: 'Ring difficulty policy', to: '/admin/ring-difficulty', match: ['/admin/ring-difficulty*'], visible: admin },
-      { id: 'audit', vi: 'Nhật ký audit', en: 'Audit log', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
+      { id: 'audit', vi: 'Lịch sử thao tác', en: 'Activity history', to: '/operations/audit', match: ['/operations/audit*'], visible: manager },
     ],
   },
   // GHTK partner portal (CARRIER only, Session 2026-11-23): home is the "home" group's carrier tab.
   {
-    id: 'carrier-orders', icon: 'truck', vi: 'Đơn hàng', en: 'Shipments',
-    tabs: [{ id: 'orders', vi: 'Đơn hàng', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
+    id: 'carrier-orders', icon: 'truck', vi: 'Vận đơn', en: 'Shipments',
+    tabs: [{ id: 'orders', vi: 'Vận đơn', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
   },
   {
     id: 'carrier-stats', icon: 'dash', vi: 'Thống kê', en: 'Statistics',
@@ -132,14 +132,7 @@ export const GROUPS = [
 const matches = (pattern, pathname) => (pattern.endsWith('*') ? pathname.startsWith(pattern.slice(0, -1)) : pathname === pattern);
 
 /** The group and tab a path belongs to, whatever the role (a tab hidden from the role is still the place the page is in). */
-export function locate(pathname, search = '') {
-  // /operations/admin holds three in-page tabs. Locations and Slots belong to "Chi nhánh và khung giờ"; the Sessions one
-  // (?tab=sessions) is session administration, so it takes the session tab of the workshop group, not the locations title.
-  if (pathname.startsWith('/operations/admin') && new URLSearchParams(search).get('tab') === 'sessions') {
-    const group = GROUPS.find(item => item.id === 'workshop');
-    const tab = group?.tabs.find(item => item.id === 'sessions');
-    if (group && tab) return { group, tab };
-  }
+export function locate(pathname) {
   for (const group of GROUPS) {
     for (const tab of group.tabs) {
       if (tab.match.some(pattern => matches(pattern, pathname))) return { group, tab };

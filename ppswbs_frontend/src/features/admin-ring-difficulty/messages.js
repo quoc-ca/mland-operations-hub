@@ -1,6 +1,6 @@
 export const adminRingDifficultyMessages = {
   vi: {
-    pageTitle: 'Cấu hình độ khó thiết kế nhẫn',
+    pageTitle: 'Độ khó thiết kế nhẫn',
     pageSubtitle: 'Quản trị phiên bản quy tắc độ khó, xem trước tác động trên toàn bộ mẫu đang phát hành và công bố nguyên tử.',
     navTab: 'Độ khó thiết kế nhẫn',
     authRequired: 'Vui lòng đăng nhập với tài khoản Admin đang hoạt động.',
@@ -124,7 +124,7 @@ export const adminRingDifficultyMessages = {
     'block.MODEL_TOO_RISKY': 'Vượt ngưỡng Quá rủi ro (TOO_RISKY)',
   },
   en: {
-    pageTitle: 'Ring Difficulty Policy Configuration',
+    pageTitle: 'Ring difficulty policy',
     pageSubtitle: 'Manage immutable difficulty policy versions, preview impact across all active published models, and publish atomically.',
     navTab: 'Ring Difficulty Policy',
     authRequired: 'Please sign in with an active Admin account.',

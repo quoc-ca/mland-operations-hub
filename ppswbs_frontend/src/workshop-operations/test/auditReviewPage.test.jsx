@@ -115,7 +115,7 @@ describe('Audit review page', () => {
       '/operations/audit?o_action=SESSION_CREATED&o_outcome=DENIED',
     );
 
-    await screen.findByText('Không có dòng audit nào khớp bộ lọc');
+    await screen.findByText('Không có thao tác nào khớp bộ lọc');
     expect(callsTo(calls, OPS_PATH)[0].query).toMatchObject({ action: 'SESSION_CREATED', outcome: 'DENIED' });
     expect(screen.getByLabelText('Hành động')).toHaveValue('SESSION_CREATED');
   });
@@ -179,7 +179,7 @@ describe('Audit review page', () => {
       { [OPS]: json(200, { items: [], nextCursor: null }) },
       '/operations/audit?o_action=NOTHING',
     );
-    await screen.findByText('Không có dòng audit nào khớp bộ lọc');
+    await screen.findByText('Không có thao tác nào khớp bộ lọc');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }));

@@ -68,3 +68,7 @@ Last updated by: Ngô Tiến Đạt
 
 Frontend tasks target the approved OpenAPI/spec. They must stop if the backend
 contract remains mismatched; no client-side compatibility workaround is authorized.
+
+## Phase 6 — Workshop balance gate (decided 2026-11-28)
+
+- [x] T060 Mark an attended ticket with a balance due `eligible = false` / `BALANCE_DUE`, refuse its create command, and show the reason on the Member review screens.

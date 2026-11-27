@@ -39,6 +39,6 @@ describe('Manager home i18n', () => {
     expect(screen.queryByText('Lượt truy cập bị từ chối')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'to-vi' }));
-    expect(screen.getByRole('link', { name: 'Mở nhật ký audit' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mở lịch sử thao tác' })).toBeInTheDocument();
   });
 });

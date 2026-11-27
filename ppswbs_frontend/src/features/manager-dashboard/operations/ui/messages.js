@@ -14,11 +14,11 @@ export const managerHomeMessages = {
     'today.branchUnavailable': 'Không tải được danh sách chi nhánh; đang xem tất cả chi nhánh.',
     'events.title': 'Việc gần đây cần chú ý',
     'events.none': 'Không có gì mới trong 24 giờ qua.',
-    'events.open': 'Mở nhật ký audit',
+    'events.open': 'Mở lịch sử thao tác',
     'events.partial': 'Một phần dữ liệu đang thiếu: một nguồn sự kiện không đọc được.',
     'events.settlementMissing': 'Nguồn Settlement chưa được bao gồm.',
     'events.kind.REFUSED_ATTEMPT': 'Lượt truy cập bị từ chối',
-    'events.kind.PACKAGE_AVAILABILITY_CHANGE': 'Đổi hiệu lực gói',
+    'events.kind.PACKAGE_AVAILABILITY_CHANGE': 'Đổi chi nhánh áp dụng gói',
     'events.system': 'Hệ thống',
   },
   en: {

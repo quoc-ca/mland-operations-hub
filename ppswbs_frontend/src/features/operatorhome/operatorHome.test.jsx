@@ -36,7 +36,7 @@ describe('Staff and Manager home pages', () => {
     expect(await main().findByRole('link', { name: /chưa chốt điểm danh/ })).toHaveAttribute('href', '/operations/sessions/late');
     // The other side says in red how much waits there: one cash order to collect, one pickup to hand over.
     expect(await main().findByText('2 đơn cần giải quyết')).toBeInTheDocument();
-    expect(main().getByRole('link', { name: 'Hóa đơn quyết toán' })).toHaveAttribute('href', '/settlement');
+    expect(main().getByRole('link', { name: 'Hóa đơn vé' })).toHaveAttribute('href', '/settlement');
   });
 
   it('sends a Member who opens an internal home to the general home', async () => {
