@@ -13,6 +13,9 @@ ppswbs-spec/features/**/test-results/**/screenshots/
 
 node_modules/
 
+# Local test tracker exports; never commit anything under this folder.
+/updated_test_trackers/
+
 # Machine-local environment configuration; do not commit credentials or local port overrides.
 /.env
 /.env.local

@@ -235,4 +235,19 @@ public class AccountFacadeImpl implements AccountFacade {
             .sorted()
             .toList();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> listActiveStaffEmails() {
+        List<String> emails = accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.STAFF, AccountStatus.ACTIVE);
+        if (emails == null || emails.isEmpty()) {
+            return List.of();
+        }
+        return emails.stream()
+            .filter(e -> e != null && !e.isBlank())
+            .map(String::trim)
+            .distinct()
+            .sorted()
+            .toList();
+    }
 }

@@ -169,4 +169,16 @@ class AccountFacadeImplTest {
 
         assertThat(emails).containsExactly("manager@mland.vn");
     }
+
+    @Test
+    @DisplayName("UTC-001-006: listActiveStaffEmails returns de-duplicated, trimmed and sorted staff emails")
+    void testListActiveStaffEmails_ReturnsSortedAndDeduplicated() {
+        when(accountRepository.findLoginEmailsByRoleAndStatus(AccountRole.STAFF, AccountStatus.ACTIVE))
+            .thenReturn(List.of("staff2@mland.vn", "staff1@mland.vn", "staff2@mland.vn", "  staff3@mland.vn  "));
+
+        List<String> emails = accountFacade.listActiveStaffEmails();
+
+        assertThat(emails).containsExactly("staff1@mland.vn", "staff2@mland.vn", "staff3@mland.vn");
+        verify(accountRepository).findLoginEmailsByRoleAndStatus(AccountRole.STAFF, AccountStatus.ACTIVE);
+    }
 }

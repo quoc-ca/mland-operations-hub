@@ -10,6 +10,8 @@ Custom manufacturing fulfills Member-approved bespoke jewellery through an autho
   2. *Carrier Operations*: The courier authenticates with role `CARRIER` on `/carrier/orders`, advancing the shipment to `HANDED_TO_CARRIER` ("Đang vận chuyển") upon pickup, and `DELIVERED` ("Đã giao hàng") upon delivery.
 - **Terminal Synchronization**: Recording `DELIVERED` automatically updates the parent custom order to `status = CLOSED`, `fulfilmentStatus = DELIVERED`, and `productionProgress = COMPLETED`. Direct shop-side closure without carrier delivery is rejected with HTTP `409 CONFLICT`.
 - **Payment Session Decoupling**: The VNPay gateway session (`vnp_ExpireDate`) is capped at 10 minutes (`now + 10m`), decoupled from quote validity (24–72 hours). Browser return parameters (`vnp_ResponseCode=00`) trigger immediate client confirmation and reactive polling awaiting asynchronous IPN completion.
+- **Quote Approval Stage**: A Staff-prepared quote enters `QUOTE_PENDING`; a Manager can approve it from the review detail or the custom-order operations list, after which the order becomes `FULL_PAYMENT_PENDING`.
+- **Notifications**: Manager quote approval submits a quote-approved notification to the Member when an email address is available. Marking the order paid and transitioning it into production submit production notifications to the Member and alerts to active Staff and Managers. Notification submission is best-effort and does not fail the order mutation.
 
 > [!NOTE]
 > Detailed class and sequence diagram re-baseline specifications for FE-04, FE-05, FE-11, FE-12 and FE-13 are documented in [UML_REBASELINE_GUIDE.md](../UML_REBASELINE_GUIDE.md). Class diagrams and sequence diagrams use separate visual baselines.

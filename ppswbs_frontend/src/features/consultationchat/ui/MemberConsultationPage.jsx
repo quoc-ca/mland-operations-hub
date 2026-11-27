@@ -152,33 +152,38 @@ export function MemberConsultationPage() {
       }
     }, [activeConversation?.messages]);
 
-    // Visible-tab polling every 3s and instant sync on focus / visibility change
+    // Continuous background & foreground polling: every 3s when visible, every 6s when hidden
     useEffect(() => {
       if (!isAuthenticated) return;
-      const poll = () => {
+      let timerId = null;
+
+      const runPoll = () => {
+        loadConversations(true);
+        if (selectedRefRef.current) {
+          loadDetail(selectedRefRef.current, true);
+        }
+        const interval = document.visibilityState === 'visible' ? POLLING_INTERVAL_MS : 6000;
+        timerId = setTimeout(runPoll, interval);
+      };
+
+      timerId = setTimeout(runPoll, POLLING_INTERVAL_MS);
+
+      const handleFocusOrVisible = () => {
         if (document.visibilityState === 'visible') {
-          loadConversations(true);
-          if (selectedRefRef.current) {
-            loadDetail(selectedRefRef.current, true);
-          }
+          if (timerId) clearTimeout(timerId);
+          runPoll();
         }
       };
 
-      pollTimerRef.current = setInterval(poll, POLLING_INTERVAL_MS);
-      const handleFocus = () => poll();
-      const handleVisibility = () => {
-        if (document.visibilityState === 'visible') poll();
-      };
-
-      window.addEventListener('focus', handleFocus);
-      document.addEventListener('visibilitychange', handleVisibility);
+      window.addEventListener('focus', handleFocusOrVisible);
+      document.addEventListener('visibilitychange', handleFocusOrVisible);
 
       return () => {
-        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-        window.removeEventListener('focus', handleFocus);
-        document.removeEventListener('visibilitychange', handleVisibility);
+        if (timerId) clearTimeout(timerId);
+        window.removeEventListener('focus', handleFocusOrVisible);
+        document.removeEventListener('visibilitychange', handleFocusOrVisible);
       };
-    }, [loadConversations, loadDetail]);
+    }, [isAuthenticated, loadConversations, loadDetail]);
 
     // Rate limit countdown timer
     useEffect(() => {
