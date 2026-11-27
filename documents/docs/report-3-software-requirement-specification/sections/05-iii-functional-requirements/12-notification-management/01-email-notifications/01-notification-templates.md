@@ -1,23 +1,20 @@
 #### 12.1.1 Notification Templates
 
-This screen allows Admins and Managers to:
+{{r3-12-notification-templates width=100% align=center}}
 
-- Browse the catalogue of transactional email templates used by the system.
-- See each template's owning module, lifecycle status, active version and latest draft version.
-- Open a template's details to manage its content versions.
-- Reload the list.
+**Description:** Displays the catalogue of registered transactional email templates and allows Admins and Managers to inspect template status, active/draft versions, and open template details.
 
-Only Admins and Managers can open the `/admin/notifications/*` pages; other signed-in roles are routed to the not-found page. Templates are registered by the system; this screen does not create or delete them.
-The registered internal-account invitation is an Admin-initiated transactional template. It is separate from booking and retail confirmations; Member verification and password recovery are sent by Firebase.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Mã mẫu | Stable template code, for example BOOKING_CONFIRMED. |
-| Tên mẫu thư | Template name with its short business description. |
-| Phân hệ | Module that owns the email event. |
-| Trạng thái | "Đang kích hoạt" (active), "Bản nháp" (draft) or "Bên ngoài (Firebase)" for emails sent by Firebase rather than this system. |
-| Phiên bản hiện tại | Number of the active version, or "—" when none is active. |
-| Bản nháp mới nhất | Number of the latest draft version, or "Không có". |
-| Xem chi tiết | Opens Template Details. |
-| Làm mới | Reloads the list; a load error shows the message with **Thử lại**. |
-| Empty state | "Chưa có mẫu thông báo nào được đăng ký." |
+| **Làm mới** | Reloads the template list. |
+| Mã mẫu | Stable template code (e.g., `BOOKING_CONFIRMED`, `INTERNAL_ACCOUNT_INVITATION`). |
+| Tên mẫu thư | Template title and short business description. |
+| Phân hệ | Owning system module. |
+| Trạng thái | Shows **Đang kích hoạt**, **Bản nháp**, or **Bên ngoài (Firebase)**. |
+| Phiên bản hiện tại | Active version number, or `—` when none is active. |
+| Bản nháp mới nhất | Latest draft version number, or "Không có". |
+| **Xem chi tiết →** | Opens Template Details. |
+
+:::

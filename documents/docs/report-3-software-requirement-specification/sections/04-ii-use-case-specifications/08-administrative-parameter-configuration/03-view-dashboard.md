@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-64 | Use Case Name | View Dashboard |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Manager | Secondary Actors | None |
 
 #### Description

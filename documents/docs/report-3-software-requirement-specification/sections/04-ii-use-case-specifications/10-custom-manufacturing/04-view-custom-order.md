@@ -7,7 +7,7 @@
 
 #### Description
 
-As a Member, Staff, or Manager, I want to view custom orders within my authorized scope so that I can track quote, design, production, and handover status.
+As a Member, Staff, or Manager, I want to view custom orders within my authorized scope so that I can track quote, design, production, and delivery status with courier tracking.
 
 #### Trigger
 
@@ -19,7 +19,7 @@ An authorized actor opens the custom order list or selects a custom order.
 
 #### Postconditions
 
-1. The actor sees authorized custom order details or an empty/error state.
+1. The actor sees authorized custom order details, production timeline, and GHTK shipment information or an empty/error state.
 2. No order, quote, or payment data is changed.
 
 #### Normal Flow
@@ -27,7 +27,7 @@ An authorized actor opens the custom order list or selects a custom order.
 1. Member opens the custom order list.
 2. System retrieves the Member's own custom orders.
 3. Member selects an order.
-4. System displays status, quote, design details, and production and handover progress.
+4. System displays status, quote, design details, production progress, and GHTK shipment card (including tracking number `S...`, carrier status, and delivery badge) once fulfillment begins.
 
 #### Alternative Flows
 

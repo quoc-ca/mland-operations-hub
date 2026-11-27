@@ -1,20 +1,17 @@
 #### 6.2.2 Design Request Details
 
-This screen allows the owning Member to:
+{{r3-06-design-request-details width=100% align=center}}
 
-- Follow the review status of one design request.
-- Read the reviewer's written decision and explanation once the request is accepted or rejected.
-- Review the submitted description, catalogue reference and reference images, and enlarge an image.
-- Start a new design request or return to their request history.
+**Description:** Displays one submitted design request's review status, reviewer decision, description, and reference images, allowing the owning Member to enlarge images or start a new request.
 
-The screen requires sign-in, and a Member can open only their own requests; a Guest sees only the protected-entry sign-in prompt and has no private tracking-token view. Requests not yet decided show a waiting notice.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Title and reference | "Chi tiết Yêu cầu Thiết kế" with "Mã tham chiếu: {ref}". |
-| Review status badge | "Đang chờ nhân viên thẩm duyệt", "Đã chấp nhận thiết kế" or "Từ chối thiết kế". |
-| Decision card | Shown after acceptance or rejection: "Thiết kế đã được chấp nhận" or "Thiết kế bị từ chối" with the reviewer's explanation. |
-| Waiting notice | "Đang chờ nhân viên / quản lý thẩm định" while no final decision has been recorded. |
-| Description | The submitted idea and, when given, the product / catalogue reference. |
-| Image gallery | "Danh sách ảnh mẫu thiết kế ({count}/5)"; selecting an image opens it enlarged with **Đóng**. |
-| Actions | **Tạo yêu cầu thiết kế mới** opens Design Request Workspace; **Lịch sử yêu cầu của tôi** opens the "Yêu cầu chế tác" tab of My Ring Designs. |
+| Header & reference | Displays "Chi tiết Yêu cầu Thiết kế", reference code, and review status badge. |
+| Decision / waiting card | Shows accepted/rejected decision with reviewer explanation, or a waiting notice. |
+| Description | Displays the submitted idea and product/catalogue reference when provided. |
+| Image gallery | Lists up to 5 attached reference images; clicking opens an enlarged preview modal. |
+| **Tạo yêu cầu thiết kế mới** / **Lịch sử yêu cầu của tôi** | Opens Design Request Workspace or returns to My Ring Designs. |
+
+:::

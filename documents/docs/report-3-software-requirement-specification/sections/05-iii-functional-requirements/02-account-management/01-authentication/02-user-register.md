@@ -1,24 +1,21 @@
 #### 2.1.2 User Register
 
-![](assets/screens/03-user-register.png)
+{{r3-02-user-register width=100% align=center}}
 
-This screen allows visitors to:
+**Description:** Displays the registration form and allows Visitors to create a new Member account using email and password or Google.
 
-- Create a Member account with an email and a password confirmed twice, through Firebase Authentication.
-- Create a Member account with Google instead.
-- Receive a verification email after an email registration; the account is created at once and the unverified email is handled later by the verification reminder in User Profile.
-- Be signed in and sent to the `returnTo` page or Home Page once the server has created the Mland account.
-
-Every self-registered account gets the MEMBER role. An email that is already in use is refused.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Sign in with Google | Shown only when Firebase is configured; same Google flow as User Login, which creates the Member account on first use. |
-| Email address | Required; must be a valid email format. |
+| Sign in with Google | Creates or signs in a Member account via Google when Firebase is configured. |
+| Email address | Required valid email address; rejects duplicates. |
 | Password | Required, masked, at least 6 characters. |
-| Confirm password | Required; must match Password, otherwise "The confirmation password does not match." |
-| Terms notice | "By registering, you agree to the terms of use." |
-| Register | Creates the Firebase identity, sends the verification email (best effort) and creates the Mland account. |
-| Error message | An email already registered shows the collision message; a weak password, an invalid email or a network error show their own messages. |
+| Confirm password | Required; must match Password. |
+| Terms notice | States agreement to the terms of use upon registration. |
+| Register | Creates the account, sends a verification email, and signs in. |
+| Error message | Displays duplicate email, weak password, or network errors. |
 | Sign in now | Link to User Login. |
 | ← Back | Returns to Home Page. |
+
+:::

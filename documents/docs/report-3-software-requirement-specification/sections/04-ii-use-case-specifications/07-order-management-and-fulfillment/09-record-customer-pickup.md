@@ -1,8 +1,8 @@
-### 7.9 Record Customer Pickup
+### 7.6 Record Customer Pickup
 
 | Use Case ID | UC-60 | Use Case Name | Record Customer Pickup |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Staff | Secondary Actors | Member; Mail Gateway |
 
 #### Description

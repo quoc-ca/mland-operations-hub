@@ -1,22 +1,21 @@
 #### 6.3.2 Design Review Details
 
-This screen allows Staff and Managers to:
+{{r3-06-design-review-details-1 width=100% align=center}}
 
-- Inspect a design request: reference, version, request and review status, owner type, description, catalogue reference and reference images.
-- Record a decision of accept, reject or request clarification, always with a written explanation of 1 to 2,000 characters, after a confirmation dialog.
-- For an accepted request, prepare the full custom quote (total amount, payment deadline in hours and pricing note); a quote prepared by Staff waits for a Manager, while a quote prepared by a Manager is approved at once.
-- As a Manager, approve a quote prepared by Staff so that the Member can pay it in full from My Custom Orders.
+{{r3-06-design-review-details-2 width=100% align=center}}
 
-A request that is accepted or rejected is final and the decision form is hidden. Clarification keeps the request open for the customer's reply. A reviewer cannot review their own request. Accepting a request does not create a payment or reserve production.
+**Description:** Displays one design request's full details and allows Staff and Managers to record a review decision with an explanation, prepare a custom quote for accepted requests, and (for Managers) approve quotes.
+
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Header | "Thẩm duyệt Yêu cầu Thiết kế #{id}", reference, design version, request status, review status and the Member owner projection. |
-| Final decision card | "Quyết định: Chấp thuận (ACCEPTED)" or "Từ chối (REJECTED)" with the reviewer's explanation. |
-| Description and images | Submitted idea, catalogue reference and image gallery; an image can be enlarged. |
-| Quyết định | Choice of "Chấp thuận (ACCEPTED)", "Từ chối (REJECTED)" or "Yêu cầu làm rõ thông tin (CLARIFICATION_REQUIRED)". |
-| "Lý do / Hướng dẫn phản hồi cho hội viên" | Required explanation shown to the customer, at most 2,000 characters with a counter. |
-| **Gửi quyết định** | Opens the confirmation dialog; disabled while the explanation is empty. |
-| "Báo giá Gia công Tùy chỉnh (Custom Quote)" | Shown for accepted requests: "Tổng tiền báo giá (VNĐ)" (required, 1 to 1,000,000,000), "Thời hạn thanh toán (24 - 72 Giờ)" (default 72) and a pricing note. |
-| **Gửi báo giá cho Manager duyệt** | Sends the quote after confirmation; the section then shows the quote code, amount, expiry, note and "Chờ Quản lý (Manager) duyệt" or "Quản lý đã duyệt". |
-| **Phê duyệt Báo giá (Manager Approve)** | Manager only, while the quote is not approved; approves it after confirmation. |
+| Header | Displays request ID, reference code, version, request/review status, and Member owner info. |
+| Description & images | Shows submitted idea, catalogue reference, and enlargeable reference images. |
+| Quyết định | Selects Accepted, Rejected, or Clarification required (hidden once finalized). |
+| Lý do / Hướng dẫn phản hồi | Required explanation (1–2,000 characters) shown to the Member. |
+| **Gửi quyết định** | Confirms and records the review decision. |
+| Báo giá Gia công Tùy chỉnh | Shown when accepted; sets total amount (VNĐ), payment deadline (24–72 hours), and pricing note. |
+| **Gửi báo giá** / **Phê duyệt Báo giá (Manager Approve)** | Submits the quote or (Manager only) approves a Staff-prepared quote. |
+
+:::

@@ -28,10 +28,8 @@ rectangle "Mland Operations System" {
   usecase "View Custom Design Request Decision" as UC41
   usecase "View Loyalty Points" as UC42
   usecase "Apply Promotions and Points" as UC44
-  usecase "Add Product to Cart" as UC52
   usecase "Manage Shopping Cart" as UC53
-  usecase "Checkout Retail Order" as UC54
-  usecase "Pay for Retail Order" as UC55
+  usecase "Checkout and Pay for Retail Order" as UC54
   usecase "View Purchase Order History" as UC56
   usecase "View Order Details" as UC57
   usecase "Submit Custom Order" as UC67
@@ -52,7 +50,6 @@ Member --> UC38
 Member --> UC39
 Member --> UC41
 Member --> UC42
-Member --> UC52
 Member --> UC53
 Member --> UC54
 Member --> UC56
@@ -62,11 +59,10 @@ Member --> UC70
 Member --> UC69
 Member --> UC75
 
-UC54 ..> UC55 : <<include>>
 UC44 ..> UC54 : <<extend>>
 
 UC04 -- SSO
-UC55 -- Pay
+UC54 -- Pay
 UC69 -- Pay
 UC38 -- Staff
 UC38 -- Manager

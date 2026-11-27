@@ -32,3 +32,27 @@ test_flow_DatNT.md
 ppswbs_frontend/e2e-screenshots/
 ppswbs_frontend/e2e-summary.json
 ppswbs_frontend/scripts/e2e_staging_comprehensive_report.mjs
+report4-owned-rendered-png/r4-cd-fe04-design-review.png
+report4-owned-rendered-png/r4-cd-fe05-custom-manufacturing.png
+report4-owned-rendered-png/r4-cd-fe11-review-management.png
+report4-owned-rendered-png/r4-cd-fe12-ring-design.png
+report4-owned-rendered-png/r4-cd-fe13-consultation-chat.png
+report4-owned-rendered-png/r4-sd-fe05-custom-fulfilment.png
+report4-owned-rendered-png/r4-sd-fe05-full-payment.png
+report4-owned-rendered-png/r4-sd-fe04-clarification-quote.png
+report4-owned-rendered-png/r4-sd-fe04-human-review.png
+report4-owned-rendered-png/r4-sd-fe04-submit-request.png
+report4-owned-rendered-png/r4-sd-fe05-create-custom-order.png
+report4-owned-rendered-png/r4-sd-fe11-create-review.png
+report4-owned-rendered-png/r4-sd-fe11-edit-review.png
+report4-owned-rendered-png/r4-sd-fe11-moderate-review.png
+report4-owned-rendered-png/r4-sd-fe12-edit-archive.png
+report4-owned-rendered-png/r4-sd-fe12-evaluate-recommendation.png
+report4-owned-rendered-png/r4-sd-fe12-save-design.png
+report4-owned-rendered-png/r4-sd-fe13-close-hide-chat.png
+scripts/render-report4-owned-puml.ps1
+report4-owned-rendered-png/r4-sd-fe13-create-conversation.png
+report4-owned-rendered-png/r4-sd-fe13-send-message.png
+documents/docs/report-4-software-design-specification/UML_REBASELINE_GUIDE.md
+# DatNT Report 4 PlantUML diagrams (tracked separately on branch dat)
+documents/docs/report-4-software-design-specification/assets/diagrams/r4-*.puml

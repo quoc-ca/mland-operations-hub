@@ -38,7 +38,6 @@ rectangle "Mland Operations System" {
     usecase "Review Custom Design Request" as UC40
   }
   package "Retail and custom orders" {
-    usecase "Review & Confirm Retail Order" as UC58
     usecase "Fulfill Retail Order" as UC59
     usecase "Record Customer Pickup" as UC60
     usecase "Mark Order as Prepared for Carrier" as UC61
@@ -64,7 +63,6 @@ Staff --> UC85
 Staff --> UC90
 Staff --> UC38
 Staff --> UC40
-Staff --> UC58
 Staff --> UC59
 Staff --> UC60
 Staff --> UC61

@@ -1,27 +1,22 @@
 #### 8.1.2 Custom Order Details
 
-![](assets/screens/29-custom-order-details.png)
+{{r3-08-custom-order-details-1 width=100% align=center}}
 
-This screen allows Members to:
+{{r3-08-custom-order-details-2 width=100% align=center}}
 
-- View one of their own custom orders with its status and four progress steps: quote approval, full payment, production and handover.
-- Review the Manager-approved quote: full amount, quote reference, quote version, payment deadline and the Manager's note.
-- Pay the exact quoted amount in one VNPay payment while the quote is ready and unexpired.
-- See that the deadline has passed and request a new quote when the quote has expired.
-- View the ring specification snapshot taken from the attached workshop ring design.
+**Description:** Displays one Member custom order's progress timeline, quote breakdown, design evidence, and ring specification snapshot, allowing the Member to pay an active quote or request a new quote if expired.
 
-The page requires sign-in and opens only the Member's own order. It shows no deposit, remaining balance or Add to Cart control, and a custom order is not treated as a retail order.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| **Quay lại danh sách đơn hàng tùy chỉnh** | Returns to My Custom Orders. |
-| Order header | "Chi tiết đơn hàng thiết kế cá nhân", order code and status: "Chờ duyệt báo giá", "Chờ thanh toán 100%", "Báo giá đã hết hạn", "Đã thanh toán toàn bộ", "Đang gia công", "Sẵn sàng giao hàng" or "Đã hoàn tất". |
-| Progress steps | "1. Báo giá & Duyệt", "2. Thanh toán 100%", "3. Chế tác sản xuất" and "4. Bàn giao sản phẩm", each with its current state. |
-| "Tổng tiền thanh toán 1 lần (100%)" | Full quoted amount, or "Đang tính toán" before a quote exists. |
-| "Mã tham chiếu báo giá" | Quote reference with "Phiên bản báo giá: Lần #{n}". |
-| "Thời hạn thanh toán" | Quote deadline, or "Chưa thiết lập"; "Hạn chót đã qua. Báo giá đã hết hiệu lực." once expired. |
-| "Ghi chú từ Quản lý (Manager)" | Manager's pricing note, when present. |
-| **Thanh toán toàn bộ {amount} qua VNPay** | Shown while the quote is ready, unpaid and unexpired; redirects to VNPay. |
-| **Yêu cầu báo giá mới** | Shown when the quote has expired. |
-| "Bằng chứng thiết kế & Yêu cầu gốc (Design Evidence)" | Link to the original request (**Xem yêu cầu gốc →**), "Mô tả từ khách hàng", "Ghi chú từ nhân viên chế tác" and the attached images, which can be enlarged; each shown when present. |
-| Ring specification snapshot | "Thông số kỹ thuật mẫu nhẫn chế tác (Feature-012 Snapshot)": model, material, ring size, stone count and laser engraving text, when present. |
+| ← Quay lại danh sách đơn hàng tùy chỉnh | Returns to My Custom Orders. |
+| Order header | Shows order code, creation date, and current status badge. |
+| Progress steps | Four-stage tracker: Quote & Approval, 100% Payment, Production, and Handover. |
+| Quote information | Displays 100% payment amount, quote reference, quote version, payment deadline, and Manager note. |
+| **Thanh toán toàn bộ {amount} qua VNPay** | Shown for unpaid, unexpired quotes; redirects to VNPay. |
+| **Yêu cầu báo giá mới** | Shown when the quote deadline has passed. |
+| Design Evidence | Links to the original request (**Xem yêu cầu gốc →**), customer description, staff note, and enlargeable reference images. |
+| Ring specification snapshot | Displays captured model, material, ring size, stone count, and engraving details when attached. |
+
+:::

@@ -1,23 +1,19 @@
 #### 12.1.2 Template Details
 
-This screen allows Admins and Managers to:
+{{r3-12-template-details width=100% align=center}}
 
-- See a template's name, code, owning module, business description and allowed placeholders.
-- Follow the template's version history with each version's subject, author and activation time.
-- Create a new draft version and edit an existing draft.
-- Preview any version with editable sample values.
-- Activate a draft so that it replaces the current active version.
+**Description:** Displays one email template's metadata, allowed placeholders, and version history, allowing Admins and Managers to create or edit drafts, preview rendered content, and activate a draft version.
 
-Only draft versions can be edited or activated; active and archived versions are read-only. A draft may use only the template's allowed placeholder variables (each written inside double curly braces). Activation applies to emails created after that moment; emails already rendered keep their earlier content.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
 | ← Quay lại danh sách mẫu thư | Returns to Notification Templates. |
-| Header | Template name, "Mã mẫu" and "Phân hệ", with **+ Tạo bản nháp mới** and **Làm mới**. |
-| Mô tả nghiệp vụ & Biến cho phép | Business description ("Không có mô tả." when empty) and the list of allowed placeholders. |
-| Version history | Columns Phiên bản, Trạng thái ("Đang áp dụng", "Bản nháp" or "Lưu trữ"), Tiêu đề email (Subject), Tạo bởi / Ngày tạo and Kích hoạt lúc. |
-| Xem trước | Opens the preview dialog for that version with sample values for each variable that can be changed before rendering. |
-| Chỉnh sửa | Draft only. Opens the editor with the draft's content. |
-| Draft editor | "Tiêu đề email (Subject)" (required), "Nội dung HTML" and "Nội dung Plain Text (Fallback)"; at least one body is required. Unknown placeholders show a warning and block saving. Buttons **Lưu bản nháp** or **Cập nhật bản nháp**. |
-| Kích hoạt | Draft only. Opens a confirmation that names the version being replaced and warns that new emails use the new version at once. |
-| Messages | A success or error message after each action; a failed save keeps the typed content. |
+| **+ Tạo bản nháp mới** / **Làm mới** | Creates a new draft version or reloads template details. |
+| Mô tả nghiệp vụ & Biến cho phép | Displays the business description and allowed placeholder variables. |
+| Version history table | Lists version, status (**Đang áp dụng**, **Bản nháp**, **Lưu trữ**), subject, creator/date, and activation time. |
+| **Xem trước** | Opens a preview modal with editable sample placeholder values. |
+| **Chỉnh sửa** | Draft only; opens the editor for subject, HTML body, and plain-text fallback. |
+| **Kích hoạt** | Draft only; prompts confirmation before replacing the active version. |
+
+:::

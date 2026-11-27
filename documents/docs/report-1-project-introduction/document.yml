@@ -23,7 +23,7 @@
   "change_log":
     {
       "format": "template",
-      "history_paths": ["documents/docs/report-1-project-introduction"],
+      "history_paths": ["docs/report-1-project-introduction"],
       "default_action": "M"
     }
 }

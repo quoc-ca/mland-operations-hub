@@ -22,7 +22,7 @@ A Guest or Member opens the Product Catalogue page or a product link.
 
 1. The actor sees matching public products or one product's public details and reviews, an empty state, or error guidance.
 2. Drafts, review records, unapplied prices, and held quantities are never exposed.
-3. The selected size, branch, and quantity are handed to UC-52; no hold, order, payment, voucher, or point record is created here.
+3. The selected size, branch, and quantity are handed to UC-53; no hold, order, payment, voucher, or point record is created here.
 4. Displayed prices are for viewing only; checkout recalculates the final amount.
 5. Reviews are read-only; Product Management does not store, moderate, or edit them.
 
@@ -50,14 +50,14 @@ A Guest or Member opens the Product Catalogue page or a product link.
 7. System updates the price box, branch voucher price, and available quantity for the selection.
 8. Actor sets the quantity between 1 and the smaller of available quantity and 99.
 9. Actor selects Add to cart.
-10. System sends the size, branch, and quantity to UC-52 Add Product to Cart and opens the cart.
+10. System sends the size, branch, and quantity to UC-53 Manage Shopping Cart and opens the cart.
 
 **Quick Add to Cart**
 
 1. Actor selects the cart button on a product card.
 2. System opens a Quick add box with size grid, branch list, quantity selector, and action buttons.
 3. Actor selects a size, branch, and quantity, then selects Add to cart.
-4. System passes the size variant, branch, and quantity to UC-52 Add Product to Cart.
+4. System passes the size variant, branch, and quantity to UC-53 Manage Shopping Cart.
 5. System closes the box and displays a cart confirmation with a link (MSG55).
 
 **View Customer Reviews**
@@ -83,7 +83,7 @@ D6a. Actor opens the Size conversion chart → System opens a dialog with the sh
 
 D6b. Actor returns from sign-in → System restores the previously chosen size, branch, and quantity.
 
-D9a. Actor selects Buy now → System sends the same cart request via UC-52 and opens UC-54 Checkout Retail Order with only that line.
+D9a. Actor selects Buy now → System sends the same cart request via UC-53 and opens UC-54 Checkout and Pay for Retail Order with only that line.
 
 D9b. Guest selects Add to cart or Buy now → System redirects Guest to sign in and returns to the product page with choices kept.
 
@@ -91,7 +91,7 @@ D9c. Signed-in Staff, Manager, Admin or Carrier views the page → System shows 
 
 Q2b. Signed-in Staff, Manager, Admin or Carrier opens Quick add → System shows size, branch and quantity but hides Add to cart and Buy now.
 
-Q3a. Actor selects Buy now in Quick add → System adds the item via UC-52 and opens checkout as on the product page.
+Q3a. Actor selects Buy now in Quick add → System adds the item via UC-53 and opens checkout as on the product page.
 
 Q3b. Guest selects Add to cart or Buy now → System redirects Guest to sign in and returns to the product page with choices kept.
 
@@ -123,7 +123,7 @@ D6d. Size chart image is missing → Dialog displays that no size chart image is
 
 D9d. Size or branch is not selected → System prompts Actor to select a size or branch (MSG37) without sending a request.
 
-D10a. Cart rejects the item → System displays the message returned by UC-52.
+D10a. Cart rejects the item → System displays the message returned by UC-53.
 
 D10b. Buy now cannot find the new cart line → System opens the cart instead of checkout.
 

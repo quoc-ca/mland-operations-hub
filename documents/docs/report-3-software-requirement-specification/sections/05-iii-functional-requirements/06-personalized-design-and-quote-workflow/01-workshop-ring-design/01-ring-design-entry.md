@@ -1,17 +1,16 @@
 #### 6.1.1 Ring Design Entry
 
-This screen allows Guests and Members to:
+{{r3-06-ring-design-entry width=100% align=center}}
 
-- Open the independent workshop-ring designer from the public design entry point; the short addresses /ring-design and /ring-designs open the public configurator.
-- Read that a saved design is independent from workshop booking, payment and ticket records, and that its estimated values are advisory only.
-- Start from a model suggested for the package, which opens Ring Model Selection.
-- Start from a blank ring band, which opens Ring Configuration in blank mode.
-- Preview the designer without signing in; a Guest sees a notice with a sign-in link, may browse a local preview and must sign in before any design is created, evaluated or saved. No Guest design session is stored.
+**Description:** Displays the workshop ring design starting options and allows Guests and Members to begin from a suggested package model or a blank ring band.
+
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Title and subtitle | "Cấu hình mẫu nhẫn Workshop" with a short explanation that the customer designs the ring for their workshop session. |
-| Independent-design notice | Information banner: the saved design is separate from workshop booking and payment, and estimated values are for reference only. |
-| "Chọn điểm bắt đầu thiết kế" | Heading of the two starting-point cards. |
-| "Mẫu gợi ý theo gói" card | Describes starting from a standard model prepared by the artisans; the card or its **Chọn mẫu này** button opens Ring Model Selection. |
-| "Tự thiết kế từ phôi trắng" card | Describes starting from a plain band and customizing every option; the card or its **Bắt đầu cấu hình** button opens Ring Configuration in blank mode. |
+| Title and subtitle | Displays "Cấu hình mẫu nhẫn Workshop" and explains workshop ring customization. |
+| Independent-design notice | Notes that saved designs are separate from workshop bookings and estimated values are advisory. |
+| **Mẫu gợi ý theo gói** (**Chọn mẫu này**) | Opens Ring Model Selection for suggested templates. |
+| **Tự thiết kế từ phôi trắng** (**Bắt đầu cấu hình**) | Opens Ring Configuration in blank mode. |
+
+:::

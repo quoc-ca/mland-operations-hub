@@ -1,13 +1,13 @@
-### 7.10 Mark Order as Prepared for Carrier
+### 7.7 Mark Order as Prepared for Carrier
 
 | Use Case ID | UC-61 | Use Case Name | Mark Order as Prepared for Carrier |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Staff; Manager; GHTK partner (Đối tác vận chuyển) | Secondary Actors | Delivery Service; Mail Gateway |
 
 #### Description
 
-As an authorized shop actor, I want to mark a packed paid GHTK order ready for the courier, and as the GHTK partner I want to record the courier pickup and the delivery, so that each step of the parcel is attributable.
+As an authorized shop actor, I want to mark a packed paid GHTK order ready for the courier, and as the GHTK partner I want to record the courier pickup and the delivery, so that each step of the parcel is attributable across both retail and custom manufacturing orders.
 
 #### Trigger
 
@@ -15,7 +15,7 @@ A shop actor opens a paid GHTK order in Đơn hàng cần chuẩn bị to pack a
 
 #### Preconditions
 
-1. The platform is available and the retail order exists.
+1. The platform is available and the retail or custom order exists.
 2. The actor is authenticated with verified identity, has an active account, and holds current authority.
 3. Shop actors have assigned-branch or Manager delegation; the GHTK partner uses an active CARRIER account.
 4. The order is verified paid and GHTK-selected with necessary recipient name, phone, and address.
@@ -32,7 +32,7 @@ A shop actor opens a paid GHTK order in Đơn hàng cần chuẩn bị to pack a
 2. System checks account/branch authority, verified paid state, fixed GHTK method, and preparation status.
 3. Staff packs the order and presses Đã chuẩn bị xong.
 4. System records READY_FOR_CARRIER and displays Chờ ĐVVC lấy hàng to Staff and Chờ GHTK lấy hàng to Member.
-5. GHTK partner collects the parcel at the branch and presses Đã lấy hàng on the partner portal.
+5. GHTK partner collects the parcel at the branch and presses Đã lấy hàng on the partner portal `/carrier/orders`.
 6. System rechecks partner account, state, and version, then records HANDED_TO_CARRIER once.
 7. GHTK partner delivers the parcel and presses Giao thành công.
 8. System rechecks state and version, records DELIVERED once, and sets received time and 30-day data retirement.
@@ -80,7 +80,7 @@ BR-61-01, BR-61-02, BR-61-03, BR-61-04, BR-61-05, BR-61-06, BR-61-07, BR-61-08
 | --- | --- |
 | BR-61-01 | Only assigned-branch Staff or explicitly action/branch-delegated Manager packs and marks ready; only the GHTK partner account records the courier pickup and the delivery. |
 | BR-61-02 | Đã chuẩn bị xong records READY_FOR_CARRIER; Đã lấy hàng records HANDED_TO_CARRIER afterward; Giao thành công records DELIVERED. Packing alone never proves carrier custody. |
-| BR-61-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. |
+| BR-61-03 | Courier pickup requires verified paid GHTK readiness, valid recipient data, the current shipment version, actor and actual pickup time; the platform tracking number identifies the parcel. The carrier portal `/carrier/orders` manages parcels originating from retail orders and custom manufacturing orders. |
 | BR-61-04 | Delivered is terminal for shop fulfilment; no backward/cross-terminal override, GHTK shipment API, provider tracking, delivery-failure/return or cancellation/refund workflow is added. |
 | BR-61-05 | Keep necessary recipient data while handoff is pending; retire private values/copies 30 days after original actual handoff, without resetting on retries. |
 | BR-61-06 | Keep minimized custody/payment/audit evidence under five-year retention without preserving retired recipient/contact/address values. |

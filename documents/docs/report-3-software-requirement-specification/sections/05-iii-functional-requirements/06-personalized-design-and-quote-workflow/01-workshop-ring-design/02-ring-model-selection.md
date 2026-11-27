@@ -1,21 +1,17 @@
 #### 6.1.2 Ring Model Selection
 
-This screen allows Guests and Members to:
+{{r3-06-ring-model-selection width=100% align=center}}
 
-- Browse the published ring models supplied by the catalogue for the independent designer.
-- See each model's image, material, name, description and estimated difficulty.
-- Select a model, which opens Ring Configuration pre-filled with that model's options.
-- Start from a blank ring instead when the package has no suggested models.
-- Go back to Ring Design Entry.
+**Description:** Displays published ring templates for the selected package and allows Guests and Members to preview model details or open Ring Configuration with a chosen template.
 
-The model list comes from the server's published catalogue option set; no design is created until a signed-in Member saves it in Ring Configuration. A Guest may browse the models and preview them locally.
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Title and subtitle | "Mẫu gợi ý theo gói" with the explanation that models are standard templates prepared by the artisans. |
 | **Quay lại chọn mẫu** | Returns to Ring Design Entry. |
-| Model card | Image (when available), material tag ("Bạc Ý 925", "Đồng" or "Thép không gỉ"), model name and description. |
-| Estimated difficulty | "Độ khó ước tính: {score}" with the server-provided difficulty label, shown when the model has a score; the score has no fixed maximum. |
-| **Chọn mẫu này** | Opens Ring Configuration in model mode for the chosen model; clicking the card does the same. |
-| Empty state | "Gói workshop này chưa có mẫu gợi ý sẵn. Bạn có thể bắt đầu với phôi trắng." with a button that starts a blank design. |
-| Loading / error | "Đang tải danh sách mẫu thiết kế..." while loading; an error card when the options cannot be loaded. |
+| Model card | Displays model image, material tag, name, and description. |
+| Estimated difficulty | Displays server-provided difficulty score and label when available. |
+| **Chọn mẫu này** | Opens Ring Configuration pre-filled with the selected model. |
+| Empty / error state | Offers starting from a blank band or retrying when loading fails. |
+
+:::

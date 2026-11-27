@@ -1,24 +1,27 @@
 #### 6.1.3 Ring Configuration
 
-![](assets/screens/41-ring-configuration.png)
+{{r3-06-ring-configuration-1 width=100% align=center}}
 
-This screen allows a Member to configure and save a design; a Guest can only change a local preview:
+{{r3-06-ring-configuration-2 width=100% align=center}}
 
-- Configure a ring from a chosen model, from a blank band or from an existing saved design (edit mode), using only the options the server supplies for the package.
-- Choose material, band shape, ring size, thickness and band width, gemstones, decorative attachments and engraving.
-- See a live preview with top and side views, and a summary with the estimated weight.
-- Save with **Lưu & Thẩm định**, which creates the design on first save, stores a new version and opens Design Evaluation.
+{{r3-06-ring-configuration-3 width=100% align=center}}
 
-Both save buttons stay disabled while the configuration fails validation. Price and difficulty are advisory and do not change any workshop package price. A Guest may only change the local preview; either save button sends the Guest to sign-in, saves nothing and creates no server state. Editing a saved design is for its owning Member.
+{{r3-06-ring-configuration-4 width=100% align=center}}
+
+**Description:** Displays the interactive ring configurator with live top/side previews and allows Members to customize and save a ring design (Guests can preview locally before signing in).
+
+::: {.docx-table width="100%" columns="50%,50%"}
 
 | Field Name | Description |
 | --- | --- |
-| Advisory banner | States that the price and difficulty are for reference only and do not change any workshop package price or payment amount. |
-| 1. Chất liệu nhẫn | Material cards (Bạc Ý 925, đồng, thép không gỉ 316L) with unit price; exactly one is selected. |
-| 2. Dáng đai & Kích thước | Required band shape, ring size from 6 (46 mm) to 29 (69 mm) with circumference and inner diameter, thickness 1.0–3.0 mm and band width 1.5–6.0 mm in 0.1 mm steps. |
-| 3. Đá quý đính kèm | Gemstone cards with per-stone price and quantity controls; at most 10 stones in total, positioned by dragging on the top view. |
-| 4. Họa tiết trang trí | Optional attachment cards such as milgrain edges or brushed finishing, each with its added price. |
-| 5. Khắc chữ & Hình ảnh cá nhân hóa | Text and symbol engraving for a one-time fee of 80,000 VND (at most 2 placements, 50 characters each, inner or outer band) and up to 2 laser images at 100,000 VND each, cropped to a 160 × 160 px black-and-white frame. A warning recommends inner-band engraving on textured bands. |
-| Preview and summary | Ring preview, "Bản nháp" status, "Giá tham khảo" badge, an unsaved-changes notice and a summary of material (Bạc: 900.000 đ, Đồng/Thép: 750.000 đ), shape, size, dimensions, estimated weight (standard ≤ 3.0 g; excess mass > 3.0 g adds 120.000 đ/g), stones and engraving. |
-| **Lưu & Thẩm định** | Saves and evaluates the design, then opens Design Evaluation; shows "Đang lưu & thẩm định..." while saving and the server error message if saving fails. |
-| **Lưu & Xem danh sách đã lưu** | Saves the design in the same way, then opens My Ring Designs. |
+| Advisory banner | Notes that displayed price and difficulty are advisory and do not alter package prices. |
+| 1. Chất liệu nhẫn | Selects material (Sterling Silver 925, Copper, or Stainless Steel 316L) with unit price. |
+| 2. Dáng đai & Kích thước | Selects band shape, ring size (6–29), thickness (1.0–3.0 mm), and width (1.5–6.0 mm). |
+| 3. Đá quý đính kèm | Adds up to 10 gemstones and positions them on the top view. |
+| 4. Họa tiết trang trí | Selects optional decorative attachments and finishes. |
+| 5. Khắc chữ & Hình ảnh cá nhân hóa | Configures text/symbol engraving (up to 2 placements) and up to 2 laser images. |
+| Preview and summary | Shows live top/side ring views, estimated weight, and advisory cost breakdown. |
+| **Lưu & Thẩm định** | Saves the design and opens Design Evaluation. |
+| **Lưu & Xem danh sách đã lưu** | Saves the design and opens My Ring Designs. |
+
+:::

@@ -6,7 +6,7 @@ Scope follows Report 2 and Report 3's [External API Inventory](../03-i-overall-r
 
 | ID | Requirement | Verification criterion |
 | --- | --- | --- |
-| NFR-IF-01 | Public pages and authenticated Member/shop functions shall use the web interface, with server-enforced access rules on direct requests. | Public browsing requires no sign-in; protected direct requests receive the same checks as UI navigation. See UC1–UC18 and UC52–UC61. |
+| NFR-IF-01 | Public pages and authenticated Member/shop functions shall use the web interface, with server-enforced access rules on direct requests. | Public browsing requires no sign-in; protected direct requests receive the same checks as UI navigation. See UC1–UC18 and UC53–UC61. |
 | NFR-IF-02 | Workshop check-in shall support QR scanning and manual code entry; scanning alone shall not record attendance without Staff verification. | UC24 works with either input; invalid, unconfirmed or already checked-in bookings create no new attendance effect. |
 
 V1 does not mandate a dedicated scanner, terminal, printer or native mobile application. QR scanning uses equipment supported by the selected browser environment; coverage remains NFR-OPEN-01. Card entry takes place at VNPay rather than through a Mland card-data interface.
