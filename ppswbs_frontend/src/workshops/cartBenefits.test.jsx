@@ -155,6 +155,30 @@ describe('003.1 FR-033/FR-034 cart benefits of a Member', () => {
     }
   });
 
+  it('hides a running voucher with no use left or already used up by this Member', async () => {
+    const user = userEvent.setup();
+    const offer = (code, availability = 'ACTIVE') => ({ kind: 'VOUCHER', code, name: `Voucher ${code}`, availability });
+    const calls = mockFetch({
+      ...memberHandlers(json(201, quote())),
+      'GET /api/v1/members/me/saved-vouchers': json(200, { items: [
+        { availability: 'MEMBER_LIMIT_REACHED', promotion: { code: 'USEDUP', name: 'Voucher USEDUP', scope: 'WORKSHOP' } },
+      ] }),
+      'GET /api/v1/promotions': json(200, { items: [offer('SOLDOUT', 'NO_USES_LEFT'), offer('USEDUP'), offer('STILLOK')] }),
+    });
+    renderRoutes(workshopRoutes, { path: BOOK, session: fakeSession('signed-in') });
+
+    await screen.findByText('Báo giá đặt ngay');
+    await user.click(screen.getByRole('button', { name: /Voucher MLAND/i }));
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn voucher' });
+
+    await within(dialog).findByText('Voucher STILLOK');
+    expect(dialog.textContent).not.toContain('SOLDOUT');
+    expect(dialog.textContent).not.toContain('USEDUP');
+    const asked = calls.filter(item => item.path === '/api/v1/workshop-cart-quotes')
+      .map(item => item.body.benefitSelection?.voucherCode).filter(Boolean);
+    expect(asked).toEqual(['STILLOK']);
+  });
+
   it('offers the same voucher and point picker on the cart page (FR-033)', async () => {
     const user = userEvent.setup();
     const calls = mockFetch(memberHandlers(json(201, quote())));
