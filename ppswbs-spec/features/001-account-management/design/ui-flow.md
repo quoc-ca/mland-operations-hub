@@ -3,9 +3,11 @@
 > **R-INV scoped UI design approved; implementation open:** [canonical revision](revision-2026-11-24.md). ADMIN create requires email and has no invitation checkbox. Collision routes to existing Staff/Manager maintenance, rejects ADMIN/CARRIER, or opens MEMBER review with name/phone/email/status/addresses/server retail cart/retail and workshop history and optional JSON download; Firebase-only collision shows no Mland-data claim. Local mock data is visibly labelled DEMO, and MEMBER retirement/occupied-email replacement is unavailable while source state is DEMO/UNAVAILABLE or the acceptance fence is absent. Future live nonterminal order/booking blockers show a reference and message only; ADMIN receives no proxy action. A populated retail cart alone does not block. Create/resend responses display queued/SENT/FAILED/UNKNOWN_OUTCOME truthfully, `createdAt`, `expiresAt`, and a server-time-based countdown from invitation creation. After two definite SMTP failures, ADMIN sees a copy action for the pinned subject/HTML/plain text with the current unexpired link; no outside-delivery success is claimed. A subsequent resend warns that any copied or externally sent old link becomes invalid. Setup route offers password or Google redirect after link validation; expired/used/wrong-email link leaves pending with resend guidance, success goes to role home. Direct login/register for reserved pending email is refused with invitation guidance. ADMIN rail excludes business pages; route guards run before mount/request. Role catalogue page/tab is removed and short role guidance stays in form controls.
 
 **Date created**: 2026-10-28
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-27
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
+
+**2026-11-27 setup/navigation correction:** Email links open `/invitations/setup?secret=...` at the configured frontend origin. The Guest can exchange the link without sign-in, then chooses password or Google on the bound invited UID; completion routes to the backend `homeRoute`. The password path signs in with the newly set credential before completion; Google links by redirect and resumes after return. CARRIER's password-page heading leads to `/carrier`; mobile Guest Account leads to `/login` and reads “Đăng nhập”; the mobile workshop lookup reads “Tra cứu”.
 
 **Design status**: Approved for the historical baseline through R-NAD and for the CARRIER UI/routing boundary through Revision R-CAR; see scoped records in `approval.md`.
 

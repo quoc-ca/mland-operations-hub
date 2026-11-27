@@ -47,7 +47,7 @@ public class InvitationService implements InvitationDeliveryFacade {
             AccountProfileRepository profileRepository,
             ApplicationEventPublisher eventPublisher,
             @Value("${app.account.invitation.signing-key:mland-internal-account-invitation-signing-key-default-v1-32chars}") String signingKey,
-            @Value("${app.frontend.url:http://localhost:3000}") String frontendBaseUrl) {
+            @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl) {
         this.invitationRepository = invitationRepository;
         this.accountRepository = accountRepository;
         this.profileRepository = profileRepository;
@@ -167,7 +167,7 @@ public class InvitationService implements InvitationDeliveryFacade {
 
         // Reproduce transient URL deterministically
         String rawSecret = deriveDeterministicSecret(invitation.getAccountId(), invitation.getInvitationVersion(), invitation.getKeyVersion());
-        String transientUrl = frontendBaseUrl + "/setup-account?secret=" + rawSecret;
+        String transientUrl = frontendBaseUrl + "/invitations/setup?secret=" + rawSecret;
 
         return MaterializationOutcome.available(transientUrl, invitation.getExpiresAt());
     }

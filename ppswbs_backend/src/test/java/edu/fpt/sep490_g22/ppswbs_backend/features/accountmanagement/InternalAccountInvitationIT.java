@@ -13,6 +13,8 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.InternalAccountInvitation;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationPurpose;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.MaterializationRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.InvitationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.TokenVerificationService;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.VerifiedIdentity;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -65,6 +68,9 @@ class InternalAccountInvitationIT {
 
     @Autowired
     private InvitationService invitationService;
+
+    @Value("${app.frontend-base-url}")
+    private String frontendBaseUrl;
 
     private String adminToken;
     private String adminUid;
@@ -120,6 +126,12 @@ class InternalAccountInvitationIT {
         assertThat(inv.getDeliveryState()).isIn("PENDING", "QUEUED");
         assertThat(inv.getSecretDigest()).isNotBlank();
         assertThat(inv.getExpiresAt()).isAfter(Instant.now().plusSeconds(47 * 3600));
+        var link = invitationService.materialize(MaterializationRequest.builder()
+                .invitationId(inv.getId())
+                .version(inv.getInvitationVersion())
+                .purpose(MaterializationPurpose.SMTP_ATTEMPT)
+                .build());
+        assertThat(link.transientUrl()).startsWith(frontendBaseUrl.replaceAll("/+$", "") + "/invitations/setup?secret=");
     }
 
     @Test
@@ -200,8 +212,8 @@ class InternalAccountInvitationIT {
     }
 
     @Test
-    @DisplayName("T114: Public exchange of valid secret returns setup session and custom token")
-    void invitationExchange_validSecret_success() throws Exception {
+    @DisplayName("T114: Public exchange fails closed when Firebase is unavailable")
+    void invitationExchange_withoutFirebase_doesNotActivate() throws Exception {
         String idemKey = UUID.randomUUID().toString();
         String staffEmail = "staff.exchange." + UUID.randomUUID().toString().substring(0, 8) + "@mland.vn";
 
@@ -229,42 +241,16 @@ class InternalAccountInvitationIT {
 
         InvitationExchangeRequest exchangeReq = new InvitationExchangeRequest(rawSecret);
 
-        String exchangeResp = mockMvc.perform(post("/api/v1/internal-account-invitations/exchanges")
+        mockMvc.perform(post("/api/v1/internal-account-invitations/exchanges")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(exchangeReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.setupSession").isNotEmpty())
-                .andExpect(jsonPath("$.firebaseCustomToken").isNotEmpty())
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
 
-        InvitationExchangeResponse exchangeObj = objectMapper.readValue(exchangeResp, InvitationExchangeResponse.class);
-
-        // Complete invitation
-        String completedToken = "completed-fb-token-" + UUID.randomUUID();
-        Account createdAcc = accountRepository.findById(accountId).orElseThrow();
-        when(tokenVerificationService.verify(eq(completedToken)))
-                .thenReturn(new VerifiedIdentity(createdAcc.getFirebaseUid(), staffEmail, true, Instant.now()));
-
-        InvitationCompletionRequest completionReq = new InvitationCompletionRequest(
-                exchangeObj.getSetupSession(),
-                "PASSWORD"
-        );
-
-        mockMvc.perform(post("/api/v1/internal-account-invitations/completions")
-                        .header("Authorization", "Bearer " + completedToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(completionReq)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.homeRoute").value("/staff"));
-
-        // Verify account is ACTIVE in DB
         Account finalAcc = accountRepository.findById(accountId).orElseThrow();
-        assertThat(finalAcc.getStatus()).isEqualTo(AccountStatus.ACTIVE);
-
-        // Verify invitation state is USED
+        assertThat(finalAcc.getStatus()).isEqualTo(AccountStatus.PENDING_SETUP);
         InternalAccountInvitation finalInv = invitationRepository.findById(inv.getId()).orElseThrow();
-        assertThat(finalInv.getUseState()).isEqualTo("USED");
+        assertThat(finalInv.getUseState()).isEqualTo("PENDING");
     }
 
     @Test

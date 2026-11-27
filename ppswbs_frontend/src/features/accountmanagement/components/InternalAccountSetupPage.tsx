@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router';
-import { accountManagementApiClient, InvitationExchangeResultResponse } from '../api/AccountManagementApiClient';
+import { accountManagementApiClient, InvitationExchangeResultResponse, ProfileResponse } from '../api/AccountManagementApiClient';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { useT } from '../../../shared/i18n/I18nProvider';
 import { accountMessages } from '../messages';
 import '../accountmanagement.css';
+
+const GOOGLE_SETUP_PENDING = 'mland:invitation-google-setup-pending';
 
 export const InternalAccountSetupPage: React.FC = () => {
   const t = useT(accountMessages);
@@ -12,10 +14,12 @@ export const InternalAccountSetupPage: React.FC = () => {
   const navigate = useNavigate();
 
   const secret = searchParams.get('secret') || '';
+  const [resumingGoogle] = useState(() => sessionStorage.getItem(GOOGLE_SETUP_PENDING) === '1');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exchangeData, setExchangeData] = useState<InvitationExchangeResultResponse | null>(null);
+  const [invitedProfile, setInvitedProfile] = useState<ProfileResponse | null>(null);
 
   // Setup form state
   const [setupMode, setSetupMode] = useState<'PASSWORD' | 'GOOGLE'>('PASSWORD');
@@ -31,31 +35,44 @@ export const InternalAccountSetupPage: React.FC = () => {
       return;
     }
 
+    let live = true;
     setLoading(true);
     setError(null);
 
-    accountManagementApiClient
-      .exchangeInternalInvitation({ secret })
-      .then(async (res) => {
-        setExchangeData(res);
-        // Sign in with Firebase custom token to establish session with the bound UID
-        if (res.customToken) {
-          try {
-            await firebaseAuthClient.signInWithCustomToken(res.customToken);
-          } catch (authErr: any) {
-            console.warn('[Setup] Custom token sign-in warning:', authErr);
-          }
-        }
-      })
-      .catch((err) => {
-        setError(
-          err?.message
-            ? `${err.message} Liên kết kích hoạt không hợp lệ, đã hết hạn sau 48 giờ hoặc đã được sử dụng.`
-            : 'Liên kết kích hoạt không hợp lệ, đã hết hạn sau 48 giờ hoặc đã được sử dụng. Vui lòng liên hệ Quản trị viên (Admin) để nhận liên kết mới.'
-        );
-      })
-      .finally(() => setLoading(false));
-  }, [secret]);
+    const prepare = async () => {
+      if (resumingGoogle) {
+        const linkedUser = await firebaseAuthClient.getRedirectAuthResult()
+          || firebaseAuthClient.getCurrentUser()
+          || await firebaseAuthClient.waitForAuthState();
+        if (!linkedUser) throw new Error('Không thể hoàn tất liên kết Google. Vui lòng mở lại thư mời và thử lại.');
+      }
+
+      const result = await accountManagementApiClient.exchangeInternalInvitation({ secret });
+      if (!result.firebaseCustomToken) throw new Error('Không thể xác thực liên kết thư mời.');
+      if (!resumingGoogle) await firebaseAuthClient.signInWithCustomToken(result.firebaseCustomToken);
+      const profile = await accountManagementApiClient.getOwnProfile();
+      if (!live) return;
+      if (resumingGoogle) {
+        const completed = await accountManagementApiClient.completeInternalInvitation({
+          setupSession: result.setupSession,
+          method: 'GOOGLE',
+        });
+        sessionStorage.removeItem(GOOGLE_SETUP_PENDING);
+        navigate(completed.homeRoute, { replace: true });
+      } else {
+        setExchangeData(result);
+        setInvitedProfile(profile);
+      }
+    };
+
+    prepare().catch((err: any) => {
+      if (resumingGoogle) sessionStorage.removeItem(GOOGLE_SETUP_PENDING);
+      if (live) setError(err?.message || 'Không thể xác thực liên kết thư mời. Vui lòng liên hệ Quản trị viên để được hỗ trợ.');
+    }).finally(() => {
+      if (live) setLoading(false);
+    });
+    return () => { live = false; };
+  }, [secret, navigate, resumingGoogle]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,15 +94,17 @@ export const InternalAccountSetupPage: React.FC = () => {
     try {
       // 1. Update password on current Firebase user
       await firebaseAuthClient.updatePassword(password);
+      if (!invitedProfile?.email) throw new Error('Không xác định được email thư mời. Vui lòng mở lại liên kết.');
+      await firebaseAuthClient.signIn(invitedProfile.email, password);
 
       // 2. Complete setup on backend
       const res = await accountManagementApiClient.completeInternalInvitation({
         setupSession: exchangeData.setupSession,
-        setupChoice: 'PASSWORD',
+        method: 'PASSWORD',
       });
 
       // 3. Navigate to role home
-      const destination = res.roleHomeRoute || (res.role === 'STAFF' ? '/staff/home' : '/manager/dashboard');
+      const destination = res.homeRoute;
       navigate(destination, { replace: true });
     } catch (err: any) {
       setActionError(err?.message || 'Không thể hoàn tất thiết lập tài khoản.');
@@ -101,18 +120,10 @@ export const InternalAccountSetupPage: React.FC = () => {
     setActionError(null);
 
     try {
-      // Initiate Google redirect or linking per R-NAD / FR-047
-      await firebaseAuthClient.signInWithGoogleRedirect();
-
-      // Note: In redirect flow, user will return to application where redirect is handled
-      const res = await accountManagementApiClient.completeInternalInvitation({
-        setupSession: exchangeData.setupSession,
-        setupChoice: 'GOOGLE',
-      });
-
-      const destination = res.roleHomeRoute || (res.role === 'STAFF' ? '/staff/home' : '/manager/dashboard');
-      navigate(destination, { replace: true });
+      sessionStorage.setItem(GOOGLE_SETUP_PENDING, '1');
+      await firebaseAuthClient.linkGoogleWithRedirect();
     } catch (err: any) {
+      sessionStorage.removeItem(GOOGLE_SETUP_PENDING);
       setActionError(err?.message || 'Không thể liên kết với tài khoản Google.');
     } finally {
       setSubmitting(false);
@@ -178,10 +189,10 @@ export const InternalAccountSetupPage: React.FC = () => {
               }}
             >
               <div>
-                <strong>Email định danh:</strong> {exchangeData.intendedEmail}
+                <strong>Email định danh:</strong> {invitedProfile?.email}
               </div>
               <div>
-                <strong>Vai trò được cấp:</strong> {exchangeData.role}
+                <strong>Vai trò được cấp:</strong> {invitedProfile?.role}
               </div>
             </div>
 
@@ -288,7 +299,7 @@ export const InternalAccountSetupPage: React.FC = () => {
             ) : (
               <div>
                 <p style={{ fontSize: '0.875rem', color: '#475569', marginBottom: '1rem' }}>
-                  Bạn có thể liên kết tài khoản Google có địa chỉ email <strong>{exchangeData.intendedEmail}</strong> để đăng nhập nhanh chóng.
+                  Bạn có thể liên kết tài khoản Google có địa chỉ email <strong>{invitedProfile?.email}</strong> để đăng nhập nhanh chóng.
                 </p>
 
                 <button

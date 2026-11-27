@@ -6,7 +6,7 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import { InternalAccountCreatePage } from '../components/InternalAccountCreatePage';
 import { AdminAccountDetailPage } from '../components/AdminAccountDetailPage';
 import { InternalAccountSetupPage } from '../components/InternalAccountSetupPage';
-import { accountManagementApiClient } from '../api/AccountManagementApiClient';
+import { accountManagementApiClient, AccountManagementApiClient } from '../api/AccountManagementApiClient';
 import { firebaseAuthClient } from '../auth/FirebaseAuthClient';
 import { I18nProvider } from '../../../shared/i18n/I18nProvider';
 
@@ -22,7 +22,26 @@ const renderWithProviders = (ui: React.ReactElement, initialRoute: string = '/')
 
 describe('R-INV Frontend Implementation (T112, T113, T115)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+  });
+
+  it('exchanges an invitation without requiring or sending a bearer token', async () => {
+    const getToken = vi.fn().mockResolvedValue(null);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ firebaseCustomToken: 'token', setupSession: 'session', expiresAt: '2026-11-28T00:00:00Z' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const client = new AccountManagementApiClient('http://localhost:8080', getToken);
+      await client.exchangeInternalInvitation({ secret: 'example-secret' });
+      expect(getToken).not.toHaveBeenCalled();
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   describe('InternalAccountCreatePage — Validation & Mandatory Email (FR-048)', () => {
@@ -335,25 +354,27 @@ describe('R-INV Frontend Implementation (T112, T113, T115)', () => {
       );
 
       expect(
-        await screen.findByText(/Liên kết kích hoạt không hợp lệ, đã hết hạn sau 48 giờ hoặc đã được sử dụng/i)
+        await screen.findByText(/Mã thư mời đã hết hạn sau 48 giờ/i)
       ).toBeInTheDocument();
     });
 
     it('exchanges secret successfully and allows setting password to activate account', async () => {
       vi.spyOn(accountManagementApiClient, 'exchangeInternalInvitation').mockResolvedValue({
-        customToken: 'mock_custom_token',
+        firebaseCustomToken: 'mock_custom_token',
         setupSession: 'session_xyz_789',
-        accountId: 88,
-        intendedEmail: 'new.staff@mland.vn',
-        role: 'STAFF',
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
       });
 
       vi.spyOn(firebaseAuthClient, 'signInWithCustomToken').mockResolvedValue(undefined as any);
+      vi.spyOn(accountManagementApiClient, 'getOwnProfile').mockResolvedValue({
+        id: 88, email: 'new.staff@mland.vn', role: 'STAFF', status: 'PENDING_SETUP',
+      } as any);
       vi.spyOn(firebaseAuthClient, 'updatePassword').mockResolvedValue(undefined as any);
+      vi.spyOn(firebaseAuthClient, 'signIn').mockResolvedValue(undefined as any);
       vi.spyOn(accountManagementApiClient, 'completeInternalInvitation').mockResolvedValue({
         accountId: 88,
         role: 'STAFF',
-        roleHomeRoute: '/staff/home',
+        homeRoute: '/staff/home',
         status: 'ACTIVE',
       });
 
@@ -382,12 +403,54 @@ describe('R-INV Frontend Implementation (T112, T113, T115)', () => {
 
       // Verifies completion call and navigation to role home
       await waitFor(() => {
+        expect(firebaseAuthClient.signIn).toHaveBeenCalledWith('new.staff@mland.vn', 'StaffSecret@123');
         expect(accountManagementApiClient.completeInternalInvitation).toHaveBeenCalledWith({
           setupSession: 'session_xyz_789',
-          setupChoice: 'PASSWORD',
+          method: 'PASSWORD',
         });
         expect(screen.getByText('Trang chủ nhân viên Staff')).toBeInTheDocument();
       });
+    });
+
+    it('links Google on the invited UID and completes after redirect return', async () => {
+      vi.spyOn(accountManagementApiClient, 'exchangeInternalInvitation').mockResolvedValue({
+        firebaseCustomToken: 'mock_custom_token',
+        setupSession: 'session_google',
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      });
+      vi.spyOn(firebaseAuthClient, 'signInWithCustomToken').mockResolvedValue(undefined as any);
+      vi.spyOn(accountManagementApiClient, 'getOwnProfile').mockResolvedValue({
+        id: 89, email: 'new.manager@mland.vn', role: 'MANAGER', status: 'PENDING_SETUP',
+      } as any);
+      vi.spyOn(firebaseAuthClient, 'linkGoogleWithRedirect').mockResolvedValue(undefined as any);
+
+      const first = renderWithProviders(
+        <Routes><Route path="/invitations/setup" element={<InternalAccountSetupPage />} /></Routes>,
+        '/invitations/setup?secret=valid_secret_google'
+      );
+      await screen.findByText('new.manager@mland.vn');
+      await userEvent.click(screen.getByRole('button', { name: /Liên kết Google/i }));
+      await userEvent.click(screen.getByTestId('submit-google-setup-btn'));
+      expect(firebaseAuthClient.linkGoogleWithRedirect).toHaveBeenCalledOnce();
+      expect(sessionStorage.getItem('mland:invitation-google-setup-pending')).toBe('1');
+      first.unmount();
+
+      vi.spyOn(firebaseAuthClient, 'getRedirectAuthResult').mockResolvedValue({ uid: 'bound-uid' } as any);
+      vi.spyOn(accountManagementApiClient, 'completeInternalInvitation').mockResolvedValue({
+        accountId: 89, role: 'MANAGER', status: 'ACTIVE', homeRoute: '/manager/dashboard',
+      });
+      renderWithProviders(
+        <Routes>
+          <Route path="/invitations/setup" element={<InternalAccountSetupPage />} />
+          <Route path="/manager/dashboard" element={<div>Trang chủ Manager</div>} />
+        </Routes>,
+        '/invitations/setup?secret=valid_secret_google'
+      );
+      expect(await screen.findByText('Trang chủ Manager')).toBeInTheDocument();
+      expect(accountManagementApiClient.completeInternalInvitation).toHaveBeenCalledWith({
+        setupSession: 'session_google', method: 'GOOGLE',
+      });
+      expect(firebaseAuthClient.signInWithCustomToken).toHaveBeenCalledTimes(1);
     });
   });
 

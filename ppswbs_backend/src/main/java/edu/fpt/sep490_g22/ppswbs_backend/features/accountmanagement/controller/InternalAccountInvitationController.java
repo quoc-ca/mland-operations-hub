@@ -6,6 +6,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dto.response.InvitationExchangeResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorContext;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.VerifiedIdentity;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service.InvitationExchangeService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -42,9 +43,10 @@ public class InternalAccountInvitationController {
             HttpServletRequest httpRequest
     ) {
         CurrentAccountActor actor = ActorContext.getCurrentActor().orElse(null);
+        VerifiedIdentity identity = ActorContext.getVerifiedIdentity().orElse(null);
         String correlationId = resolveCorrelationId(correlationHeader, httpRequest);
 
-        InvitationCompletionResponse response = exchangeService.completeSetup(request, actor, correlationId);
+        InvitationCompletionResponse response = exchangeService.completeSetup(request, actor, identity, correlationId);
         return ResponseEntity.ok(response);
     }
 

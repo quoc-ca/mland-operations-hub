@@ -155,7 +155,7 @@ export default function MainTopbar() {
   return (
     <div className="main-topbar-wrapper">
       <header className="main-topbar" role="banner">
-        <Link to="/" className="main-topbar-brand">
+        <Link to={isCarrier ? '/carrier' : '/'} className="main-topbar-brand">
           MLAND
         </Link>
 

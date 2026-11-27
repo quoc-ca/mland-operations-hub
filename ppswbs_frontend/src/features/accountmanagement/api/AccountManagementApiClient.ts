@@ -214,22 +214,20 @@ export interface InvitationExchangeCommand {
 }
 
 export interface InvitationExchangeResultResponse {
-  customToken: string;
+  firebaseCustomToken: string;
   setupSession: string;
-  accountId: number;
-  intendedEmail: string;
-  role: 'STAFF' | 'MANAGER';
+  expiresAt: string;
 }
 
 export interface InvitationCompletionCommand {
   setupSession: string;
-  setupChoice: 'PASSWORD' | 'GOOGLE';
+  method: 'PASSWORD' | 'GOOGLE';
 }
 
 export interface InvitationCompletionResultResponse {
   accountId: number;
   role: 'STAFF' | 'MANAGER';
-  roleHomeRoute: string;
+  homeRoute: string;
   status: 'ACTIVE';
 }
 
@@ -256,6 +254,7 @@ export class AccountManagementApiClient {
       idempotencyKey?: string;
       correlationId?: string;
       forceFreshToken?: boolean;
+      publicRequest?: boolean;
     } = {}
   ): Promise<T> {
     const {
@@ -265,6 +264,7 @@ export class AccountManagementApiClient {
       idempotencyKey,
       correlationId = newCommandId(),
       forceFreshToken = false,
+      publicRequest = false,
     } = options;
 
     const origin = this.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
@@ -283,13 +283,13 @@ export class AccountManagementApiClient {
       'X-Correlation-Id': correlationId,
     };
 
-    const token = await (forceFreshToken
+    const token = publicRequest ? null : await (forceFreshToken
       ? firebaseAuthClient.getIdToken(true)
       : this.getToken());
 
     if (token) {
       headers.Authorization = `Bearer ${token}`;
-    } else {
+    } else if (!publicRequest) {
       throw new ApiError({
         status: 401,
         code: 'UNAUTHENTICATED',
@@ -575,6 +575,7 @@ export class AccountManagementApiClient {
     return this.request<InvitationExchangeResultResponse>('/api/v1/internal-account-invitations/exchanges', {
       method: 'POST',
       body: payload,
+      publicRequest: true,
     });
   }
 
@@ -587,6 +588,7 @@ export class AccountManagementApiClient {
       method: 'POST',
       body: payload,
       correlationId,
+      forceFreshToken: true,
     });
   }
 }

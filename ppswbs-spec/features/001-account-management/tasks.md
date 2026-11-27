@@ -1,9 +1,9 @@
 # Tasks: Account Management (FE-001)
 
 **Date created**: 2026-11-01
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Phan Sơn
-**Last updated by**: Hồ Hoàng Quốc
+**Last updated by**: Phan Sơn
 
 **Input**: Design documents from `ppswbs-spec/features/001-account-management/`
 
@@ -511,7 +511,7 @@ After Phase 2 completes:
 
 ## Phase 15: R-INV Staff/Manager provisioning and activation (2026-11-24)
 
-**Status:** Scoped R-INV design approved 2026-11-25 for T106–T116; implementation and verification tasks remain open. T117 MEMBER retirement still needs live source facts, an approved acceptance fence and separate approval; local demo inventory is preview/JSON only. The superseded T089–T104 proposal was removed from this task queue on 2026-11-24. T105 is earlier documentation-only completion. Source: [R-INV](design/revision-2026-11-24.md), FR-048–052 and FE-007 FR-030–034. Historical `[x]` tasks are not evidence for this revision.
+**Status:** Scoped R-INV design approved 2026-11-25 for T106–T116. T106–T115 have historical completion markers; the 2026-11-27 happy-case correction is T120–T123. Configured end-to-end verification T116/T124 remains open. T117 MEMBER retirement still needs live source facts, an approved acceptance fence and separate approval; local demo inventory is preview/JSON only. The superseded T089–T104 proposal was removed from this task queue on 2026-11-24. T105 is earlier documentation-only completion. Source: [R-INV](design/revision-2026-11-24.md), FR-048–052 and FE-007 FR-030–034. Historical `[x]` tasks are not fresh end-to-end evidence.
 
 - [x] T105 [US3] Reconcile FE-001/FE-007 requirements, design and OpenAPI/notification contracts for mandatory email invitation, MEMBER collision review and deferred retirement, optional JSON export, one-UID password/Google setup, creation-based 48-hour expiry, two SMTP attempts, ADMIN manual email-content retrieval, ADMIN isolation and catalogue removal. Documentation completion alone was not implementation evidence; scoped approval is recorded in both `approval.md` files on 2026-11-25.
 - [x] T106 [US3] Design and append migrations for invitation secret digest/key version, `createdAt`/`expiresAt`/use state, provisioning reconciliation and review version; preserve old business/audit foreign keys and avoid modifying applied migrations. Quarantine pre-existing synthetic `internal-*` pending rows for ADMIN reconciliation, never auto-bind by email. Retirement schema/state belongs to deferred T117.
@@ -536,3 +536,13 @@ Source: spec "R-ACL access correction", approved in session by Hồ Hoàng Quố
 
 - [x] T118 [US4] Refuse `PENDING_SETUP` in the shared identity gate with `403 ACCOUNT_PENDING_SETUP`, keeping the four allowed routes; add gate tests. (FR-053)
 - [x] T119 [US3] Limit the Manager Account list to `ACTIVE` `STAFF` without email or revocation status, update the Workshop Staff picker labels, and add API and UI tests. (FR-054)
+
+## Phase 17: Invitation happy-case and shared navigation correction (2026-11-27)
+
+The checked T110–T115 markers remain historical. This correction implements their missed URL, exchange, and setup details; the duplicate-email case, account deletion, and live MEMBER retirement remain outside scope. FE-001 T116 and FE-007 T045 still require configured end-to-end evidence.
+
+- [x] T120 [US3] Build the transient setup URL from the configured frontend origin and canonical `/invitations/setup` route; align FE-007 test fixture with that route.
+- [x] T121 [US3] Align the browser exchange/completion DTOs and public exchange request with `contracts/r-inv.openapi.yaml`; reject unavailable Firebase custom-token issuance instead of returning a placeholder.
+- [x] T122 [US3] Keep password and Google setup on the bound UID, require method-specific Firebase proof before activation, and route the successful setup using `homeRoute`; cover public exchange, redirect resume, and provider-unavailable cases with focused tests.
+- [x] T123 [US2] Route the CARRIER password-page heading to `/carrier`, send the mobile Guest Account entry directly to `/login`, and label the existing workshop lookup entry “Tra cứu” rather than “Vé QR”; cover the navigation changes with frontend tests.
+- [ ] T124 [US3] Run configured Firebase/mail-adapter invitation journeys for STAFF and MANAGER with actual email links, password and Google setup on the same UID, and record results in FE-001 `verification.md` and FE-007 delivery evidence. This is part of T116/T045, not a separate acceptance claim.
