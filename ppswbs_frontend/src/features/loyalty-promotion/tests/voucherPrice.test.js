@@ -104,3 +104,29 @@ describe('mergeWallet', () => {
     expect(merged.find(p => p.kind === 'AUTO_DISCOUNT').saved).toBeUndefined();
   });
 });
+
+describe('workshop voucher labels are per account', () => {
+  const pkg = { packageId: 5, publicPrice: '900000' };
+  const program = patch => voucher({ scope: 'WORKSHOP', targets: {}, ...patch });
+  const open = program({ id: '1', code: 'OPEN' });
+  const mine = program({ id: '2', code: 'MINE' });
+  const soldOut = program({ id: '3', code: 'SOLDOUT', availability: 'NO_USES_LEFT' });
+  const claim = program({ id: '4', code: 'CLAIM', distribution: 'CLAIM_REQUIRED' });
+  const claimGone = program({ id: '5', code: 'CLAIMGONE', distribution: 'CLAIM_REQUIRED', availability: 'NO_USES_LEFT' });
+  const bigOrder = program({ id: '6', code: 'BIG', minimumEligibleAmount: '1000000' });
+  const all = [open, mine, soldOut, claim, claimGone, bigOrder];
+  const codes = programs => offersForPackage(pkg, programs).vouchers.map(item => item.code).sort();
+  const wallet = availability => [{ promotion: mine, availability }];
+
+  it('hides a used-up voucher only from the account that used it up', () => {
+    expect(codes(mergeWallet(all, wallet('MEMBER_LIMIT_REACHED')))).toEqual(['BIG', 'CLAIM', 'OPEN']);
+    // Another account, and a Guest, still see it.
+    expect(codes(mergeWallet(all, wallet('ACTIVE')))).toEqual(['BIG', 'CLAIM', 'MINE', 'OPEN']);
+    expect(codes(mergeWallet(all, []))).toEqual(['BIG', 'CLAIM', 'MINE', 'OPEN']);
+  });
+
+  it('keeps a saved claim voucher whose last use is held by this account', () => {
+    const saved = mergeWallet(all, [{ promotion: claimGone, availability: 'ACTIVE' }]);
+    expect(codes(saved)).toContain('CLAIMGONE');
+  });
+});

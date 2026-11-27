@@ -61,6 +61,9 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
   const voucherChosen = selection.choice === 'VOUCHER' && Boolean(selection.voucherCode);
   const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
 
+  // The quote answers for the chosen code: no voucher discount means 006 did not apply it (the reason is shown below).
+  const voucherRefused = voucherChosen && Boolean(quote) && wholeOf(quote.voucherDiscountVnd) === '0';
+
   const available = wholeOf(account?.availablePoints);
   const held = wholeOf(account?.heldPoints) && account.heldPoints !== '0' ? String(account.heldPoints) : null;
 
@@ -97,10 +100,11 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
     <section className="retail-benefits" aria-label={tw('benefit.aria')}>
       <button type="button" className="retail-benefit-row" onClick={() => setPickerOpen(true)}>
         <span className="retail-benefit-icon">▣</span><strong>{tw('benefit.voucher')}</strong>
-        <span className={voucherChosen ? 'benefit-applied' : 'muted'}>
+        <span className={voucherChosen && !voucherRefused ? 'benefit-applied' : 'muted'}>
           {voucherChosen
             ? (selectedVoucher?.name || suggestions.find(item => item.code === selection.voucherCode)?.name || selection.voucherCode)
             : tw('benefit.chooseOrEnter')}
+          {voucherRefused ? ` · ${tw('benefit.notApplied')}` : ''}
         </span>
         <span>›</span>
       </button>
