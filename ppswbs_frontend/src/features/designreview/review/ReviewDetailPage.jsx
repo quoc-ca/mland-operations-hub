@@ -378,7 +378,7 @@ export default function ReviewDetailPage() {
 
                   <p className="muted small" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
                     {isQuoteApproved
-                      ? 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn hàng cá nhân.'
+                      ? 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn gia công của tôi.'
                       : 'Báo giá đã được gửi cho Quản lý phê duyệt. Nút gửi đã được ẩn để tránh gửi trùng lặp.'}
                   </p>
 

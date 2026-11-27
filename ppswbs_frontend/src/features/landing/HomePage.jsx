@@ -531,7 +531,7 @@ export default function HomePage() {
                     className={`landing-portal-link ${userRole === 'STAFF' ? 'active-role' : ''}`}
                     title={t('portals.staffTitle')}
                   >
-                    {t('portals.staff')} {userRole === 'STAFF' && '★'}
+                    {t(userRole === 'STAFF' ? 'portals.mySessions' : 'portals.staff')} {userRole === 'STAFF' && '★'}
                   </Link>
                   <span className="landing-portal-separator">|</span>
                   <Link to="/design-review-requests" className="landing-portal-link active-role" title={t('portals.designTitle')}>

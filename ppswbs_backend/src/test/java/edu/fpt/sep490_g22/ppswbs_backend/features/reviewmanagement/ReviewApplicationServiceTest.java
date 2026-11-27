@@ -236,6 +236,35 @@ class ReviewApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("Create review is refused while the attended ticket still owes money")
+    void createReview_BalanceDue_Refused() {
+        CreateReviewRequest req = CreateReviewRequest.builder()
+                .sourceType(SourceType.WORKSHOP_ATTENDANCE)
+                .sourceReference("TICK-OWING")
+                .targetType(TargetType.WORKSHOP_SESSION)
+                .targetReference("SESS-100")
+                .rating(4)
+                .build();
+        EligibleSourceItem item = EligibleSourceItem.builder()
+                .sourceType(SourceType.WORKSHOP_ATTENDANCE)
+                .sourceReference("TICK-OWING")
+                .targetType(TargetType.WORKSHOP_SESSION)
+                .targetReference("SESS-100")
+                .memberAccountId(12345L)
+                .eligible(false)
+                .reasonCode("BALANCE_DUE")
+                .build();
+        when(workshopAttendancePort.verifySource("TICK-OWING", 12345L, null, null))
+                .thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> applicationService.createReview(req, 12345L, "create-balance-due-01"))
+                .isInstanceOf(ReviewManagementException.class)
+                .hasMessageContaining("chưa thanh toán");
+        org.mockito.Mockito.verify(reviewRepository, org.mockito.Mockito.never())
+                .save(org.mockito.ArgumentMatchers.any(Review.class));
+    }
+
+    @Test
     @DisplayName("Owner edits review successfully and appends new revision with optimistic locking check")
     void editReview_Success() {
         String reviewId = "REV-UUID-01";

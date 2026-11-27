@@ -359,7 +359,7 @@ export default function MemberDesignHistoryPage() {
               marginBottom: '-2px',
             }}
           >
-            ✍️ Yêu cầu chế tác
+            ✍️ Yêu cầu thiết kế
           </button>
         </div>
 
@@ -496,9 +496,9 @@ export default function MemberDesignHistoryPage() {
                         style={{ whiteSpace: 'nowrap', flexShrink: 0, color: '#0284c7', borderColor: '#bae6fd' }}
                         onClick={() => navigate(`/design-requests/new?designReference=${encodeURIComponent(d.designId)}`)}
                         data-testid={`craft-request-btn-${d.designId}`}
-                        title={lang === 'en' ? 'Request custom crafting' : 'Gửi yêu cầu chế tác từ mẫu này'}
+                        title={lang === 'en' ? 'Request custom crafting' : 'Gửi yêu cầu thiết kế từ mẫu này'}
                       >
-                        {lang === 'en' ? 'Craft' : 'Yêu cầu chế tác'}
+                        {lang === 'en' ? 'Craft' : 'Yêu cầu thiết kế'}
                       </button>
                       {d.status === 'ARCHIVED' ? (
                         <button

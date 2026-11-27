@@ -127,6 +127,10 @@ public class ReviewApplicationService {
                             "Vé tham gia workshop không hợp lệ hoặc chưa điểm danh.");
                 }
                 EligibleSourceItem item = itemOpt.get();
+                if ("BALANCE_DUE".equals(item.getReasonCode())) {
+                    throw ReviewManagementException.unprocessable("REVIEW_SOURCE_NOT_ELIGIBLE",
+                            "Vé còn khoản chưa thanh toán. Bạn có thể đánh giá sau khi thanh toán đủ.");
+                }
                 if (request.getTargetType() != TargetType.WORKSHOP_SESSION
                         || !request.getTargetReference().equals(item.getTargetReference())) {
                     throw ReviewManagementException.unprocessable("REVIEW_TARGET_MISMATCH",

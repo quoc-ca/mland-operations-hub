@@ -211,7 +211,7 @@ describe('FE-10 Manager dashboard', () => {
     mockFetch({ ...routes(), 'GET /api/v1/executive-reports/top-sellers': json(401, { code: 'AUTHENTICATION_REQUIRED', message: 'no' }) });
     renderRoutes(managerDashboardRoutes, { path: '/manager/dashboard' });
 
-    expect(await screen.findByText('Đăng nhập bằng tài khoản Manager để xem dashboard.')).toBeInTheDocument();
+    expect(await screen.findByText('Đăng nhập bằng tài khoản Manager để xem trang tổng quan.')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Chỉ số chính' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Bán chạy nhất' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
