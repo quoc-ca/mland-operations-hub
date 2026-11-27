@@ -172,7 +172,7 @@ export default function StaffCustomOrdersPage() {
       <div className="wsp-topline" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
           <Link to="/home" style={{ color: '#0284c7', textDecoration: 'none' }}>Trang chủ</Link>
-          {' '}/ Quản lý đơn gia công tùy chỉnh (Custom Orders)
+          {' '}/ Đơn gia công
         </span>
         <span style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 500 }}>● Đã xác thực nội bộ</span>
       </div>
@@ -180,10 +180,10 @@ export default function StaffCustomOrdersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', margin: '0 0 0.25rem 0' }}>
-            Điều phối & Chế tác Đơn hàng Custom
+            Đơn gia công
           </h1>
           <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>
-            Theo dõi tiến độ, chuẩn bị chế tác tại xưởng và hoàn tất giao hàng cho các đơn custom đã thanh toán.
+            Theo dõi tiến độ, chuẩn bị chế tác tại xưởng và hoàn tất giao hàng cho các đơn gia công đã thanh toán.
           </p>
         </div>
         <button

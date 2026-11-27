@@ -55,7 +55,7 @@ export const messages = {
     'list.title': 'Khám phá các gói Workshop',
     'list.lead': 'Tự tay chế tác chiếc nhẫn mang đậm dấu ấn cá nhân cùng sự hướng dẫn tận tâm từ nghệ nhân MLAND.',
     'list.designPrompt': 'Bạn muốn tùy chọn dáng nhẫn, chất liệu hoặc tự tay thiết kế mẫu trước khi đến lớp?',
-    'list.designCta': 'Cấu hình mẫu nhẫn ngay →',
+    'list.designCta': 'Thiết kế mẫu nhẫn ngay →',
     'list.loading': 'Đang tải danh sách gói workshop...',
     'list.retry': 'Thử lại',
     'list.empty': 'Hiện chưa có gói workshop nào được mở bán.',

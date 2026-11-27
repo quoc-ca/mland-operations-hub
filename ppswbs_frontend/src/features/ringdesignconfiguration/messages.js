@@ -4,7 +4,7 @@ import { uiMessages } from './messages.ui';
 export const messages = {
   vi: {
     // Header & Meta
-    featureTitle: 'Cấu hình mẫu nhẫn Workshop',
+    featureTitle: 'Thiết kế nhẫn',
     featureSubtitle: 'Tự tay thiết kế và phối hợp các thông số chế tác độc bản cho buổi trải nghiệm workshop của bạn.',
     workshopOnlyNotice: 'Thiết kế nhẫn áp dụng cho buổi chế tác Workshop. Giá thẩm định chỉ mang tính chất tham khảo, không làm thay đổi giá gói workshop và tiền cọc đặt lịch.',
     advisoryBadge: 'Giá tham khảo',
@@ -141,7 +141,7 @@ export const messages = {
     loginPrompt: 'Hoặc đăng nhập để lưu trữ lịch sử thiết kế vĩnh viễn.',
 
     // Member History
-    memberHistoryTitle: 'Lịch sử thiết kế nhẫn của bạn',
+    memberHistoryTitle: 'Mẫu nhẫn đã lưu',
     memberHistorySubtitle: 'Xem lại các mẫu thiết kế đã tạo.',
     noDesignsYet: 'Bạn chưa có mẫu thiết kế nào.',
     createFirstDesign: 'Tạo mẫu nhẫn đầu tiên',
@@ -149,7 +149,7 @@ export const messages = {
     ...uiMessages.vi,
   },
   en: {
-    featureTitle: 'Workshop Ring Design Configuration',
+    featureTitle: 'Ring designer',
     featureSubtitle: 'Craft and personalize bespoke ring specifications for your upcoming workshop experience.',
     workshopOnlyNotice: 'Ring configuration applies exclusively to Workshop crafting. Advisory estimate does not alter the package price or the deposit.',
     advisoryBadge: 'Advisory Estimate',
@@ -277,7 +277,7 @@ export const messages = {
     startNewSession: 'Start New Design',
     loginPrompt: 'Or sign in to retain your design history permanently.',
 
-    memberHistoryTitle: 'Your Ring Design History',
+    memberHistoryTitle: 'Saved ring designs',
     memberHistorySubtitle: 'Review your personalized ring designs, version history and booking associations.',
     noDesignsYet: 'You have not configured any ring designs yet.',
     createFirstDesign: 'Create Your First Design',

@@ -81,6 +81,8 @@ and Manager Home is merged with the Manager Dashboard (010). Approved on the pro
 - Q: Which tabs are renamed? → A: `consultations` "Tư vấn"; `orders` "Đơn bán lẻ"; retail `reconciliation` "Đối soát thanh toán"; `sessions` "Điều phối ca" (Staff stays "Ca của tôi"); `locations` "Chi nhánh và lịch ca"; `availability` "Chi nhánh áp dụng gói"; `add-ons` "Dịch vụ thêm của gói"; `late-payments` "Thanh toán trễ"; `cases` "Hồ sơ quyết toán"; `delivery-logs` "Nhật ký gửi email"; `audit` "Lịch sử thao tác". Ids, routes, visibility and badges are unchanged.
 - Q: Which tab is current on `/operations/admin?tab=sessions`? → A: `locations`, like the other two sections of that page. This replaces the earlier rule that moved it to the `sessions` tab.
 
+- Q: Which other names change? → A: The Manager `home` group and `dashboard` tab read "Tổng quan" in Vietnamese; the catalogue header button reads "Nhập từ Excel" (English "Excel import"); the carrier group and tab read "Vận đơn"; the English name of the collections `reconciliation` tab is "Collection reconciliation". The same day, menu entries, home cards and page headings outside the shell were aligned with the tab names.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Find a page through the rail and tabs (Priority: P1)
@@ -148,11 +150,11 @@ A user collapses the rail to icons only to gain room, and the choice is remember
 ### Functional Requirements
 
 - **FR-001** *(access)*: The rail shows a group to a role by the same rules the old sidebar used (Manager only, Manager and Staff, everyone but Admin). The server decides every permission; hiding a menu entry is not the control. Staff, Admin, Member and signed-out visitors see no Manager figure.
-- **FR-002** *(rail and tabs)*: The rail has the 9 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
+- **FR-002** *(rail and tabs)*: The rail has the 9 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Nhập từ Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
 
   | Group (id) | Tabs (id) |
   | --- | --- |
-  | Dashboard (`home`) | Manager "Dashboard"; Staff "Trang chủ" `/staff/home` |
+  | Tổng quan (`home`) | Manager "Tổng quan"; Staff "Trang chủ" `/staff/home` |
   | Sản phẩm (`products`) | Danh sách sản phẩm `list`, Danh mục `categories` |
   | Ưu đãi (`promotions`) | Chương trình ưu đãi `programs`, Chính sách điểm `point-policy` |
   | Khách hàng (`customers`) | Duyệt thiết kế `design-review`, Đơn gia công `custom-orders-ops`, Tư vấn `consultations`, Đánh giá `reviews` |

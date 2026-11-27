@@ -188,7 +188,7 @@ export default function MainTopbar() {
                 to="/products"
                 className={`main-topbar-link ${location.pathname.startsWith('/products') ? 'active' : ''}`}
               >
-                Ready Rings
+                {t('nav.readyRings')}
               </Link>
               {isCustomerView && (
                 <Link

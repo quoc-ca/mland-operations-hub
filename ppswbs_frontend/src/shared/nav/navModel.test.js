@@ -102,7 +102,7 @@ describe('navigation model', () => {
     expect(pageActions(created, '/catalogue-management/products/new')).toEqual([]);
 
     const list = locate('/catalogue-management/products');
-    expect(pageActions(list, '/catalogue-management/products').map(action => action.vi)).toEqual(['Import Excel', 'Thêm sản phẩm']);
+    expect(pageActions(list, '/catalogue-management/products').map(action => action.vi)).toEqual(['Nhập từ Excel', 'Thêm sản phẩm']);
     expect(pageActions(locate('/promotion-management/programs'), '/promotion-management/programs').map(action => action.vi)).toEqual(['Tạo chương trình']);
     expect(pageActions(locate('/operations/admin'), '/operations/admin').map(action => action.vi)).toEqual(['Thêm khung giờ']);
   });

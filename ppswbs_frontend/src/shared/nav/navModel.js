@@ -17,9 +17,9 @@ const admin = role => role === 'ADMIN';
  */
 export const GROUPS = [
   {
-    id: 'home', icon: 'dash', vi: 'Dashboard', en: 'Dashboard',
+    id: 'home', icon: 'dash', vi: 'Tổng quan', en: 'Dashboard',
     tabs: [
-      { id: 'dashboard', vi: 'Dashboard', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
+      { id: 'dashboard', vi: 'Tổng quan', en: 'Dashboard', to: '/manager/dashboard', match: ['/manager/dashboard', '/manager/home'], visible: manager },
       { id: 'staff-home', vi: 'Trang chủ', en: 'Home', to: '/staff/home', match: ['/staff/home'], visible: role => role === 'STAFF' },
       { id: 'home', vi: 'Trang chủ', en: 'Home', to: '/home', match: ['/home'], visible: role => !staffOrManager(role) && !carrier(role) && !admin(role) },
       // ADMIN lands on account management (no Mland operations pages for Admin, spec 003.2 FR-012c).
@@ -37,7 +37,7 @@ export const GROUPS = [
         id: 'list', vi: 'Danh sách sản phẩm', en: 'Product catalogue', to: '/catalogue-management/products', visible: staffOrManager,
         match: ['/catalogue-management/products', '/catalogue-management/products/*', '/catalogue-management/imports*'],
         actions: [
-          { id: 'import', vi: 'Import Excel', en: 'Bulk import', to: '/catalogue-management/imports' },
+          { id: 'import', vi: 'Nhập từ Excel', en: 'Excel import', to: '/catalogue-management/imports' },
           { id: 'new', vi: 'Thêm sản phẩm', en: 'New product', to: '/catalogue-management/products/new', primary: true },
         ],
       },
@@ -95,7 +95,7 @@ export const GROUPS = [
       { id: 'folio', vi: 'Hóa đơn vé', en: 'Ticket bill', to: '/settlement', match: ['/settlement'], visible: staffOrManager },
       { id: 'cash-close', vi: 'Chốt sổ tiền mặt', en: 'Cash close', to: '/settlement/cash-close?view=confirmation', match: ['/settlement/cash-close*'], visible: staffOrManager },
       { id: 'late-payments', vi: 'Thanh toán trễ', en: 'Late payments', to: '/operations/late-payments', match: ['/operations/late-payments*'], visible: manager },
-      { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Reconciliation list', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
+      { id: 'reconciliation', vi: 'Đối soát thu tiền', en: 'Collection reconciliation', to: '/settlement/reconciliation', match: ['/settlement/reconciliation*'], visible: manager },
       { id: 'absorbed', vi: 'Khoản thiếu Mland chịu', en: 'Absorbed undercharges', to: '/settlement/absorbed-undercharges', match: ['/settlement/absorbed-undercharges*'], visible: manager },
     ],
   },
@@ -120,8 +120,8 @@ export const GROUPS = [
   },
   // GHTK partner portal (CARRIER only, Session 2026-11-23): home is the "home" group's carrier tab.
   {
-    id: 'carrier-orders', icon: 'truck', vi: 'Đơn hàng', en: 'Shipments',
-    tabs: [{ id: 'orders', vi: 'Đơn hàng', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
+    id: 'carrier-orders', icon: 'truck', vi: 'Vận đơn', en: 'Shipments',
+    tabs: [{ id: 'orders', vi: 'Vận đơn', en: 'Shipments', to: '/carrier/orders', match: ['/carrier/orders*'], visible: carrier }],
   },
   {
     id: 'carrier-stats', icon: 'dash', vi: 'Thống kê', en: 'Statistics',

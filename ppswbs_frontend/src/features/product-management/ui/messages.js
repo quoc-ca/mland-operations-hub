@@ -3,8 +3,8 @@ const vi = {
   retry: 'Thử lại', cancel: 'Hủy', save: 'Lưu', saving: 'Đang lưu…', edit: 'Sửa', yes: 'Có', no: 'Không',
   size: 'Size {size}',
 
-  'nav.label': 'Quản trị sản phẩm', 'nav.group': 'STAFF / MANAGER', 'nav.section': 'QUẢN LÝ SẢN PHẨM', 'nav.products': 'Danh sách sản phẩm',
-  'nav.newProduct': 'Thêm sản phẩm', 'nav.categories': 'Danh mục', 'nav.import': 'Import Excel',
+  'nav.label': 'Quản trị sản phẩm', 'nav.group': 'SẢN PHẨM', 'nav.section': 'QUẢN LÝ SẢN PHẨM', 'nav.products': 'Danh sách sản phẩm',
+  'nav.newProduct': 'Thêm sản phẩm', 'nav.categories': 'Danh mục', 'nav.import': 'Nhập từ Excel',
   'nav.productDetail': 'Chi tiết sản phẩm', 'nav.breadcrumb': 'Vị trí hiện tại',
 
   'public.eyebrow': 'SẢN PHẨM', 'public.title': 'Khám phá bộ sưu tập', 'public.search': 'Tìm kiếm',
@@ -20,7 +20,7 @@ const vi = {
   'sameName.tag': 'Trùng tên với', 'sameName.importSummary': '{count} sản phẩm trong file trùng tên với sản phẩm đã có. Xem lại trước khi xác nhận import (vẫn import được).',
   'quickAdd.open': 'Thêm {name} vào giỏ hàng', 'quickAdd.title': 'Thêm vào giỏ: {name}', 'quickAdd.close': 'Đóng',
   'quickAdd.added': 'Đã thêm "{name}" vào giỏ hàng.', 'quickAdd.viewCart': 'Xem giỏ hàng',
-  'strip.all': 'Xem tất cả nhẫn →', 'strip.previous': 'Sản phẩm trước', 'strip.next': 'Sản phẩm tiếp theo', 'strip.label': 'Nhẫn Ready Rings',
+  'strip.all': 'Xem tất cả nhẫn →', 'strip.previous': 'Sản phẩm trước', 'strip.next': 'Sản phẩm tiếp theo', 'strip.label': 'Nhẫn có sẵn',
   'public.sizeDisabled': 'Ngừng bán', 'public.sizes': 'Các size', 'public.images': 'Ảnh sản phẩm', 'public.previousImage': 'Ảnh trước', 'public.nextImage': 'Ảnh sau', 'public.imageCount': '{index} / {total}',
   'public.notFound': 'Sản phẩm không tồn tại hoặc không còn được công khai', 'public.loadFailed': 'Không tải được sản phẩm',
   'public.backToList': 'Về danh sách sản phẩm',
@@ -312,7 +312,7 @@ const en = {
   retry: 'Try again', cancel: 'Cancel', save: 'Save', saving: 'Saving…', edit: 'Edit', yes: 'Yes', no: 'No',
   size: 'Size {size}',
 
-  'nav.label': 'Catalogue management', 'nav.group': 'STAFF / MANAGER', 'nav.section': 'PRODUCT MANAGEMENT', 'nav.products': 'Products',
+  'nav.label': 'Catalogue management', 'nav.group': 'PRODUCTS', 'nav.section': 'PRODUCT MANAGEMENT', 'nav.products': 'Products',
   'nav.newProduct': 'New product', 'nav.categories': 'Categories', 'nav.import': 'Excel import',
   'nav.productDetail': 'Product detail', 'nav.breadcrumb': 'You are here',
 

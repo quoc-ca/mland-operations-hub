@@ -58,7 +58,7 @@ describe('Staff home i18n', () => {
     const main = within(screen.getByRole('main'));
     expect(await main.findByRole('link', { name: /attendance not finalized/ })).toBeInTheDocument();
     expect(await main.findByText('1 orders to handle')).toBeInTheDocument();
-    expect(main.getByRole('link', { name: 'Final bills' })).toHaveAttribute('href', '/settlement');
+    expect(main.getByRole('link', { name: 'Ticket bill' })).toHaveAttribute('href', '/settlement');
     expect(main.getByRole('tablist', { name: 'Your work' })).toBeInTheDocument();
   });
 });

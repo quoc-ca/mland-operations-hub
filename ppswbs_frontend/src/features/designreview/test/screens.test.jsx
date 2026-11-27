@@ -349,7 +349,7 @@ describe('F04-ANALYSIS-STATUS & F04-RESULT Screen (/design-requests/:id)', () =>
 
     open('/design-requests/req-123', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Chi tiết Yêu cầu Thiết kế')).toBeInTheDocument();
+    expect(await screen.findByText('Chi tiết yêu cầu thiết kế')).toBeInTheDocument();
     expect(screen.getByText('Mã tham chiếu: DR-REF-123')).toBeInTheDocument();
     expect(screen.getByText('Đã chấp nhận thiết kế')).toBeInTheDocument();
     expect(screen.getByText('Nhẫn bạc đính đá topaz')).toBeInTheDocument();

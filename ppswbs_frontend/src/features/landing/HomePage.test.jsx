@@ -60,9 +60,9 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
     expect(screen.getByRole('link', { name: 'MLAND' })).toHaveAttribute('href', '/');
     expect(within(nav).getByRole('link', { name: 'Workshop' })).toHaveAttribute('href', '/workshops');
-    expect(within(nav).getByRole('link', { name: 'Cấu hình nhẫn' })).toHaveAttribute('href', '/workshops/PKG-COUPLE-SILVER/design');
-    expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toHaveAttribute('href', '/products');
-    expect(within(nav).getByRole('link', { name: 'Yêu cầu chế tác' })).toHaveAttribute('href', '/design-requests/new');
+    expect(within(nav).getByRole('link', { name: 'Thiết kế nhẫn' })).toHaveAttribute('href', '/workshops/PKG-COUPLE-SILVER/design');
+    expect(within(nav).getByRole('link', { name: 'Nhẫn có sẵn' })).toHaveAttribute('href', '/products');
+    expect(within(nav).getByRole('link', { name: 'Yêu cầu thiết kế' })).toHaveAttribute('href', '/design-requests/new');
     expect(within(nav).getByRole('link', { name: 'Tra cứu' })).toHaveAttribute('href', '/workshop-booking/lookup');
     expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
     expect(screen.getByTestId('floating-ai-chat-btn')).toHaveAttribute('href', '/ai-support');
@@ -127,8 +127,8 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
     expect(within(menu).getByRole('menuitem', { name: /Hồ sơ cá nhân/i })).toHaveAttribute('href', '/profile');
     expect(within(menu).getByRole('menuitem', { name: /Đơn hàng của tôi/i })).toHaveAttribute('href', '/member/orders');
-    expect(within(menu).getByRole('menuitem', { name: /Điểm thưởng tích lũy/i })).toHaveAttribute('href', '/me/loyalty');
-    expect(within(menu).getByRole('menuitem', { name: /Tra cứu vé & Booking/i })).toHaveAttribute(
+    expect(within(menu).getByRole('menuitem', { name: /Điểm của tôi/i })).toHaveAttribute('href', '/me/loyalty');
+    expect(within(menu).getByRole('menuitem', { name: /Tra cứu vé và đặt chỗ/i })).toHaveAttribute(
       'href',
       '/workshop-booking/lookup',
     );
@@ -258,7 +258,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(screen.getByText('Còn hàng')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Thêm Nhẫn Bạc Kim Cương Nhân Tạo vào giỏ hàng' })).toBeEnabled();
     // Shown as a sideways strip with arrows and a link to the whole catalogue.
-    expect(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Nhẫn có sẵn' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sản phẩm tiếp theo' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xem tất cả nhẫn →' })).toHaveAttribute('href', '/products');
   });
@@ -270,20 +270,20 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     vi.spyOn(catalogueApi, 'listPublicProducts').mockResolvedValue({ items });
     renderHomePage();
     await waitFor(() => expect(screen.getByText('Nhẫn số 6')).toBeInTheDocument());
-    expect(within(screen.getByRole('list', { name: 'Nhẫn Ready Rings' })).getAllByRole('listitem')).toHaveLength(7);
+    expect(within(screen.getByRole('list', { name: 'Nhẫn có sẵn' })).getAllByRole('listitem')).toHaveLength(7);
   });
 
   it('renders Ecosystem Hub with 6 services and no internal portal for a Guest', () => {
     renderHomePage();
     expect(screen.getByText('🔨 Đặt lịch Workshop')).toBeInTheDocument();
-    expect(screen.getByText('💍 Mua nhẫn Ready Rings')).toBeInTheDocument();
-    expect(screen.getByText('🎨 Chế tác theo yêu cầu')).toBeInTheDocument();
-    expect(screen.getByText('🤖 Trợ lý AI tư vấn')).toBeInTheDocument();
-    expect(screen.getByText('🎫 Tra cứu vé & Booking')).toBeInTheDocument();
+    expect(screen.getByText('💍 Mua nhẫn có sẵn')).toBeInTheDocument();
+    expect(screen.getByText('🎨 Yêu cầu thiết kế')).toBeInTheDocument();
+    expect(screen.getByText('🤖 Trợ lý AI')).toBeInTheDocument();
+    expect(screen.getByText('🎫 Tra cứu vé và đặt chỗ')).toBeInTheDocument();
     expect(screen.getByText('🚚 Tra cứu đơn hàng')).toBeInTheDocument();
 
     expect(screen.queryByRole('region', { name: /Cổng/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /Admin Tài khoản/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Tài khoản/i })).toBeNull();
   });
 
   it.each([
@@ -365,18 +365,18 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
       expect(targets).not.toContain(path);
     }
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
-    expect(within(nav).queryByRole('link', { name: 'Cấu hình nhẫn' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Thiết kế nhẫn' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Custom' })).not.toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('floating-ai-chat-btn')).not.toBeInTheDocument();
     if (role !== 'CARRIER') {
       expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
-      expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: 'Nhẫn có sẵn' })).toBeInTheDocument();
     } else {
       expect(screen.getByRole('banner').querySelector('.main-topbar-brand')).toHaveAttribute('href', '/carrier');
     }
 
-    expect(screen.queryByText('🎨 Chế tác theo yêu cầu')).not.toBeInTheDocument();
-    expect(screen.queryByText('🤖 Trợ lý AI tư vấn')).not.toBeInTheDocument();
+    expect(screen.queryByText('🎨 Yêu cầu thiết kế')).not.toBeInTheDocument();
+    expect(screen.queryByText('🤖 Trợ lý AI')).not.toBeInTheDocument();
   });
 });

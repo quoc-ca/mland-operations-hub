@@ -15,7 +15,7 @@ export const carrierMessages = {
     'carrier.systemRole': 'Vai trò hệ thống:',
     'carrier.branchScope': 'Phạm vi cơ sở:',
     'carrier.nationwide': 'Toàn quốc (Không giới hạn theo cơ sở đơn lẻ)',
-    'carrier.shipmentsTitle': '🚚 Đơn vận chuyển cần giao',
+    'carrier.shipmentsTitle': '🚚 Vận đơn cần giao',
     'carrier.shipmentsBody': 'Tiếp nhận các đơn hàng trang sức bán lẻ đã chuẩn bị sẵn sàng và bàn giao cho GHTK vận chuyển đến khách hàng.',
     'carrier.todayNew': 'Hôm nay có {count} vận đơn mới',
     'carrier.todayDetail': '{waiting} đơn chờ lấy hàng · {delivering} đơn đang giao',
