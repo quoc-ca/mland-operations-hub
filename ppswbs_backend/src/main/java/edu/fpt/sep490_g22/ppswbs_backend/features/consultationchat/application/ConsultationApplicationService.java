@@ -16,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.util.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +34,13 @@ public class ConsultationApplicationService {
     private final WorkshopLocationPort locationPort;
     private final AccountActorPort accountActorPort;
     private final ObjectMapper objectMapper;
+    private final ConsultationSseService sseService;
+
+    public SseEmitter createSseEmitter(String conversationReference, AccountActorPort.CallerActor caller) {
+        validateCallerNotAdmin(caller);
+        ConsultationConversation conv = findAndAuthorizeConversation(conversationReference, caller);
+        return sseService.createEmitter(conv.getConversationReference(), caller.accountId());
+    }
 
     @Transactional
     public ConversationDto createConversation(
@@ -197,6 +205,7 @@ public class ConsultationApplicationService {
                 .contextSnapshot(basic.getContextSnapshot())
                 .assignedLocationReference(basic.getAssignedLocationReference())
                 .claimantRole(basic.getClaimantRole())
+                .claimantUserId(basic.getClaimantUserId())
                 .status(basic.getStatus())
                 .aggregateVersion(basic.getAggregateVersion())
                 .unreadCount(basic.getUnreadCount())
@@ -219,6 +228,12 @@ public class ConsultationApplicationService {
 
         if (conv.getStatus() == ConsultationStatus.CLOSED) {
             throw ConsultationException.conflict("CHAT_CONVERSATION_CLOSED", "Cuộc trò chuyện đã đóng, không thể gửi tin nhắn mới.");
+        }
+
+        if ("STAFF".equals(caller.role())) {
+            if (conv.getClaimedByUserId() == null || !conv.getClaimedByUserId().equals(caller.accountId())) {
+                throw ConsultationException.forbidden("CHAT_NOT_CLAIMED_BY_YOU", "Chỉ nhân viên đã tiếp nhận cuộc trò chuyện mới có thể gửi tin nhắn.");
+            }
         }
 
         if ("MEMBER".equals(caller.role())) {
@@ -266,6 +281,7 @@ public class ConsultationApplicationService {
 
         MessageDto result = mapToMessageDto(saved);
         idempotencyService.record(idempotencyKey, "SEND_MESSAGE", actorScope, req, result);
+        sseService.broadcastMessage(conv.getConversationReference(), result);
         return result;
     }
 
@@ -313,7 +329,9 @@ public class ConsultationApplicationService {
                 saved.getContextType() != null ? saved.getContextType().name() : null, null, null, correlationId
         );
 
-        return mapToConversationDto(saved, caller);
+        ConversationDto result = mapToConversationDto(saved, caller);
+        sseService.broadcastConversation(saved.getConversationReference(), result);
+        return result;
     }
 
     @Transactional
@@ -356,7 +374,9 @@ public class ConsultationApplicationService {
                 saved.getContextType() != null ? saved.getContextType().name() : null, null, null, correlationId
         );
 
-        return mapToConversationDto(saved, caller);
+        ConversationDto result = mapToConversationDto(saved, caller);
+        sseService.broadcastConversation(saved.getConversationReference(), result);
+        return result;
     }
 
     @Transactional
@@ -405,7 +425,9 @@ public class ConsultationApplicationService {
                 saved.getContextType() != null ? saved.getContextType().name() : null, null, loc.code(), correlationId
         );
 
-        return mapToConversationDto(saved, caller);
+        ConversationDto result = mapToConversationDto(saved, caller);
+        sseService.broadcastConversation(saved.getConversationReference(), result);
+        return result;
     }
 
     @Transactional
@@ -432,7 +454,9 @@ public class ConsultationApplicationService {
                 saved.getContextType() != null ? saved.getContextType().name() : null, null, null, correlationId
         );
 
-        return mapToConversationDto(saved, caller);
+        ConversationDto result = mapToConversationDto(saved, caller);
+        sseService.broadcastConversation(saved.getConversationReference(), result);
+        return result;
     }
 
     @Transactional
@@ -491,7 +515,9 @@ public class ConsultationApplicationService {
                 saved.getContextType() != null ? saved.getContextType().name() : null, null, null, correlationId
         );
 
-        return mapToConversationDto(saved, caller);
+        ConversationDto result = mapToConversationDto(saved, caller);
+        sseService.broadcastConversation(saved.getConversationReference(), result);
+        return result;
     }
 
     @Transactional
@@ -660,6 +686,7 @@ public class ConsultationApplicationService {
                 .contextSnapshot(snapshot)
                 .assignedLocationReference(locationRef)
                 .claimantRole(claimantRole)
+                .claimantUserId(c.getClaimedByUserId())
                 .status(c.getStatus())
                 .aggregateVersion(c.getAggregateVersion())
                 .unreadCount(unreadCount)

@@ -19,6 +19,7 @@ public class ConversationDetailDto {
     private ContextOptionDto contextSnapshot;
     private String assignedLocationReference;
     private ConsultationSenderRole claimantRole;
+    private Long claimantUserId;
     private ConsultationStatus status;
     private Long aggregateVersion;
     private Integer unreadCount;

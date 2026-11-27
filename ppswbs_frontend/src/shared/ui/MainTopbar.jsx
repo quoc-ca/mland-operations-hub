@@ -190,14 +190,6 @@ export default function MainTopbar() {
               >
                 Ready Rings
               </Link>
-              {isCustomerView && (
-                <Link
-                  to="/design-requests/new"
-                  className={`main-topbar-link ${location.pathname.startsWith('/design-requests') ? 'active' : ''}`}
-                >
-                  {t('nav.designRequest')}
-                </Link>
-              )}
               <Link
                 to="/promotions"
                 className={`main-topbar-link ${location.pathname.startsWith('/promotions') ? 'active' : ''}`}

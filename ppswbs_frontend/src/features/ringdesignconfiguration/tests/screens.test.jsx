@@ -18,6 +18,10 @@ const testRoutes = [
     path: '/workshops/booking',
     element: <div data-testid="mock-booking-page">Mock Booking Page</div>,
   },
+  {
+    path: '/design-requests/new',
+    element: <div data-testid="mock-design-requests-page">Mock Design Requests Page</div>,
+  },
 ];
 
 const open = (path, options) => renderRoutes(testRoutes, { path, ...options });
@@ -403,6 +407,24 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
       await user.click(proceedBtn);
 
       expect(router.state.location.pathname).toBe('/workshops');
+    });
+
+    it('navigates to custom design request workspace with designReference when clicking request custom order', async () => {
+      const user = userEvent.setup();
+      mockFetch({
+        'GET /api/v1/workshop-designs/DSG-EVAL-789': json(200, mockDesignData),
+      });
+
+      const { router } = open('/workshops/PKG-COUPLE-01/design/DSG-EVAL-789', {
+        session: fakeSession('signed-in'),
+      });
+
+      const requestCustomBtn = await screen.findByTestId('request-custom-order-btn');
+      expect(requestCustomBtn).toHaveTextContent(/Yêu cầu chế tác theo mẫu này/);
+      await user.click(requestCustomBtn);
+
+      expect(router.state.location.pathname).toBe('/design-requests/new');
+      expect(router.state.location.search).toBe('?designReference=DSG-EVAL-789');
     });
 
     it('archives design when user confirms archive action', async () => {

@@ -42,6 +42,8 @@ class ConsultationApplicationServiceTest {
     private WorkshopLocationPort locationPort;
     @Mock
     private AccountActorPort accountActorPort;
+    @Mock
+    private ConsultationSseService sseService;
 
     private ConsultationRateLimiter rateLimiter;
     private ObjectMapper objectMapper;
@@ -62,7 +64,8 @@ class ConsultationApplicationServiceTest {
                 contextService,
                 locationPort,
                 accountActorPort,
-                objectMapper
+                objectMapper,
+                sseService
         );
     }
 
@@ -317,5 +320,115 @@ class ConsultationApplicationServiceTest {
                 "c-closed"
         )).isInstanceOf(ConsultationException.class)
                 .satisfies(ex -> assertThat(((ConsultationException) ex).getCode()).isEqualTo("CHAT_CONVERSATION_CLOSED"));
+    }
+
+    @Test
+    @DisplayName("T013-046: Staff cannot send message if conversation is unclaimed or claimed by another staff")
+    void staffCannotSendMessageWithoutClaiming() {
+        var staff1 = new AccountActorPort.CallerActor(20L, "STAFF", "ACTIVE", List.of(1001L));
+        var unclaimedConv = ConsultationConversation.builder()
+                .id(1L)
+                .conversationReference("CONV-UNCLAIMED")
+                .memberUserId(10L)
+                .assignedLocationId(1001L)
+                .claimedByUserId(null)
+                .status(ConsultationStatus.OPEN)
+                .aggregateVersion(1L)
+                .build();
+
+        when(conversationRepository.findByConversationReference("CONV-UNCLAIMED")).thenReturn(Optional.of(unclaimedConv));
+
+        // Unclaimed -> 403 CHAT_NOT_CLAIMED_BY_YOU
+        assertThatThrownBy(() -> service.sendMessage(
+                "CONV-UNCLAIMED",
+                SendMessageRequestDto.builder().message("Nhân viên tư vấn").build(),
+                staff1,
+                "k-unclaimed",
+                "c-unclaimed"
+        )).isInstanceOf(ConsultationException.class)
+                .satisfies(ex -> {
+                    ConsultationException ce = (ConsultationException) ex;
+                    assertThat(ce.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ce.getCode()).isEqualTo("CHAT_NOT_CLAIMED_BY_YOU");
+                });
+
+        // Claimed by staff 2 (30L) -> staff 1 (20L) gets 403 CHAT_NOT_CLAIMED_BY_YOU
+        unclaimedConv.setClaimedByUserId(30L);
+        assertThatThrownBy(() -> service.sendMessage(
+                "CONV-UNCLAIMED",
+                SendMessageRequestDto.builder().message("Nhân viên tư vấn khác cố gửi").build(),
+                staff1,
+                "k-other",
+                "c-other"
+        )).isInstanceOf(ConsultationException.class)
+                .satisfies(ex -> {
+                    ConsultationException ce = (ConsultationException) ex;
+                    assertThat(ce.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(ce.getCode()).isEqualTo("CHAT_NOT_CLAIMED_BY_YOU");
+                });
+    }
+
+    @Test
+    @DisplayName("T013-047: Staff who claimed conversation can send message and triggers SSE broadcast")
+    void staffCanSendMessageWhenClaimedBySelf() {
+        var staff1 = new AccountActorPort.CallerActor(20L, "STAFF", "ACTIVE", List.of(1001L));
+        var claimedConv = ConsultationConversation.builder()
+                .id(1L)
+                .conversationReference("CONV-CLAIMED")
+                .memberUserId(10L)
+                .assignedLocationId(1001L)
+                .claimedByUserId(20L)
+                .status(ConsultationStatus.OPEN)
+                .aggregateVersion(2L)
+                .build();
+
+        when(conversationRepository.findByConversationReference("CONV-CLAIMED")).thenReturn(Optional.of(claimedConv));
+        when(idempotencyService.checkReplay(any(), any(), any(), any())).thenReturn(Optional.empty());
+        when(messageRepository.save(any(ConsultationMessage.class))).thenAnswer(inv -> {
+            ConsultationMessage m = inv.getArgument(0);
+            m.setId(100L);
+            m.setCreatedAt(Instant.now());
+            return m;
+        });
+        when(readStateRepository.findByConversationAndUserId(any(), any())).thenReturn(Optional.empty());
+
+        MessageDto msgDto = service.sendMessage(
+                "CONV-CLAIMED",
+                SendMessageRequestDto.builder().message("Chào bạn, mình hỗ trợ nhé").build(),
+                staff1,
+                "k-claim-send",
+                "c-claim-send"
+        );
+
+        assertThat(msgDto).isNotNull();
+        assertThat(msgDto.getText()).isEqualTo("Chào bạn, mình hỗ trợ nhé");
+        assertThat(msgDto.getSenderRole()).isEqualTo(ConsultationSenderRole.STAFF);
+        verify(sseService).broadcastMessage(eq("CONV-CLAIMED"), any(MessageDto.class));
+    }
+
+    @Test
+    @DisplayName("T013-048: Manager can release claim held by another staff and triggers SSE broadcast")
+    void managerCanReleaseAnyClaim() {
+        var manager = new AccountActorPort.CallerActor(50L, "MANAGER", "ACTIVE", List.of());
+        var conv = ConsultationConversation.builder()
+                .id(1L)
+                .conversationReference("CONV-RELEASE-TEST")
+                .memberUserId(10L)
+                .assignedLocationId(1001L)
+                .claimedByUserId(20L) // Claimed by staff 20L
+                .status(ConsultationStatus.OPEN)
+                .aggregateVersion(3L)
+                .build();
+
+        when(conversationRepository.findByConversationReference("CONV-RELEASE-TEST")).thenReturn(Optional.of(conv));
+        when(conversationRepository.save(any(ConsultationConversation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ConversationDto released = service.release("CONV-RELEASE-TEST", 3L, manager, "k-rel-mgr", "c-rel-mgr");
+
+        assertThat(released).isNotNull();
+        assertThat(released.getAggregateVersion()).isEqualTo(4L);
+        assertThat(released.getClaimantUserId()).isNull();
+        assertThat(conv.getClaimedByUserId()).isNull();
+        verify(sseService).broadcastConversation(eq("CONV-RELEASE-TEST"), any(ConversationDto.class));
     }
 }

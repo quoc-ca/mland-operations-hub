@@ -168,9 +168,10 @@ export default function DesignEvaluationPage() {
     navigate('/workshops');
   };
 
-  const handleConsultation = () => {
+  const handleCustomDesignRequest = () => {
     if (!design) return;
-    navigate(`/member/consultations?designReference=${encodeURIComponent(design.designId)}&designVersion=${encodeURIComponent(design.designVersion || 1)}`);
+    const ref = design.designId || designId;
+    navigate(`/design-requests/new?designReference=${encodeURIComponent(ref)}`);
   };
 
   if (!isAuthenticated && status !== 'loading') {
@@ -564,10 +565,10 @@ export default function DesignEvaluationPage() {
               <button
                 type="button"
                 className="ring-btn-secondary"
-                onClick={handleConsultation}
-                data-testid="consult-design-btn"
+                onClick={handleCustomDesignRequest}
+                data-testid="request-custom-order-btn"
               >
-                {lang === 'en' ? 'Design Consultation' : 'Tư vấn thiết kế'}
+                {lang === 'en' ? 'Request Custom Manufacturing' : 'Yêu cầu chế tác theo mẫu này'}
               </button>
             )}
 

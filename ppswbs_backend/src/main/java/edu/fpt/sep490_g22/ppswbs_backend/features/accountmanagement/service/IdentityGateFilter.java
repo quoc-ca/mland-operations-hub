@@ -215,10 +215,17 @@ public class IdentityGateFilter extends OncePerRequestFilter {
         response.setHeader("X-Correlation-Id", correlationId);
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7).trim();
+        } else if (request.getParameter("token") != null && !request.getParameter("token").isBlank()) {
+            token = request.getParameter("token").trim();
+        }
+
         boolean isAiSupportMessage = "POST".equalsIgnoreCase(request.getMethod())
                 && "/api/v1/ai-support/messages".equals(request.getRequestURI());
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (token == null || token.isEmpty()) {
             if (isAiSupportMessage && authHeader == null) {
                 // Anonymous Guest access allowed for Basic AI Support
                 filterChain.doFilter(request, response);
@@ -226,13 +233,6 @@ public class IdentityGateFilter extends OncePerRequestFilter {
             }
             writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN",
                     "Bearer authentication token is required", correlationId);
-            return;
-        }
-
-        String token = authHeader.substring(7).trim();
-        if (token.isEmpty()) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "MISSING_BEARER_TOKEN",
-                    "Bearer authentication token is empty", correlationId);
             return;
         }
 
