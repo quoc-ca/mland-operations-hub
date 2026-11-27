@@ -642,8 +642,11 @@ paths:
   /workshop-sessions/{sessionId}/attendance-corrections:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
-      summary: Manager-only post-finalisation attendance correction
+      summary: Post-finalisation attendance correction (Manager, or Staff assigned to the session)
       description: >-
+        Allowed until 24 hours after the latest finalization among the ticket's sessions (spec FR-002b,
+        FR-008, FR-032; Staff added 2026-11-27); afterwards 409 INVALID_STATE. Changing to NO_SHOW is also 409
+        INVALID_STATE while the ticket folio is finalized (FR-062).
         No Idempotency-Key (spec FR-010kh, CHK015, T140). A correction that sets the value the ticket already
         has returns 200 with the unchanged ticket and writes no second audit event.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceCorrectionRequest' } } } }
@@ -657,8 +660,11 @@ paths:
   /workshop-sessions/{sessionId}/check-in-reversals:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     post:
-      summary: Manager-only reversal of an erroneous check-in before attendance finalization
+      summary: Reversal of an erroneous check-in before attendance finalization (Manager, or Staff assigned to the session)
       description: >-
+        Staff (added 2026-11-27) may reverse only while the session is IN_PROGRESS, otherwise 409
+        INVALID_STATE; a Manager in any state before finalization (spec FR-002b). 409 INVALID_STATE for anyone
+        while the ticket folio is finalized (FR-062).
         No Idempotency-Key (spec FR-010kh, CHK015, T140). A repeat after success finds the ticket no longer
         checked in and is refused 409 INVALID_STATE; the original scan is never deleted.
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckInReversalRequest' } } } }
@@ -967,6 +973,13 @@ components:
         ticketSequence: { type: integer }
         attendanceState: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, NO_SHOW] }
         checkedInAt: { type: string, format: date-time, nullable: true }
+        correctionClosesAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Finalized session only: the instant the ticket's attendance correction window closes (spec
+            FR-060); null otherwise, or while another session of the ticket is not finalized.
     BulkSessionRequest:
       type: object
       required: [locationId, slotIds, from, to, weekdays, capacity]

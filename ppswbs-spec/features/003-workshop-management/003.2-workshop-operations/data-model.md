@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -304,6 +304,13 @@ unchecked, checked in, or converted to no-show in each entitled session. There
 is one ticket per participant, not one ticket per booking or per session.
 
 ### AttendanceAction and OperationsAuditEvent
+
+*(2026-11-27, FR-059, migration `V207__attendance_action_system_actor.sql`)*
+`attendance_actions.actor_id` is nullable: null means the system (automatic
+finalization, `channel` = `SYSTEM_AUTO_FINALIZE`, `reason_code` =
+`SESSION_AUTO_FINALIZED_NO_SHOW`). Every action by a person keeps its account id.
+Since the same date the Manager correction and reversal below may also be made by
+an assigned Staff member (FR-002b, FR-008).
 
 Attendance actions record check-in, override, finalisation consequence or
 Manager correction with ticket/session, actor, time, channel, reason code and

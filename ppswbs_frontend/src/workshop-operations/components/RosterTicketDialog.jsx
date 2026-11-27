@@ -5,23 +5,35 @@ import { sharedMessages } from '../../shared/ui/messages';
 import { messages } from '../messages';
 
 const OPEN_STATES = ['PUBLISHED', 'SALES_PAUSED', 'IN_PROGRESS'];
-// Which reasons the server accepts only with a note, and with a note and an evidence reference (003.2 FR-007a).
-const NEEDS_NOTE = ['RECORDING_ERROR', 'OTHER_REQUIRES_NOTE', 'TICKET_REDELIVERY_UNAVAILABLE'];
-const NEEDS_EVIDENCE = ['TICKET_REDELIVERY_UNAVAILABLE'];
 
-/** What the Manager may change from the roster row, by session state and attendance (003.2 FR-007a, FR-008). */
-function managerAction(state, attendance) {
-  if (OPEN_STATES.includes(state)) return attendance === 'CHECKED_IN' ? 'reverse' : null;
-  if (state !== 'ATTENDANCE_FINALIZED') return null;
-  if (attendance === 'CHECKED_IN') return 'markNoShow';
-  return attendance === 'NO_SHOW' ? 'markChecked' : null;
+/**
+ * What this role may change on a roster row (003.2 FR-002b, FR-008, FR-060): a Manager undoes in any open state, a
+ * Staff (who only reaches assigned sessions) while the session runs; both correct a finalized session until the
+ * ticket's window closes; a finalized folio rules out undo and "no-show" (FR-062). Navigation only: the server decides.
+ */
+export function rosterChange(role, session, row, folioStatus) {
+  const none = { change: null, expired: false };
+  if (role !== 'MANAGER' && role !== 'STAFF') return none;
+  const reversible = role === 'MANAGER' ? OPEN_STATES : ['IN_PROGRESS'];
+  const locked = folioStatus === 'FINALIZED';
+  if (reversible.includes(session.state)) {
+    if (row.attendanceState !== 'CHECKED_IN') return none;
+    return locked ? { ...none, folioLocked: true } : { ...none, change: 'reverse' };
+  }
+  if (session.state !== 'ATTENDANCE_FINALIZED') return none;
+  const change = { CHECKED_IN: 'markNoShow', NO_SHOW: 'markChecked' }[row.attendanceState];
+  if (!change) return none;
+  const expired = Boolean(row.correctionClosesAt) && new Date(row.correctionClosesAt).getTime() <= Date.now();
+  if (expired) return { change: null, expired: true };
+  if (change === 'markNoShow' && locked) return { ...none, folioLocked: true };
+  return { change, expired: false };
 }
 
 /**
- * One ticket of the roster (003.2 FR-058): confirm a check-in, read the check-in time, and for a Manager undo or
- * correct it with a standardized reason. Refusals are explained here; `onDone(text)` reports success to the page.
+ * One ticket of the roster (003.2 FR-058): confirm a check-in, read the check-in time, and where the role allows it
+ * undo or correct it with a standardized reason. Refusals are explained here; `onDone(text)` reports success to the page.
  */
-export function RosterTicketDialog({ api, session, row, ticketCode, isManager, reasons, explain, onDone, onClose }) {
+export function RosterTicketDialog({ api, session, row, ticketCode, role, folioStatus, reasons, explain, onDone, onClose }) {
   const t = useT(messages);
   const ts = useT(sharedMessages);
   const fmt = useFormat();
@@ -31,7 +43,6 @@ export function RosterTicketDialog({ api, session, row, ticketCode, isManager, r
   useEffect(() => { closeRef.current?.focus(); }, []);
   const [reasonCode, setReasonCode] = useState('RECORDING_ERROR');
   const [reasonNote, setReasonNote] = useState('');
-  const [evidence, setEvidence] = useState('');
 
   const attendance = row.attendanceState;
   const canCheckIn = attendance === 'NOT_CHECKED_IN';
@@ -39,9 +50,8 @@ export function RosterTicketDialog({ api, session, row, ticketCode, isManager, r
   const closedReason = !canCheckIn ? null
     : !OPEN_STATES.includes(session.state) ? t('ses.row.closedState')
       : opensAt && opensAt > Date.now() ? t('ses.opensAt', { when: fmt.dateTime(session.checkInOpensAt) }) : null;
-  const change = isManager ? managerAction(session.state, attendance) : null;
-  const reasonMissing = (NEEDS_NOTE.includes(reasonCode) && !reasonNote.trim() && !(evidence.trim() && !NEEDS_EVIDENCE.includes(reasonCode)))
-    || (NEEDS_EVIDENCE.includes(reasonCode) && !evidence.trim());
+  const { change, expired, folioLocked } = rosterChange(role, session, row, folioStatus);
+  const reasonMissing = !reasonNote.trim();
   // Only a refused check-in has its own wording; a refused undo or correction keeps the server's reason.
   const refusal = canCheckIn ? explain(command.error) : null;
 
@@ -54,7 +64,7 @@ export function RosterTicketDialog({ api, session, row, ticketCode, isManager, r
 
   const checkIn = () => send(key => api.checkIn(session.id, { ticketCode }, key), t('ses.ok.checkIn'));
   const applyChange = () => {
-    const body = { ticketCode, reasonCode, reasonNote: reasonNote.trim() || undefined, evidenceReference: evidence.trim() || undefined };
+    const body = { ticketCode, reasonCode, reasonNote: reasonNote.trim() };
     if (change === 'reverse') return send(key => api.reverseCheckIn(session.id, body, key), t('ses.ok.reversal'));
     const correctedAttendanceState = change === 'markNoShow' ? 'NO_SHOW' : 'CHECKED_IN';
     return send(key => api.correctAttendance(session.id, { ...body, correctedAttendanceState }, key), t('ses.ok.correction'));
@@ -72,6 +82,10 @@ export function RosterTicketDialog({ api, session, row, ticketCode, isManager, r
         {canCheckIn && (closedReason
           ? <div className="notice error" role="alert"><p>{closedReason}</p></div>
           : <p>{t('ses.row.confirmCheckIn')}</p>)}
+        {folioLocked && <p className="muted">{t('ses.row.folioLocked')}</p>}
+        {expired && <p className="muted">{t('ses.row.windowClosed', { when: fmt.dateTime(row.correctionClosesAt) })}</p>}
+        {change && session.state === 'ATTENDANCE_FINALIZED' && row.correctionClosesAt
+          && <p className="muted">{t('ses.row.windowUntil', { when: fmt.dateTime(row.correctionClosesAt) })}</p>}
         {change && (
           <div className="wsp-form-grid">
             <label className="full-width">
@@ -84,12 +98,6 @@ export function RosterTicketDialog({ api, session, row, ticketCode, isManager, r
               {t('ses.corr.reasonNote')}
               <textarea value={reasonNote} onChange={event => setReasonNote(event.target.value)} />
             </label>
-            {NEEDS_EVIDENCE.includes(reasonCode) && (
-              <label className="full-width">
-                {t('ses.corr.evidence')}
-                <input value={evidence} onChange={event => setEvidence(event.target.value)} />
-              </label>
-            )}
           </div>
         )}
         {refusal ? <div className="notice error" role="alert"><p>{refusal}</p></div>

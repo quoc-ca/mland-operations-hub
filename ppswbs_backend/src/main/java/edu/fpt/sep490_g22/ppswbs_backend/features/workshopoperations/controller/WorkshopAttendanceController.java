@@ -66,7 +66,7 @@ public class WorkshopAttendanceController {
 
     /**
      * Reverses an erroneous check-in before attendance finalization.
-     * Strictly Manager-only within location scope.
+     * Manager, or Staff assigned to the session while it is IN_PROGRESS.
      */
     @PostMapping("/workshop-sessions/{sessionId}/check-in-reversals")
     public ResponseEntity<Ticket> reverseCheckIn(
@@ -83,7 +83,7 @@ public class WorkshopAttendanceController {
 
     /**
      * Corrects attendance after attendance finalization.
-     * Strictly Manager-only within location scope; target state restricted to CHECKED_IN or NO_SHOW.
+     * Manager or assigned Staff, within the 24-hour window; target state restricted to CHECKED_IN or NO_SHOW.
      */
     @PostMapping("/workshop-sessions/{sessionId}/attendance-corrections")
     public ResponseEntity<Ticket> correctFinalizedAttendance(

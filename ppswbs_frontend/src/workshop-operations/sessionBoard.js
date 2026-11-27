@@ -47,15 +47,17 @@ export const sortSessions = sessions => [...sessions].sort((a, b) => {
 });
 
 /**
- * The sessions of one tab, sorted. `autoFrom` is true while the From date is the default: the list then holds the last
- * days too, which only the "ended" tab shows; every other tab starts today but never hides a session still running.
+ * The From date a tab applies and shows. `from` is 'auto' until the user chooses one: today, or the last days on the
+ * "ended" tab. An empty string means no lower bound.
  */
-export const sessionsOfTab = (sessions, tab, autoFrom) => {
-  const today = localDay();
+export const tabFrom = (tab, from) => (from === 'auto' ? localDay(tab === 'done' ? DONE_DAYS_BACK : 0) : from);
+
+/** The sessions of one tab, sorted, strictly inside the From-To range that tab shows. */
+export const sessionsOfTab = (sessions, tab, from, to) => {
+  const first = tabFrom(tab, from);
   return sortSessions(sessions.filter(item => {
-    const own = TAB_OF_STATE[item.state];
-    if (tab !== 'all' && own !== tab) return false;
-    if (!autoFrom || tab === 'done' || own === 'live') return true;
-    return !item.workshopDate || item.workshopDate >= today;
+    if (tab !== 'all' && TAB_OF_STATE[item.state] !== tab) return false;
+    const day = item.workshopDate;
+    return !day || ((!first || day >= first) && (!to || day <= to));
   }));
 };

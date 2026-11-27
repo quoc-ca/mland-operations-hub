@@ -15,7 +15,7 @@ describe('Session facts actions', () => {
 
     expect(await screen.findByRole('button', { name: 'Finalize attendance' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Attendance finalized' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'In progress' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start session' })).toBeDisabled();
   });
 
   it('keeps Finalize attendance disabled until the session is IN PROGRESS', async () => {
@@ -23,6 +23,6 @@ describe('Session facts actions', () => {
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
     expect(await screen.findByRole('button', { name: 'Finalize attendance' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'In progress' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start session' })).toBeEnabled();
   });
 });

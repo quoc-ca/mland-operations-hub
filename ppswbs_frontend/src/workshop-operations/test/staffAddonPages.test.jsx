@@ -9,7 +9,9 @@ import { operationsRoutes } from '../routes';
 vi.mock('../../shared/auth/RouteAccessGuard', () => import('../../test/passThroughGuard'));
 
 // The folio correction panel is a Manager panel: it appears once the profile says the viewer is a Manager.
-const asManager = handlers => mockFetch({ 'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }), ...handlers });
+const asManager = handlers => mockFetch({
+  'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }), 'GET /api/v1/accounts': json(200, { data: [] }), ...handlers,
+});
 beforeEach(() => clearRoleCache());
 
 const session = id => json(200, { id, state: 'IN_PROGRESS', locationId: 4, capacity: 10 });

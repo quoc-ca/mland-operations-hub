@@ -645,3 +645,45 @@ Mapping: FR-056 → T179, T180.
 - [ ] T184 [Test] Browser check of camera scan and roster actions against a live stack as Staff and Manager (default browser: the in-app pane blocks the camera).
 
 Mapping: FR-057 → T181, T182, T184. FR-058 → T183, T184.
+
+## Automatic finalization and attendance undo by assigned Staff (spec FR-002b, FR-008, FR-059, FR-060, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T185 **Done 2026-11-27** [BE] Assigned Staff may reverse a check-in (only while IN_PROGRESS) and correct finalized attendance within the 24-hour window; Manager unchanged; authority before state; reversal locks the session. Traces to FR-002b, FR-008. Check: JUnit/MockMvc. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T186 **Done 2026-11-27** [BE] Automatic finalization: V207 (nullable `attendance_actions.actor_id`), scheduler with one transaction per session, switch default off, delay PT2H, audit `SESSION_AUTO_FINALIZED`. Traces to FR-059. Check: JUnit, MySQL IT. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T187 **Done 2026-11-27** [BE] `correctionClosesAt` on the attendance roster. Traces to FR-060. Check: JUnit. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T188 **Done 2026-11-27** [FE] Roster dialog actions for Manager and assigned Staff, window closed message; Manager-only buttons of the exceptions panel no longer shown to Staff. Traces to FR-058, FR-060. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+- [ ] T189 [Test] Browser check as Staff and Manager against a live stack; list of sessions left running reviewed by the owner before the switch is turned on.
+
+Mapping: FR-002b, FR-008 → T185, T188, T189. FR-059 → T186, T189. FR-060 → T187, T188.
+
+- [x] T190 **Done 2026-11-27** [FE] Date range fix (FR-056, amended 2026-11-27): every tab lists and counts only the From-To range it shows, with no exception for running sessions. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+
+Mapping: FR-056 → T190.
+
+- [x] T191 **Done 2026-11-27** [FE] Remove check-in override from the session page; undo/correction reasons `RECORDING_ERROR` and `OTHER_REQUIRES_NOTE` with a required note, no evidence field; resend refusal suggests check-in by ticket code. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+
+Mapping: FR-061 → T191.
+
+- [x] T192 **Done 2026-11-27** [BE+FE] Refuse check-in reversal and the correction to `NO_SHOW` while the ticket folio is finalized (`TicketFolioStateQuery` implemented by Settlement); the session page offers no such change and says why. Check: JUnit/MockMvc, Modulith, Vitest. Evidence (2026-11-27): backend narrow run 10 classes, 79 tests passed including `ModulithArchitectureTests`; Vitest 171 files, 1420 tests passed; `npm run build` passed.
+
+Mapping: FR-062 → T192.
+
+- [x] T193 **Done 2026-11-27** [FE] Remove the separate check-in correction form; shorter reason labels in the roster dialog. Check: Vitest. Evidence (2026-11-27): full Vitest 171 files, 1421 tests passed; `npm run build` passed.
+
+Mapping: FR-058, FR-061 → T193.
+
+## Session page defects (spec FR-063–FR-068, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T194 **Done 2026-11-27** [FE] Session page content: real attendance state in booking lookup, location name without the session identifier, no internal references in the vi/en texts, booking link result as a sentence. Traces to FR-063. Check: Vitest (`checkInBookingLookup.test.jsx`, `bookingLinkIncident.test.jsx`).
+- [x] T195 **Done 2026-11-27** [FE] Verb labels on the state buttons; Staff see only "start session". Traces to FR-064. Check: Vitest (`sessionStateButtons.test.jsx`).
+- [x] T196 **Done 2026-11-27** [FE] Hide check-in, Staff assignment form and cancellation block by session state. Traces to FR-065. Check: Vitest (`checkInBookingLookup.test.jsx`, `assignedStaff.test.jsx`).
+- [x] T197 **Done 2026-11-27** [FE] Staff panel: no stand-in account, assigned Staff left out of the picker, load error with retry, one remove button per Staff. Traces to FR-066. Check: Vitest (`assignedStaff.test.jsx`). Not done: filtering the picker by location (the account list returns none).
+- [x] T198 **Done 2026-11-27** [FE] "Bill closed" badge for a `CLOSED` folio. Traces to FR-067. Check: Vitest (`rosterCodes.test.js`).
+- [x] T199 **Done 2026-11-27** [FE] Confirm before revoke/rotate; sticky result and error notices. Traces to FR-068. Check: Vitest (`bookingLinkIncident.test.jsx`); sticky position not checked by an automated test.
+- [ ] T200 [Test] Browser check of the session page as Staff and Manager against a live stack, including the sticky notices and a session in each state.
+
+Evidence for T194–T199 (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1432 tests passed; `npm run build` passed. Not checked in a browser.
+
+Mapping: FR-063 → T194, T200. FR-064 → T195, T200. FR-065 → T196, T200. FR-066 → T197, T200. FR-067 → T198, T200. FR-068 → T199, T200.
+
+- [x] T201 **Done 2026-11-27** [FE] Remove internal requirement numbers and command codes from the late-payment queue page texts (`messages.audit.js`, vi/en). Extends FR-063's wording rule to `/operations/late-payments`. Evidence (2026-11-27): full Vitest 172 files, 1432 tests passed; `npm run build` passed.

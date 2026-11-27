@@ -66,6 +66,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -128,11 +129,17 @@ public class WorkshopClosureIT {
     @Autowired
     private CancellationHandoffService cancellationHandoffService;
 
+    @Autowired
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.AttendanceFinalizationService finalizationService;
+
     @MockBean
     private WorkshopSettlementFacade settlementFacade;
 
     @MockBean
     private AccountFacade accountFacade;
+
+    @MockBean
+    private edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketFolioStateQuery folioState;
 
     @MockBean
     private TokenVerificationService tokenVerificationService;
@@ -424,10 +431,11 @@ public class WorkshopClosureIT {
     // =========================================================================
 
     @Test
-    @DisplayName("T047-6: Staff denied while Manager authority is global")
+    @DisplayName("T047-6: unassigned Staff denied while Manager authority is global")
     void testManagerOnlyAuthorization_ReversalAndCorrection() throws Exception {
         WorkshopSession inProgressSession = createSession(SessionState.IN_PROGRESS);
         WorkshopSession finalizedSession = createSession(SessionState.ATTENDANCE_FINALIZED);
+        staffAssignmentRepository.deleteAll();
 
         CheckInReversalRequest revRequest = CheckInReversalRequest.builder()
                 .ticketCode("TK-AUTH-001")
@@ -442,7 +450,7 @@ public class WorkshopClosureIT {
                 .reasonNote("Late attendee")
                 .build();
 
-        // 1. Staff actor denied reversal (403 Forbidden)
+        // 1. Unassigned Staff denied reversal (403 Forbidden)
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-in-reversals", inProgressSession.getReference())
                         .header("Authorization", STAFF_A_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6a")
@@ -450,7 +458,7 @@ public class WorkshopClosureIT {
                         .content(objectMapper.writeValueAsString(revRequest)))
                 .andExpect(status().isForbidden());
 
-        // 2. Staff actor denied correction (403 Forbidden)
+        // 2. Unassigned Staff denied correction (403 Forbidden)
         mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", finalizedSession.getReference())
                         .header("Authorization", STAFF_A_TOKEN)
                         .header("X-Correlation-Id", "corr-t047-6b")
@@ -627,6 +635,132 @@ public class WorkshopClosureIT {
                         .header("Authorization", MGR_A_TOKEN).header("X-Correlation-Id", "corr-t107-a")
                         .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(forA)))
                 .andExpect(status().isOk());
+    }
+
+    // =========================================================================
+    // Assigned Staff undo (FR-002b, FR-008) and automatic finalization (FR-059)
+    // =========================================================================
+
+    @Test
+    @DisplayName("T185: assigned Staff reverses a check-in only while the session is IN_PROGRESS")
+    void assignedStaffReversesOnlyWhileInProgress() throws Exception {
+        WorkshopSession running = createSession(SessionState.IN_PROGRESS);
+        WorkshopSession published = createSession(SessionState.PUBLISHED);
+        TicketSessionEntitlement inRunning = entitle("TK-S-1", running, AttendanceState.CHECKED_IN);
+        TicketSessionEntitlement inPublished = entitle("TK-S-2", published, AttendanceState.CHECKED_IN);
+
+        reverse(published, "TK-S-2").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATE"));
+        reverse(running, "TK-S-1").andExpect(status().isOk()).andExpect(jsonPath("$.attendanceState").value("NOT_CHECKED_IN"));
+
+        assertThat(entitlementRepository.findById(inPublished.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.CHECKED_IN);
+        assertThat(entitlementRepository.findById(inRunning.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.NOT_CHECKED_IN);
+    }
+
+    @Test
+    @DisplayName("T185/T187: assigned Staff corrects inside the 24-hour window only; the roster says when it closes")
+    void assignedStaffCorrectsInsideTheWindow() throws Exception {
+        WorkshopSession recent = createSession(SessionState.ATTENDANCE_FINALIZED);
+        WorkshopSession old = createSession(SessionState.ATTENDANCE_FINALIZED);
+        old.setAttendanceFinalizedAt(Instant.now().minus(25, ChronoUnit.HOURS));
+        sessionRepository.save(old);
+        entitle("TK-S-3", recent, AttendanceState.NO_SHOW);
+        entitle("TK-S-4", old, AttendanceState.NO_SHOW);
+
+        correct(recent, "TK-S-3").andExpect(status().isOk()).andExpect(jsonPath("$.attendanceState").value("CHECKED_IN"));
+        correct(old, "TK-S-4").andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/v1/workshop-sessions/{sessionId}/attendance-roster", recent.getReference())
+                        .header("Authorization", STAFF_A_TOKEN))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].correctionClosesAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("T192: a finalized folio blocks reversal and the change to NO_SHOW only")
+    void finalizedFolioBlocksNoShow() throws Exception {
+        WorkshopSession session = createSession(SessionState.ATTENDANCE_FINALIZED);
+        TicketSessionEntitlement attended = entitle("TK-F-1", session, AttendanceState.CHECKED_IN);
+        entitle("TK-F-2", session, AttendanceState.NO_SHOW);
+        when(folioState.isTicketFolioFinalized(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+
+        correct(session, "TK-F-1", AttendanceState.NO_SHOW)
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATE"));
+        correct(session, "TK-F-2", AttendanceState.CHECKED_IN).andExpect(status().isOk());
+        WorkshopSession running = createSession(SessionState.IN_PROGRESS);
+        TicketSessionEntitlement stillIn = entitle("TK-F-3", running, AttendanceState.CHECKED_IN);
+        reverse(running, "TK-F-3").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("INVALID_STATE"));
+        assertThat(entitlementRepository.findById(stillIn.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.CHECKED_IN);
+
+        assertThat(entitlementRepository.findById(attended.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.CHECKED_IN);
+    }
+
+    @Test
+    @DisplayName("T186: a session left running is finalized by the system; others are left untouched")
+    void systemFinalizesOnlyDueRunningSessions() {
+        WorkshopSession due = createSession(SessionState.IN_PROGRESS);
+        due.setScheduledEndAt(Instant.now().minus(3, ChronoUnit.HOURS));
+        sessionRepository.save(due);
+        WorkshopSession withinDelay = createSession(SessionState.IN_PROGRESS);
+        WorkshopSession cancelling = createSession(SessionState.CANCELLATION_REQUESTED);
+        cancelling.setScheduledEndAt(Instant.now().minus(3, ChronoUnit.HOURS));
+        sessionRepository.save(cancelling);
+        TicketSessionEntitlement unchecked = entitle("TK-A-1", due, AttendanceState.NOT_CHECKED_IN);
+        TicketSessionEntitlement checked = entitle("TK-A-2", due, AttendanceState.CHECKED_IN);
+        Instant endedBy = Instant.now().minus(2, ChronoUnit.HOURS);
+
+        assertThat(finalizationService.finalizeBySystemIfStillDue(due.getReference(), endedBy)).isTrue();
+        assertThat(finalizationService.finalizeBySystemIfStillDue(due.getReference(), endedBy)).isFalse();
+        assertThat(finalizationService.finalizeBySystemIfStillDue(withinDelay.getReference(), endedBy)).isFalse();
+        assertThat(finalizationService.finalizeBySystemIfStillDue(cancelling.getReference(), endedBy)).isFalse();
+
+        WorkshopSession finalized = sessionRepository.findById(due.getId()).orElseThrow();
+        assertThat(finalized.getState()).isEqualTo(SessionState.ATTENDANCE_FINALIZED);
+        assertThat(finalized.getAttendanceFinalizedAt()).isNotNull();
+        assertThat(entitlementRepository.findById(unchecked.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.NO_SHOW);
+        assertThat(entitlementRepository.findById(checked.getId()).orElseThrow().getAttendanceState())
+                .isEqualTo(AttendanceState.CHECKED_IN);
+        assertThat(attendanceActionRepository.findBySessionIdOrderByOccurredAtDesc(due.getId()))
+                .singleElement().satisfies(action -> assertThat(action.getActorId()).isNull());
+        assertThat(auditEventRepository.findBySessionIdOrderByOccurredAtDesc(due.getId()))
+                .singleElement().satisfies(event -> {
+                    assertThat(event.getAction()).isEqualTo("SESSION_AUTO_FINALIZED");
+                    assertThat(event.getActorId()).isNull();
+                });
+        assertThat(sessionRepository.findById(withinDelay.getId()).orElseThrow().getState()).isEqualTo(SessionState.IN_PROGRESS);
+    }
+
+    private TicketSessionEntitlement entitle(String code, WorkshopSession session, AttendanceState state) {
+        AttendanceTicket ticket = ticketRepository.save(AttendanceTicket.builder()
+                .reference(UUID.randomUUID().toString()).ticketCode(code).bookingReference("BKG-" + code)
+                .ticketSequence(1).qrReference("qr-" + code).validityState(TicketValidityState.ACTIVE).build());
+        return entitlementRepository.save(TicketSessionEntitlement.builder().ticket(ticket).session(session)
+                .attendanceState(state)
+                .checkedInAt(state == AttendanceState.CHECKED_IN ? Instant.now().minus(1, ChronoUnit.HOURS) : null)
+                .build());
+    }
+
+    private org.springframework.test.web.servlet.ResultActions reverse(WorkshopSession session, String code) throws Exception {
+        return mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/check-in-reversals", session.getReference())
+                .header("Authorization", STAFF_A_TOKEN).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(CheckInReversalRequest.builder().ticketCode(code)
+                        .reasonCode("RECORDING_ERROR").reasonNote("Wrong ticket scanned").build())));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions correct(WorkshopSession session, String code) throws Exception {
+        return correct(session, code, AttendanceState.CHECKED_IN);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions correct(WorkshopSession session, String code,
+                                                                       AttendanceState target) throws Exception {
+        return mockMvc.perform(post("/api/v1/workshop-sessions/{sessionId}/attendance-corrections", session.getReference())
+                .header("Authorization", STAFF_A_TOKEN).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(AttendanceCorrectionRequest.builder().ticketCode(code)
+                        .correctedAttendanceState(target)
+                        .reasonCode("RECORDING_ERROR").reasonNote("Attended").build())));
     }
 
     // =========================================================================

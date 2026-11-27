@@ -13,10 +13,11 @@ const asManager = handlers => mockFetch({ 'GET /api/v1/accounts/me/profile': jso
 beforeEach(() => clearRoleCache());
 
 const session = assigned => json(200, { id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10, assignedStaffAccountIds: assigned });
-const staffList = json(200, [
-  { accountId: 33, fullName: 'Local Test Staff' },
+const staffList = json(200, { data: [
+  { accountId: 33, fullName: 'First Staff' },
   { accountId: 41, fullName: 'Second Staff' },
-]);
+  { accountId: 52, fullName: 'Free Staff' },
+] });
 
 describe('Assigned Staff on the session page', () => {
   it('lists every assigned Staff, and the session facts only count them', async () => {
@@ -29,11 +30,14 @@ describe('Assigned Staff on the session page', () => {
     expect(await screen.findByText('2 Staff')).toBeInTheDocument();
     const list = within(await screen.findByRole('region', { name: 'Staff in charge' }));
     expect(await list.findByText(/Second Staff/)).toBeInTheDocument();
-    expect(list.getByText(/Local Test Staff/)).toBeInTheDocument();
+    expect(list.getByText(/First Staff/)).toBeInTheDocument();
     expect(list.getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
     expect(screen.queryByText('Operational lead')).not.toBeInTheDocument();
-    // The Manager list carries no email: the picker shows the name and Account ID.
-    expect(screen.getByRole('option', { name: /^Second Staff — .*41/ })).toBeInTheDocument();
+    // The Manager list carries no email: the picker shows the name and Account ID, without those already assigned.
+    expect(screen.getByRole('option', { name: /^Free Staff — .*52/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Second Staff|First Staff/ })).not.toBeInTheDocument();
+    // Removing is done on each person only.
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(2);
   });
 
   it('removes one Staff from the list without touching the others', async () => {
@@ -51,6 +55,31 @@ describe('Assigned Staff on the session page', () => {
 
     const removal = calls.find(call => call.method === 'DELETE');
     expect(removal.query).toEqual({ accountId: '41' });
+  });
+
+  it('reports a failed Staff list instead of offering a stand-in account', async () => {
+    asManager({
+      'GET /api/v1/workshop-sessions/session-1': session([]),
+      'GET /api/v1/accounts': json(500, { code: 'INTERNAL_ERROR' }),
+    });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
+
+    expect(await screen.findByText(/The Staff list could not be loaded/)).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Local Test Staff|33/ })).not.toBeInTheDocument();
+  });
+
+  it.each(['ATTENDANCE_FINALIZED', 'CANCELLATION_REQUESTED', 'CANCELLED'])('offers no assignment in %s, but keeps the list', async state => {
+    asManager({
+      'GET /api/v1/workshop-sessions/session-1': json(200, { id: 'session-1', state, locationId: 4, capacity: 10, assignedStaffAccountIds: [33] }),
+      'GET /api/v1/accounts': staffList,
+    });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
+
+    expect(await screen.findByText(/No Staff can be assigned/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Select a Staff member/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Request cancellation' })).not.toBeInTheDocument();
   });
 
   it('says so when nobody is assigned', async () => {

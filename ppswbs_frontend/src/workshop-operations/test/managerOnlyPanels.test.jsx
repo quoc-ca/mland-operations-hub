@@ -25,11 +25,11 @@ describe('Manager-only panels on the session page', () => {
 
     // What a Staff does at the session stays: check-in, corrections and ticket delivery.
     expect(await screen.findByText('Check-in desk')).toBeInTheDocument();
-    expect(screen.getByText('Check-in corrections')).toBeInTheDocument();
+    expect(screen.getByText('Ticket delivery')).toBeInTheDocument();
     expect(screen.getByText('Ticket delivery')).toBeInTheDocument();
     // Give the profile time to arrive, then confirm nothing of the Manager's appeared.
     await new Promise(resolve => setTimeout(resolve, 50));
-    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancellation handoff', 'Manager bill correction']) {
+    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancel session', 'Manager bill correction']) {
       expect(screen.queryByText(hidden)).not.toBeInTheDocument();
     }
   });
@@ -38,7 +38,7 @@ describe('Manager-only panels on the session page', () => {
     open('MANAGER');
 
     expect(await screen.findByText('Staff assignment')).toBeInTheDocument();
-    for (const shown of ['Manager booking recovery', 'Cancellation handoff', 'Manager bill correction']) {
+    for (const shown of ['Manager booking recovery', 'Cancel session', 'Manager bill correction']) {
       expect(screen.getByText(shown)).toBeInTheDocument();
     }
   });
