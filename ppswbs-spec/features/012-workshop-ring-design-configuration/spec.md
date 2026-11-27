@@ -38,6 +38,7 @@ booking, payment, quote, custom order, or ticket records.
 - Q: How long are superseded policy versions and publication audit retained? → A: Audit for at least five years; versions longer while referenced by a saved design.
 - Q: What must remain true for an active published model after an Admin policy change? → A: Its complete default configuration remains valid, fully scored and below or at the too-risky cutoff; customer-edited variants are evaluated separately.
 - Q: How is the Signature Silver 925 3g allowance treated? → A: 3g is included, not a hard design limit; excess mass is an advisory surcharge, not an automatic workshop charge.
+- Q: How does the ring configurator assist members with ring sizing and laser engraving? → A: Sizing includes an interactive size guide popup with standard conversion table (sizes 6–29), measurement reference image (`/size-guide/bang-size.jpg`), and optional image reference upload; laser engraving offers quick preset symbols (🍀, ❤️, ☀️, 🌙, ⭐, ♾️) in addition to custom crop/upload.
 
 ## 2. Actors and permissions
 

@@ -82,12 +82,16 @@ public class HumanReviewService {
                     "Thiếu quyết định thẩm duyệt (ACCEPTED, REJECTED).");
         }
 
-        if (reason == null || reason.trim().isEmpty()) {
+        if (decision != ReviewDecision.ACCEPTED && (reason == null || reason.trim().isEmpty())) {
             throw DesignReviewException.badRequest("DESIGN_REVIEW_REASON_REQUIRED",
-                    "Bắt buộc phải nhập lời giải thích / lý do cho quyết định thẩm duyệt.");
+                    "Bắt buộc phải nhập lời giải thích / lý do cho quyết định từ chối hoặc yêu cầu làm rõ.");
         }
 
-        if (reason.trim().length() > 2000) {
+        String finalReason = (reason != null && !reason.trim().isEmpty())
+                ? reason.trim()
+                : (decision == ReviewDecision.ACCEPTED ? "Thiết kế đạt tiêu chuẩn chế tác, đã duyệt gửi báo giá cho khách hàng." : "");
+
+        if (finalReason.length() > 2000) {
             throw DesignReviewException.badRequest("DESIGN_REQUEST_INVALID",
                     "Lý do thẩm duyệt không được vượt quá 2000 ký tự.");
         }
@@ -125,7 +129,7 @@ public class HumanReviewService {
                 .reviewerRole(reviewerRole)
                 .designVersion(request.getRequestVersion())
                 .decision(decision)
-                .reason(reason.trim())
+                .reason(finalReason)
                 .estimatedValueSnapshot(0L)
                 .decidedAt(Instant.now())
                 .build();
@@ -145,7 +149,7 @@ public class HumanReviewService {
         };
 
         request.setReviewStatus(nextReviewStatus);
-        request.setDecisionExplanation(reason.trim());
+        request.setDecisionExplanation(finalReason);
         request.setNextAction(nextAction);
         request.setRequestVersion(request.getRequestVersion() + 1);
         request.setUpdatedAt(Instant.now());

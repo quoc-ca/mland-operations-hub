@@ -2,12 +2,12 @@
 
 This screen allows authenticated Members to:
 
-- Describe the ring they want made, upload up to five reference images, and optionally attach a saved workshop ring design.
+- Describe the ring they want made, upload up to five reference images, and optionally attach a saved workshop ring design. At least one of the description, reference images or saved design must be provided.
 - See per-image quality feedback and replace images that are blurry or invalid before sending.
 - Give consent to image processing whenever at least one image is attached.
 - Submit the request for human review by Staff or a Manager.
 
-The screen requires sign-in; a Guest sees the entry point and only a sign-in prompt, and cannot submit or receive private tracking data. The screen requires a description or at least one image; an attached ring design alone is not enough on this screen, although the server would accept it. The Member may choose one of their own saved Feature-012 designs and is taken to Design Request Details after sending. The server rechecks ownership of the attached design and stores an immutable snapshot of its selected state.
+The screen requires sign-in; a Guest sees the entry point and only a sign-in prompt, and cannot submit or receive private tracking data. The request is valid when it contains at least one of a non-empty description, one or more reference images, or an attached saved Feature-012 design. The Member may choose one of their own saved designs and is taken to Design Request Details after sending. The server rechecks ownership of the attached design and stores an immutable snapshot of its selected state.
 
 | Field Name | Description |
 | --- | --- |

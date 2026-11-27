@@ -143,7 +143,7 @@ describe('F04-DESIGN-WORKSPACE Screen (/design-requests/new)', () => {
     const submitBtn = screen.getByRole('button', { name: 'Gửi yêu cầu thiết kế' });
     await user.click(submitBtn);
 
-    expect(await screen.findByText('Vui lòng nhập mô tả ý tưởng hoặc tải lên hình ảnh tham khảo.')).toBeInTheDocument();
+    expect(await screen.findByText('Vui lòng cung cấp ít nhất một thông tin: mô tả yêu cầu, đính kèm mẫu thiết kế, hoặc tải lên ảnh mẫu.')).toBeInTheDocument();
   });
 
   it('requires affirmative consent when image is selected and submits multipart request', async () => {
@@ -422,24 +422,35 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
         reviewStatus: 'ACCEPTED',
         description: 'Mẫu nhẫn hoa mai',
       }),
+      'POST /api/v1/custom-design-requests/rev-01/quote': json(200, {
+        quoteReference: 'QUO-001',
+        totalAmount: '800000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+      }),
     });
 
     open('/design-review-requests/rev-01', { session: fakeSession('signed-in') });
 
     expect(await screen.findByText('Thẩm duyệt Yêu cầu Thiết kế #rev-01')).toBeInTheDocument();
 
-    const reasonInput = screen.getByPlaceholderText(/Nhập lý do chi tiết/);
+    const amountInput = screen.getByTestId('quote-amount-input');
+    await user.type(amountInput, '800000');
+
+    const reasonInput = screen.getByPlaceholderText(/Thiết kế đạt tiêu chuẩn chế tác/);
     await user.type(reasonInput, 'Mẫu hoa mai tinh xảo, đủ điều kiện gia công.');
 
-    const submitBtn = screen.getByRole('button', { name: 'Gửi quyết định' });
+    const submitBtn = screen.getByRole('button', { name: 'Duyệt gửi báo giá' });
     await user.click(submitBtn);
 
     // Confirm dialog
     const dialog = await screen.findByRole('dialog');
-    const confirmBtn = within(dialog).getByRole('button', { name: 'Gửi quyết định' });
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Duyệt gửi báo giá' });
     await user.click(confirmBtn);
 
-    expect(await screen.findByText('Đã ghi nhận quyết định thẩm duyệt thành công.')).toBeInTheDocument();
+    expect(await screen.findByText(/Đã phê duyệt thiết kế/)).toBeInTheDocument();
 
     const decisionCall = calls.find(c => c.path === '/api/v1/design-review-requests/rev-01/decisions');
     expect(decisionCall).toBeDefined();
@@ -470,14 +481,17 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
 
     open('/design-review-requests/rev-02', { session: fakeSession('signed-in') });
 
-    const reasonInput = await screen.findByPlaceholderText(/Nhập lý do chi tiết/);
+    const amountInput = await screen.findByTestId('quote-amount-input');
+    await user.type(amountInput, '800000');
+
+    const reasonInput = screen.getByPlaceholderText(/Thiết kế đạt tiêu chuẩn chế tác/);
     await user.type(reasonInput, 'Duyệt thử chính mình.');
 
-    const submitBtn = screen.getByRole('button', { name: 'Gửi quyết định' });
+    const submitBtn = screen.getByRole('button', { name: 'Duyệt gửi báo giá' });
     await user.click(submitBtn);
 
     const dialog = await screen.findByRole('dialog');
-    const confirmBtn = within(dialog).getByRole('button', { name: 'Gửi quyết định' });
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Duyệt gửi báo giá' });
     await user.click(confirmBtn);
 
     expect(await screen.findByText(/Bạn không thể tự thẩm duyệt yêu cầu thiết kế do chính mình tạo ra/)).toBeInTheDocument();

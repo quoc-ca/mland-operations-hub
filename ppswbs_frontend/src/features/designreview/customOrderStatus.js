@@ -5,6 +5,28 @@
 
 export const ORDER_STAGES = [
   {
+    key: 'QUOTE_PENDING',
+    label: 'Chờ Quản lý duyệt',
+    enLabel: 'Awaiting manager approval',
+    desc: 'Đã gửi báo giá, đang chờ Quản lý phê duyệt',
+    productionStatus: null,
+    fulfilmentStatus: null,
+    status: 'QUOTE_PENDING',
+    color: '#ea580c',
+    bg: '#ffedd5',
+  },
+  {
+    key: 'FULL_PAYMENT_PENDING',
+    label: 'Chờ khách thanh toán',
+    enLabel: 'Awaiting customer payment',
+    desc: 'Quản lý đã duyệt báo giá, chờ hội viên thanh toán 100%',
+    productionStatus: null,
+    fulfilmentStatus: null,
+    status: 'FULL_PAYMENT_PENDING',
+    color: '#d97706',
+    bg: '#fef3c7',
+  },
+  {
     key: 'PAID',
     label: 'Chờ chế tác',
     enLabel: 'Awaiting production',
@@ -98,6 +120,16 @@ export function getOrderStage(order) {
     return 'PAID';
   }
 
+  // Awaiting customer full payment
+  if (status === 'FULL_PAYMENT_PENDING' || quoteStatus === 'QUOTE_READY') {
+    return 'FULL_PAYMENT_PENDING';
+  }
+
+  // Quote waiting for manager approval
+  if (status === 'QUOTE_PENDING' || quoteStatus === 'QUOTE_PENDING') {
+    return 'QUOTE_PENDING';
+  }
+
   return status || 'QUOTE_PENDING';
 }
 
@@ -166,7 +198,7 @@ export function getOrderBadgeInfo(order) {
         ? { text: 'Báo giá hết hạn', color: '#dc2626', bg: '#fee2e2' }
         : { text: 'Chờ thanh toán (100%)', color: '#d97706', bg: '#fef3c7' };
     case 'QUOTE_PENDING':
-      return { text: 'Chờ duyệt báo giá', color: '#64748b', bg: '#f1f5f9' };
+      return { text: 'Chờ Quản lý duyệt báo giá', color: '#ea580c', bg: '#ffedd5' };
     case 'QUOTE_EXPIRED':
       return { text: 'Báo giá hết hạn', color: '#dc2626', bg: '#fee2e2' };
     default:

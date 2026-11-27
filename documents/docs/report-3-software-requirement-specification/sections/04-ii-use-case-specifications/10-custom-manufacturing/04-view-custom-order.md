@@ -31,7 +31,7 @@ An authorized actor opens the custom order list or selects a custom order.
 
 #### Alternative Flows
 
-1a. Staff or Manager opens the custom order list → System retrieves all custom orders for operations.
+1a. Staff or Manager opens the custom order list → System retrieves all custom orders for operations, including the `QUOTE_PENDING` stage; a Manager may approve a pending quote directly from that list.
 
 2a. No order exists → System displays an empty state.
 
