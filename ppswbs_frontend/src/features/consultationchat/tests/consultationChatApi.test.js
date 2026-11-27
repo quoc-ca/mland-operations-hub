@@ -7,10 +7,13 @@ describe('Feature-013 consultationChatApi adapter', () => {
     const api = consultationChatApi(mockRequest);
 
     await api.getContextOptions();
-    expect(mockRequest).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/consultations\/context-options\?_t=\d+$/), {
-      method: 'GET',
-      auth: true,
-    });
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/api\/v1\/consultations\/context-options\?_t=\d+$/),
+      {
+        method: 'GET',
+        auth: true,
+      }
+    );
   });
 
   it('calls createConversation with Idempotency-Key and payload', async () => {

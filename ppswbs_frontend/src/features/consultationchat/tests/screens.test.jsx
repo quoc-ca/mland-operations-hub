@@ -117,4 +117,71 @@ describe('Feature-013 Consultation UI Screens', () => {
     expect(await screen.findByText('Vui lòng đăng nhập để chat tư vấn với nhân viên.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
   });
+
+  it('renders Manager Release Claim button when viewed by manager on claimed conversation', async () => {
+    const mockDetail = {
+      conversationReference: 'CONV-CLAIMED-MGR',
+      status: 'OPEN',
+      claimantRole: 'STAFF',
+      claimantUserId: 20,
+      aggregateVersion: 2,
+      messages: [],
+    };
+    mockApi.listConversations.mockResolvedValue({
+      items: [
+        {
+          conversationReference: 'CONV-CLAIMED-MGR',
+          status: 'OPEN',
+          claimantRole: 'STAFF',
+          claimantUserId: 20,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    });
+    mockApi.getConversation.mockResolvedValue(mockDetail);
+
+    render(
+      <MemoryRouter>
+        <StaffConsultationInboxPage currentUser={{ role: 'MANAGER', id: 50 }} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('manager-release-claim-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('manager-release-claim-btn')).toHaveTextContent('🔓 Gỡ tiếp nhận');
+  });
+
+  it('renders read-only warning when staff views conversation claimed by another staff', async () => {
+    const mockDetail = {
+      conversationReference: 'CONV-CLAIMED-OTHER',
+      status: 'OPEN',
+      claimantRole: 'STAFF',
+      claimantUserId: 99, // Claimed by staff 99
+      aggregateVersion: 2,
+      messages: [],
+    };
+    mockApi.listConversations.mockResolvedValue({
+      items: [
+        {
+          conversationReference: 'CONV-CLAIMED-OTHER',
+          status: 'OPEN',
+          claimantRole: 'STAFF',
+          claimantUserId: 99,
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    });
+    mockApi.getConversation.mockResolvedValue(mockDetail);
+
+    // Current staff is id 10, not 99
+    render(
+      <MemoryRouter>
+        <StaffConsultationInboxPage currentUser={{ role: 'STAFF', id: 10 }} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('chat-claimed-by-other-warning')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-claimed-by-other-warning')).toHaveTextContent(
+      'Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.'
+    );
+  });
 });

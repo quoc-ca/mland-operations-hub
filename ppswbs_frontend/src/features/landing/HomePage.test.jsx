@@ -55,14 +55,15 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(screen.queryByText(/HANDOFF ·/i)).not.toBeInTheDocument();
   });
 
-  it('renders topbar brand and 5 public navigation links', () => {
+  it('renders topbar brand and public navigation links', () => {
     renderHomePage();
     const nav = screen.getByRole('navigation', { name: 'Khám phá' });
     expect(screen.getByRole('link', { name: 'MLAND' })).toHaveAttribute('href', '/');
     expect(within(nav).getByRole('link', { name: 'Workshop' })).toHaveAttribute('href', '/workshops');
     expect(within(nav).getByRole('link', { name: 'Thiết kế nhẫn' })).toHaveAttribute('href', '/workshops/PKG-COUPLE-SILVER/design');
     expect(within(nav).getByRole('link', { name: 'Nhẫn có sẵn' })).toHaveAttribute('href', '/products');
-    expect(within(nav).getByRole('link', { name: 'Yêu cầu thiết kế' })).toHaveAttribute('href', '/design-requests/new');
+    expect(within(nav).queryByRole('link', { name: 'Yêu cầu thiết kế' })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Yêu cầu chế tác' })).not.toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Tra cứu' })).toHaveAttribute('href', '/workshop-booking/lookup');
     expect(within(nav).queryByRole('link', { name: 'Trợ lý AI' })).not.toBeInTheDocument();
     expect(screen.getByTestId('floating-ai-chat-btn')).toHaveAttribute('href', '/ai-support');

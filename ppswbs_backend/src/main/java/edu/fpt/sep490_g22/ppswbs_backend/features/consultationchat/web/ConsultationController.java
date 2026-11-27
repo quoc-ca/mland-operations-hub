@@ -10,8 +10,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -83,6 +85,15 @@ public class ConsultationController {
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
                 .body(result);
+    }
+
+    @GetMapping(value = "/{conversationReference}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamEvents(
+            @PathVariable("conversationReference") String conversationReference,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId
+    ) {
+        AccountActorPort.CallerActor caller = requireCaller();
+        return applicationService.createSseEmitter(conversationReference, caller);
     }
 
     @PostMapping("/{conversationReference}/messages")

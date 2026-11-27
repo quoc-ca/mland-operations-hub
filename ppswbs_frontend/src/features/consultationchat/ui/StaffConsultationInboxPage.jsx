@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
-import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH, POLLING_INTERVAL_MS } from '../domain/chatRules';
+import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 import { useRole } from '../../../shared/auth/useRole';
+import { AuthContext } from '../../../shared/auth/AuthProvider';
+import { ConfirmDialog } from '../../../shared/ui/components';
 import AttachedRingHoverRecap from './AttachedRingHoverRecap';
 import '../consultation-chat.css';
 
@@ -16,7 +18,10 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const t = Object.assign((k, p) => tFn(k, p), consultationMessages[lang] || consultationMessages.vi);
   const api = useConsultationChatApi();
   const userRole = useRole();
+  const auth = useContext(AuthContext);
+  const getIdToken = auth?.getIdToken;
   const isManager = (currentUser?.role || userRole) === 'MANAGER';
+  const currentUserId = currentUser?.id ?? currentUser?.accountId ?? null;
 
   const [conversations, setConversations] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -46,12 +51,11 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [selectedBranch, setSelectedBranch] = useState('HN-HOANKIEM');
   const [assigning, setAssigning] = useState(false);
   const [incomingToast, setIncomingToast] = useState(null);
+  const [confirmReleaseOpen, setConfirmReleaseOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const userJustSentRef = useRef(false);
-  const pollTimerRef = useRef(null);
-  const lastMsgRefMap = useRef({});
   const apiRef = useRef(api);
   apiRef.current = api;
   const selectedRefRef = useRef(selectedRef);
@@ -142,29 +146,16 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       setActiveConversation(detail);
 
       const msgs = detail?.messages || [];
-      if (msgs.length > 0) {
+      if (msgs.length > 0 && detail.unreadCount > 0) {
         const lastMsg = msgs[msgs.length - 1];
-        const prevLastId = lastMsgRefMap.current[convRef];
-        if (prevLastId && prevLastId !== lastMsg.messageReference && lastMsg.senderType === 'MEMBER') {
-          playNotificationChime();
-          setIncomingToast({
-            sender: detail.memberName || 'Khách hàng',
-            text: lastMsg.messageText,
-            ref: convRef,
-          });
-        }
-        lastMsgRefMap.current[convRef] = lastMsg.messageReference;
-
-        if (detail.unreadCount > 0) {
-          apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
-        }
+        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
       }
     } catch (err) {
       if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t.errorGeneral, playNotificationChime]);
+  }, [t.errorGeneral]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -187,25 +178,14 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     }
   }, [activeConversation?.messages]);
 
-  // Continuous background & foreground polling: every 3s when visible, every 6s when hidden
+  // Window focus or visibility change: perform a one-off catch-up sync (no continuous polling loop)
   useEffect(() => {
-    let timerId = null;
-
-    const runPoll = () => {
-      loadConversations(true);
-      if (selectedRefRef.current) {
-        loadDetail(selectedRefRef.current, true);
-      }
-      const interval = document.visibilityState === 'visible' ? POLLING_INTERVAL_MS : 6000;
-      timerId = setTimeout(runPoll, interval);
-    };
-
-    timerId = setTimeout(runPoll, POLLING_INTERVAL_MS);
-
     const handleFocusOrVisible = () => {
       if (document.visibilityState === 'visible') {
-        if (timerId) clearTimeout(timerId);
-        runPoll();
+        loadConversations(true);
+        if (selectedRefRef.current) {
+          loadDetail(selectedRefRef.current, true);
+        }
       }
     };
 
@@ -213,11 +193,85 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     document.addEventListener('visibilitychange', handleFocusOrVisible);
 
     return () => {
-      if (timerId) clearTimeout(timerId);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleFocusOrVisible);
     };
   }, [loadConversations, loadDetail]);
+
+  // Real-time SSE streaming for instant message delivery (<100ms)
+  useEffect(() => {
+    if (!selectedRef) return;
+    let es = null;
+    let cancelled = false;
+
+    const startSse = async () => {
+      let token = '';
+      try {
+        if (typeof getIdToken === 'function') {
+          token = await getIdToken(false);
+        }
+      } catch {}
+
+      if (cancelled) return;
+      if (typeof EventSource === 'undefined') return;
+
+      const url = `/api/v1/consultations/${encodeURIComponent(selectedRef)}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+      try {
+        es = new EventSource(url);
+
+        es.addEventListener('message', (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg) {
+              setActiveConversation((prev) => {
+                if (!prev || prev.conversationReference !== selectedRef) return prev;
+                const exists = prev.messages?.some((m) => m.messageReference === msg.messageReference);
+                if (exists) return prev;
+                return {
+                  ...prev,
+                  messages: [...(prev.messages || []), msg],
+                };
+              });
+
+              if (msg.senderRole === 'MEMBER') {
+                playNotificationChime();
+                setIncomingToast({
+                  sender: 'Khách hàng',
+                  text: msg.text,
+                  ref: selectedRef,
+                });
+              }
+            }
+          } catch (err) {
+            console.error('SSE message parse error:', err);
+          }
+        });
+
+        es.addEventListener('conversation', (event) => {
+          try {
+            const conv = JSON.parse(event.data);
+            if (conv) {
+              setActiveConversation((prev) => (prev?.conversationReference === conv.conversationReference ? { ...prev, ...conv } : prev));
+              setConversations((prev) => prev.map((c) => (c.conversationReference === conv.conversationReference ? { ...c, ...conv } : c)));
+            }
+          } catch (err) {
+            console.error('SSE conversation parse error:', err);
+          }
+        });
+      } catch (err) {
+        console.warn('EventSource initialization failed:', err);
+      }
+    };
+
+    startSse();
+
+    return () => {
+      cancelled = true;
+      if (es) {
+        es.close();
+      }
+    };
+  }, [selectedRef, getIdToken, playNotificationChime]);
 
   // Send message
   const handleSendMessage = async (e) => {
@@ -336,7 +390,16 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
 
   const currentCount = countCodePoints(messageInput);
   const isClosed = activeConversation?.status === 'CLOSED';
-  const isClaimedByMe = activeConversation?.claimantRole !== null; // claimant is set
+  const isClaimedByMe = Boolean(
+    activeConversation?.claimantUserId &&
+    currentUserId &&
+    Number(activeConversation.claimantUserId) === Number(currentUserId)
+  );
+  const isClaimedByOther = Boolean(
+    activeConversation?.claimantRole &&
+    !isClaimedByMe &&
+    !isManager
+  );
 
   return (
     <div className="wsp-workspace">
@@ -526,6 +589,18 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                       </button>
                     )}
 
+                    {isManager && activeConversation.claimantRole ? (
+                      <button
+                        type="button"
+                        className="btn-secondary-consultation"
+                        style={{ borderColor: '#f97316', color: '#c2410c', background: '#fff7ed', fontWeight: 600 }}
+                        onClick={() => setConfirmReleaseOpen(true)}
+                        data-testid="manager-release-claim-btn"
+                      >
+                        🔓 Gỡ tiếp nhận
+                      </button>
+                    ) : null}
+
                     {!activeConversation.claimantRole ? (
                       <button
                         type="button"
@@ -535,13 +610,15 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                         {t.claim}
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        className="btn-secondary-consultation"
-                        onClick={handleRelease}
-                      >
-                        {t.release}
-                      </button>
+                      (!isManager && isClaimedByMe) && (
+                        <button
+                          type="button"
+                          className="btn-secondary-consultation"
+                          onClick={handleRelease}
+                        >
+                          {t.release}
+                        </button>
+                      )
                     )}
 
                     {activeConversation.status === 'OPEN' ? (
@@ -612,6 +689,10 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                       <div className="consultation-alert warning" style={{ margin: 0 }}>
                         {t.chatClosedWarning}
                       </div>
+                    ) : isClaimedByOther ? (
+                      <div className="consultation-alert warning" style={{ margin: 0 }} data-testid="chat-claimed-by-other-warning">
+                        Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.
+                      </div>
                     ) : !isClaimedByMe && !isManager ? (
                       <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{t.mustClaimWarning}</span>
@@ -656,6 +737,21 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                 </>
             )}
               </div>
+
+            {/* Manager Release Confirmation Dialog */}
+            <ConfirmDialog
+              open={confirmReleaseOpen}
+              title="Xác nhận gỡ tiếp nhận tư vấn"
+              confirmLabel="Gỡ tiếp nhận"
+              danger
+              onCancel={() => setConfirmReleaseOpen(false)}
+              onConfirm={async () => {
+                setConfirmReleaseOpen(false);
+                await handleRelease();
+              }}
+            >
+              <p>Bạn có chắc chắn muốn gỡ quyền phụ trách của nhân viên để đưa cuộc trò chuyện này về trạng thái chờ tiếp nhận không?</p>
+            </ConfirmDialog>
 
             {/* Assign Branch Modal (Manager only) */}
             {isAssignModalOpen && (
