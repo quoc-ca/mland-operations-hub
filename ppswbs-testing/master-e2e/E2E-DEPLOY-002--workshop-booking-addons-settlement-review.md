@@ -138,8 +138,9 @@ Kiểm chứng toàn trình (End-to-End) chuỗi giá trị dịch vụ Workshop
      - Tại ô nhập mã vé, nhập mã vé giả: `TKT-FAKE-99999` ➔ Bấm "Check-in".
      - Quan sát phản ứng từ chối của hệ thống.
   5. **Quét vé thật:**
-     - Xóa ô nhập, điền mã vé thật `WORKSHOP_TICKET_CODE` (hoặc dán token QR).
+     - Xóa ô nhập, điền mã vé thật `WORKSHOP_TICKET_CODE`.
      - Bấm nút **"Check-in"**.
+     - Cách khác (003.2 FR-057, FR-058, từ 2026-11-27; ô nhập mã QR đã bỏ): bấm **"Quét bằng camera"** và đưa mã QR của vé vào khung hình (cần camera thật, `localhost` hoặc HTTPS), hoặc bấm hàng vé trong danh sách điểm danh rồi **"Xác nhận check-in"**.
 - **Observable Expected**:
   - Khi nhập vé giả: Hệ thống từ chối dứt khoát với thông báo lỗi đỏ rõ ràng ("Mã vé không tồn tại hoặc không thuộc ca học này").
   - Khi nhập vé thật: Hệ thống chấp nhận, dòng Khách hàng trong danh sách học viên (Roster) chuyển trạng thái thành badge xanh: **`CHECKED_IN`** (`ĐÃ ĐIỂM DANH`).

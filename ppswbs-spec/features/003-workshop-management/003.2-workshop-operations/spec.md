@@ -502,6 +502,34 @@ perform refunds or connect to external sales channels.
 
 ## Clarifications
 
+### Session 2026-11-27 ticket scanning and roster check-in (owner Hồ Hoàng Quốc)
+
+- Q: Where is a ticket QR scanned? → A: With the camera of the computer, on the session page of the operations workspace (FR-057). A separate scanning page for phones is out of scope.
+- Q: Is the typed QR code kept? → A: No. The "or Check-in QR code" input is removed; the ticket-code input stays as the fallback (FR-057).
+- Q: Does the session page refresh itself on a timer? → A: No. It reloads after an action only.
+- Q: Can a ticket be checked in from the roster? → A: Yes, by pressing its row and confirming (FR-058).
+- Q: Who may undo or correct from the roster? → A: Only who may do it today (Manager, FR-007a and FR-008). Letting assigned Staff undo is a later change and is not part of this one.
+
+- **FR-057** *(camera scan, 2026-11-27)*: The session page MUST offer "Scan with
+  camera". While the scan panel is open it reads ticket QR codes and sends each as
+  a normal check-in (FR-003, FR-010kh), with the same authority, window and
+  eligibility rules as a typed ticket code. Each outcome MUST be shown in large
+  text (checked in, already checked in with the first check-in time, or refused
+  with the reason) and accompanied by a short sound. The same QR read again within
+  a few seconds MUST NOT send another request. Reloading data after a check-in
+  MUST NOT blank the page or stop the camera. Closing the panel or leaving the page
+  MUST turn the camera off. When the camera cannot be used the panel MUST say so,
+  and the ticket-code input remains. The QR value MUST NOT be shown, logged or
+  stored by the page. The typed QR code input is removed.
+- **FR-058** *(roster check-in, 2026-11-27)*: Pressing a roster row MUST open the
+  ticket: a ticket that is not checked in is checked in after a confirmation, using
+  its ticket code; when check-in is not open (session state, or before the opening
+  time) the reason MUST be shown and no check-in offered. A checked-in ticket
+  shows its check-in time. A Manager is additionally offered, before attendance
+  finalization, to reverse a check-in, and after finalization to correct between
+  checked in and no-show, each with the standardized reason of FR-007a. Staff are
+  not offered these actions. The server remains the authority.
+
 ### Session 2026-11-27 session board (owner Hồ Hoàng Quốc)
 
 - Q: How is the session list filtered by state? → A: By tabs with counts instead of a state select: All, In progress, Upcoming (published and sales paused), Ended (attendance finalized), Cancelled (cancellation requested and cancelled), and Drafts only when there is one (FR-056).

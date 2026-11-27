@@ -194,3 +194,14 @@
 .ops-table td[data-label]:not([data-label=""])::before{content:attr(data-label);flex:none;color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;text-align:left}
 .ops-table td[colspan]{display:block;text-align:left}
 }
+
+/* ---- Camera scan (FR-057) and roster row actions (FR-058) ---- */
+.ops-scan-button{width:100%;margin-bottom:14px}
+.qr-scanner-video{display:block;width:100%;max-height:50vh;background:#111;object-fit:cover}
+.qr-scan-result{display:flex;flex-direction:column;gap:6px;margin-top:14px;padding:18px;text-align:center;font-size:16px;overflow-wrap:anywhere}
+.qr-scan-result strong{font-size:28px;line-height:1.2}
+.qr-scan-success{background:#dcfce7;color:#166534}
+.qr-scan-repeat{background:#fef3c7;color:#92400e}
+.qr-scan-error{background:#fee2e2;color:#991b1b}
+.roster-panel .roster-clickable{cursor:pointer}
+.roster-open{padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;text-decoration:underline;cursor:pointer;overflow-wrap:anywhere}

@@ -636,3 +636,12 @@ Excluded by `approval.md` (PARTIALLY APPROVED 2026-11-17). Each needs its own de
 - [ ] T180 [Test] Browser check of the tabs, order and colours against a live stack as Staff and Manager.
 
 Mapping: FR-056 → T179, T180.
+
+## Camera scan and roster check-in (spec FR-057, FR-058, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T181 **Done 2026-11-27** [FE] Camera scan panel on the session page (`@zxing/browser`, `runCheckIn({ qrToken })`): large result, sound, repeat-scan guard, camera off on close and unmount, message when the camera is unavailable. Traces to FR-057. Check: Vitest. `QrCheckInScanner.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T182 **Done 2026-11-27** [FE] Keep the session page (and the camera) while it reloads; remove the typed QR code input and its messages. Traces to FR-057. Check: Vitest. `OperationsSessionPage.jsx` keeps its content on reload; typed QR input removed. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T183 **Done 2026-11-27** [FE] Roster row opens the ticket: confirm check-in by ticket code, refusal reason outside check-in, check-in time, Manager-only reversal/correction with reason. Traces to FR-058. Check: Vitest. `RosterTicketDialog.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [ ] T184 [Test] Browser check of camera scan and roster actions against a live stack as Staff and Manager (default browser: the in-app pane blocks the camera).
+
+Mapping: FR-057 → T181, T182, T184. FR-058 → T183, T184.

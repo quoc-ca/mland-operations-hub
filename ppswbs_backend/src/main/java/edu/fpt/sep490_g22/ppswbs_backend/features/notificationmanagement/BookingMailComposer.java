@@ -2,10 +2,16 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.notificationfacade.BookingNotificationDeliveryPayload;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Builds the booking email (Vietnamese) from the protected delivery payload. Pure: no I/O, no logging. */
 final class BookingMailComposer {
+
+    /** The QR reference as Booking writes it in a ticket artifact ("… · QR: <reference>"). */
+    private static final Pattern TICKET_QR = Pattern.compile("(?:^|· )QR: ([A-Za-z0-9._-]+)");
 
     private BookingMailComposer() {
     }
@@ -76,9 +82,21 @@ final class BookingMailComposer {
         for (String paragraph : body.split("\n\n")) {
             html.append("<p>").append(escape(paragraph).replace("\n", "<br>")).append("</p>");
         }
+        List<MailMessage.InlineImage> images = new ArrayList<>();
         if (!artifacts.isEmpty()) {
             html.append("<ul>");
-            artifacts.forEach(item -> html.append("<li><strong>").append(escape(item)).append("</strong></li>"));
+            for (String item : artifacts) {
+                html.append("<li><strong>").append(escape(item)).append("</strong>");
+                Matcher qr = TICKET_QR.matcher(item);
+                if (qr.find()) {
+                    String contentId = "ticket-qr-" + (images.size() + 1);
+                    images.add(new MailMessage.InlineImage(contentId, TicketQrImage.png(qr.group(1))));
+                    html.append("<br><img src=\"cid:").append(contentId).append("\" width=\"")
+                            .append(TicketQrImage.SIZE).append("\" height=\"").append(TicketQrImage.SIZE)
+                            .append("\" alt=\"Mã QR check-in\" style=\"display:block;margin:8px 0 16px\">");
+                }
+                html.append("</li>");
+            }
             html.append("</ul>");
         }
         if (!link.isEmpty()) {
@@ -87,7 +105,8 @@ final class BookingMailComposer {
                     .append("<p style=\"color:#666;font-size:13px\">Liên kết này là riêng của bạn, đừng chia sẻ cho người khác.</p>");
         }
         html.append("<p>Cảm ơn bạn đã chọn MLAND.</p></div>");
-        return new MailMessage(payload.storedRecipient(), payload.renderedSubject(), text.toString(), html.toString());
+        return new MailMessage(payload.storedRecipient(), payload.renderedSubject(), text.toString(), html.toString(),
+                List.copyOf(images));
     }
 
     /**

@@ -279,7 +279,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
   - Đăng nhập tài khoản Staff: `staff.test@mland.vn` / `StaffTest@123456`.
   - Nhân viên nhìn vào thanh menu: Có thấy mục **"Điều hành xưởng & Check-in"** (`/operator/workshop-operations`) không?
 - **(b) Thử nghiệm Đối nghịch & Bẫy vé giả (Adversarial Probing)**:
-  - Mở màn hình check-in: Ô nhập mã vé / quét QR nằm ở vị trí trung tâm.
+  - Mở màn hình check-in: nút **"Quét bằng camera"** và ô nhập mã vé nằm ở bàn check-in (003.2 FR-057; không còn ô nhập mã QR). Bấm hàng vé trong danh sách điểm danh cũng check-in được sau khi xác nhận (FR-058).
   - **Thử nhập vé giả**: Gõ `TKT-FAKE-99999` ➔ Bấm "Kiểm tra vé".
     + Hệ thống hiển thị thông báo lỗi màu đỏ rõ ràng: *"Mã vé không tồn tại hoặc không thuộc ca học này"*.
   - **Quét vé thật**: Nhập mã vé `WORKSHOP_TICKET_CODE` vừa sinh từ Bước 5.
