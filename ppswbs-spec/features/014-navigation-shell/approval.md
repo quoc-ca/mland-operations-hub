@@ -5,7 +5,7 @@
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-22
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -45,3 +45,12 @@
 - **No new approval is granted by this split** and no approved scope was widened or narrowed. The approvals recorded above keep their original date and approver; they now cover, in this folder, the shell (T038 to T044 scope) and the owner count reads, and, in 010, the blocks whose tasks moved.
 - The `sha256` prefixes recorded above are of the 2026-11-18 drafts. Before the 2026-11-25 banner, `design/architecture.md` (`a03d1207…`) and `design/workflows.md` (`47a5f40b…`) already differed from them, so the recorded revision no longer identifies the files as they are today. This was already the case before the split. The Tech Lead needs to re-record the approved revision if the approval is to be relied on for the current design.
 - `design/` files only received a status banner on 2026-11-25; their content is unchanged.
+
+## Khách hàng badges (2026-11-27)
+
+- Scope: spec "Session 2026-11-27 (Khách hàng badges)" and FR-005, `contracts/reads.md` section E, tasks T046 and T047, and the query parameter `unclaimed` (with the Member 403) in the 013 contract.
+- Approval date: 2026-11-27. Tech Lead: Hồ Hoàng Quốc.
+- Source of approval: Hồ Hoàng Quốc answered "duyệt" to this scope in the Claude Code session on 2026-11-27.
+- Revision: working tree of branch `quoc` on top of `ae3f8a74`, not committed. sha256 prefixes: `spec.md` `9d75d4036a293df4`, `contracts/reads.md` `35de19babbdc2bc3`, 013 `staff-consultation-chat.openapi.yaml` `7b590bca3cda37e5`.
+- 013 owner: agreement to the filter was confirmed by Hồ Hoàng Quốc in the same session; this entry is not an approval by the 013 owner.
+- Not verified at approval time: the new queries on MySQL and the screens in a browser.

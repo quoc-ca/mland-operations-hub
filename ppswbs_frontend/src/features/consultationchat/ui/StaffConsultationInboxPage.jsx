@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
@@ -23,7 +24,16 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRef, setSelectedRef] = useState(null);
   const [activeConversation, setActiveConversation] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  // The filter lives in the URL, so the rail badge can open the inbox on exactly the set it counts.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+  let statusFilter = ['OPEN', 'CLOSED'].includes(statusParam) ? statusParam : '';
+  if (searchParams.get('unclaimed') === 'true') statusFilter = 'UNCLAIMED';
+  const setStatusFilter = (value) => {
+    let next = value ? { status: value } : {};
+    if (value === 'UNCLAIMED') next = { status: 'OPEN', unclaimed: 'true' };
+    setSearchParams(next, { replace: true });
+  };
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [messageInput, setMessageInput] = useState('');
@@ -103,7 +113,9 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     if (append) setLoadingMore(true);
     try {
       const res = await apiRef.current.listConversations({
-        status: statusFilterRef.current || undefined,
+        ...(statusFilterRef.current === 'UNCLAIMED'
+          ? { status: 'OPEN', unclaimed: true }
+          : { status: statusFilterRef.current || undefined }),
         cursor: append ? nextCursorRef.current : undefined,
         limit: 20,
       });
@@ -392,6 +404,7 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
               >
                 <option value="">{t.allStatuses}</option>
                 <option value="OPEN">{t.filterOpen}</option>
+                <option value="UNCLAIMED">{t.filterUnclaimed}</option>
                 <option value="CLOSED">{t.filterClosed}</option>
               </select>
             </div>

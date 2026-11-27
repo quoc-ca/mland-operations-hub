@@ -4,6 +4,7 @@ import { translate } from '../../shared/i18n/I18nProvider';
 import { operatorHomeMessages } from './messages';
 import { createOperationsApi } from '../../workshop-operations/api/operationsApi';
 import { staffRetailOpenCount } from '../retail-order/ui/manager/staffTabs';
+import { getOrderStage } from '../designreview/customOrderStatus';
 
 const ZONE = 'Asia/Ho_Chi_Minh';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,7 +81,7 @@ export async function countUnclaimedConsultations(http) {
   let cursor = null;
   let unclaimed = 0;
   for (let page = 0; page < CONSULTATION_MAX_PAGES; page += 1) {
-    const query = { status: 'OPEN', limit: CONSULTATION_PAGE_SIZE, ...(cursor ? { cursor } : {}) };
+    const query = { status: 'OPEN', unclaimed: true, limit: CONSULTATION_PAGE_SIZE, ...(cursor ? { cursor } : {}) };
     const result = await http('/api/v1/consultations', { query });
     unclaimed += listOf(result).filter(item => !item.claimantRole).length;
     if (!result?.hasMore || !result?.nextCursor) return unclaimed;
@@ -90,17 +91,26 @@ export async function countUnclaimedConsultations(http) {
   throw new Error('CONSULTATION_COUNT_INCOMPLETE');
 }
 
+/**
+ * Custom orders paid and waiting for production: the set the "Đơn gia công" screen opens on (its default tab). The list
+ * is unpaged and the same for Staff and Manager, so the count is exact.
+ */
+export async function countPaidCustomOrders(http) {
+  const result = await http('/api/v1/custom-orders');
+  return listOf(result).filter(order => getOrderStage(order) === 'PAID').length;
+}
+
 // Which counted tabs make up the count of each rail group, for a Staff. A group count exists only when every one of its
 // counted tabs was read, so a badge never understates the waiting work.
 const STAFF_GROUPS = {
   workshop: ['workshop/sessions'],
   retail: ['retail/orders'],
   tickets: ['tickets/change-requests'],
-  customers: ['customers/design-review', 'customers/consultations'],
+  customers: ['customers/design-review', 'customers/custom-orders-ops', 'customers/consultations'],
 };
 
 export async function readStaffNavCounts(http, now = Date.now()) {
-  const [sessions, retail, changes, designs, consultations] = await Promise.allSettled([
+  const [sessions, retail, changes, designs, consultations, customOrders] = await Promise.allSettled([
     createOperationsApi(http).listSessions({ from: dateInVietnam(now - DAY_MS), to: dateInVietnam(now) }),
     Promise.all([
       http('/api/v1/staff/retail-pickups'),
@@ -111,6 +121,7 @@ export async function readStaffNavCounts(http, now = Date.now()) {
     http('/api/v1/workshop-change-requests', { query: { status: 'PENDING' } }),
     http('/api/v1/design-review-requests'),
     countUnclaimedConsultations(http),
+    countPaidCustomOrders(http),
   ]);
   const counts = {};
   if (sessions.status === 'fulfilled') counts['workshop/sessions'] = workshopTasks(sessions.value, now).length;
@@ -121,6 +132,7 @@ export async function readStaffNavCounts(http, now = Date.now()) {
   if (changes.status === 'fulfilled') counts['tickets/change-requests'] = listOf(changes.value).length;
   if (designs.status === 'fulfilled') counts['customers/design-review'] = listOf(designs.value).length;
   if (consultations.status === 'fulfilled') counts['customers/consultations'] = consultations.value;
+  if (customOrders.status === 'fulfilled') counts['customers/custom-orders-ops'] = customOrders.value;
   Object.entries(STAFF_GROUPS).forEach(([groupId, keys]) => {
     if (keys.every(key => Number.isInteger(counts[key]))) counts[groupId] = keys.reduce((sum, key) => sum + counts[key], 0);
   });

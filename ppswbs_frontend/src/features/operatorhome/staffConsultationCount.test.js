@@ -20,7 +20,7 @@ describe('countUnclaimedConsultations', () => {
   it('counts only the open conversations nobody has claimed', async () => {
     const { http, calls } = pagedHttp([rows(3, 2)]);
     expect(await countUnclaimedConsultations(http)).toBe(3);
-    expect(calls).toEqual([{ path: '/api/v1/consultations', query: { status: 'OPEN', limit: 50 } }]);
+    expect(calls).toEqual([{ path: '/api/v1/consultations', query: { status: 'OPEN', unclaimed: true, limit: 50 } }]);
   });
 
   it('walks every page by cursor and adds the unclaimed ones', async () => {

@@ -5,7 +5,7 @@
 > **Renamed 2026-11-25:** this folder was `013-manager-home`; it is now `014-navigation-shell`. The spec covers the navigation shell only; the Manager Home dashboard blocks moved into `010-manager-dashboard` (FR-034 to FR-038). This file keeps the earlier Manager Home history and was not rewritten; only the folder path was updated.
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -62,3 +62,12 @@ The owners' reads, as built (owner agreement and definitions: Hồ Hoàng Quốc
 | R-3 | `GET /api/v1/workshop-cash-closes/awaiting-confirmation-count` | `{ waiting }` | `GET /api/v1/workshop-cash-closes?awaitingConfirmation=true` (Manager only), shown on the cash-close screen as `/settlement/cash-close?view=confirmation`, where a Manager can also confirm each difference (decision "làm luôn", Hồ Hoàng Quốc, 2026-11-18) |
 | R-4 | *(Removed 2026-11-25 with OTA; the route no longer exists.)* | — | — |
 | R-5 | `GET /api/v1/workshop-audit/settlement-records?denied=true` | the existing page | the same read |
+
+## E. Reads of the Khách hàng badges (2026-11-27)
+
+Existing reads and no new endpoint; the 013 list gained the `unclaimed` filter (T047). Decision: spec "Session 2026-11-27 (Khách hàng badges)".
+
+| Badge | Roles | Read | What the shell counts |
+| --- | --- | --- | --- |
+| `customers/custom-orders-ops` | Manager, Staff | `GET /api/v1/custom-orders` | Items in the paid, waiting-for-production stage, classified by the same function as the custom-order screen. The list is unpaged. |
+| `customers/consultations` | Manager, Staff | `GET /api/v1/consultations?status=OPEN&unclaimed=true&limit=50[&cursor=]` | Items with no `claimantRole`, at most 4 pages (spec FR-005). |

@@ -3,7 +3,7 @@ import { useHttp } from '../api/useHttp';
 import { useAuth } from '../auth/AuthProvider';
 import { registerPrivateStateCleanup } from '../auth/privateStateCleanup';
 import { createHomeReads } from '../../features/manager-dashboard/operations/infrastructure/homeReads';
-import { readStaffNavCounts } from '../../features/operatorhome/staffWork';
+import { countPaidCustomOrders, countUnclaimedConsultations, readStaffNavCounts } from '../../features/operatorhome/staffWork';
 
 /**
  * Waiting-work counts for the navigation rail (spec 014, navigation decision of 2026-11-22).
@@ -11,11 +11,13 @@ import { readStaffNavCounts } from '../../features/operatorhome/staffWork';
  *   useNavBadges(role) -> { status: 'loading' | 'ready', counts }
  *   counts: { [groupId]: number, [`${groupId}/${tabId}`]: number }
  *
- * - Manager: reads the existing count functions once on entry, caches the result, refreshes on an interval.
+ * - Manager: reads the count functions once on entry, caches the result, refreshes on an interval. Custom orders
+ *   (`customers/custom-orders-ops`, paid and waiting for production) and unclaimed open consultations
+ *   (`customers/consultations`) are counted the same way as for Staff.
  * - Staff: workshop tasks (`workshop/sessions`) and open branch orders (`retail/orders`), the two counts of the Staff
  *   home, plus pending change requests of the Staff's branches (`tickets/change-requests`), designs waiting for
- *   review (`customers/design-review`) and unclaimed open consultations (`customers/consultations`, read by walking
- *   the inbox list). Other roles: empty counts, status `ready`.
+ *   review (`customers/design-review`), custom orders waiting for production (`customers/custom-orders-ops`) and
+ *   unclaimed open consultations (`customers/consultations`, read by walking the inbox list). Other roles: empty counts, status `ready`.
  *   Not counted for Staff: ticket folios and shop add-ons (no list endpoint, they need a count endpoint first).
  *   A group count is the sum of the counted tabs the Staff has in it, and exists only when all of them were read.
  * - A count that cannot be read is simply absent: no badge, no error, the rail keeps working. A group count exists
@@ -27,6 +29,8 @@ export const BADGE_REFRESH_MS = 60 * 1000;
 // Which tab shows which count. Keys are `groupId/tabId` of navModel.
 const MANAGER_COUNTS = [
   ['customers/design-review', 'countDesignReviews'],
+  ['customers/custom-orders-ops', 'countCustomOrders'],
+  ['customers/consultations', 'countConsultations'],
   ['tickets/change-requests', 'countChangeRequests'],
   ['tickets/refunds', 'countRefundWaiting'],
   ['collect/cash-close', 'countCashCloseDifferences'],
@@ -65,7 +69,11 @@ async function readManagerCounts(reads) {
 export function useNavBadges(role) {
   const http = useHttp();
   const { status: authStatus, userId } = useAuth();
-  const reads = useMemo(() => createHomeReads(http), [http]);
+  const reads = useMemo(() => ({
+    ...createHomeReads(http),
+    countCustomOrders: () => countPaidCustomOrders(http),
+    countConsultations: () => countUnclaimedConsultations(http),
+  }), [http]);
   const who = userId ?? '__unknown__';
   const fresh = cache.userId === who && cache.counts && Date.now() - cache.at < BADGE_CACHE_MS;
   const counted = role === 'MANAGER' || role === 'STAFF';
