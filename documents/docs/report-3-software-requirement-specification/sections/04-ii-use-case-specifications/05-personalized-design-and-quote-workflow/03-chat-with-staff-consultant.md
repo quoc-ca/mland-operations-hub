@@ -33,7 +33,7 @@ A Member opens consultation from a workshop design or independent Design Request
 2. System displays a context selector with code, name, version, and preview.
 3. Member confirms the context and sends a UTF-8 text message.
 4. System validates ownership, context version, message length, rate limit, and idempotency, then stores the message.
-5. System displays the new unread conversation in the Staff and Manager shared inbox through polling.
+5. System displays the new unread conversation in the Staff and Manager shared inbox through no-cache polling; visible tabs poll every 3 seconds and hidden tabs every 6 seconds.
 6. Staff claims the conversation within their Workshop Location scope.
 7. Staff or Manager sends a text response.
 8. System displays the response to the Member after polling and preserves immutable history.

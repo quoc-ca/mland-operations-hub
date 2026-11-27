@@ -503,9 +503,108 @@ function CustomImageCard({ item, onUpdate, onRemove, hasStonesOnOuter = false, t
   );
 }
 
+const SAMPLE_PRESETS = [
+  {
+    id: 'clover',
+    label: 'Cỏ 4 lá',
+    icon: '🍀',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><path d="M80,80 C60,40 30,50 40,75 C48,90 70,85 80,80 C60,120 30,110 40,85 C48,70 70,75 80,80 C100,120 130,110 120,85 C112,70 90,75 80,80 C100,40 130,50 120,75 C112,90 90,85 80,80 Z" fill="#000000"/><path d="M80,80 Q84,125 76,145 Q80,145 84,125 Z" fill="#000000"/></svg>`,
+  },
+  {
+    id: 'heart',
+    label: 'Trái tim',
+    icon: '❤️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><path d="M80,135 C25,95 20,48 55,38 C72,33 80,52 80,52 C80,52 88,33 105,38 C140,48 135,95 80,135 Z" fill="#000000"/></svg>`,
+  },
+  {
+    id: 'sun',
+    label: 'Mặt trời',
+    icon: '☀️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><circle cx="80" cy="80" r="28" fill="#000000"/><g stroke="#000000" stroke-width="7" stroke-linecap="round"><line x1="80" y1="22" x2="80" y2="40"/><line x1="80" y1="120" x2="80" y2="138"/><line x1="22" y1="80" x2="40" y2="80"/><line x1="120" y1="80" x2="138" y2="80"/><line x1="39" y1="39" x2="52" y2="52"/><line x1="108" y1="108" x2="121" y2="121"/><line x1="39" y1="121" x2="52" y2="108"/><line x1="108" y1="52" x2="121" y2="39"/></g></svg>`,
+  },
+  {
+    id: 'moon',
+    label: 'Mặt trăng',
+    icon: '🌙',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><path d="M92,30 C52,38 38,76 48,110 C58,132 84,138 108,128 C76,120 68,76 92,30 Z" fill="#000000"/></svg>`,
+  },
+  {
+    id: 'star',
+    label: 'Ngôi sao',
+    icon: '⭐',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><polygon points="80,26 96,65 138,67 105,92 117,132 80,108 43,132 55,92 22,67 64,65" fill="#000000"/></svg>`,
+  },
+  {
+    id: 'infinity',
+    label: 'Vô cực',
+    icon: '♾️',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#FFFFFF"/><path d="M80,80 C60,52 32,52 32,80 C32,108 60,108 80,80 C100,52 128,52 128,80 C128,108 100,108 80,80 Z" fill="none" stroke="#000000" stroke-width="14" stroke-linecap="round"/></svg>`,
+  },
+];
+
+function convertSvgToPngDataUrl(svgString, callback) {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') {
+    callback('data:image/svg+xml;utf8,' + encodeURIComponent(svgString));
+    return;
+  }
+  const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 160;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      callback(canvas.toDataURL('image/png'));
+    } catch {
+      URL.revokeObjectURL(url);
+      callback('data:image/svg+xml;utf8,' + encodeURIComponent(svgString));
+    }
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    callback('data:image/svg+xml;utf8,' + encodeURIComponent(svgString));
+  };
+  img.src = url;
+}
+
 export default function LaserEngravingImageCropper({ customImages = [], onChangeCustomImages, hasStonesOnOuter = false, t }) {
   const fileInputRef = useRef(null);
   const isImageLimitReached = customImages.length >= 2;
+
+  const appendCustomImage = (finalUrl, label = null) => {
+    const newId = `img-${Date.now().toString().slice(-4)}`;
+    const newItem = {
+      id: newId,
+      name: label || `Ảnh khắc #${customImages.length + 1}`,
+      imageUrl: finalUrl,
+      previewDataUrl: finalUrl,
+      processedPreviewReference: finalUrl,
+      cropX: 0,
+      cropY: 0,
+      cropWidth: 160,
+      cropHeight: 160,
+      contrast: 50,
+      sharpness: 50,
+      placement: 'INNER_BAND',
+      price: 100000,
+    };
+
+    onChangeCustomImages([...customImages, newItem]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSelectPreset = (preset) => {
+    if (isImageLimitReached) return;
+    convertSvgToPngDataUrl(preset.svg, (dataUrl) => {
+      appendCustomImage(dataUrl, preset.label);
+    });
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -531,28 +630,6 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
       const rawDataUrl = uploadEvent.target?.result;
       if (!rawDataUrl) return;
 
-      const appendItem = (finalUrl) => {
-        const newId = `img-${Date.now().toString().slice(-4)}`;
-        const newItem = {
-          id: newId,
-          imageUrl: finalUrl,
-          processedPreviewReference: '',
-          cropX: 0,
-          cropY: 0,
-          cropWidth: 160,
-          cropHeight: 160,
-          contrast: 50,
-          sharpness: 50,
-          placement: 'INNER_BAND',
-          price: 100000,
-        };
-
-        onChangeCustomImages([...customImages, newItem]);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      };
-
       if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
         const tempImg = new Image();
         tempImg.onload = () => {
@@ -569,18 +646,18 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
               canvas.height = height;
               const ctx = canvas.getContext('2d');
               ctx.drawImage(tempImg, 0, 0, width, height);
-              appendItem(canvas.toDataURL('image/jpeg', 0.85));
+              appendCustomImage(canvas.toDataURL('image/jpeg', 0.85));
             } else {
-              appendItem(rawDataUrl);
+              appendCustomImage(rawDataUrl);
             }
           } catch {
-            appendItem(rawDataUrl);
+            appendCustomImage(rawDataUrl);
           }
         };
-        tempImg.onerror = () => appendItem(rawDataUrl);
+        tempImg.onerror = () => appendCustomImage(rawDataUrl);
         tempImg.src = rawDataUrl;
       } else {
-        appendItem(rawDataUrl);
+        appendCustomImage(rawDataUrl);
       }
     };
     reader.readAsDataURL(file);
@@ -632,6 +709,42 @@ export default function LaserEngravingImageCropper({ customImages = [], onChange
         style={{ display: 'none' }}
         data-testid="upload-engraving-image-input"
       />
+
+      {/* Preset sample icons gallery */}
+      <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem', background: '#f8fafc', padding: '0.75rem', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>
+          ✨ Hoặc chọn biểu tượng mẫu có sẵn (Khắc nhanh):
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {SAMPLE_PRESETS.map((preset) => (
+            <button
+              type="button"
+              key={preset.id}
+              onClick={() => handleSelectPreset(preset)}
+              disabled={isImageLimitReached}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.35rem 0.65rem',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: 6,
+                fontSize: '0.85rem',
+                color: '#1e293b',
+                cursor: isImageLimitReached ? 'not-allowed' : 'pointer',
+                opacity: isImageLimitReached ? 0.5 : 1,
+                transition: 'all 0.15s ease',
+              }}
+              data-testid={`preset-engraving-${preset.id}`}
+              title={`Khắc laser mẫu ${preset.label}`}
+            >
+              <span style={{ fontSize: '1rem' }}>{preset.icon}</span>
+              <span>{preset.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
         <button
