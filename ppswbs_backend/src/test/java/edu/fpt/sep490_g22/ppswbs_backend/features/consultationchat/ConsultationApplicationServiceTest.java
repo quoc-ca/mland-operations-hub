@@ -93,6 +93,25 @@ class ConsultationApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("T014-047: unclaimed filter - Manager reads all branches, Staff only their own, Member is denied")
+    void unclaimedFilterIsScopedByRole() {
+        var manager = new AccountActorPort.CallerActor(2L, "MANAGER", "ACTIVE", List.of());
+        var staff = new AccountActorPort.CallerActor(3L, "STAFF", "ACTIVE", List.of(7L));
+        var member = new AccountActorPort.CallerActor(10L, "MEMBER", "ACTIVE", List.of());
+        when(conversationRepository.findByStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(eq(ConsultationStatus.OPEN), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        when(conversationRepository.findByAssignedLocationIdInAndStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(eq(List.of(7L)), eq(ConsultationStatus.OPEN), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        assertThat(service.listConversations(ConsultationStatus.OPEN, true, null, null, manager).getItems()).isEmpty();
+        assertThat(service.listConversations(ConsultationStatus.OPEN, true, null, null, staff).getItems()).isEmpty();
+        assertThatThrownBy(() -> service.listConversations(null, true, null, null, member))
+                .isInstanceOf(ConsultationException.class)
+                .satisfies(ex -> assertThat(((ConsultationException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+        verifyNoMoreInteractions(conversationRepository);
+    }
+
+    @Test
     @DisplayName("T013-041: Context validation creates immutable snapshot and rejects invalid context")
     void contextValidationCreatesSnapshot() {
         var member = new AccountActorPort.CallerActor(10L, "MEMBER", "ACTIVE", List.of());

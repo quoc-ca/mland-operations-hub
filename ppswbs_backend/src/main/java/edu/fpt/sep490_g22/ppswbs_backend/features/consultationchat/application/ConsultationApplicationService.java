@@ -134,6 +134,17 @@ public class ConsultationApplicationService {
             Integer limit,
             AccountActorPort.CallerActor caller
     ) {
+        return listConversations(status, false, cursor, limit, caller);
+    }
+
+    @Transactional(readOnly = true)
+    public ConversationListDto listConversations(
+            ConsultationStatus status,
+            boolean unclaimed,
+            String cursor,
+            Integer limit,
+            AccountActorPort.CallerActor caller
+    ) {
         validateCallerNotAdmin(caller);
         int pageSize = Math.min(Math.max(limit == null ? 20 : limit, 1), 50);
         int pageNumber = decodeCursor(cursor);
@@ -141,6 +152,9 @@ public class ConsultationApplicationService {
                 Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("conversationReference")));
         Page<ConsultationConversation> page;
         if ("MEMBER".equals(caller.role())) {
+            if (unclaimed) {
+                throw ConsultationException.forbidden("CHAT_ACCESS_DENIED", "Vai trò không có quyền truy cập.");
+            }
             if (status != null) {
                 page = conversationRepository.findByMemberUserIdAndStatusAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(caller.accountId(), status, pageRequest);
             } else {
@@ -150,13 +164,21 @@ public class ConsultationApplicationService {
             List<Long> activeLocs = caller.activeLocationIds();
             if (activeLocs == null || activeLocs.isEmpty()) {
                 page = Page.empty(pageRequest);
+            } else if (unclaimed) {
+                page = status != null
+                        ? conversationRepository.findByAssignedLocationIdInAndStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, status, pageRequest)
+                        : conversationRepository.findByAssignedLocationIdInAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, pageRequest);
             } else if (status != null) {
                 page = conversationRepository.findByAssignedLocationIdInAndStatusOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, status, pageRequest);
             } else {
                 page = conversationRepository.findByAssignedLocationIdInOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, pageRequest);
             }
         } else if ("MANAGER".equals(caller.role())) {
-            if (status != null) {
+            if (unclaimed) {
+                page = status != null
+                        ? conversationRepository.findByStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(status, pageRequest)
+                        : conversationRepository.findByClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(pageRequest);
+            } else if (status != null) {
                 page = conversationRepository.findByStatusOrderByUpdatedAtDescConversationReferenceDesc(status, pageRequest);
             } else {
                 page = conversationRepository.findByOrderByUpdatedAtDescConversationReferenceDesc(pageRequest);

@@ -43,6 +43,7 @@ paths:
       security: [{ bearerAuth: [] }, {}]
       parameters:
         - { name: status, in: query, schema: { type: string, enum: [OPEN, CLOSED] } }
+        - { name: unclaimed, in: query, description: 'STAFF and MANAGER only. When true, only conversations nobody has claimed, within the same scope and combinable with status. A MEMBER sending true gets 403 CHAT_ACCESS_DENIED. Used by the navigation badge (014 FR-005).', schema: { type: boolean, default: false } }
         - { name: cursor, in: query, schema: { type: string } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
         - { $ref: '#/components/parameters/GuestConsultationSession' }

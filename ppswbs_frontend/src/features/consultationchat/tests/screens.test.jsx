@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { MemberConsultationPage } from '../ui/MemberConsultationPage';
 import { StaffConsultationInboxPage } from '../ui/StaffConsultationInboxPage';
@@ -33,9 +33,22 @@ describe('Feature-013 Consultation UI Screens', () => {
   });
 
   it('renders StaffConsultationInboxPage header and filter bar', () => {
-    render(<StaffConsultationInboxPage currentUser={{ role: 'STAFF' }} />);
+    render(<MemoryRouter><StaffConsultationInboxPage currentUser={{ role: 'STAFF' }} /></MemoryRouter>);
     expect(screen.getByText('Hộp thư tư vấn')).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('opens on the unclaimed conversations when the badge link asks for them', async () => {
+    mockApi.listConversations.mockClear();
+    render(
+      <MemoryRouter initialEntries={['/operations/consultations?status=OPEN&unclaimed=true']}>
+        <StaffConsultationInboxPage currentUser={{ role: 'MANAGER' }} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('combobox')).toHaveValue('UNCLAIMED');
+    await waitFor(() => expect(mockApi.listConversations).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'OPEN', unclaimed: true }),
+    ));
   });
 
   it('follows the language switch (I18nProvider) instead of a lang prop', () => {

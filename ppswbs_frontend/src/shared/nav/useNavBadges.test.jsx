@@ -19,6 +19,9 @@ const counts = (overrides = {}) => ({
   'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
   'GET /api/v1/workshop-refund-requests/waiting-count': json(200, { waiting: 4 }),
   'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(200, { waiting: 1 }),
+  // One of the two orders is paid and waiting for production.
+  'GET /api/v1/custom-orders': json(200, [{ status: 'PAID', productionStatus: 'PENDING' }, { status: 'QUOTE_PENDING' }]),
+  'GET /api/v1/consultations': json(200, { items: [{ claimantRole: null }, { claimantRole: 'STAFF' }], nextCursor: null, hasMore: false }),
   ...overrides,
 });
 
@@ -32,7 +35,7 @@ describe('useNavBadges', () => {
     expect(read()).toEqual({ status: 'loading', counts: {} });
     await waitFor(() => expect(read().status).toBe('ready'));
     expect(read().counts).toEqual({
-      'customers/design-review': 1, customers: 1,
+      'customers/design-review': 1, 'customers/custom-orders-ops': 1, 'customers/consultations': 1, customers: 3,
       'tickets/change-requests': 2, 'tickets/refunds': 4, tickets: 6,
       'collect/cash-close': 1, 'collect/late-payments': 3, collect: 4,
     });
@@ -71,6 +74,7 @@ describe('useNavBadges', () => {
     'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
     // Two of the three open conversations are unclaimed.
     'GET /api/v1/consultations': json(200, { items: [{ claimantRole: null }, { claimantRole: 'STAFF' }, { claimantRole: null }], nextCursor: null, hasMore: false }),
+    'GET /api/v1/custom-orders': json(200, [{ status: 'PAID', productionStatus: 'PENDING' }, { status: 'IN_PRODUCTION', productionStatus: 'IN_PRODUCTION' }]),
     ...overrides,
   });
 
@@ -82,10 +86,10 @@ describe('useNavBadges', () => {
       'workshop/sessions': 2, workshop: 2,
       'retail/orders': 2, retail: 2,
       'tickets/change-requests': 3, tickets: 3,
-      'customers/design-review': 1, 'customers/consultations': 2, customers: 3,
+      'customers/design-review': 1, 'customers/custom-orders-ops': 1, 'customers/consultations': 2, customers: 4,
     });
-    expect(calls).toHaveLength(6);
-    expect(calls.find(call => call.path === '/api/v1/consultations').query).toEqual({ status: 'OPEN', limit: '50' });
+    expect(calls).toHaveLength(7);
+    expect(calls.find(call => call.path === '/api/v1/consultations').query).toEqual({ status: 'OPEN', unclaimed: 'true', limit: '50' });
     expect(calls.find(call => call.path === '/api/v1/workshop-change-requests').query).toEqual({ status: 'PENDING' });
     expect(calls.every(call => call.method === 'GET')).toBe(true);
   });
@@ -98,7 +102,7 @@ describe('useNavBadges', () => {
     mount('STAFF');
     await waitFor(() => expect(read().status).toBe('ready'));
     // The design queue failed, so the customers group (design review plus consultations) has no count, but its readable tab keeps its own.
-    expect(read().counts).toEqual({ 'retail/orders': 2, retail: 2, 'tickets/change-requests': 3, tickets: 3, 'customers/consultations': 2 });
+    expect(read().counts).toEqual({ 'retail/orders': 2, retail: 2, 'tickets/change-requests': 3, tickets: 3, 'customers/custom-orders-ops': 1, 'customers/consultations': 2 });
   });
 
   it('gives an Admin or a Carrier empty counts, ready, and reads nothing', async () => {
@@ -122,9 +126,9 @@ describe('useNavBadges', () => {
     const calls = mockFetch(counts());
     mount('MANAGER');
     await waitFor(() => expect(read().status).toBe('ready'));
-    expect(calls).toHaveLength(5);
+    expect(calls).toHaveLength(7);
     await act(async () => { vi.advanceTimersByTime(BADGE_REFRESH_MS + 100); });
-    await waitFor(() => expect(calls).toHaveLength(10));
+    await waitFor(() => expect(calls).toHaveLength(14));
     expect(calls.every(call => call.method === 'GET')).toBe(true);
   });
 
@@ -136,6 +140,6 @@ describe('useNavBadges', () => {
     mount('MANAGER');
     expect(read().status).toBe('ready');
     await new Promise(resolve => setTimeout(resolve, 30));
-    expect(calls).toHaveLength(5);
+    expect(calls).toHaveLength(7);
   });
 });

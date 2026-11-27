@@ -59,11 +59,12 @@ public class ConsultationController {
     @GetMapping
     public ResponseEntity<ConversationListDto> listConversations(
             @RequestParam(value = "status", required = false) ConsultationStatus status,
+            @RequestParam(value = "unclaimed", defaultValue = "false") boolean unclaimed,
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "limit", required = false) Integer limit
     ) {
         AccountActorPort.CallerActor caller = requireCaller();
-        ConversationListDto result = applicationService.listConversations(status, cursor, limit, caller);
+        ConversationListDto result = applicationService.listConversations(status, unclaimed, cursor, limit, caller);
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate")
                 .header("Pragma", "no-cache")

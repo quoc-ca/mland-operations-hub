@@ -144,7 +144,7 @@ FE = `ppswbs_frontend/src`. Task numbers continue from T037.
 - [x] T040 Merge Manager Home into the dashboard: `/manager/dashboard` shows Today, the 010 revenue report and Recent events, each loading and failing alone; `/manager/home` redirects; queue table, revenue card and shortcuts removed (`FE/features/manager-dashboard/`, `FE/features/managerhome/`); tests `dashboardPage.test.jsx` and `ManagerDashboardPage.test.jsx`.
 - [x] T041 Remove the own title (and the in-page OTA tab strip) of the operations pages the shell now titles; list and form pages of products and promotions move their buttons to the header; "Create package" registers into the header; tests that looked for the removed titles now look for page content.
 - [x] T042 *Cần chú ý gấp* block: **dropped from V1** by owner decision (Hồ Hoàng Quốc, 2026-11-22). "Overdue" has no definition or owner read, and the rail badges already show what is waiting; nothing to build. May be reopened once the queue owners define a threshold.
-- [ ] T043 Staff badges in `useNavBadges` (other owner, after this shell is committed).
+- [x] T043 Staff badges in `useNavBadges` (planned for another owner; delivered in commit `5679bb3b`, 2026-11-23). Evidence 2026-11-27: `npx vitest run src/shared/nav src/shared/ui/OperationsShell.test.jsx src/features/operatorhome` 8 files, 50 tests passed (on the working tree that includes T046); no browser check.
 - [ ] T044 Manual check of the shell against the development backend (real counts, real sign-in) at 375 px and desktop. Checked so far: 375 px and 1280 px with simulated data (session and responses stubbed), see Notes.
 
 ---
@@ -184,3 +184,8 @@ FE = `ppswbs_frontend/src`. Task numbers continue from T037.
 ## Ticket tabs (decided 2026-11-27 by Hồ Hoàng Quốc)
 
 - [x] T045 **Done 2026-11-27** [FE] Renamed the `ticket-actions` tab and moved `change-requests` before it (`shared/nav/navModel.js`). Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.
+
+## Khách hàng badges (decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T046 **Done 2026-11-27** [FE] Badge `customers/custom-orders-ops` for Manager and Staff, and `customers/consultations` for the Manager (`shared/nav/useNavBadges.js`, `features/operatorhome/staffWork.js`, spec FR-005). Evidence: `npx vitest run src/shared src/features/operatorhome src/features/designreview src/features/manager-dashboard` 31 files, 202 tests passed; `npm run build` passed; no browser check; not committed.
+- [x] T047 **Done 2026-11-27** [BE][FE] Filter `unclaimed` on `GET /api/v1/consultations` (013 contract), a "Chưa tiếp nhận" option in the consultation inbox, and the badge tab opens it (spec FR-005; agreement with the 013 owner confirmed by Hồ Hoàng Quốc). Evidence: `npx vitest run src/shared src/features/operatorhome src/features/consultationchat src/features/designreview src/features/manager-dashboard` 34 files, 218 tests passed; `npm run build` passed; `mvnw -Dtest=Consultation*Test test` (ConsultationApplicationServiceTest 8/8) and `mvnw -Dtest=DesignReferenceOwnershipIT,ModulithArchitectureTests test` exit 0; no MySQL run of the new queries and no browser check; not committed.

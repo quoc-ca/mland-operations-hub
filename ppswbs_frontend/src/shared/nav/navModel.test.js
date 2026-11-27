@@ -23,6 +23,7 @@ const links = role => visibleGroups(role).flatMap(entry => entry.tabs.map(tab =>
 // The tabs that carry a waiting-work badge open the list filtered to the counted set (FR-004).
 const FILTERED = {
   '/settlement/cash-close': '/settlement/cash-close?view=confirmation',
+  '/operations/consultations': '/operations/consultations?status=OPEN&unclaimed=true',
   '/settlement/change-requests': '/settlement/change-requests?status=PENDING',
   '/settlement/refunds': '/settlement/refunds?status=WAITING',
 };
