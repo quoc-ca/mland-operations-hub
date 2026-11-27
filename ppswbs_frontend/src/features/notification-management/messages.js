@@ -28,7 +28,7 @@ export const notificationMessages = {
     'list.filterTemplate': 'Mã mẫu thư',
     'list.templatePlaceholder': 'BOOKING_CONFIRMED',
     'list.clearFilters': 'Xóa bộ lọc',
-    'list.loadingData': 'Đang tải dữ liệu nhật ký gửi thư…',
+    'list.loadingData': 'Đang tải dữ liệu nhật ký gửi email…',
     'list.empty': 'Không tìm thấy yêu cầu gửi thư nào khớp với bộ lọc.',
     'list.colId': 'ID',
     'list.colEvent': 'Mã sự kiện',

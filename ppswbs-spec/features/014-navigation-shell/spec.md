@@ -3,7 +3,7 @@
 > **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
 
 **Date created**: 2026-11-22 (decisions); split out of `013-manager-home` on 2026-11-25
-**Date updated**: 2026-11-27
+**Date updated**: 2026-11-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -75,6 +75,11 @@ and Manager Home is merged with the Manager Dashboard (010). Approved on the pro
 ### Session 2026-11-27 (Khách hàng badges; owner Hồ Hoàng Quốc)
 
 - Q: Which waiting work of the `customers` group gets a badge besides design review? → A: Two. `customers/custom-orders-ops` for Staff and Manager counts the custom orders paid and waiting for production (the "Chờ chế tác" set). `customers/consultations` is shown to the Manager too, with the Staff definition: open conversations nobody has claimed. Custom orders waiting for the Manager's quote approval are not counted.
+
+### Session 2026-11-28 (tab names; owner Hồ Hoàng Quốc)
+
+- Q: Which tabs are renamed? → A: `consultations` "Tư vấn"; `orders` "Đơn bán lẻ"; retail `reconciliation` "Đối soát thanh toán"; `sessions` "Điều phối ca" (Staff stays "Ca của tôi"); `locations` "Chi nhánh và lịch ca"; `availability` "Chi nhánh áp dụng gói"; `add-ons` "Dịch vụ thêm của gói"; `late-payments` "Thanh toán trễ"; `cases` "Hồ sơ quyết toán"; `delivery-logs` "Nhật ký gửi email"; `audit` "Lịch sử thao tác". Ids, routes, visibility and badges are unchanged.
+- Q: Which tab is current on `/operations/admin?tab=sessions`? → A: `locations`, like the other two sections of that page. This replaces the earlier rule that moved it to the `sessions` tab.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -150,12 +155,12 @@ A user collapses the rail to icons only to gain room, and the choice is remember
   | Dashboard (`home`) | Manager "Dashboard"; Staff "Trang chủ" `/staff/home` |
   | Sản phẩm (`products`) | Danh sách sản phẩm `list`, Danh mục `categories` |
   | Ưu đãi (`promotions`) | Chương trình ưu đãi `programs`, Chính sách điểm `point-policy` |
-  | Khách hàng (`customers`) | Duyệt thiết kế `design-review`, Đơn gia công `custom-orders-ops`, Tư vấn khách hàng `consultations`, Đánh giá `reviews` |
-  | Bán lẻ (`retail`) | Đơn bán lẻ chi nhánh `orders`, Đối soát thanh toán bán lẻ `reconciliation` |
-  | Workshop (`workshop`) | Bảng điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và khung giờ `locations`, Gói workshop `packages`, Hiệu lực gói `availability`, Add-on gói `add-ons` |
-  | Thu tiền (`collect`) | Hóa đơn vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán về trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
-  | Vé và hoàn tiền (`tickets`) | Yêu cầu đổi vé `change-requests`, Hỗ trợ đổi vé và hủy `ticket-actions`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases` |
-  | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit` |
+  | Khách hàng (`customers`) | Duyệt thiết kế `design-review`, Đơn gia công `custom-orders-ops`, Tư vấn `consultations`, Đánh giá `reviews` |
+  | Bán lẻ (`retail`) | Đơn bán lẻ `orders`, Đối soát thanh toán `reconciliation` |
+  | Workshop (`workshop`) | Điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và lịch ca `locations`, Gói workshop `packages`, Chi nhánh áp dụng gói `availability`, Dịch vụ thêm của gói `add-ons` |
+  | Thu tiền (`collect`) | Hóa đơn vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
+  | Vé và hoàn tiền (`tickets`) | Yêu cầu đổi vé `change-requests`, Hỗ trợ đổi vé và hủy `ticket-actions`, Hàng đợi hoàn tiền `refunds`, Hồ sơ quyết toán `cases` |
+  | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi email `delivery-logs`, Lịch sử thao tác `audit` |
 
 - **FR-003** *(rail width and collapse)*: The rail is 112 px wide (icon above a 13 px label). A toggle at the top collapses it to 60 px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`). The toggle is hidden at 640 px and below, where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
 - **FR-004** *(page header)*: Every operations page has a header with breadcrumb, title, action buttons and the group's tabs. The own title of about 25 pages is removed so it does not repeat the header; the content below is unchanged. A page with its own header button registers it into the header.

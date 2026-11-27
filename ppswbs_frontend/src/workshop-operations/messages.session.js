@@ -100,7 +100,7 @@ export const messagesSession = {
     'ses.col.status': 'Trạng thái',
     'ses.col.checkedInAt': 'Giờ check-in',
     'ses.col.actions': 'Thao tác',
-    'ses.folio': 'Hóa đơn / Add-on',
+    'ses.folio': 'Hóa đơn / Dịch vụ thêm',
     'ses.paid': 'Đã thanh toán',
     'ses.unpaid': 'Chưa thanh toán',
     'ses.folioClosed': 'Hóa đơn đã đóng',
