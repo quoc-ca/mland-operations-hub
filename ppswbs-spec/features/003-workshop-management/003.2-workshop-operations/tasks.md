@@ -687,3 +687,20 @@ Evidence for T194–T199 (2026-11-27): full `npx vitest run --maxWorkers=2 --tes
 Mapping: FR-063 → T194, T200. FR-064 → T195, T200. FR-065 → T196, T200. FR-066 → T197, T200. FR-067 → T198, T200. FR-068 → T199, T200.
 
 - [x] T201 **Done 2026-11-27** [FE] Remove internal requirement numbers and command codes from the late-payment queue page texts (`messages.audit.js`, vi/en). Extends FR-063's wording rule to `/operations/late-payments`. Evidence (2026-11-27): full Vitest 172 files, 1432 tests passed; `npm run build` passed.
+
+## Assignable Staff by session location (spec FR-069, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T202 **Done 2026-11-27** [BE+FE] `GET /workshop-sessions/{sessionId}/assignable-staff` (Manager only) over the existing `AccountFacade.findEligibleRoster` and `findAccountFullName` (no change in feature 001); the session page picker uses it. Supersedes the "not done" note of T197. Check: JUnit, Modulith, Vitest. Evidence (2026-11-27): backend narrow run `WorkshopResponsibilityServiceTest`, `StaffAutoAssignmentServiceTest`, `StaffAuthorityIT`, `StaffSessionAssignmentRuleIT`, `ModulithArchitectureTests` passed (service test rerun after the final change: 30 tests); full Vitest 172 files, 1439 tests passed; `npm run build` passed. The HTTP route has no MockMvc test of its own; not checked in a browser.
+
+Mapping: FR-069 → T202, T200.
+
+## Session page scope (spec FR-070–FR-072, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T203 **Done 2026-11-27** [FE] Remove the late-payment block from the session page with its state and unused texts; show the decision error on `LatePaymentReviewsPage`. Traces to FR-070. Check: Vitest (`latePaymentReviewsPage.test.jsx`, `managerOnlyPanels.test.jsx`).
+- [x] T204 **Done 2026-11-27** [FE] Remove the bill correction panel from the session page (moved by 003.3 T215). Traces to FR-071. Check: Vitest (`managerOnlyPanels.test.jsx`).
+- [x] T205 **Done 2026-11-27** [FE] Booking recovery picks a roster booking code; empty and failed roster states; section hint updated. Traces to FR-072. Check: Vitest (`bookingLinkIncident.test.jsx`).
+- [ ] T206 [Test] Browser check of the session page recovery picker and the late-payment queue as Manager against a live stack.
+
+Evidence for T203–T205 (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
+
+Mapping: FR-070 → T203, T206. FR-071 → T204, T206. FR-072 → T205, T206.

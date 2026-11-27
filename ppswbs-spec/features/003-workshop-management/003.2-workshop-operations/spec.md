@@ -502,6 +502,27 @@ perform refunds or connect to external sales channels.
 
 ## Clarifications
 
+### Session 2026-11-27 session page scope (owner Hồ Hoàng Quốc)
+
+- Q: Does the session page keep the late-payment queue? → A: No. The Manager queue has its own screen, `/operations/late-payments`, reached from the menu (FR-070).
+- Q: Where does a Manager correct a finalized ticket folio? → A: On that ticket's folio page, not on the session page (FR-071; 003.3 FR-065).
+- Q: How does a Manager name the booking for a magic link action? → A: By choosing from the bookings on the session's attendance roster. There is no free text, so only a booking with a ticket in this session can be handled from here (FR-072).
+
+- **FR-070** *(late payments leave the session page, 2026-11-27)*: The session
+  page MUST NOT list or decide late payments. They are decided on the Manager
+  queue screen `/operations/late-payments` (003.1 FR-040a rules unchanged),
+  which MUST show why a decision was refused or failed.
+- **FR-071** *(bill correction leaves the session page, 2026-11-27)*: The session
+  page MUST NOT offer a folio correction. It is offered on the ticket folio page
+  (003.3 FR-065).
+- **FR-072** *(booking choice for recovery, 2026-11-27)*: Booking recovery
+  (revoke or rotate the magic link) MUST offer the booking codes of the session's
+  attendance roster, each once, with nothing selected at first, and MUST NOT
+  accept a typed code. With no booking on the roster the panel says so; a roster
+  that cannot be read is reported as a failed read, not as an empty roster. The
+  reason, note and confirmation rules (FR-068) are unchanged. A booking without a
+  ticket in this session cannot be handled from this page.
+
 ### Session 2026-11-27 session page defects (owner Hồ Hoàng Quốc)
 
 - Q: Which state actions does a Staff see on the session page? → A: Only starting the session. Opening and pausing sales are shown to a Manager only, greyed out when the current state does not allow them (FR-064).
@@ -530,8 +551,17 @@ perform refunds or connect to external sales channels.
 - **FR-066** *(Staff assignment panel, 2026-11-27)*: The Staff picker MUST NOT
   offer a Staff already assigned and MUST NOT offer any stand-in account; when
   the Staff list cannot be read the panel says so and allows a retry. Removal is
-  offered only on each assigned Staff. Location eligibility stays decided by the
-  server (`STAFF_NOT_ELIGIBLE`): the account list carries no location data.
+  offered only on each assigned Staff. The picker lists only the Staff of the
+  session's location (FR-069); eligibility stays decided by the server on
+  assignment (`STAFF_NOT_ELIGIBLE`).
+- **FR-069** *(assignable Staff of a session, 2026-11-27)*: An active Manager
+  MUST be able to read the `ACTIVE` `STAFF` whose location scope contains the
+  session's location, each with account ID and profile full name (or none),
+  ordered by name, and without login email or other contact data. Any other
+  caller is refused with `403`; an unknown session is `404`; when the account
+  service cannot answer, the read fails with `503` and offers no substitute
+  list. The read is available in every session state so that assigned Staff keep
+  their names.
 - **FR-067** *(payment badge, 2026-11-27)*: The roster MUST mark a ticket "paid"
   only when its folio (003.3) is `FINALIZED`, "bill closed" when it is
   `CLOSED`, and "unpaid" for another known folio state once attendance is

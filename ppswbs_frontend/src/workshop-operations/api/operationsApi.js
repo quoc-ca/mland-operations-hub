@@ -15,6 +15,7 @@ export function createOperationsApi(http) {
     resendTickets: (id, bookingCode, key) => command(`/api/v1/workshop-sessions/${id}/ticket-resends`, { bookingCode }, key),
     correctAttendance: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/attendance-corrections`, body, key),
     reverseCheckIn: (id, body, key) => command(`/api/v1/workshop-sessions/${id}/check-in-reversals`, body, key),
+    assignableStaff: id => http(`/api/v1/workshop-sessions/${id}/assignable-staff`),
     assignStaff: (id, accountId, key) => http(`/api/v1/workshop-sessions/${id}/staff-assignments`, { method: 'PUT', body: { accountId: Number(accountId) }, idempotencyKey: key || newCommandId() }),
     // confirmLastAssignmentRemoval (T115): sent only when the Manager confirmed removing the session's last Staff; repeat it with a new key.
     removeStaff: (id, accountId, key, confirmLastAssignmentRemoval = false) => http(`/api/v1/workshop-sessions/${id}/staff-assignments`, { method: 'DELETE', query: confirmLastAssignmentRemoval ? { accountId, confirmLastAssignmentRemoval: true } : { accountId }, idempotencyKey: key || newCommandId() }),

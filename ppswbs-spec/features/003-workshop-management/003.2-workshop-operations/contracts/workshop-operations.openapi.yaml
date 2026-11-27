@@ -458,6 +458,21 @@ paths:
         '409': { $ref: '#/components/responses/Problem' }
         '404': { $ref: '#/components/responses/Problem' }
         '503': { $ref: '#/components/responses/Problem' }
+  /workshop-sessions/{sessionId}/assignable-staff:
+    parameters: [ { $ref: '#/components/parameters/SessionId' } ]
+    get:
+      summary: List the Staff of the session location for the assignment picker (FR-069)
+      description: >-
+        Manager only. ACTIVE STAFF accounts whose location scope contains the session location,
+        ordered by full name; no login email or contact data. Answered in every session state.
+      responses:
+        '200':
+          description: Assignable Staff
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AssignableStaff' } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /workshop-sessions/{sessionId}/staff-assignments:
     parameters: [ { $ref: '#/components/parameters/SessionId' } ]
     put:
@@ -733,6 +748,12 @@ components:
       description: Whole seconds (rounded up, at least 1) until the 15-minute resend window counted from its first request ends.
       schema: { type: integer, minimum: 1 }
   schemas:
+    AssignableStaff:
+      type: object
+      required: [accountId]
+      properties:
+        accountId: { type: integer, format: int64 }
+        fullName: { type: string, nullable: true }
     AuditActor:
       type: object
       required: [accountId]

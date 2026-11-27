@@ -1,6 +1,7 @@
 import React from 'react';
 import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { json, mockFetch, renderRoutes } from '../../test/render';
 import { operationsRoutes } from '../routes';
 import { clearRoleCache } from '../../shared/auth/useRole';
@@ -33,5 +34,18 @@ describe('Late payment reviews page', () => {
     });
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/late-payments' });
     expect(await screen.findByText('No late payment is waiting for a Manager.')).toBeInTheDocument();
+  });
+
+  it('shows why a decision was refused', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER', fullName: 'M' }),
+      'GET /api/v1/late-payment-reviews': json(200, [{ reviewId: 'r1', groupCode: 'GRP-LATE-1', amount: 500000, failedConditions: [], confirmAllowed: true }]),
+      'POST /api/v1/workshop-booking-groups/GRP-LATE-1/late-payment-reviews/r1/decisions': json(409, { code: 'INVALID_STATE', message: 'Already decided' }),
+    });
+    const user = userEvent.setup();
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/late-payments' });
+    await user.click(await screen.findByRole('button', { name: 'Open 100% refund' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('100% refund request opened.')).not.toBeInTheDocument();
   });
 });

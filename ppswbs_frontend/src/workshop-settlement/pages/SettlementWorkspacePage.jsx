@@ -6,6 +6,7 @@ import { useRole } from '../../shared/auth/useRole';
 import { Field, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import FolioCorrectionLookup from '../FolioCorrectionLookup';
+import FolioCorrectionPanel from '../FolioCorrectionPanel';
 import { OpsPage } from '../OpsPage';
 import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../shared/ui/messages';
@@ -444,6 +445,8 @@ export default function SettlementWorkspacePage() {
               <p className="muted small">{t('ws.underNote')}</p>
             </article>
           )}
+
+          {isManager && bill.status === 'FINALIZED' && <FolioCorrectionPanel key={ticketCode} api={api} ticketCode={ticketCode} />}
 
           <article className="wsp-panel">
             <FolioCorrectionLookup key={ticketCode} api={api} ticketCode={ticketCode} />

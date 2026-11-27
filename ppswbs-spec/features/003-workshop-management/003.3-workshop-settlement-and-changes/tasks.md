@@ -467,3 +467,10 @@ Mapping: FR-044b → T206–T210. Depends: T206 → T207, T208 → T209, T210.
 - [ ] T214 [Test] Browser check of the queue and the cash close against a live stack, and the full backend suite.
 
 Mapping: FR-045a → T211–T214; FR-036a → T211, T213, T214.
+
+## Folio correction on the ticket folio page (spec FR-065, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T215 **Done 2026-11-27** [FE] Move the correction form to `workshop-settlement/FolioCorrectionPanel` on `SettlementWorkspacePage`: open ticket preselected, Manager only, `FINALIZED` only; wording moved to the settlement dictionary. Replaces `StaffWorkshopAddonPanel` (T040, T124, T127). Check: Vitest (`folioCorrectionPanel.test.jsx`). Evidence (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
+- [ ] T216 [Test] Browser check of the correction on a finalized ticket folio as Manager against a live stack.
+
+Mapping: FR-065 → T215, T216.

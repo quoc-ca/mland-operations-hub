@@ -807,6 +807,13 @@ branch (`branch_id`), while charges, add-ons, final bills and change records sto
   `workshop.settlement.change-request-expiry-interval-ms`) marks due `PENDING` requests `EXPIRED` and sends (c);
   the queue listing does the same under the row lock, so a request is expired, audited and emailed once.
 
+- **FR-065 — Where a Manager corrects a finalized folio** *(decided 2026-11-27, owner Hồ Hoàng Quốc;
+  tasks T215–T216)*: the post-`FINALIZED` correction (FR-050) is entered on the folio page of the ticket
+  (`/settlement?ticket=…`), for the ticket that is open: the Manager types no ticket code. The form is
+  offered only to a Manager and only while the folio is `FINALIZED` (an `OPEN` folio is refused
+  `FOLIO_NOT_FINALIZED`, a `CLOSED` one `FOLIO_CLOSED`). It is no longer on the session page
+  (003.2 FR-071). Amount, reason, idempotency, refusal and read-back rules are unchanged; no API change.
+
 *(Superseded 2026-11-14 by FR-045a.)* **Decided 2026-11-14 (formerly "Open before implementation"):** the exact
 auto-approval conditions for online
 changes. Customer email content was approved 2026-11-12 in

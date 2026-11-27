@@ -11,8 +11,7 @@ import { ConfirmDialog, ErrorNotice, Loading, SuccessNotice, useCommand, useErro
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { sessionTimeRange } from './OperationsDashboardPage';
-import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
-import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
+import { submitGroupMagicLinkIncident } from '../../api/workshops';
 import { RescheduleQuotaPanel } from '../components/RescheduleQuotaPanel';
 import { QrCheckInScanner } from '../components/QrCheckInScanner';
 import { RosterTicketDialog, rosterChange } from '../components/RosterTicketDialog';
@@ -135,7 +134,6 @@ export default function OperationsSessionPage() {
   const stateLabel = useEnumLabel(messages, 'sessionState');
   const attendanceLabel = useEnumLabel(messages, 'attendance');
   const validityLabel = useEnumLabel(messages, 'ticketValidity');
-  const conditionLabel = useEnumLabel(messages, 'lateCondition');
   const { sessionId } = useParams();
   const { status, user } = useAuth();
   const http = useHttp();
@@ -149,7 +147,7 @@ export default function OperationsSessionPage() {
   const folioStatuses = useResource(
     () => (folioCodes.length ? api.folioStatuses(folioCodes).catch(() => ({ statuses: {} })) : Promise.resolve({ statuses: {} })),
     [folioCodesKey, sessionState]);
-  // Staff assignment, booking recovery, session cancellation and folio correction are Manager actions (the backend
+  // Staff assignment, booking recovery and session cancellation are Manager actions (the backend
   // refuses a Staff there); the role is unknown until the profile arrives, so they appear only once it is known.
   const role = useRole();
   const isManager = role === 'MANAGER';
@@ -183,20 +181,14 @@ export default function OperationsSessionPage() {
   const [bookingCode, setBookingCode] = useState('');
   const [recoveryReasonCode, setRecoveryReasonCode] = useState('PROVIDER_CONFIRMED_LATE_DEPOSIT');
   const [incidentNote, setIncidentNote] = useState('');
-  // Late payments that need a Manager are a queue of their own (003.1 FR-040a), not a per-booking follow-up command.
-  const [lateReviews, setLateReviews] = useState(null);
-  const [lateReviewsError, setLateReviewsError] = useState('');
-  const [lateReviewsLoading, setLateReviewsLoading] = useState(false);
   const [transitionError, setTransitionError] = useState(null);
 
-  // The account list is a Manager read (a Staff caller gets 403, which the app treats as "no access" and sends home), and
-  // only the Manager's assignment panel uses it, so only a Manager asks for it.
+  // The Staff of this session's location (FR-069). A Manager read (a Staff caller gets 403, which the app treats as "no
+  // access" and sends home), used only by the Manager's assignment panel, so only a Manager asks for it.
   const staffList = useResource(
-    () => (status === 'signed-in' && isManager
-      ? http('/api/v1/accounts?role=STAFF&status=ACTIVE&size=100')
-      : Promise.resolve(null)),
-    [status, isManager]);
-  const staffOptions = [staffList.data?.data, staffList.data?.content, staffList.data].find(Array.isArray) || [];
+    () => (status === 'signed-in' && isManager ? api.assignableStaff(sessionId) : Promise.resolve(null)),
+    [status, isManager, sessionId]);
+  const staffOptions = Array.isArray(staffList.data) ? staffList.data : [];
 
   if (status === 'loading') return <Loading />;
   if (status !== 'signed-in') {
@@ -220,6 +212,11 @@ export default function OperationsSessionPage() {
     NOT_CHECKED_IN: rosterRows.filter(row => row.attendanceState === 'NOT_CHECKED_IN').length,
     NO_SHOW: rosterRows.filter(row => row.attendanceState === 'NO_SHOW').length,
   };
+  // 003.2 FR-072: recovery picks one of the bookings that have a ticket in this session; a code that left the roster is
+  // no longer selected.
+  const rosterBookings = [...new Set(rosterRows.map(row => rosterCodes(row).booking).filter(Boolean))];
+  const recoveryCode = rosterBookings.includes(bookingCode) ? bookingCode : '';
+  const recoveryBlocked = command.pending || !recoveryCode || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim());
   const openRow = openTicket ? rosterRows.find(row => row.ticketCode === openTicket) : null;
   const visibleRosterRows = rosterFilter === 'ALL' ? rosterRows : rosterRows.filter(row => row.attendanceState === rosterFilter);
   const assignedStaff = (session.assignedStaffAccountIds || []).map(accountId => {
@@ -324,35 +321,11 @@ export default function OperationsSessionPage() {
 
   async function runLinkIncident(action) {
     setMessage('');
-    const code = bookingCode.trim();
+    const code = recoveryCode;
     const result = await command.run(key => submitGroupMagicLinkIncident(code, {
       action, reason: getFullIncidentReason(), authorization, idempotencyKey: key,
     }));
     if (result.ok) setMessage(t(`ses.recovery.done.${action}`, { code: result.result?.groupCode || code }));
-  }
-
-  async function loadLateReviews() {
-    setLateReviewsLoading(true);
-    setLateReviewsError('');
-    try {
-      setLateReviews(await listLatePaymentReviews({ status: 'PENDING_MANAGER', authorization }));
-    } catch (error) {
-      setLateReviews(null);
-      setLateReviewsError(error?.detail || error?.message || t('late.loadFailed'));
-    } finally {
-      setLateReviewsLoading(false);
-    }
-  }
-
-  async function decideLateReview(review, decision) {
-    setMessage('');
-    const result = await command.run(key => decideLatePaymentReview(review.groupCode, review.reviewId, {
-      decision, reason: getFullIncidentReason(), authorization, idempotencyKey: key,
-    }));
-    if (result.ok) {
-      setMessage(decision === 'CONFIRM' ? t('late.confirmed') : t('ses.late.refundOpened'));
-      loadLateReviews();
-    }
   }
 
   const getFullIncidentReason = () => {
@@ -395,7 +368,7 @@ export default function OperationsSessionPage() {
       <ConfirmDialog key={action} open={confirming === action} danger title={t(`ses.confirm.${action}.title`)}
         confirmLabel={t(`ses.confirm.${action}.ok`)} onCancel={() => setConfirming(null)}
         onConfirm={() => { setConfirming(null); runLinkIncident(action); }}>
-        <p>{t(`ses.confirm.${action}.body`, { code: bookingCode.trim() })}</p>
+        <p>{t(`ses.confirm.${action}.body`, { code: recoveryCode })}</p>
       </ConfirmDialog>
     ))}
     {isManager && session.missingStaff && <div className="notice error" role="alert">{t('ses.missingStaff')}</div>}
@@ -686,13 +659,16 @@ export default function OperationsSessionPage() {
         <div className="wsp-form-grid" style={{ marginBottom: '16px' }}>
           <label className="full-width">
             {t('ses.recovery.bookingCode')}
-            <input
-              value={bookingCode}
-              onChange={e => setBookingCode(e.target.value)}
-              placeholder={t('ses.recovery.bookingPlaceholder')}
-              required
-            />
+            <select value={recoveryCode} onChange={e => setBookingCode(e.target.value)} disabled={rosterBookings.length === 0} required>
+              <option value="">{t('ses.recovery.pickBooking')}</option>
+              {rosterBookings.map(code => <option key={code} value={code}>{code}</option>)}
+            </select>
           </label>
+          {rosterBookings.length === 0 && (
+            <p className="muted full-width" role="note">
+              {roster.error ? t('ses.recovery.rosterFailed') : roster.loading ? ts('loading') : t('ses.recovery.noBooking')}
+            </p>
+          )}
           <label className="full-width">
             {t('ses.recovery.reason')}
             <select
@@ -717,63 +693,19 @@ export default function OperationsSessionPage() {
         <div className="ops-actions">
           <button
             className="button outline"
-            disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
+            disabled={recoveryBlocked}
             onClick={() => setConfirming('REVOKE')}
           >
             {t('ses.recovery.revoke')}
           </button>
           <button
             className="button outline"
-            disabled={command.pending || !bookingCode.trim() || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
+            disabled={recoveryBlocked}
             onClick={() => setConfirming('ROTATE')}
           >
             {t('ses.recovery.rotate')}
           </button>
         </div>
-      </article>
-      <article className="wsp-panel">
-        <div className="wsp-panel-head"><h2>{t('ses.late.title')}</h2></div>
-        <p className="muted">
-          {t('ses.late.intro')}
-        </p>
-        <div className="ops-actions">
-          <button className="button outline" disabled={lateReviewsLoading} onClick={loadLateReviews}>
-            {lateReviewsLoading ? ts('loading') : t('ses.late.load')}
-          </button>
-        </div>
-        {lateReviewsError && <p role="alert" style={{ color: '#b00' }}>{lateReviewsError}</p>}
-        {Array.isArray(lateReviews) && lateReviews.length === 0 && (
-          <p className="muted">{t('late.empty')}</p>
-        )}
-        {Array.isArray(lateReviews) && lateReviews.length > 0 && (
-          <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: '10px' }}>
-            {lateReviews.map(review => (
-              <li key={review.reviewId} style={{ border: '1px solid #dcdfe6', padding: '12px' }}>
-                <strong>{review.groupCode}</strong>
-                <p className="muted" style={{ margin: '4px 0', fontSize: '13px' }}>
-                  {t('late.amount', { amount: fmt.money(review.amount) })} · {t('late.failedConditions', { list: (review.failedConditions || []).map(conditionLabel).join(', ') || '—' })}
-                  {review.resultDueAt ? ` · ${t('late.due', { time: fmt.dateTime(review.resultDueAt) })}` : ''}
-                </p>
-                <div className="ops-actions">
-                  <button
-                    className="button outline"
-                    disabled={command.pending || !review.confirmAllowed || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-                    onClick={() => decideLateReview(review, 'CONFIRM')}
-                  >
-                    {t('late.confirm')}
-                  </button>
-                  <button
-                    className="button warning"
-                    disabled={command.pending || (recoveryReasonCode === 'OTHER_REQUIRES_NOTE' && !incidentNote.trim())}
-                    onClick={() => decideLateReview(review, 'REFUND')}
-                  >
-                    {t('late.refund')}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
       </article>
       {!NOT_CANCELLABLE_STATES.includes(session.state) && (
       <article className="wsp-panel">
@@ -806,7 +738,6 @@ export default function OperationsSessionPage() {
         </button>
       </article>
       )}
-      <StaffWorkshopAddonPanel http={http} />
       </>)}
         </div>
       </details>

@@ -3,10 +3,12 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.RosterOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AssignableStaffResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.SessionResponse;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.StaffAssignmentRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.OperationsAuditEvent;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
@@ -109,6 +112,31 @@ public class WorkshopResponsibilityService {
                 targetAccountId, sessionReference, actor.accountId());
 
         return toSessionResponse(session);
+    }
+
+    /**
+     * The ACTIVE Staff whose location scope contains the session's location (FR-069, Manager only), by name, in every
+     * session state so assigned Staff keep their names. The login email is never returned (001 FR-054).
+     */
+    @Transactional(readOnly = true)
+    public List<AssignableStaffResponse> assignableStaff(String authHeader, String sessionReference) {
+        AccountSummary actor = authorizationService.authenticate(authHeader);
+        validateManagerAuthority(actor);
+        WorkshopSession session = requireSessionEntity(sessionReference);
+
+        RosterOutcome roster = authorizationService.findEligibleRoster(session.getLocation().getId());
+        if (!(roster instanceof RosterOutcome.Available available)) {
+            throw new WorkshopDependencyUnavailableException("The account service is temporarily unavailable", null);
+        }
+
+        return available.entries().stream()
+                .map(entry -> entry.accountId().value())
+                .distinct()
+                .map(id -> new AssignableStaffResponse(id, authorizationService.findAccountFullName(id).orElse(null)))
+                .sorted(Comparator.comparing(AssignableStaffResponse::fullName,
+                                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(AssignableStaffResponse::accountId))
+                .toList();
     }
 
     /**

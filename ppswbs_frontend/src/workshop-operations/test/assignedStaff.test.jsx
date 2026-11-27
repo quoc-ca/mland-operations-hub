@@ -13,17 +13,18 @@ const asManager = handlers => mockFetch({ 'GET /api/v1/accounts/me/profile': jso
 beforeEach(() => clearRoleCache());
 
 const session = assigned => json(200, { id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10, assignedStaffAccountIds: assigned });
-const staffList = json(200, { data: [
+const STAFF = 'GET /api/v1/workshop-sessions/session-1/assignable-staff';
+const staffList = json(200, [
   { accountId: 33, fullName: 'First Staff' },
   { accountId: 41, fullName: 'Second Staff' },
   { accountId: 52, fullName: 'Free Staff' },
-] });
+]);
 
 describe('Assigned Staff on the session page', () => {
   it('lists every assigned Staff, and the session facts only count them', async () => {
     asManager({
       'GET /api/v1/workshop-sessions/session-1': session([33, 41]),
-      'GET /api/v1/accounts': staffList,
+      [STAFF]: staffList,
     });
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
@@ -43,7 +44,7 @@ describe('Assigned Staff on the session page', () => {
   it('removes one Staff from the list without touching the others', async () => {
     const calls = asManager({
       'GET /api/v1/workshop-sessions/session-1': session([33, 41]),
-      'GET /api/v1/accounts': staffList,
+      [STAFF]: staffList,
       'DELETE /api/v1/workshop-sessions/session-1/staff-assignments': json(204),
     });
     const user = userEvent.setup();
@@ -60,7 +61,7 @@ describe('Assigned Staff on the session page', () => {
   it('reports a failed Staff list instead of offering a stand-in account', async () => {
     asManager({
       'GET /api/v1/workshop-sessions/session-1': session([]),
-      'GET /api/v1/accounts': json(500, { code: 'INTERNAL_ERROR' }),
+      [STAFF]: json(500, { code: 'INTERNAL_ERROR' }),
     });
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 
@@ -71,7 +72,7 @@ describe('Assigned Staff on the session page', () => {
   it.each(['ATTENDANCE_FINALIZED', 'CANCELLATION_REQUESTED', 'CANCELLED'])('offers no assignment in %s, but keeps the list', async state => {
     asManager({
       'GET /api/v1/workshop-sessions/session-1': json(200, { id: 'session-1', state, locationId: 4, capacity: 10, assignedStaffAccountIds: [33] }),
-      'GET /api/v1/accounts': staffList,
+      [STAFF]: staffList,
     });
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
 

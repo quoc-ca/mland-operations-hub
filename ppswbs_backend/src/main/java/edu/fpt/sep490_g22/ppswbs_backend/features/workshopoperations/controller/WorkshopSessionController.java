@@ -128,6 +128,14 @@ public class WorkshopSessionController {
         return ResponseEntity.ok(response);
     }
 
+    /** 003.2 FR-069: the Staff of the session's location, for the Manager's assignment picker. */
+    @GetMapping("/workshop-sessions/{sessionId}/assignable-staff")
+    public ResponseEntity<List<AssignableStaffResponse>> assignableStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable("sessionId") String sessionId) {
+        return ResponseEntity.ok(responsibilityService.assignableStaff(authHeader, sessionId));
+    }
+
     @PutMapping("/workshop-sessions/{sessionId}/staff-assignments")
     public ResponseEntity<SessionResponse> assignStaff(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
