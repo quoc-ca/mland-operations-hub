@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import { useHttp } from '../../shared/api/useHttp';
@@ -76,7 +76,10 @@ function PackageForm({ form, setForm, errors, pending, onSubmit, onCancel, mode,
   const t = useT(messages);
   const ts = useT(sharedMessages);
   const set = field => event => setForm(current => ({ ...current, [field]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
-  return <form className="wsp-panel wsp-form package-admin-form" onSubmit={onSubmit} noValidate>
+  // The form sits under the package list, so each opening (a new key) brings it into view.
+  const formRef = useRef(null);
+  useEffect(() => { formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); }, []);
+  return <form ref={formRef} className="wsp-panel wsp-form package-admin-form" onSubmit={onSubmit} noValidate>
     <div className="wsp-panel-head"><div><h2>{mode === 'edit' ? t('pkg.form.edit') : t('pkg.form.create')}</h2><p className="muted small">{t('pkg.form.note')}</p></div></div>
     <div className="wsp-evidence-grid">
       <Field label={t('pkg.form.name')} error={errors.name}><input value={form.name} onChange={set('name')} maxLength={180} /></Field>
