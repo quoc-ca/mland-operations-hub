@@ -123,6 +123,7 @@ export default function AuthPage({ mode = 'signin' }) {
     <main className="auth-screen">
       <section className={`auth-card auth-card-${mode}`} aria-labelledby="auth-title">
         <div className="auth-heading">
+          <img className="auth-brand-logo" src="/brand-logo.png" alt="Mland" width={72} height={72} />
           <h1 id="auth-title">{title}</h1>
           <p>{description}</p>
         </div>

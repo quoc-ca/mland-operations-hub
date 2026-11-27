@@ -2,6 +2,7 @@
 .auth-card { box-sizing: border-box; width: min(420px, 100%); min-height: 560px; padding: 40px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; color: #111827; }
 .auth-card-register, .auth-card-forgot { min-height: 0; }
 .auth-heading { margin-bottom: 30px; text-align: center; }
+.auth-brand-logo { display: block; width: 72px; height: 72px; margin: 0 auto 16px; border-radius: 16px; object-fit: cover; box-shadow: 0 4px 12px rgba(7, 54, 83, 0.16); }
 .auth-heading h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; font-weight: 700; letter-spacing: -.02em; }
 .auth-heading p { margin: 0; color: #6b7280; font-size: 12px; line-height: 1.5; }
 .auth-field { display: block; margin-bottom: 18px; }
