@@ -1,18 +1,24 @@
 #### 2.1.3 Forgot Password
 
-{{r3-02-forgot-password width=100% align=center}}
+![](assets/screens/live/04-forgot-password.png)
 
-**Description:** Displays the password recovery form and allows users with an email-and-password account to request a password reset link.
+This screen allows users with an email-and-password account to:
 
-::: {.docx-table width="100%" columns="50%,50%"}
+- Enter their email address to request a password reset email from Firebase.
+- Receive the same confirmation whether or not the email belongs to an account.
+- Set the new password through the link in the email, on the identity provider's page.
+- Return to User Login.
+
+Google sign-in is not offered on this screen. The page title is **Recover password**, with "Forgot your password?".
+
+**Field Description**
 
 | Field Name | Description |
 | --- | --- |
-| Description | Notes that the confirmation does not reveal whether the email exists. |
-| Email address | Required valid email address. |
+| ← Back | Opens User Login. |
+| Description | States that recovery instructions are sent if the request can be processed, and that the message does not confirm whether the email has an account. |
+| Confirmation | "If the email exists in the system, a password reset message has been sent." shown for every valid request. |
+| Email address | Required; must be a valid email format. |
+| Validation error | Shown only when the email is empty or not a valid address. |
 | Send reset link | Requests the reset email; shows "Processing…" while working. |
-| Confirmation | Displays a generic sent confirmation for every valid request. |
-| Validation error | Shown when the email is empty or invalid. |
-| Back to sign in | Returns to User Login. |
-
-:::
+| Back to sign in | Also opens User Login. |

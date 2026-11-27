@@ -1,1 +1,1 @@
-## 6. Loyalty and Promotion Management
+## 6. Loyalty & Promotion Management

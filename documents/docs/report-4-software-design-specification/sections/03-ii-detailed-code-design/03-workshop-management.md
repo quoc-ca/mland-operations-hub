@@ -1,6 +1,4 @@
-## 3. Workshop Management (FE-03)
-
-**Implementation status:** Workshop booking, operations and settlement are separate backend boundaries under the FE-03 group.
+## 3. Workshop Management 
 
 ### 3.1 Class Diagram
 

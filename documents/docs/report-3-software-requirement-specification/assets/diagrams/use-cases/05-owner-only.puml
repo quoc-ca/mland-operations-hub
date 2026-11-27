@@ -21,22 +21,25 @@ rectangle "Mland Operations System" {
     usecase "Manage Product Categories" as UC18
   }
   package "Workshop operations" {
-    usecase "Check In Participant" as UC24
     usecase "Manage Workshop Schedule" as UC25
-    usecase "Manage Workshop Packages" as UC91
-    usecase "Review Late Payment" as UC92
+    usecase "Assign Staff to Workshop Slot" as UC26
+    usecase "Configure Workshop Time Slot" as UC27
+    usecase "Configure Workshop Slot Capacity" as UC28
   }
   package "Ticket settlement and changes" {
     usecase "Respond to Mland Cancellation Offer" as UC88
     usecase "Cancel Workshop Tickets" as UC84
-    usecase "View Ticket Bill" as UC77
-    usecase "Add Ticket Charge" as UC78
-    usecase "Collect Remaining Ticket Payment" as UC79
+    usecase "View Ticket Folio" as UC77
+    usecase "Add Folio Charge" as UC78
+    usecase "Collect Ticket Balance" as UC79
     usecase "Verify Transfer Payment" as UC80
-    usecase "Approve Early Handover and Record Debt" as UC81
-    usecase "Correct Ticket Bill" as UC82
+    usecase "Manage Handover Exception and Debt" as UC81
+    usecase "Correct Ticket Folio" as UC82
     usecase "Close Branch Cash Day" as UC83
     usecase "Change Ticket Sessions" as UC85
+    usecase "Decide Ticket Change Request" as UC86
+    usecase "Grant Extra Change Allowance" as UC87
+    usecase "Submit Refund Account" as UC89
     usecase "Process Refund Request" as UC90
   }
   package "Design and consultation" {
@@ -57,10 +60,10 @@ Manager --> UC12
 Manager --> UC14
 Manager --> UC15
 Manager --> UC18
-Manager --> UC24
 Manager --> UC25
-Manager --> UC91
-Manager --> UC92
+Manager --> UC26
+Manager --> UC27
+Manager --> UC28
 Manager --> UC77
 Manager --> UC88
 Manager --> UC84
@@ -71,6 +74,9 @@ Manager --> UC81
 Manager --> UC82
 Manager --> UC83
 Manager --> UC85
+Manager --> UC86
+Manager --> UC87
+Manager --> UC89
 Manager --> UC90
 Manager --> UC38
 Manager --> UC40

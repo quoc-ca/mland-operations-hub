@@ -1,7 +1,5 @@
 ### 3.2 Entity Descriptions
 
-Each block describes one entity in the ERD with its purpose and key business attributes only. The database tables named in brackets are described column by column in Report 4, section 3.
-
 **Entity: Account (accounts, account_profiles)**
 
 | Field | Value |
@@ -114,7 +112,7 @@ Each block describes one entity in the ERD with its purpose and key business att
 
 | Field | Value |
 | --- | --- |
-| Purpose | An extra item or service sold during a workshop, charged to the ticket bill. |
+| Purpose | An extra item or service sold during a workshop, charged to the ticket folio. |
 | Key business attributes | Package, branch, description and price. |
 | Business identity | Add-on reference is unique. |
 | Status / lifecycle | Draft → Active → Retired. |
@@ -141,18 +139,18 @@ Each block describes one entity in the ERD with its purpose and key business att
 
 | Field | Value |
 | --- | --- |
-| Purpose | Money received for a booking group, a ticket bill or a retail checkout. |
+| Purpose | Money received for a booking group, a ticket folio or a retail checkout. |
 | Key business attributes | Paid target, method (VNPay, cash or bank transfer), amount, provider reference and confirmation time. |
 | Business identity | Payment reference and VNPay merchant reference are unique. |
-| Status / lifecycle | Pending → Success, Failed or Expired for VNPay attempts. Bill collections: Pending verification → Confirmed, Failed or Voided. |
+| Status / lifecycle | Pending → Success, Failed or Expired for VNPay attempts. Folio collections: Pending verification → Confirmed, Failed or Voided. |
 
-**Entity: Ticket Bill (settlement_final_bills)**
+**Entity: Folio (settlement_final_bills)**
 
 | Field | Value |
 | --- | --- |
 | Purpose | The bill of a ticket after the workshop, combining the deposit, add-on charges and the remaining amount. |
 | Key business attributes | Ticket, booking group, amount after promotion, accepted deposit, remaining amount, handover approval and recorded debt. |
-| Business identity | Bill reference is unique; one bill per ticket. |
+| Business identity | Bill reference is unique; one folio per ticket. |
 | Status / lifecycle | Open → Finalized → Closed. |
 
 **Entity: Ticket Cancellation (settlement_ticket_cancellations)**

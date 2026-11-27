@@ -1,11 +1,15 @@
 ### 2.1 Usability
 
-| ID | Requirement                         | V1 requirement                                                                                                                                                                                                                                                 | Verification                                                                                   |
-| --- | --- | --- | --- |
-| NFR-USE-01 | Customer journey clarity | The UI must present the ring journey in business order: account/access, catalogue or workshop selection, design/customisation, feasibility or estimate, payment, fulfilment, and status. Each step must show the current status and the next permitted action. | Scenario walkthrough and acceptance test for workshop, ready-ring, and custom-design journeys. |
-| NFR-USE-02 | Booking and payment feedback | The UI must clearly distinguish an available item/slot, a temporary hold, a confirmed booking/order, an expired hold, and an unverified payment. A browser Return URL must never be presented as payment confirmation.                                         | Functional test with valid, duplicate, invalid, and late payment notifications.                |
-| NFR-USE-03 | Validation and recovery | Forms must identify the invalid field or rejected business condition in plain language, preserve valid entered values where safe, and offer a next action such as retry, choose another slot, contact the shop, or continue outside the unavailable provider.  | Negative-path usability test.                                                                  |
-| NFR-USE-04 | Role-appropriate operation | Staff, Manager, Owner, Admin, and Admin Technical views must expose only the actions permitted by the role and must use domain terminology consistently.                                                                                                       | Role-based walkthrough against the permission matrix.                                          |
-| NFR-USE-05 | Operational visibility | Staff and Managers must be able to distinguish pending, confirmed, expired, cancelled/withdrawn where applicable, ready-for-pickup, and handed-off records without relying on provider screens.                                                                | Workflow acceptance test and record-state review.                                              |
-| NFR-USE-06 | Accessibility and language baseline | Customer-facing screens must support the approved bilingual journey and keyboard-operable forms. The final accessibility conformance level, supported browser matrix, and language glossary are project baselines to be approved before UAT.                   | Accessibility review and browser/UAT checklist once the baseline is approved.                  |
-| NFR-USE-07 | Training | The Reports do not approve a numeric training-time target. Training material must cover account access, booking/payment states, design review, fulfilment handoff, and the role-specific approval boundaries before UAT.                                       | Training checklist and supervised task completion.                                             |
+::: {.docx-table width="100%" columns="25%,75%" repeat-header="false"}
+
+| Requirement | Description |
+| --- | --- |
+| Language | Every customer screen is available in Vietnamese and English. Vietnamese text, including diacritics, is stored and shown without corruption. |
+| Mobile layout | Public pages fit a 360 px wide screen without horizontal scrolling. |
+| Status clarity | Each booking, order, design request and payment shows its current status and the next allowed action. Held, confirmed, expired and unpaid records look different. |
+| Error feedback | Forms name the invalid field or rejected business rule in plain language, keep the valid input, and offer a next step such as retry or choose another session. |
+| Role-based screens | Each role sees only the menus and actions it may use. A protected action asks a Guest to sign in. |
+| Immediate feedback | Each uploaded design image shows its quality result before the design request is submitted. |
+| Input guidance | Screens enforce limits while the user works: at most 5 design images of up to 5 MB each, and at most 10 stones in the ring configurator. A rejected product import offers a downloadable error report giving the row, column, value and reason of each error. |
+
+:::

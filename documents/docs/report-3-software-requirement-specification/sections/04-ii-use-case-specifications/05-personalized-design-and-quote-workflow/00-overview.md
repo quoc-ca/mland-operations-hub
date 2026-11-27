@@ -1,1 +1,1 @@
-## 5. Personalized Design and Quote Workflow
+## 5. Personalized Design & Quote Workflow

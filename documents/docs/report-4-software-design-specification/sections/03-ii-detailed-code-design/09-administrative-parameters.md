@@ -19,4 +19,3 @@
 ### 9.5 Sequence Diagram — Reject Stale Publication
 
 {{r4-sd-fe09-reject-stale-policy width=100% align=center}}
-

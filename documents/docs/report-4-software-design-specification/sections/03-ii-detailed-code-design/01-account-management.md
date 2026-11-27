@@ -1,6 +1,10 @@
-## 1. Account Management (FE-01)
+## 1. Account Management 
+
+**Implementation status:** Existing backend/frontend slices; broader account scope remains governed by the approved Feature-001 contract.
 
 ### 1.1 Class Diagram
+
+The design separates Firebase identity proof from Mland account status, role, profile and location assignment. Controllers use account application services; other modules consume the account facade rather than account repositories.
 
 {{r4-cd-account-management width=100% align=center}}
 

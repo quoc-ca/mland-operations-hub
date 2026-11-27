@@ -10,25 +10,23 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 |Account|Register, sign in, and recover account|Full|Full|Restricted|Restricted|Restricted|
 |Personal profile|View and update own profile|No|Full|Restricted|Restricted|Restricted|
 |User account|Create, view, update, lock, or unlock platform accounts|No|No|No|No|Full|
-|Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|No|No|No|
+|Workshop booking|Create a workshop booking and hold temporary capacity|Full|Full|Restricted|No|No|
 |Workshop payment|Pay a workshop deposit and view the payment result|Full|Full|No|No|No|
-|Booking lookup|Look up booking details and QR check-in ticket|Full|Full|No|No|No|
+|Booking lookup|Look up booking details and QR check-in ticket|Full|Full|Restricted|Restricted|No|
 |Workshop operations|Check in a participant by QR code or manual code|No|No|Restricted|Full|No|
-|Workshop schedule|Manage branches, and create, update, or cancel schedules (UC 25)|No|No|No|Full|No|
+|Workshop schedule|Create, update, or cancel schedules and branch allocations|No|No|No|Full|No|
 |Workshop staffing|Assign Staff to workshop slots|No|No|No|Full|No|
-|Workshop time and capacity|Configure time slots and session capacity|No|No|No|Full|No|
-|Workshop package|Manage workshop packages, add-ons, and branch availability (UC 91)|No|No|No|Full|No|
-|Late payment|Confirm or refund a late booking payment (UC 92)|No|No|No|Full|No|
-|Ticket bill|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
-|Ticket bill|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
-|Ticket bill|Verify transfers, manage handover exceptions and debt, and correct a bill (UC 80, 81, 82)|No|No|No|Full|No|
+|Workshop time and capacity|Configure time slots, session capacity, and participant limits|No|No|No|Full|No|
+|Ticket folio|View a ticket bill, add-ons, and balance (UC 77)|Restricted|Restricted|Restricted|Full|No|
+|Ticket folio|Add a consented charge and collect the balance (UC 78, 79)|No|No|Restricted|Full|No|
+|Ticket folio|Verify transfers, manage handover exceptions and debt, and correct a folio (UC 80, 81, 82)|No|No|No|Full|No|
 |Cash day|Close a branch cash day; only a Manager resolves a difference (UC 83)|No|No|Restricted|Full|No|
 |Ticket cancellation|Cancel unused workshop tickets (UC 84)|Restricted|Restricted|Restricted|Full|No|
 |Ticket change|Select replacement sessions for a ticket (UC 85)|Restricted|Restricted|Restricted|Full|No|
-|Ticket change|Approve or reject a queued change request (UC 85)|No|No|Restricted|Full|No|
-|Ticket change|Grant an extra counted change (UC 85)|No|No|No|Full|No|
+|Ticket change|Approve or reject a queued change request (UC 86)|No|No|Restricted|Full|No|
+|Ticket change|Grant an extra counted change (UC 87)|No|No|No|Full|No|
 |Mland cancellation|Choose a replacement session or refund (UC 88); Staff and Manager only with the buyer proof|Restricted|Restricted|Restricted|Restricted|No|
-|Refund|Submit the receiving refund account (UC 90)|Restricted|Restricted|Restricted|Restricted|No|
+|Refund|Submit the receiving refund account (UC 89)|Restricted|Restricted|Restricted|Restricted|No|
 |Refund|Process a refund request (UC 90); Staff may only resend the refund-account link|No|No|Restricted|Full|No|
 |Product catalogue|Create (manually or by Excel import), update, and soft-delete products, images, stock, sale status and proposed prices (UC 12, UC 14); Staff only for products sold at an assigned branch (footnote 12)|No|No|Restricted|Full|No|
 |Product price|Decide a product or price proposal (UC 15)|No|No|No|Full|No|
@@ -73,7 +71,7 @@ The matrix covers the five platform roles defined in the Actors section. Externa
 2. Guests may book workshops and pay workshop deposits. Under the Feature-004 and Feature-012 member-only rebaseline (2026-11-24), a Guest may see the entry point, explanation, and public options but cannot create, upload, track, or read a design request or ring design; a protected action prompts sign-in, and no Guest design session, tracking token, or daily quota exists. Guests cannot complete retail checkout or create custom-manufacturing orders.
 3. Members may access and modify only their own profile, cart, orders, loyalty records, independent Design Requests, and custom-manufacturing orders.
 4. Staff and Managers review independent Design Requests only under the approved Feature-004 authority and scope policy. Managers, not AI, decide published package and product prices.
-5. Admin manages technical configuration, accounts, fixed-role assignment, approved integration credentials and the explicit Feature-012 ring-difficulty policy under UC 62; image storage credentials are environment configuration, not an Admin function. This exception gives no authority over non-difficulty ring-catalogue data, published prices, promotions or loyalty points (GBR-18), and no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace other Staff or Manager business approvals.
+5. Admin manages technical configuration, accounts, fixed-role assignment, approved integration credentials and the explicit Feature-012 ring-difficulty policy under UC 62; image storage credentials are environment configuration, not an Admin function. This exception gives no authority over non-difficulty ring-catalogue data, published prices, promotions or loyalty points (BR-15), and no access to FE-10 executive revenue, branch rankings, customer details, or individual order/payment details. Admin does not replace other Staff or Manager business approvals.
 6. GHTK shipments are recorded in the platform; V1 calls GHTK only for the delivery-fee quote and has no shipment-creation, tracking, or webhook integration. Staff packs the order and marks it ready for the courier. The GHTK partner account (role `CARRIER`) records only "Đã lấy hàng" (courier pickup) and "Giao thành công" (delivery) for the GHTK shipments of every branch, and sees the pickup branch, recipient name, phone and address, item count, and shipping fee, never product prices, vouchers, points, or Member account data. Only that account records the Retail shipment row; the platform roles cannot.
 7. Feature-011 (public-read / Member-write rebaseline) lets a Guest browse public Mland reviews and aggregates only; the former Guest email/phone lookup is removed. An owning Member may create a review only for an eligible checked-in workshop attendance or picked-up/delivered retail order line. Staff may HIDE any Feature-011 review; Manager may HIDE/REMOVE and reply; Admin has technical/audit access only. This global Staff hide permission is deliberate and is not inferred from branch scope.
 8. For ticket settlement and changes (Feature-003.3), `Restricted` for a Guest or Member means only their own ticket after the required ownership, contact, one-time-code, or single-use-link proof; `Restricted` for Staff means the assigned location and, where the owning feature requires it, a session assignment.

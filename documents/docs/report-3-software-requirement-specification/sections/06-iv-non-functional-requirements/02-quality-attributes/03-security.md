@@ -1,27 +1,21 @@
 ### 2.3 Security
 
-| ID | Requirement | Description | Verification |
-| --- | --- | --- | --- |
-| NFR-SEC-01 | Authentication | Support the approved local-credential and configured SSO journeys. A locked, inactive, invalid, or unlinked identity must not receive an authenticated session. | Authentication, account-status, and SSO integration tests. |
-| NFR-SEC-02 | Authorization | Resolve role and business authorization from Mland’s own account data. Enforce least privilege for Member, Staff, Manager, Owner, Admin, and Admin Technical; an external identity alone must not grant a business role. | Permission-matrix tests for allowed and denied actions. |
-| NFR-SEC-03 | Session and credential safety | Do not expose passwords, tokens, provider secrets, card data, or raw sensitive credentials in UI responses or logs. Passwords must be stored using a one-way password-hashing mechanism; security-sensitive changes must invalidate or revalidate sessions according to the approved security policy. | Configuration review, secret-scanning, and session tests. |
-| NFR-SEC-04 | Payment security | Accept payment state only from a valid signed VNPay IPN or the defined signed QueryDR recovery result while the associated hold is active. Validate signature, transaction reference, amount, and successful status; process duplicates idempotently. | Positive, tampered, mismatched, duplicate, and late-event tests. |
-| NFR-SEC-05 | Input and file security | Validate type, size, structure, and business ownership for uploaded images and request data. Reject malformed or unsupported input and prevent uploaded content from being executed as application code. | API validation, upload abuse, and malware-scanning/infrastructure review. |
-| NFR-SEC-06 | Provider and integration security | Store provider credentials outside source control and restrict access to the integration boundary. Use approved callback URLs and encrypted transport for external calls. | Secret/configuration review and integration test. |
-| NFR-SEC-07 | Personal-data minimisation | Apply the purpose-specific controls in NFR-DAT-01 through NFR-DAT-07. Do not retain personal data beyond its approved purpose or expose it through logs, prompts, or public media. | Retention-job test, storage inspection, and deletion/anonymisation evidence. |
-| NFR-SEC-08 | Privacy and attribution | The general Terms and Privacy Policy must state image-processing purposes, retention periods, and delivery-recipient handling as defined by NFR-DAT-01 through NFR-DAT-07. Google Maps/Places and external review data are outside V1. | Policy review and inspection that the retired integration is absent. |
-| NFR-SEC-09 | Audit evidence | Retain business audit evidence for payment confirmation, price publication, booking-design review, custom final amount, pickup, and GHTK handoff for five years as defined by NFR-DAT-06. Record actor, time, affected business record, outcome, and reason where an override or adjustment occurs. | Audit-trail completeness and retention verification. |
-| NFR-SEC-10 | Security events | Record successful and failed authentication, authorization denials, payment-verification failures, sensitive configuration changes, and relevant provider/integration failures without recording secrets or unnecessary personal data. | Log review and redaction test. |
-| NFR-SEC-11 | Security baseline | TLS, security headers, dependency patching, backup protection, recovery objectives, penetration testing scope, and incident-response timings are deployment/security baselines tracked as NFR-OPEN-05; backup and recovery objectives are tracked as NFR-OPEN-02, rather than unapproved V1 promises. | Release-readiness checklist. |
+::: {.docx-table width="100%" columns="25%,75%" repeat-header="false"}
 
-#### Data Protection and Retention
+| Requirement | Description |
+| --- | --- |
+| Authentication required | Every page and action requires sign-in, except the public catalogue, workshop packages and sessions, public reviews, Basic AI Support, guest workshop booking with its look-up links, and the payment return page. |
+| Password protection | The system never stores passwords. Firebase holds the credentials; the system receives only a verified identity token. |
+| Repeated sign-in attempts | The system sets no lockout threshold of its own. Firebase temporarily blocks repeated failed sign-ins, and the sign-in page then shows a "too many attempts" message. A guest booking verification code is blocked after 5 wrong entries and can be resent at most 5 times per hour, with 60 seconds between sends. |
+| Account status | A suspended account, or an account whose setup is incomplete, cannot use protected functions. |
+| Role and branch scope | Every request is checked against the user's role. Staff act only in their assigned branch, Members see only their own records, and the Carrier sees no prices or Member data. |
+| Payment integrity | A payment changes state only after its VNPay signature, reference, amount and status are verified. Card data is never entered into or stored by the system. |
+| Duplicate requests | A repeated payment notification or command creates at most one result. Reusing a request key with different content is rejected. |
+| Private files | Product and receipt images are private and opened only through signed, time-limited links. Uploads must be JPEG, PNG or WebP, at most 5 MB each. |
+| Refund bank accounts | Refund bank account numbers are stored encrypted and are readable only by a Manager processing the refund. |
+| Secrets | Provider keys and passwords are kept outside source code and are never shown on screens or in logs. |
+| Usage limits | Basic AI Support has a daily limit per Guest and per Member. Design image analysis has a limit per Member every 5 minutes. |
+| Audit log | Payment confirmation, price publication, design review, custom quote, refund, pickup and carrier handover record the actor, time, record and reason. |
+| Personal data retention | A daily job deletes AI chat text and temporary design images after 30 days. Refund-link submissions and settlement notification data are deleted after 30 days. Delivery recipient name, phone and address stay with the order and are visible only to the Member, permitted Staff and Manager, and the Carrier. |
 
-| ID | Requirement | Verification |
-| --- | --- | --- |
-| NFR-DAT-01 | Basic AI (Gemini) prompts and responses shall be retained for no more than 30 days. Feature-004 reference images shall not be sent to Gemini. | Inspect AI payloads and retention cleanup; verify no Feature-004 image is sent and text data older than the approved maximum is removed. |
-| NFR-DAT-02 | Cloud storage shall keep public catalogue media separate from private custom/reference media and enforce access by purpose and authorization. | Attempt public and private media reads as authorized and unauthorized actors; verify private media is not disclosed. |
-| NFR-DAT-03 | Temporary reference media shall be removed by the approved retention cleanup; catalogue media and required historical evidence shall not be deleted by that cleanup. | Replay cleanup and verify eligible temporary files are removed, catalogue/history media remain, and cleanup evidence is minimized. |
-| NFR-DAT-04 | Recipient and delivery-address data for eligible GHTK orders shall be deleted or irreversibly obscured 30 days after the actual handoff, while minimized order, payment, handoff, and required audit evidence is preserved. | Verify the job uses actual handoff time, retries do not reset the clock, and required business/audit facts remain. |
-| NFR-DAT-05 | Mland shall not store payment-card data; card entry occurs at the payment provider. | Inspect payment forms, request/response payloads, persistence, and logs for card data. |
-| NFR-DAT-06 | VNPay transaction references and required business audit evidence shall be retained for five years under the approved audit policy, without secrets or unnecessary personal data. | Verify retention configuration and audit records; confirm access restriction does not rewrite the original event. |
-| NFR-DAT-07 | Cleanup and expiry routines shall preserve catalogue media and business-history records that remain subject to an approved retention rule; deletion of temporary copies shall not delete their required historical record. | Exercise media cleanup and data-retirement jobs against linked records; verify referenced business history remains and failures are visible and retryable. |
+:::
