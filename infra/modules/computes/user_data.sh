@@ -153,6 +153,267 @@ DEPLOY_SCRIPT
 chmod 0750 /opt/mland-staging-deploy.sh
 chown ubuntu:ubuntu /opt/mland-staging-deploy.sh
 
+echo "=== [7/7] Install lightweight SSE Log Streamer service ==="
+cat << 'LOG_STREAMER' > /opt/mland-log-streamer.py
+#!/usr/bin/env python3
+"""Lightweight SSE log streamer and container metadata endpoint for staging EC2."""
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
+import glob
+import hmac
+import json
+import os
+import select
+import subprocess
+import threading
+import time
+
+BIND_HOST = os.environ.get("LOG_STREAM_BIND", "127.0.0.1")
+BIND_PORT = int(os.environ.get("LOG_STREAM_PORT", "9090"))
+AUTH_TOKEN = os.environ.get("LOG_STREAM_TOKEN", "").strip()
+ALLOWED_ORIGINS = {
+    origin.strip()
+    for origin in os.environ.get("LOG_STREAM_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+}
+REPO_DIR = os.environ.get("MLAND_REPO_DIR", "/opt/mland-staging")
+DEPLOY_LOG = "/var/log/mland-deploy.log"
+MAX_CONCURRENT_STREAMS = 6
+STREAM_SEM = threading.Semaphore(MAX_CONCURRENT_STREAMS)
+
+
+def resolve_log_file(source: str):
+    if source == "deploy":
+        return DEPLOY_LOG
+    if source in ("error", "info"):
+        filename = "error.log" if source == "error" else "info.log"
+        candidates = sorted(glob.glob(f"{REPO_DIR}/ppswbs_backend/logs/*/{filename}"))
+        return candidates[-1] if candidates else None
+    return None
+
+
+def inspect_backend_container():
+    try:
+        cid_proc = subprocess.run(
+            ["docker", "compose", "ps", "-aq", "backend"],
+            cwd=REPO_DIR,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        cid = cid_proc.stdout.strip()
+        if not cid:
+            return {"exists": False, "status": "not-created"}
+
+        fmt = (
+            '{"status":"{{.State.Status}}",'
+            '"created":"{{.Created}}",'
+            '"startedAt":"{{.State.StartedAt}}",'
+            '"finishedAt":"{{.State.FinishedAt}}",'
+            '"exitCode":{{.State.ExitCode}},'
+            '"oomKilled":{{.State.OOMKilled}}}'
+        )
+        ins_proc = subprocess.run(
+            ["docker", "inspect", "--format", fmt, cid],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if ins_proc.returncode != 0:
+            return {"exists": False, "status": "unknown", "error": ins_proc.stderr.strip()}
+        data = json.loads(ins_proc.stdout.strip())
+        data["exists"] = True
+        return data
+    except Exception as exc:
+        return {"exists": False, "status": "error", "error": str(exc)}
+
+
+class LogStreamHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, format, *args):
+        return
+
+    def _cors_headers(self):
+        origin = self.headers.get("Origin", "")
+        if ALLOWED_ORIGINS:
+            if origin in ALLOWED_ORIGINS:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
+        elif origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+
+    def _send_json(self, status: int, payload: dict):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self._cors_headers()
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _is_authorized(self) -> bool:
+        if not AUTH_TOKEN:
+            return False
+        auth = self.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return False
+        provided = auth[7:].strip()
+        return hmac.compare_digest(provided, AUTH_TOKEN)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == "/health":
+            self._send_json(200, {"ok": True, "configured": bool(AUTH_TOKEN)})
+            return
+
+        if not AUTH_TOKEN:
+            self._send_json(503, {"error": "LOG_STREAM_TOKEN is not configured on host"})
+            return
+
+        if not self._is_authorized():
+            self._send_json(401, {"error": "Unauthorized"})
+            return
+
+        if path == "/meta":
+            self._send_json(200, {
+                "backend": inspect_backend_container(),
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            })
+            return
+
+        if path == "/stream":
+            qs = parse_qs(parsed.query)
+            source = (qs.get("source") or [""])[0]
+            if source not in ("deploy", "error", "info"):
+                self._send_json(400, {"error": "Invalid source. Allowed: deploy, error, info"})
+                return
+
+            try:
+                lines = max(10, min(500, int((qs.get("lines") or ["200"])[0])))
+            except ValueError:
+                lines = 200
+
+            if not STREAM_SEM.acquire(blocking=False):
+                self._send_json(429, {"error": "Too many active log streams"})
+                return
+
+            try:
+                self._handle_stream(source, lines)
+            finally:
+                STREAM_SEM.release()
+            return
+
+        self._send_json(404, {"error": "Not found"})
+
+    def _write_sse(self, event: str, data: str):
+        payload = f"event: {event}\n"
+        for line in data.splitlines() or [""]:
+            payload += f"data: {line}\n"
+        payload += "\n"
+        self.wfile.write(payload.encode("utf-8", errors="replace"))
+        self.wfile.flush()
+
+    def _handle_stream(self, source: str, lines: int):
+        self.send_response(200)
+        self._cors_headers()
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-transform")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        proc = None
+        try:
+            target = resolve_log_file(source)
+            while target is None or not os.path.exists(target):
+                self._write_sse("status", f"Waiting for {source} log file...")
+                time.sleep(2)
+                target = resolve_log_file(source)
+
+            self._write_sse("status", f"Streaming {source}: {os.path.basename(target)}")
+            proc = subprocess.Popen(
+                ["tail", "-n", str(lines), "-F", target],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=0,
+            )
+
+            fd = proc.stdout.fileno()
+            buffer = b""
+            last_ping = time.monotonic()
+
+            while True:
+                ready, _, _ = select.select([fd], [], [], 1.0)
+                if ready:
+                    chunk = os.read(fd, 4096)
+                    if not chunk:
+                        break
+                    buffer += chunk
+                    while b"\n" in buffer:
+                        line, buffer = buffer.split(b"\n", 1)
+                        text = line.decode("utf-8", errors="replace")
+                        self.wfile.write(f"data: {text}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    last_ping = time.monotonic()
+                elif time.monotonic() - last_ping >= 15.0:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                    last_ping = time.monotonic()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+
+
+if __name__ == "__main__":
+    server = ThreadingHTTPServer((BIND_HOST, BIND_PORT), LogStreamHandler)
+    server.daemon_threads = True
+    server.serve_forever()
+LOG_STREAMER
+
+chmod 0750 /opt/mland-log-streamer.py
+chown ubuntu:ubuntu /opt/mland-log-streamer.py
+
+cat << 'LOG_STREAMER_SERVICE' > /etc/systemd/system/mland-log-streamer.service
+[Unit]
+Description=MLAND Staging SSE Log Streamer
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+EnvironmentFile=-/opt/mland-staging-runtime/log-streamer.env
+ExecStart=/usr/bin/python3 /opt/mland-log-streamer.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+LOG_STREAMER_SERVICE
+
+systemctl daemon-reload
+systemctl enable --now mland-log-streamer
+
 if [ ! -d /opt/mland-staging/.git ]; then
     sudo -H -u ubuntu -- git clone https://github.com/quoc-ca/mland-operations-hub.git /opt/mland-staging || \
         echo "Repository clone deferred until the first Deploy action"

@@ -1,17 +1,21 @@
 ## 1. Major Features {#major-features}
 
+::: {.docx-table width="100%" columns="10%,22%,53%,15%" repeat-header="false"}
+
 | ID | Feature Name | Description | Addressed Gaps |
 | --- | --- | --- | --- |
-| FE-01 | Account Management | Handles registration, authentication, profile management, and RBAC across Guest, Member, Staff, Manager, and Admin roles. | GAP-06 |
-| FE-02 | Product Management | Manages published ready-made rings, variants, prices, publication status, and manually maintained available-to-sell quantities. Ready-made sales use full payment; custom orders are handled separately. | GAP-01, GAP-05 |
-| FE-03 | Workshop Management | Manages workshop packages, two configurable branches, three daily session templates, group booking, approved deposit, capacity, attendance, check-in, continuation, custody, and settlement. | GAP-02, GAP-04 |
-| FE-04 | Design Request & Human Review | Allows an active Member to submit a description and/or up to five images. Guest users can see the entry point but must sign in before submission. Image quality is validated before submission. Staff or Manager accepts, rejects, or requests clarification with a mandatory explanation. No AI or automated decision is included. A Member-owned Feature-012 design in any non-archived state may be attached by immutable snapshot. | GAP-03 |
-| FE-05 | Personalized Design & Quote Workflow | Connects Feature-012 design snapshots with eligible Member custom-manufacturing requests, human review, Manager-approved quotes, one-time full payment, and production/fulfilment tracking. It does not use a retail cart or deposit. | GAP-01, GAP-03, GAP-04 |
-| FE-06 | Loyalty & Promotion Management | Tracks transaction histories, reward points, membership progression, promotions, and Member vouchers according to the approved scope. | GAP-07 |
-| FE-07 | Notification Management | Centralizes approved email notifications such as booking/payment confirmation, review result, quote availability, order status, pickup readiness, and internal approval requests. | GAP-04, GAP-05 |
-| FE-08 | Order Management & Fulfilment | Manages ready-made and eligible paid custom-order fulfilment through pickup or permitted Staff-recorded carrier handoff. It excludes carrier integration and live shipment tracking. | GAP-04 |
-| FE-09 | Administrative Parameter Configuration | Separates Manager-owned business and financial parameters from Admin account, RBAC, credentials, monitoring, and technical audit responsibilities. | GAP-06 |
-| FE-10 | Manager Dashboard | Provides role-based monitoring of bookings, attendance, retail and custom orders, payments, fulfilment, review queues, quotes, and exceptions. | GAP-04 |
-| FE-11 | Review Management | Allows Guests to read public reviews and active Members to create or edit reviews for eligible workshop sessions and retail products. Staff and Manager perform the approved moderation and reply actions. Google review data is not written back. | GAP-05 |
-| FE-12 | Workshop Ring Design Configuration | Allows an active Member to configure and save a workshop-ring design from approved options, evaluate it against server rules, and receive an advisory workshop recommendation. Guests can view options and adjust a local preview, but must sign in before protected commands. It does not attach designs to bookings. | GAP-01, GAP-02 |
-| FE-13 | Member Consultation Chat | Provides authenticated Members with contextless or safe-context consultation with Staff and Manager. Staff operates within Workshop Location scope, Manager has approved global authority, and the conversation retains UTF-8 history without mutating design, booking, payment, quote, or order state. | GAP-01, GAP-05, GAP-06 |
+| FE-01 | Account Management | Members register and sign in by email, Google, or Facebook, and manage their profile and addresses. Admin invites Staff, Manager, and Carrier accounts, assigns roles and branches, and locks or unlocks accounts. | GAP-06 |
+| FE-02 | Product Management | Staff propose ready-made rings, size variants, and prices; the Manager approves them before publication. Customers browse the published catalogue. | GAP-05 |
+| FE-03 | Workshop Management | The Manager sets up packages, branches, slots, and sessions; customers book a group and pay a deposit per ticket. Staff check in tickets by QR and collect the final payment; the Manager handles cancellations, session changes, and refunds. | GAP-02, GAP-04 |
+| FE-04 | Design Request & Human Review | A Member submits a description, up to five reference images, or a saved design. Staff or Manager accepts, rejects, or asks for clarification, always with an explanation. | GAP-01, GAP-03 |
+| FE-05 | Personalized Design & Quote Workflow | An accepted design request becomes a custom order with a Manager-approved quote. The Member pays the full quote online, then the order moves through production and delivery. | GAP-03, GAP-04 |
+| FE-06 | Loyalty & Promotion Management | Members earn and spend points and use product or workshop vouchers. The Manager configures promotions, vouchers, and point rules. | GAP-07 |
+| FE-07 | Notification Management | The system sends transactional emails for bookings, payments, orders, and account invitations. Admin and Manager maintain the email templates. | GAP-04, GAP-05 |
+| FE-08 | Order Management & Fulfilment | Members buy ready-made rings through a cart and pay online or in cash at the counter. Staff prepare orders for store pickup or GHTK delivery recorded by the Carrier. | GAP-04, GAP-05 |
+| FE-09 | Administrative Parameter Configuration | Admin reviews, previews, and publishes the ring-difficulty policy used by FE-12. Business parameters remain with the Manager. | GAP-06 |
+| FE-10 | Manager Dashboard | The Manager sees revenue KPIs, branch comparisons, today's operations, and recent events in one read-only dashboard. | GAP-06 |
+| FE-11 | Review Management | Anyone can read reviews; Members review attended workshops and completed orders. Staff and Manager reply to, hide, or remove reviews. | GAP-05 |
+| FE-12 | Workshop Ring Design Configuration | A Member designs a ring from approved options and saves it with an estimated price and difficulty. The system recommends a suitable workshop package. | GAP-01, GAP-02 |
+| FE-13 | Member Consultation Chat | A Member chats with Staff or Manager in text, optionally about a saved design or design request. Staff handle chats of their own branch. | GAP-01, GAP-05 |
+
+:::

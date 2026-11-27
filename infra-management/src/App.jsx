@@ -78,6 +78,30 @@ function Login({ onLogin }) {
   )
 }
 
+const LOG_TABS = [
+  { id: 'deploy', label: 'Deploy', ssmSource: 'overview', hint: 'mland-deploy.log' },
+  { id: 'error', label: 'BE Error', ssmSource: 'file-error', hint: 'error.log' },
+  { id: 'info', label: 'BE Info', ssmSource: 'file-info', hint: 'info.log' }
+]
+
+const MAX_LOG_LINES = 1500
+
+function formatContainerTime(isoString) {
+  if (!isoString || isoString.startsWith('0001-')) return '—'
+  const date = new Date(isoString)
+  if (Number.isNaN(date.getTime())) return isoString
+  return date.toLocaleString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
 function StagingPage({ onNotice, currentUser }) {
   const [showStart, setShowStart] = useState(false)
   const [showDeploy, setShowDeploy] = useState(false)
@@ -88,30 +112,32 @@ function StagingPage({ onNotice, currentUser }) {
   const [logContent, setLogContent] = useState('')
   const [serverStatus, setServerStatus] = useState('STOPPED')
   const [serverIp, setServerIp] = useState('')
-  const [healthChecks, setHealthChecks] = useState([])
+  const [backendMeta, setBackendMeta] = useState(null)
   const [lastOperation, setLastOperation] = useState(null)
   const [snapshotCommandId, setSnapshotCommandId] = useState('')
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false)
-  const [autoRefreshLogs, setAutoRefreshLogs] = useState(false)
-  const [logSource, setLogSource] = useState('overview')
+  const [liveStreamEnabled, setLiveStreamEnabled] = useState(true)
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [logSource, setLogSource] = useState('deploy')
   const [activeLogSource, setActiveLogSource] = useState('overview')
   const [logOffsets, setLogOffsets] = useState({
     overview: 0,
-    'file-all': 0,
     'file-error': 0,
-    'file-warning': 0,
     'file-info': 0
   })
   const [cooldown, setCooldown] = useState(0)
   const [isStopping, setIsStopping] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
   const [isDeploying, setIsDeploying] = useState(false)
   const [firebaseFileName, setFirebaseFileName] = useState(() => localStorage.getItem('infra-firebase-filename') || '')
   const [firebaseConfigContent, setFirebaseConfigContent] = useState(() => localStorage.getItem('infra-firebase-content') || '')
   const fileInputRef = useRef(null)
   const firebaseInputRef = useRef(null)
+  const terminalPreRef = useRef(null)
 
   const controlApiUrl = (import.meta.env.VITE_CONTROL_API_URL || '').replace(/\/$/, '')
+  const logStreamUrl = (import.meta.env.VITE_LOG_STREAM_URL || '').replace(/\/$/, '')
+  const logStreamToken = (import.meta.env.VITE_LOG_STREAM_TOKEN || '').trim()
+  const hasStreamConfig = Boolean(logStreamUrl && logStreamToken)
 
   const updateRow = (index, field, value) => setEnvRows((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
   const addRow = () => setEnvRows((rows) => [...rows, { key: '', value: '' }])
@@ -176,19 +202,15 @@ function StagingPage({ onNotice, currentUser }) {
 
   const validCount = envRows.filter((r) => r.key.trim()).length
 
-  const applyOperationChecks = useCallback((checks = {}) => {
-    const labels = { db: 'MySQL', backend: 'Backend container' }
-    const updates = Object.entries(checks).map(([key, value]) => {
-      const running = value.state === 'running'
-      const ready = key === 'db' ? running && value.health === 'healthy' : running
-      const detail = key === 'db'
-        ? `Container ${value.state}; Docker health ${value.health}`
-        : `Container ${value.state}; application readiness is not exposed`
-      return { name: labels[key] || key, ready, detail }
+  const currentLogTab = LOG_TABS.find((tab) => tab.id === logSource) || LOG_TABS[0]
+
+  const appendLogLines = useCallback((lines) => {
+    if (!lines.length) return
+    setLogContent((prev) => {
+      const existing = prev ? prev.split('\n') : []
+      const merged = existing.concat(lines)
+      return merged.slice(-MAX_LOG_LINES).join('\n')
     })
-    if (updates.length) {
-      setHealthChecks((current) => [...current.filter((item) => !updates.some((check) => check.name === item.name)), ...updates])
-    }
   }, [])
 
   const readOperation = useCallback(async (commandId) => {
@@ -214,31 +236,15 @@ function StagingPage({ onNotice, currentUser }) {
         const displayState = ({ PENDING: 'STARTING', STOPPING: 'STOPPING', 'SHUTTING-DOWN': 'STOPPING', STOPPED: 'STOPPED', TERMINATED: 'STOPPED' })[normalized] || normalized
         setServerStatus(displayState)
         setServerIp(data.publicIp || '')
-        
         if (normalized === 'STOPPED') {
-          setHealthChecks([
-            { name: 'Control API', ready: true, detail: 'API connected' },
-            { name: 'EC2 instance', ready: false, detail: 'AWS state: STOPPED' },
-            { name: 'SSM agent', ready: false, detail: 'Connection: offline' },
-            { name: 'MySQL', ready: false, detail: 'Instance stopped' },
-            { name: 'Backend container', ready: false, detail: 'Instance stopped' }
-          ])
-        } else {
-          setHealthChecks((current) => [
-            { name: 'EC2 instance', ready: normalized === 'RUNNING', detail: `AWS state: ${normalized}` },
-            { name: 'SSM agent', ready: data.ssmStatus === 'Online', detail: `Connection: ${data.ssmStatus || 'unknown'}` },
-            ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
-          ])
+          setBackendMeta(null)
         }
 
         setLastOperation((current) => (current?.name === 'Start' || current?.name === 'Stop')
           ? { ...current, status: displayState }
           : current)
-      } catch (error) {
-        if (!cancelled) setHealthChecks((current) => [
-          { name: 'Control API', ready: false, detail: error.message || 'Status request failed' },
-          ...current.filter((item) => item.name === 'MySQL' || item.name === 'Backend container')
-        ])
+      } catch {
+        // Ignore transient status polling failures
       }
     }
 
@@ -248,9 +254,132 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl, refreshKey])
+  }, [polling, controlApiUrl])
 
-  // Cooldown countdown timer (15s)
+  // Poll backend container metadata (last deploy / created / startedAt / status) via log streamer
+  useEffect(() => {
+    if (!hasStreamConfig || !polling || serverStatus !== 'RUNNING') return undefined
+    let cancelled = false
+
+    const fetchMeta = async () => {
+      try {
+        const response = await fetch(`${logStreamUrl}/meta`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${logStreamToken}`
+          }
+        })
+        if (!response.ok) return
+        const data = await response.json().catch(() => null)
+        if (!cancelled && data?.backend) {
+          setBackendMeta(data.backend)
+        }
+      } catch {
+        // Ignore transient meta fetch failures while tunnel or service starts
+      }
+    }
+
+    fetchMeta()
+    const timer = window.setInterval(fetchMeta, 10000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [hasStreamConfig, logStreamUrl, logStreamToken, polling, serverStatus])
+
+  // Live SSE log streaming for selected tab (deploy | error | info)
+  useEffect(() => {
+    if (!hasStreamConfig || !liveStreamEnabled || serverStatus !== 'RUNNING') return undefined
+
+    const controller = new AbortController()
+    let active = true
+
+    const connectStream = async () => {
+      try {
+        const response = await fetch(
+          `${logStreamUrl}/stream?source=${encodeURIComponent(currentLogTab.id)}&lines=200`,
+          {
+            headers: {
+              Accept: 'text/event-stream',
+              Authorization: `Bearer ${logStreamToken}`
+            },
+            signal: controller.signal
+          }
+        )
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE HTTP ${response.status}`)
+        }
+        if (active) {
+          setLogContent('')
+          setLogState(`Live SSE · Đang stream ${currentLogTab.label}...`)
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+        let currentEvent = 'message'
+        let dataLines = []
+        const pendingLines = []
+
+        const flushEvent = () => {
+          if (!dataLines.length) {
+            currentEvent = 'message'
+            return
+          }
+          const text = dataLines.join('\n')
+          if (currentEvent === 'status') {
+            setLogState(`Live SSE · ${text}`)
+          } else if (text) {
+            pendingLines.push(text)
+          }
+          currentEvent = 'message'
+          dataLines = []
+        }
+
+        while (active) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const rawLines = buffer.split(/\r?\n/)
+          buffer = rawLines.pop() || ''
+
+          for (const line of rawLines) {
+            if (line === '') {
+              flushEvent()
+            } else if (line.startsWith(':')) {
+              // SSE heartbeat comment
+            } else if (line.startsWith('event:')) {
+              currentEvent = line.slice(6).trim()
+            } else if (line.startsWith('data:')) {
+              dataLines.push(line.slice(5).replace(/^ /, ''))
+            }
+          }
+
+          if (pendingLines.length) {
+            appendLogLines(pendingLines.splice(0, pendingLines.length))
+          }
+        }
+      } catch (error) {
+        if (active && error.name !== 'AbortError') {
+          setLogState(`SSE ngắt kết nối (${error.message}) — có thể dùng SSM Snapshot`)
+        }
+      }
+    }
+
+    connectStream()
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [hasStreamConfig, logStreamUrl, logStreamToken, liveStreamEnabled, serverStatus, currentLogTab.id, currentLogTab.label, appendLogLines])
+
+  // Auto-scroll terminal when new log lines arrive
+  useEffect(() => {
+    if (!autoScroll || !terminalPreRef.current) return
+    terminalPreRef.current.scrollTop = terminalPreRef.current.scrollHeight
+  }, [logContent, autoScroll])
+
+  // Cooldown countdown timer (15s) for SSM fallback
   useEffect(() => {
     if (cooldown <= 0) return undefined
     const timer = window.setInterval(() => {
@@ -267,7 +396,7 @@ function StagingPage({ onNotice, currentUser }) {
     if (isRefreshingLogs || snapshotCommandId) return
     if (!isFinalPull && cooldown > 0) return
 
-    const src = sourceOverride || logSource || 'overview'
+    const src = sourceOverride || currentLogTab.ssmSource || 'overview'
     const offset = logOffsets[src] || 0
     try {
       setIsRefreshingLogs(true)
@@ -286,7 +415,7 @@ function StagingPage({ onNotice, currentUser }) {
       setIsRefreshingLogs(false)
       setLogState(`Lỗi yêu cầu log: ${error.message}`)
     }
-  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId, logSource, logOffsets, cooldown])
+  }, [controlApiUrl, isRefreshingLogs, snapshotCommandId, currentLogTab.ssmSource, logOffsets, cooldown])
 
   useEffect(() => {
     const commandId = lastOperation?.commandId
@@ -297,18 +426,13 @@ function StagingPage({ onNotice, currentUser }) {
         const operation = await readOperation(commandId)
         if (cancelled) return
         setLastOperation((current) => current?.commandId === commandId ? { ...current, status: operation.status } : current)
-        applyOperationChecks(operation.checks)
-        if (lastOperation?.name !== 'Deploy') {
-          const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
-          if (output) {
-            setLogContent(output)
-          }
-        } else if (operation.status === 'Failed' && operation.stderr?.trim()) {
+        if (lastOperation?.name === 'Deploy' && operation.status === 'Failed' && operation.stderr?.trim()) {
           setLogContent((prev) => `${prev}\n\n[DEPLOY THẤT BẠI]\n${operation.stderr.trim()}`)
         }
-        setLogState(`SSM ${operation.status} · command ${commandId}`)
         if (['Success', 'Failed'].includes(operation.status) && lastOperation?.name === 'Deploy') {
-          handleRefreshLogs('overview', true)
+          if (!hasStreamConfig || !liveStreamEnabled) {
+            handleRefreshLogs('overview', true)
+          }
           setCooldown(0)
         }
       } catch (error) {
@@ -321,7 +445,7 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl, lastOperation?.commandId, lastOperation?.status, lastOperation?.name, readOperation, applyOperationChecks, handleRefreshLogs])
+  }, [polling, controlApiUrl, lastOperation?.commandId, lastOperation?.status, lastOperation?.name, readOperation, handleRefreshLogs, hasStreamConfig, liveStreamEnabled])
 
   useEffect(() => {
     if (!polling || !controlApiUrl || !snapshotCommandId) return undefined
@@ -330,7 +454,6 @@ function StagingPage({ onNotice, currentUser }) {
       try {
         const operation = await readOperation(snapshotCommandId)
         if (cancelled) return
-        applyOperationChecks(operation.checks)
         const output = [operation.stdout?.trim(), operation.stderr?.trim() ? `STDERR:\n${operation.stderr.trim()}` : ''].filter(Boolean).join('\n\n')
         if (output) {
           const currentOffset = logOffsets[activeLogSource] || 0
@@ -344,7 +467,7 @@ function StagingPage({ onNotice, currentUser }) {
           setLogOffsets((prev) => ({ ...prev, [activeLogSource]: operation.nextOffset }))
         }
         const hasMoreText = operation.hasMore ? ` (còn ${operation.fileSize - operation.nextOffset} bytes mới)` : ''
-        setLogState(`Log snapshot ${operation.status} · ${activeLogSource} offset: ${operation.nextOffset ?? logOffsets[activeLogSource] ?? 0} bytes${hasMoreText}`)
+        setLogState(`SSM Snapshot ${operation.status} · ${activeLogSource} offset: ${operation.nextOffset ?? logOffsets[activeLogSource] ?? 0} bytes${hasMoreText}`)
         if (['Success', 'Failed', 'TimedOut', 'Cancelled', 'Undeliverable', 'Terminated'].includes(operation.status)) {
           setSnapshotCommandId('')
           setIsRefreshingLogs(false)
@@ -363,7 +486,7 @@ function StagingPage({ onNotice, currentUser }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [polling, controlApiUrl, snapshotCommandId, readOperation, applyOperationChecks, logOffsets, activeLogSource])
+  }, [polling, controlApiUrl, snapshotCommandId, readOperation, logOffsets, activeLogSource])
 
   // Safety timer to guarantee isRefreshingLogs never stays stuck
   useEffect(() => {
@@ -375,17 +498,6 @@ function StagingPage({ onNotice, currentUser }) {
     }, 15000)
     return () => window.clearTimeout(timer)
   }, [isRefreshingLogs])
-
-  // Auto-refresh logs every 15s when enabled and machine is running
-  useEffect(() => {
-    if (!autoRefreshLogs || !polling || !controlApiUrl || serverStatus !== 'RUNNING') return undefined
-    if (isRefreshingLogs || snapshotCommandId || cooldown > 0) return undefined
-
-    const timer = window.setTimeout(() => {
-      handleRefreshLogs()
-    }, 15000)
-    return () => window.clearTimeout(timer)
-  }, [autoRefreshLogs, polling, controlApiUrl, serverStatus, isRefreshingLogs, snapshotCommandId, cooldown, handleRefreshLogs])
 
   const handleStart = async (event) => {
     event.preventDefault()
@@ -429,11 +541,11 @@ function StagingPage({ onNotice, currentUser }) {
 
     try {
       setIsDeploying(true)
-      setLogOffsets({ overview: 0, 'file-all': 0, 'file-error': 0, 'file-warning': 0, 'file-info': 0 })
-      setLogSource('overview')
+      setLogOffsets({ overview: 0, 'file-error': 0, 'file-info': 0 })
+      setLogSource('deploy')
       setActiveLogSource('overview')
       setCooldown(0)
-      setLogContent('[EC2] Khởi động phiên Deploy mới: Đã dọn sạch log cũ và đặt con trỏ byte về 0.\nĐang gửi lệnh kéo code branch và build Docker Compose... Vui lòng đợi trong giây lát.\n')
+      setLogContent('[EC2] Khởi động phiên Deploy mới...\n')
       onNotice(`Đang gửi lệnh kéo code branch "${gitBranch}" và build trên EC2...`)
       const response = await fetch(`${controlApiUrl}/staging/deploy`, {
         method: 'POST',
@@ -546,148 +658,134 @@ function StagingPage({ onNotice, currentUser }) {
         </div>
       </section>
 
-      <div className="content-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">RESOURCE</p>
-              <h3>Runtime details</h3>
-            </div>
-            <span className="panel-icon">◈</span>
+      <section className="panel full-width">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">RESOURCE</p>
+            <h3>Runtime details</h3>
           </div>
-          <dl className="details-list">
-            <div>
-              <dt>Owner</dt>
-              <dd>{currentUser}</dd>
-            </div>
-            <div>
-              <dt>Active Branch</dt>
-              <dd><code>{gitBranch}</code></dd>
-            </div>
-            <div>
-              <dt>Backend HTTP</dt>
-              <dd>
-                {serverIp ? (
-                  <a href={`http://${serverIp}`} target="_blank" rel="noreferrer">
-                    <code>http://{serverIp}</code>
-                  </a>
-                ) : (
-                  <span className="empty-value">No public IP available</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>FE API path</dt>
-              <dd><code>/api/* via Vercel proxy</code></dd>
-            </div>
-            <div>
-              <dt>Region</dt>
-              <dd><code>ap-southeast-1</code></dd>
-            </div>
-            <div>
-              <dt>Lambda Control</dt>
-              <dd>{controlApiUrl ? <code>Connected</code> : <span className="empty-value">Not configured</span>}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">READINESS</p>
-              <h3>Health checks</h3>
-            </div>
-            <span className="check-summary">{healthChecks.filter((item) => item.ready === true).length} ready · {healthChecks.filter((item) => item.ready === false).length} attention · {healthChecks.filter((item) => item.ready === null).length} waiting</span>
+          <span className="panel-icon">◈</span>
+        </div>
+        <dl className="details-list runtime-details-grid">
+          <div>
+            <dt>Owner</dt>
+            <dd>{currentUser}</dd>
           </div>
-          <div className="check-list">
-            {healthChecks.map(({ name, detail, ready }) => (
-              <div className="check-row" key={name}>
-                <span className="check-state">{ready === true ? '✓' : ready === false ? '!' : '—'}</span>
-                <div>
-                  <strong>{name}</strong>
-                  <small>{detail}</small>
-                </div>
-              </div>
-            ))}
+          <div>
+            <dt>Active Branch</dt>
+            <dd><code>{gitBranch}</code></dd>
           </div>
-        </section>
-      </div>
-
-      <div className="content-grid lower-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">OPERATIONS</p>
-              <h3>Lifecycle timeline</h3>
-            </div>
-            <button className="text-button" onClick={() => setRefreshKey((key) => key + 1)}>Refresh status ↻</button>
+          <div>
+            <dt>Last Container Deploy</dt>
+            <dd>
+              {serverStatus !== 'RUNNING' ? (
+                <span className="empty-value">EC2 is {serverStatus.toLowerCase()}</span>
+              ) : !hasStreamConfig ? (
+                <span className="empty-value">Log streamer not configured</span>
+              ) : backendMeta?.exists ? (
+                <>
+                  <code>{formatContainerTime(backendMeta.created || backendMeta.startedAt)}</code>
+                  <span className={`container-meta-badge ${backendMeta.status === 'running' ? 'running' : 'dead'}`}>
+                    {backendMeta.status}
+                    {backendMeta.status !== 'running' && typeof backendMeta.exitCode === 'number' ? ` (code ${backendMeta.exitCode})` : ''}
+                    {backendMeta.oomKilled ? ' · OOMKilled' : ''}
+                  </span>
+                </>
+              ) : backendMeta ? (
+                <span className="empty-value">{backendMeta.status || 'not-created'}</span>
+              ) : (
+                <span className="empty-value">Đang kiểm tra container...</span>
+              )}
+            </dd>
           </div>
-          {lastOperation ? (
-            <div className="operation-entry">
-              <strong>{lastOperation.name}: {lastOperation.status}</strong>
-              <p>Branch <code>{lastOperation.branch}</code> · ID <code>{lastOperation.id}</code></p>
-              <small>{lastOperation.at} · See log snapshot for execution output.</small>
-            </div>
-          ) : <div className="empty-state">
-            <div className="empty-icon">◷</div>
-            <strong>No operations yet</strong>
-            <p>Start an operation to see progress, operation ID and recovery state here.</p>
-          </div>}
-        </section>
-      </div>
+          <div>
+            <dt>Backend Public IP</dt>
+            <dd>
+              {serverIp ? <code>{serverIp}</code> : <span className="empty-value">No public IP available</span>}
+            </dd>
+          </div>
+          <div>
+            <dt>FE API path</dt>
+            <dd><code>/api/* via Vercel proxy</code></dd>
+          </div>
+          <div>
+            <dt>Lambda Control</dt>
+            <dd>{controlApiUrl ? <code>Connected</code> : <span className="empty-value">Not configured</span>}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section className="panel logs-panel full-width">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">OBSERVABILITY</p>
-            <h3>Log snapshot</h3>
-            <p className="muted log-status">{logState} · {polling ? 'Trạng thái máy: polling 5s' : 'Polling tắt'} {autoRefreshLogs ? '· Auto-pull: BẬT (15s)' : ''} · Offset {activeLogSource}: {logOffsets[activeLogSource] || 0} bytes</p>
+            <h3>Live logs</h3>
+            <p className="muted log-status">
+              {hasStreamConfig && liveStreamEnabled && serverStatus === 'RUNNING' ? (
+                <span className="live-badge"><span className="live-dot" />{logState}</span>
+              ) : logState}
+              {' · '}
+              {polling ? 'EC2 status: polling 5s' : 'Polling tắt'}
+            </p>
           </div>
           <div className="log-actions">
-            <select
-              value={logSource}
-              onChange={(e) => {
-                const newSource = e.target.value
-                setLogSource(newSource)
-                handleRefreshLogs(newSource, true)
-              }}
-              className="log-source-select"
-              title="Chọn nguồn xem log (Build log hoặc File log Backend)"
-            >
-              <option value="overview">Build & Deploy log (mland-deploy.log)</option>
-              <option value="file-all">File: All (info + warning + error)</option>
-              <option value="file-error">File: Chỉ lỗi (error.log)</option>
-              <option value="file-warning">File: Cảnh báo (warning.log)</option>
-              <option value="file-info">File: Chỉ info (info.log)</option>
-            </select>
+            <div className="log-subtabs" role="tablist" aria-label="Log sources">
+              {LOG_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={logSource === tab.id}
+                  className={`log-subtab ${logSource === tab.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setLogSource(tab.id)
+                    if (!hasStreamConfig || !liveStreamEnabled) {
+                      handleRefreshLogs(tab.ssmSource, true)
+                    }
+                  }}
+                  title={tab.hint}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {hasStreamConfig && (
+              <button
+                type="button"
+                className={`text-button ${liveStreamEnabled ? 'active-toggle' : ''}`}
+                onClick={() => setLiveStreamEnabled((value) => !value)}
+                title="Bật/tắt stream log realtime qua SSE"
+              >
+                {liveStreamEnabled ? 'Live SSE: BẬT' : 'Live SSE: TẮT'}
+              </button>
+            )}
             <button
               type="button"
-              className={`text-button ${autoRefreshLogs ? 'active-toggle' : ''}`}
-              onClick={() => setAutoRefreshLogs((value) => !value)}
-              title="Tự động kéo snapshot log về mỗi 15 giây khi máy RUNNING"
+              className={`text-button ${autoScroll ? 'active-toggle' : ''}`}
+              onClick={() => setAutoScroll((value) => !value)}
+              title="Tự động cuộn xuống dòng log mới nhất"
             >
-              {autoRefreshLogs ? 'Auto-pull: BẬT (15s)' : 'Auto-pull: TẮT'}
+              {autoScroll ? 'Auto-scroll: BẬT' : 'Auto-scroll: TẮT'}
             </button>
             <button
               type="button"
               className={`text-button ${cooldown > 0 ? 'cooldown-active' : ''}`}
-              onClick={() => handleRefreshLogs()}
+              onClick={() => handleRefreshLogs(currentLogTab.ssmSource)}
               disabled={isRefreshingLogs || cooldown > 0}
-              title={cooldown > 0 ? `Vui lòng đợi ${cooldown}s trước khi lấy log tiếp theo` : 'Lấy log mới từ điểm đọc gần nhất'}
+              title={cooldown > 0 ? `Vui lòng đợi ${cooldown}s trước khi lấy snapshot tiếp theo` : 'Fallback: lấy log snapshot qua SSM'}
             >
-              {isRefreshingLogs ? 'Collecting...' : cooldown > 0 ? `Chờ ${cooldown}s ◷` : 'Lấy log mới ↻'}
+              {isRefreshingLogs ? 'Collecting...' : cooldown > 0 ? `SSM (${cooldown}s)` : 'SSM Snapshot ↻'}
             </button>
             <button
               type="button"
               className="text-button text-muted-action"
               onClick={() => {
-                setLogOffsets((prev) => ({ ...prev, [logSource]: 0 }))
+                setLogOffsets((prev) => ({ ...prev, [currentLogTab.ssmSource]: 0 }))
                 setLogContent('')
-                setLogState(`Đã reset con trỏ ${logSource} về 0`)
               }}
-              title="Xóa nội dung màn hình và đặt lại con trỏ đọc từ đầu"
+              title="Xóa nội dung terminal hiện tại"
             >
-              Reset con trỏ
+              Clear
             </button>
             <button type="button" className="text-button" onClick={() => setPolling((value) => !value)}>
               {polling ? 'Pause polling' : 'Resume polling'}
@@ -696,8 +794,14 @@ function StagingPage({ onNotice, currentUser }) {
         </div>
         <div className="terminal">
           <span className="terminal-cursor">$</span>
-          <pre className="terminal-pre">
-            {logContent || (logState === 'Control API is not connected' ? 'Logs unavailable until the control API is connected.' : 'Select Refresh logs to collect bootstrap and container output.')}
+          <pre className="terminal-pre" ref={terminalPreRef}>
+            {logContent || (
+              serverStatus !== 'RUNNING'
+                ? `EC2 is ${serverStatus.toLowerCase()}. Start EC2 to stream live logs.`
+                : hasStreamConfig
+                  ? 'Waiting for log stream...'
+                  : 'Click SSM Snapshot to collect logs, or configure VITE_LOG_STREAM_URL & VITE_LOG_STREAM_TOKEN for realtime SSE.'
+            )}
           </pre>
         </div>
       </section>

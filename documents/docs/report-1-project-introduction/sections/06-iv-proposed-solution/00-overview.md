@@ -1,27 +1,7 @@
 # IV. Proposed Solution {#proposed-solution}
 
-The Personalized Product Sales and Workshop Booking System is a bilingual system with public Guest visibility and protected Member workflows. A Guest may discover workshops, read public reviews, and see the entry points for ring configuration and design requests. When the Guest selects a protected action, the system requests Member sign-in before collecting or returning private data. The system separates customer-facing design configuration from the accountable human review and quotation process.
+PPSWBS is a bilingual web application that replaces Mland's chat-based coordination with one shared record for every customer journey. Workshop bookings, ready-made ring sales, and custom ring requests all start online and stay connected to their payments, decisions, and outcomes. This closes the fragmentation and traceability gaps (GAP-01, GAP-02, GAP-04) that neither manual coordination nor generic booking tools can close.
 
-## 1. Workshop discovery and configuration
+Customers, including foreign visitors, can see real availability, book and pay a deposit without waiting for a reply, and follow their bookings and orders themselves. Members can design a ring step by step, ask for a custom version, and receive a reviewed decision and quote instead of repeating their request in chat. Staff at every branch work from the same record, so check-in, payment collection, and order handover no longer depend on one person's memory. The Manager gains clear authority over schedules, prices, and refunds, and an overview of revenue and operations across branches.
 
-Feature-012 lets Members configure a ring from active catalogue options, preview the result, and save the design. Guests can see the entry point, public option information, and make local preview changes, but must sign in before evaluation, saving, or any protected command. The saved-design page may recommend Silver Clay when the design contains more than five gemstones, Wax Casting when the difficulty score is above nine, or a suitable Signature package otherwise. A Wax Casting recommendation explains that the workshop requires two sessions on different days. Recommendations are advisory only: other workshop links remain visible, and the recommendation does not create a booking, payment, order, or ticket.
-
-## 2. Design request and human review
-
-Feature-004 lets Members submit a design request containing a description, up to five images, or both. Guests can see the feature and sign-in CTA but cannot submit or track a private request. At least one input is required. Image quality is checked immediately in the interface and again by the backend; a blurry or failed-quality image blocks submission. A valid request enters `NEED_REVIEW`. Staff or Manager may accept, reject, or request clarification, and every decision requires a non-empty explanation. The Member can view the current status and explanation through a safe projection. Feature-004 does not use AI analysis, AI pricing, automated feasibility decisions, booking attachment, or payment mutation.
-
-## 3. Custom-manufacturing order
-
-An eligible Member may attach an owner-verified Feature-012 design snapshot to a request. After human acceptance, Staff or Manager prepares a quote and the Manager approves the commercial decision. The custom order is shown in the Member's personal order area. It is not added to the retail cart and does not use a deposit or deferred balance. The Member must pay the complete approved quote before its deadline; if verified full payment is not received, the quote/order expires or is cancelled according to the approved policy. Production and fulfilment statuses remain separate from the workshop booking lifecycle.
-
-## 4. Workshop booking, payment, and fulfilment
-
-Workshop booking remains a separate flow with configurable branches and three daily session templates at 09:30–12:00, 13:00–15:30, and 16:00–18:30. A workshop booking uses the approved deposit rule, participant capacity, attendance, check-in, continuation, custody, and settlement process. The workshop deposit must not be confused with the custom-order full-payment flow. Only verified gateway evidence confirms payment; a browser redirect alone is insufficient.
-
-## 5. Member consultation
-
-Feature-013 gives Members a bilingual consultation chat with Staff or Manager. A Member may start a contextless conversation or attach a safe reference to an owned Feature-004 request or Feature-012 design. Staff handles conversations within the active Workshop Location scope; Manager has the approved global operational authority. Conversations are logged as UTF-8 business history, may be closed by authorized participants, and do not approve designs, set prices, or mutate booking, payment, quote, or order state. Guests can see the consultation entry point but must sign in before opening or sending a conversation.
-
-## 6. Ready-made retail and governance
-
-Members may buy published ready-made rings with full online payment before the durable reservation is recorded. Fulfilment stops at pickup or permitted Staff-recorded carrier handoff. Staff and Manager own business decisions; Admin owns technical configuration, credentials, monitoring, and technical audit.
+The timing is driven by Mland's growth: a third branch in Đà Nẵng would multiply the current coordination load. A web application suits Mland because customers need no installation, the shop keeps its own data, and the rules follow Mland's own workshop policies rather than a vendor's. Human judgement stays in charge: the system records and enforces decisions, while Staff and Managers still make them.

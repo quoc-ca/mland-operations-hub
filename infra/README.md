@@ -44,3 +44,20 @@ public port 80. Inspect the plan for any EC2 replacement (`-/+`) and stop if it
 appears. Terraform may stop/start the existing instance when its user data
 changes, but the bootstrap script does not run again by default. Never use
 `terraform destroy` to roll out this change.
+
+## Realtime SSE Log Streamer (`logs.mland-demo.io.vn`)
+
+`user_data.sh` installs `/opt/mland-log-streamer.py` and the systemd service
+`mland-log-streamer` listening on `127.0.0.1:9090` (endpoints: `/health`,
+`/meta`, `/stream?source=deploy|error|info`).
+
+On the **existing** EC2 (without running `terraform apply` or destroying EC2):
+1. Copy `/opt/mland-log-streamer.py` and `/etc/systemd/system/mland-log-streamer.service` via SSM.
+2. Create `/opt/mland-staging-runtime/log-streamer.env` (`chmod 600`, owner `ubuntu:ubuntu`):
+   ```sh
+   LOG_STREAM_TOKEN=<your-random-secret-token>
+   LOG_STREAM_ALLOWED_ORIGINS=https://infra-management-git-develop-mland-team.vercel.app
+   ```
+3. Run `sudo systemctl daemon-reload && sudo systemctl enable --now mland-log-streamer`.
+4. In Cloudflare Zero Trust -> Tunnels, add Public Hostname `logs.mland-demo.io.vn` -> `http://127.0.0.1:9090`.
+5. In Vercel (`infra-management`), set `VITE_LOG_STREAM_URL=https://logs.mland-demo.io.vn` and `VITE_LOG_STREAM_TOKEN=<your-random-secret-token>`, then redeploy.
