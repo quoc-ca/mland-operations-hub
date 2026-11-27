@@ -2,8 +2,6 @@
 export const messagesUi = {
   vi: {
     // OpsPage / CustomerPage
-    'frame.topline': 'MLAND / QUYẾT TOÁN WORKSHOP',
-    'frame.backendAuthorized': 'Backend phân quyền',
     // ProblemNotice
     'problem.status.409': 'Bản ghi đã thay đổi hoặc thao tác xung đột với trạng thái hiện tại. Hãy tải lại dữ liệu mới nhất rồi thử lại.',
     'problem.status.422': 'Máy chủ từ chối yêu cầu này.',
@@ -99,8 +97,6 @@ export const messagesUi = {
     'method.BOOKING_TIME': 'Thanh toán lúc đặt chỗ',
   },
   en: {
-    'frame.topline': 'MLAND / WORKSHOP SETTLEMENT',
-    'frame.backendAuthorized': 'Backend-authorized',
     'problem.status.409': 'The record changed or the action conflicts with its current state. Reload the latest data and try again.',
     'problem.status.422': 'The server refused this request.',
     'problem.status.429': 'Too many attempts. Wait a moment before trying again.',

@@ -136,7 +136,8 @@ public final class TicketChangeDtos {
 
     public record ChangeRequestDecisionDto(
             @NotNull ChangeRequestDecision decision,
-            @NotBlank @Size(min = 1, max = 1000) String reason
+            // Required for REJECT only; the service enforces it (FR-045a, amended 2026-11-27).
+            @Size(max = 1000) String reason
     ) {}
 
     /** What the buyer sees of the latest change request of a ticket: its state and the Manager's reason, nothing else. */
@@ -159,6 +160,7 @@ public final class TicketChangeDtos {
             String priceIncreaseAmount,
             boolean buyerConfirmedIncrease,
             String requesterRole,
+            String requesterName,
             String channel,
             String reason,
             Instant expiresAt,

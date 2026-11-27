@@ -36,7 +36,7 @@ describe('Settlement screens follow the chosen language', () => {
   it('labels the cash-close form in Vietnamese', async () => {
     mockFetch({ [PROFILE]: asRole('MANAGER') });
     renderRoutes(settlementRoutes, { language: 'vi', path: '/settlement/cash-close' });
-    expect(await screen.findByLabelText('Mã chi nhánh')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Chi nhánh')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Xem tiền mặt kỳ vọng' })).toBeInTheDocument();
   });
 });

@@ -50,7 +50,7 @@ describe('Cash close confirmation view', () => {
   it('shows no list and reads none for Staff, and nothing without the view parameter', async () => {
     const staffCalls = mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-cash-closes': json(200, [PENDING('CLOSE-1', 3)]) });
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close?view=confirmation' });
-    expect(await screen.findByLabelText('Branch ID')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Branch')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Differences awaiting confirmation' })).not.toBeInTheDocument();
     expect(staffCalls.some(call => call.path === '/api/v1/workshop-cash-closes')).toBe(false);
   });

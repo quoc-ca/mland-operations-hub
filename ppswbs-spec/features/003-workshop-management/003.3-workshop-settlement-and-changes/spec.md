@@ -606,6 +606,14 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   change), then added to the ticket's checkout balance; it need not be paid at
   the time of the change.
 
+- **FR-045a (queue decision and display, amended 2026-11-27)**: a decision on a
+  queued request MUST carry a reason for `REJECT` and MAY omit it for
+  `APPROVE`; the approval's allowance grant then records "Duyệt yêu cầu đổi vé".
+  The queue MUST name the requester with `requesterName` (the account's full
+  name, absent for a Guest or an account without a name) and MUST NOT show the
+  request reference, applied change reference, session identifiers, raw channel
+  or raw rule codes.
+
 - **FR-045a — when an online change is auto-approved** *(decided 2026-11-14 by
   Hồ Hoàng Quốc, owner Feature 003; closes the "Open before implementation"
   item below)*: an online change requested by the buyer MUST be approved by the
@@ -974,6 +982,13 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or serve external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-27
+
+*(Decided by Hồ Hoàng Quốc, owner of Feature 003.)*
+
+- Q: Is a reason required for both decisions on a queued change request? → A: Only for `REJECT`. `APPROVE` needs a confirmation only; when no reason is sent, the allowance granted by the approval records "Duyệt yêu cầu đổi vé" (FR-045a).
+- Q: What does the queue show about the requester and the request? → A: The requester's full name (a Member by name; a Staff member or Manager who entered it as "name (Nhân viên)" or "name (Quản lý)"; a Guest without an account as "Khách vãng lai"). The request reference, applied change reference, session identifiers, raw channel and the technical frame line are not shown; blocked rules are shown as text (FR-045a).
 
 ### Session 2026-11-26 — findings of the staging E2E run (owner Hồ Hoàng Quốc)
 
