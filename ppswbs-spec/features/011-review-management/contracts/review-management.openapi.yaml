@@ -143,7 +143,7 @@ components:
         targetReference: { type: string }
         label: { type: string }
         eligible: { type: boolean }
-        reasonCode: { type: string, nullable: true }
+        reasonCode: { type: string, nullable: true, description: "ALREADY_REVIEWED, or BALANCE_DUE for an attended workshop ticket that still owes money" }
     TargetType: { type: string, enum: [WORKSHOP_SESSION, RETAIL_PRODUCT] }
     CreateReview:
       type: object

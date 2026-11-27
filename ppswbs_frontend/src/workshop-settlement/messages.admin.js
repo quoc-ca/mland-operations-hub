@@ -7,7 +7,7 @@ export const messagesAdmin = {
     'keyRepl.warning': 'Mọi yêu cầu hoàn tiền còn giữ số tài khoản đã mã hóa sẽ bị đưa về chờ tài khoản, và lần duyệt trước của Manager không còn hiệu lực.',
     'keyRepl.run': 'Thay khóa',
     'keyRepl.confirmTitle': 'Xác nhận thay khóa tài khoản hoàn tiền',
-    'keyRepl.confirmBody': 'Chỉ chạy sau khi đã đổi biến khóa và khởi động lại dịch vụ. Nhập lý do để ghi vào nhật ký audit.',
+    'keyRepl.confirmBody': 'Chỉ chạy sau khi đã đổi biến khóa và khởi động lại dịch vụ. Nhập lý do để ghi vào lịch sử thao tác.',
     'keyRepl.resultTitle': 'Kết quả lần chạy gần nhất',
     'keyRepl.reset': 'Yêu cầu đã đưa về chờ tài khoản',
     'keyRepl.sent': 'Link mới đã gửi',

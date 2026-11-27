@@ -139,7 +139,7 @@ public class ReviewEligibilityService {
                     .eligible(item.isEligible())
                     .alreadyReviewed(alreadyReviewed)
                     .reviewId(revId)
-                    .reasonCode(alreadyReviewed ? "ALREADY_REVIEWED" : null)
+                    .reasonCode(alreadyReviewed ? "ALREADY_REVIEWED" : item.getReasonCode())
                     .build());
         }
 
@@ -231,7 +231,7 @@ public class ReviewEligibilityService {
                     .eligible(item.isEligible())
                     .alreadyReviewed(already)
                     .reviewId(already ? review.getId() : null)
-                    .reasonCode(already ? "ALREADY_REVIEWED" : null)
+                    .reasonCode(already ? "ALREADY_REVIEWED" : item.getReasonCode())
                     .review(already ? ownReview(review) : null)
                     .build());
         }

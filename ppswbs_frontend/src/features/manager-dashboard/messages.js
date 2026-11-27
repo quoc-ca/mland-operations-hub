@@ -1,7 +1,7 @@
 // Vi/en wording of the Manager dashboard (revenue report and trend charts). Both key sets must stay identical.
 export const managerDashboardMessages = {
   vi: {
-    'page.signIn': 'Đăng nhập bằng tài khoản Manager để xem dashboard.',
+    'page.signIn': 'Đăng nhập bằng tài khoản Manager để xem trang tổng quan.',
     'page.revenueTitle': 'Doanh thu và hiệu suất',
     'period.DAY': 'Ngày',
     'period.WEEK': 'Tuần',

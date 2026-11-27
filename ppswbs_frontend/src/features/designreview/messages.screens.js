@@ -98,7 +98,7 @@ export const screensMessages = {
     'rv.quoteTotal': 'Tổng tiền báo giá',
     'rv.payDeadline': 'Hạn chót thanh toán',
     'rv.reasonBasis': 'Ghi chú / Căn cứ tính giá',
-    'rv.noteApproved': 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn hàng cá nhân.',
+    'rv.noteApproved': 'Báo giá đã được Quản lý phê duyệt. Hội viên có thể vào xem và thanh toán toàn bộ 100% trong mục Đơn gia công của tôi.',
     'rv.notePending': 'Báo giá đã được gửi cho Quản lý phê duyệt. Nút gửi đã được ẩn để tránh gửi trùng lặp.',
     'rv.approving': 'Đang duyệt...',
     'rv.approveButton': 'Phê duyệt Báo giá (Manager Approve)',

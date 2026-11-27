@@ -5,12 +5,12 @@ const baseMessages = {
   vi: {
     // Shared & Navigation
     'nav.aiSupport': 'Trợ lý AI',
-    'nav.designWorkspace': 'Yêu cầu Chế tác',
+    'nav.designWorkspace': 'Yêu cầu thiết kế',
     'nav.reviewQueue': 'Hàng đợi Thẩm duyệt',
     'nav.priceProposal': 'Đề xuất giá AI',
 
     // F04-AI-CHAT
-    'aiChat.title': 'Trợ lý Tư vấn AI',
+    'aiChat.title': 'Trợ lý AI',
     'aiChat.subtitle': 'Giải đáp thông tin công khai về dịch vụ, workshop và sản phẩm của Mland.',
     'aiChat.disclaimer': 'Lưu ý: Phản hồi của AI chỉ mang tính chất tham khảo, không phải cam kết báo giá hoặc hợp đồng.',
     'aiChat.inputPlaceholder': 'Nhập câu hỏi của bạn (tối đa 2.000 ký tự)…',
@@ -54,7 +54,7 @@ const baseMessages = {
     'consent.decline': 'Từ chối',
 
     // F04-ANALYSIS-STATUS & F04-RESULT
-    'detail.title': 'Chi tiết Yêu cầu Thiết kế',
+    'detail.title': 'Chi tiết yêu cầu thiết kế',
     'detail.reference': 'Mã tham chiếu: {ref}',
     'detail.version': 'Phiên bản thiết kế: #{version}',
     'detail.statusLabel': 'Trạng thái yêu cầu: {status}',
@@ -70,7 +70,7 @@ const baseMessages = {
     'detail.safeRetry': 'Yêu cầu phân tích gặp sự cố. Bạn có thể thử lại an toàn.',
 
     // F04-REVIEW-QUEUE
-    'queue.title': 'Hàng đợi Thẩm duyệt Thiết kế',
+    'queue.title': 'Duyệt thiết kế',
     'queue.subtitle': 'Danh sách các yêu cầu thiết kế đang chờ nhân sự thẩm duyệt (Staff / Manager).',
     'queue.empty': 'Hiện không có yêu cầu nào đang chờ thẩm duyệt.',
     'queue.colId': 'Mã yêu cầu',
@@ -192,7 +192,7 @@ const baseMessages = {
     'nav.priceProposal': 'AI Price Proposal',
 
     // F04-AI-CHAT
-    'aiChat.title': 'AI Assistant Support',
+    'aiChat.title': 'AI assistant',
     'aiChat.subtitle': 'Answers public information regarding Mland services, workshops, and products.',
     'aiChat.disclaimer': 'Notice: AI responses are advisory and informational only, not binding quotes or contracts.',
     'aiChat.inputPlaceholder': 'Type your question (up to 2,000 characters)…',
@@ -252,7 +252,7 @@ const baseMessages = {
     'detail.safeRetry': 'Analysis encountered an issue. Safe retry is available.',
 
     // F04-REVIEW-QUEUE
-    'queue.title': 'Design Review Queue',
+    'queue.title': 'Design review',
     'queue.subtitle': 'Requests awaiting human review (Staff / Manager).',
     'queue.empty': 'No requests currently awaiting human review.',
     'queue.colId': 'ID',

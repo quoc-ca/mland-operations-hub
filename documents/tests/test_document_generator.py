@@ -18,6 +18,7 @@ from tools.document_generator import (
     _replace_drive_image_placeholders,
     _replace_git_history,
     _apply_docx_layout,
+    _build_cover_and_toc_blocks,
     _require_pandoc,
     build_bundle,
     drive_image_placeholders,
@@ -41,6 +42,57 @@ def write_bundle(root: Path, manifest: str, front_matter: str = "# Title\n") -> 
 
 
 class BundleValidationTests(unittest.TestCase):
+    def test_toc_entries_reference_their_heading_pages(self) -> None:
+        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        qname = lambda name: f"{{{namespace['w']}}}{name}"
+        document = ET.Element(qname("document"))
+        body = ET.SubElement(document, qname("body"))
+        for level, title in ((1, "Record of Changes"), (2, "Introduction")):
+            paragraph = ET.SubElement(body, qname("p"))
+            properties = ET.SubElement(paragraph, qname("pPr"))
+            ET.SubElement(properties, qname("pStyle"), {qname("val"): f"Heading{level}"})
+            run = ET.SubElement(paragraph, qname("r"))
+            ET.SubElement(run, qname("t")).text = title
+
+        blocks = _build_cover_and_toc_blocks(document, qname, "report-1-project-introduction", 9000)
+        toc = next(block for block in blocks if block.tag == qname("sdt"))
+        entries = toc.findall("./w:sdtContent/w:p[w:hyperlink]", namespace)
+        self.assertEqual(len(entries), 2)
+        for entry, heading in zip(entries, body.findall("./w:p", namespace)):
+            anchor = entry.find("./w:hyperlink", namespace).get(qname("anchor"))
+            self.assertEqual(anchor, heading.find("./w:bookmarkStart", namespace).get(qname("name")))
+            self.assertIn(f"PAGEREF {anchor}", "".join(node.text or "" for node in entry.findall("./w:r/w:instrText", namespace)))
+            self.assertEqual(entry.find("./w:pPr/w:tabs/w:tab", namespace).get(qname("pos")), "9000")
+            self.assertEqual(entry.find("./w:pPr/w:tabs/w:tab", namespace).get(qname("leader")), "dot")
+            self.assertIsNotNone(entry.find("./w:r/w:tab", namespace))
+            field_parts = [node.get(qname("fldCharType")) for node in entry.findall("./w:r/w:fldChar", namespace)]
+            self.assertEqual(field_parts, ["begin", "separate", "end"])
+
+    @unittest.skipUnless(shutil.which("pandoc"), "Pandoc is not installed")
+    def test_report_docx_keeps_toc_page_references_without_update_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source_path = root / "source.md"
+            output_path = root / "report.docx"
+            source_path.write_text("MOH_COVER_AND_TOC_PLACEHOLDER\n\n# Record of Changes\n", encoding="utf-8")
+            reference_doc = Path(__file__).resolve().parents[1] / "templates" / "reference.docx"
+            result = subprocess.run(
+                [shutil.which("pandoc") or "pandoc", "--to=docx", f"--reference-doc={reference_doc}", "--output", str(output_path), str(source_path)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(_apply_docx_layout(output_path, "report-1-project-introduction"), (0, 0))
+            with zipfile.ZipFile(output_path) as docx:
+                document = ET.fromstring(docx.read("word/document.xml"))
+                settings = ET.fromstring(docx.read("word/settings.xml"))
+
+        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        qname = lambda name: f"{{{namespace['w']}}}{name}"
+        self.assertIsNone(settings.find("./w:updateFields", namespace))
+        toc = document.find(".//w:sdt", namespace)
+        self.assertIsNotNone(toc)
+        self.assertIn("PAGEREF", "".join(node.text or "" for node in toc.findall(".//w:instrText", namespace)))
+
     def test_accepts_explicitly_ordered_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle_root = write_bundle(Path(temp) / "report", manifest_text("front-matter.md", "sections/01-section.md"))
@@ -448,9 +500,9 @@ This heading remains outside the generated table.
 
 ::: {.generated-history}
 
-| Commit | Date | Changes |
-|---|---|---|
-| abc123 | 2026-10-09 | Generated history row |
+| Date | A/M/D | In charge | Change Description |
+|---|---|---|---|
+| 2026-10-09 | M | Mland Team | Generated history row |
 
 :::
 """
@@ -475,7 +527,7 @@ This heading remains outside the generated table.
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(_apply_docx_layout(output_path), (2, 0))
+            self.assertEqual(_apply_docx_layout(output_path), (3, 0))
             with zipfile.ZipFile(output_path) as docx:
                 document = ET.fromstring(docx.read("word/document.xml"))
                 styles = ET.fromstring(docx.read("word/styles.xml"))
@@ -483,21 +535,41 @@ This heading remains outside the generated table.
         namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
         tables = document.findall(".//w:tbl", namespace)
         self.assertEqual(len(tables), 3)
+        for table in tables:
+            header_runs = table.findall("./w:tr[1]/w:tc//w:r", namespace)
+            self.assertTrue(header_runs)
+            self.assertTrue(all(run.find("./w:rPr/w:b", namespace) is not None for run in header_runs))
+            self.assertTrue(all(run.find("./w:rPr/w:sz", namespace).get(f"{{{namespace['w']}}}val") == "24" for run in header_runs))
+            header_cells = table.findall("./w:tr[1]/w:tc", namespace)
+            self.assertTrue(all(cell.find("./w:tcPr/w:shd", namespace).get(f"{{{namespace['w']}}}fill") == "DAE9F7" for cell in header_cells))
         widths = [table.find("./w:tblPr/w:tblW", namespace) for table in tables]
         self.assertEqual(widths[0].attrib.get(f"{{{namespace['w']}}}w"), "5000")
         self.assertEqual(widths[0].attrib.get(f"{{{namespace['w']}}}type"), "pct")
         self.assertEqual(widths[1].attrib.get(f"{{{namespace['w']}}}w"), "4500")
         self.assertIsNone(tables[0].find("./w:tr/w:trPr/w:tblHeader", namespace))
         self.assertIsNotNone(tables[1].find("./w:tr/w:trPr/w:tblHeader", namespace))
-        self.assertIsNotNone(tables[2].find("./w:tr/w:trPr/w:tblHeader", namespace))
+        self.assertIsNone(tables[2].find("./w:tr/w:trPr/w:tblHeader", namespace))
         self.assertNotIn("MOH-SOURCE", "".join(node.text or "" for node in document.findall(".//w:t", namespace)))
         for table in tables[:2]:
             style = table.find("./w:tblPr/w:tblStyle", namespace)
             self.assertIsNotNone(style)
             self.assertEqual(style.attrib.get(f"{{{namespace['w']}}}val"), "TableGrid")
+        section = document.find(".//w:sectPr", namespace)
+        page_size = section.find("./w:pgSz", namespace)
+        page_margins = section.find("./w:pgMar", namespace)
+        text_width = int(page_size.attrib[f"{{{namespace['w']}}}w"]) - sum(
+            int(page_margins.get(f"{{{namespace['w']}}}{side}", "0"))
+            for side in ("left", "right", "gutter")
+        )
         history_style = tables[2].find("./w:tblPr/w:tblStyle", namespace)
         self.assertIsNotNone(history_style)
-        self.assertNotEqual(history_style.attrib.get(f"{{{namespace['w']}}}val"), "TableGrid")
+        self.assertEqual(history_style.attrib.get(f"{{{namespace['w']}}}val"), "TableGrid")
+        self.assertEqual(widths[2].attrib.get(f"{{{namespace['w']}}}w"), "5000")
+        history_columns = [int(item.attrib[f"{{{namespace['w']}}}w"]) for item in tables[2].findall("./w:tblGrid/w:gridCol", namespace)]
+        self.assertEqual(len(history_columns), 4)
+        self.assertEqual(sum(history_columns), text_width)
+        for actual, expected in zip(history_columns, (0.25, 0.15, 0.25, 0.35)):
+            self.assertAlmostEqual(actual / text_width, expected, delta=0.01)
         grid_style = next(
             style for style in styles.findall(".//w:style", namespace)
             if style.get(f"{{{namespace['w']}}}styleId") == "TableGrid"
@@ -509,13 +581,6 @@ This heading remains outside the generated table.
         )
         configured_columns = [int(item.attrib[f"{{{namespace['w']}}}w"]) for item in tables[1].findall("./w:tblGrid/w:gridCol", namespace)]
         self.assertEqual(len(configured_columns), 3)
-        section = document.find(".//w:sectPr", namespace)
-        page_size = section.find("./w:pgSz", namespace)
-        page_margins = section.find("./w:pgMar", namespace)
-        text_width = int(page_size.attrib[f"{{{namespace['w']}}}w"]) - sum(
-            int(page_margins.get(f"{{{namespace['w']}}}{side}", "0"))
-            for side in ("left", "right", "gutter")
-        )
         self.assertEqual(sum(configured_columns), round(text_width * 0.9))
         self.assertAlmostEqual(configured_columns[0] / sum(configured_columns), 0.15, delta=0.01)
         self.assertAlmostEqual(configured_columns[1] / sum(configured_columns), 0.50, delta=0.01)

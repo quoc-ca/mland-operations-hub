@@ -2,7 +2,7 @@
 export const ordersMessages = {
   vi: {
     'co.backToOrders': 'Quay lại danh sách đơn hàng',
-    'co.backToCustomOrders': 'Quay lại danh sách đơn hàng tùy chỉnh',
+    'co.backToCustomOrders': 'Quay lại danh sách đơn gia công',
     'co.loadDetailFailed': 'Không thể tải thông tin chi tiết đơn hàng.',
     'co.paymentLinkMissing': 'Không nhận được liên kết thanh toán từ cổng VNPay.',
     'co.payFailedDetail': 'Khởi tạo thanh toán toàn bộ thất bại.',
@@ -12,7 +12,7 @@ export const ordersMessages = {
     'co.clarifyRequired': 'Vui lòng nhập nội dung giải thích / làm rõ.',
     'co.clarifyFailed': 'Gửi phản hồi làm rõ thất bại.',
     'co.loadingOrder': 'Đang tải thông tin đơn hàng thiết kế cá nhân...',
-    'co.orderNotFound': 'Không tìm thấy đơn hàng tùy chỉnh.',
+    'co.orderNotFound': 'Không tìm thấy đơn gia công.',
     'co.detailTitle': 'Chi tiết đơn hàng thiết kế cá nhân',
     'co.createdAt': 'Ngày tạo: {date}',
 
@@ -62,10 +62,10 @@ export const ordersMessages = {
     'co.snapshot.gemUnit': '{count} viên',
     'co.snapshot.engraving': 'Nội dung khắc laser:',
 
-    'co.list.title': 'Đơn hàng cá nhân',
-    'co.list.subtitle': 'Quản lý yêu cầu thiết kế nhẫn và đơn hàng cá nhân',
-    'co.list.tabOrders': 'Đơn hàng cá nhân (Orders)',
-    'co.list.tabRequests': 'Yêu cầu thiết kế (Requests)',
+    'co.list.title': 'Đơn gia công của tôi',
+    'co.list.subtitle': 'Quản lý yêu cầu thiết kế nhẫn và đơn gia công',
+    'co.list.tabOrders': 'Đơn gia công',
+    'co.list.tabRequests': 'Yêu cầu thiết kế',
     'co.list.loading': 'Đang tải dữ liệu...',
     'co.list.noOrders': 'Bạn chưa có đơn hàng thiết kế cá nhân nào.',
     'co.list.createRequest': 'Tạo yêu cầu thiết kế mới',

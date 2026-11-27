@@ -46,7 +46,7 @@ describe('Counter buttons on the branch retail orders', () => {
 
   it('Staff packs a pickup order and hands it over', async () => {
     renderAs('STAFF');
-    (await screen.findByRole('tab', { name: /cần chuẩn bị/ })).click();
+    (await screen.findByRole('tab', { name: /Cần chuẩn bị/ })).click();
     expect(await screen.findAllByRole('button', { name: 'Đã chuẩn bị xong' })).toHaveLength(2);
     (await screen.findByRole('tab', { name: /Chờ khách nhận/ })).click();
     expect(await screen.findByRole('button', { name: 'Giao cho khách' })).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('Counter buttons on the branch retail orders', () => {
 
   it('Manager packs the pickup order and the GHTK parcel but has no handover button', async () => {
     renderAs('MANAGER');
-    (await screen.findByRole('tab', { name: /cần chuẩn bị/ })).click();
+    (await screen.findByRole('tab', { name: /Cần chuẩn bị/ })).click();
     expect(await screen.findAllByRole('button', { name: 'Đã chuẩn bị xong' })).toHaveLength(2);
     expect(screen.getByText('ML-2')).toBeInTheDocument();
     (await screen.findByRole('tab', { name: /Chờ khách nhận/ })).click();

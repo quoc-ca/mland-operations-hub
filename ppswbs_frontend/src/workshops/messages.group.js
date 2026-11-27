@@ -206,7 +206,7 @@ export const messagesGroup = {
     'ticket.sessionLine': 'Buổi {ordinal}:',
     'ticket.price': 'Giá vé',
     'ticket.paidAtBooking': 'Đã trả khi đặt',
-    'ticket.addOn': 'Add-on đã xác nhận',
+    'ticket.addOn': 'Dịch vụ thêm đã xác nhận',
     'ticket.paidSoFar': 'Đã thanh toán',
     'ticket.remaining': 'Còn phải trả',
     'ticket.notCollected': 'Không phải thu',

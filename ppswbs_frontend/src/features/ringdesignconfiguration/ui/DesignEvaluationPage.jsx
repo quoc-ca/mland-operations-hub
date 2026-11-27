@@ -79,7 +79,7 @@ export default function DesignEvaluationPage() {
           packageName: null,
           isTooRisky: true,
           reason: evalData.recommendationReason || 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo',
-          note: evalData.materialDisclosure || 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu Chế tác riêng (Custom) để nghệ nhân Mland gia công chuyên nghiệp.',
+          note: evalData.materialDisclosure || 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu thiết kế riêng để nghệ nhân Mland gia công chuyên nghiệp.',
         };
       }
       if (code === 'NO_COMPATIBLE_PACKAGE') {
@@ -127,7 +127,7 @@ export default function DesignEvaluationPage() {
         packageName: null,
         isTooRisky: true,
         reason: 'Mẫu nhẫn quá rủi ro để người dùng tự tay chế tạo',
-        note: 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu Chế tác riêng (Custom) để nghệ nhân Mland gia công chuyên nghiệp.',
+        note: 'Độ khó kỹ thuật vượt quá khả năng thực hiện an toàn tại workshop thủ công. Quý khách vui lòng gửi yêu cầu thiết kế riêng để nghệ nhân Mland gia công chuyên nghiệp.',
       };
     }
     if (diffScore > 9) {
@@ -639,7 +639,7 @@ export default function DesignEvaluationPage() {
                   }}
                   onClick={() => navigate(`/design-requests/new?designReference=${encodeURIComponent(designId)}`)}
                 >
-                  Gửi yêu cầu chế tác Custom cho mẫu này →
+                  Gửi yêu cầu thiết kế cho mẫu này →
                 </button>
               </div>
             ) : (

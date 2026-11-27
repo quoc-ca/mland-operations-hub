@@ -52,7 +52,7 @@ describe('Staff & Manager Custom Order Operations Page (Dev C)', () => {
 
     open('/staff/custom-orders', { session: fakeSession('signed-in', { role: 'STAFF' }) });
 
-    expect(await screen.findByText('Điều phối & Chế tác Đơn hàng Custom')).toBeInTheDocument();
+    expect(await screen.findByText('Đơn gia công')).toBeInTheDocument();
     expect(screen.getByText('CO-PAID001')).toBeInTheDocument();
     expect(screen.getByText(/DR-REQ101/)).toBeInTheDocument();
     expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument();

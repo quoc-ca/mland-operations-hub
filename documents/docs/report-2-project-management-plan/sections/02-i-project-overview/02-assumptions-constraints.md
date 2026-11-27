@@ -1,6 +1,6 @@
 ## 2. Assumptions & Constraints
 
-::: {.docx-table width="100%" columns="8%,70%,22%" repeat-header="false"}
+::: {.docx-table width="100%" columns="15%,63%,22%" repeat-header="false"}
 
 | No | Description | Note |
 |---|---|---|
