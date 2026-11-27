@@ -54,7 +54,12 @@ public final class FolioCollectionDtos {
     }
 
     /** T120: what the system expects in a branch's drawer for one Vietnam working day, before anyone counts. */
-    public record ExpectedCashResponse(Long locationId, LocalDate workingDate, long expectedCashVnd) {
+    /** FR-036b: one cash movement counted on the day; {@code amountVnd} is negative for a reversal. */
+    public record CashEntry(String type, String ticketCode, long amountVnd, java.time.Instant recordedAt) {
+    }
+
+    public record ExpectedCashResponse(Long locationId, LocalDate workingDate, long expectedCashVnd,
+                                       java.util.List<CashEntry> entries) {
     }
 
     public record CashCloseResponse(

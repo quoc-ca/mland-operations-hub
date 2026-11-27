@@ -1,7 +1,12 @@
 package edu.fpt.sep490_g22.ppswbs_backend.workshopoperations;
 
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountId;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.InternalRosterEntry;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.RosterOutcome;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AssignableStaffResponse;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopDependencyUnavailableException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
@@ -292,5 +297,33 @@ class WorkshopResponsibilityServiceTest {
 
     private static StaffAssignmentRequest request(Long accountId) {
         return StaffAssignmentRequest.builder().accountId(accountId).build();
+    }
+
+    @Test
+    void assignableStaffListsTheRosterOfTheSessionLocationByName() {
+        when(authorization.findEligibleRoster(LOCATION_ID)).thenReturn(RosterOutcome.available(List.of(
+                new InternalRosterEntry(AccountId.of(41L), "no-name", null),
+                new InternalRosterEntry(AccountId.of(33L), "An", null))));
+        when(authorization.findAccountFullName(41L)).thenReturn(Optional.empty());
+        when(authorization.findAccountFullName(33L)).thenReturn(Optional.of("An Tran"));
+
+        assertThat(service.assignableStaff(AUTH, "S-1")).containsExactly(
+                new AssignableStaffResponse(33L, "An Tran"), new AssignableStaffResponse(41L, null));
+    }
+
+    @Test
+    void assignableStaffIsRefusedToANonManager() {
+        when(authorization.authenticate(AUTH)).thenReturn(admin);
+
+        assertThatThrownBy(() -> service.assignableStaff(AUTH, "S-1")).isInstanceOf(WorkshopForbiddenException.class);
+        verify(authorization, never()).findEligibleRoster(any());
+    }
+
+    @Test
+    void assignableStaffFailsClosedWhenTheRosterIsUnavailable() {
+        when(authorization.findEligibleRoster(LOCATION_ID)).thenReturn(RosterOutcome.unavailable());
+
+        assertThatThrownBy(() -> service.assignableStaff(AUTH, "S-1"))
+                .isInstanceOf(WorkshopDependencyUnavailableException.class);
     }
 }

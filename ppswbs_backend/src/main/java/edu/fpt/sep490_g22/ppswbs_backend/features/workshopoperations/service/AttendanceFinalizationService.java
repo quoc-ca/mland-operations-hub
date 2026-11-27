@@ -11,6 +11,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -32,6 +33,7 @@ import java.util.Optional;
  * - Transitions session state from IN_PROGRESS to ATTENDANCE_FINALIZED.
  * - Records an immutable audit event and attendance actions.
  * - Performs NO refund, settlement, reschedule, customer notification, or cancellation handoff.
+ * - FR-059: the system finalizes a session left running past the configured delay, with no actor.
  */
 @Service
 @RequiredArgsConstructor
@@ -85,6 +87,72 @@ public class AttendanceFinalizationService {
             throw new WorkshopLifecycleException("Session is in state " + session.getState() + "; finalization requires IN_PROGRESS");
         }
 
+        Counts counts = closeAttendance(session, actor.accountId(), "ONSITE_FINALIZATION", "SESSION_FINALIZED_NO_SHOW",
+                request.getNote() != null && !request.getNote().isBlank()
+                        ? request.getNote()
+                        : "Attendance finalized: unchecked ticket marked NO_SHOW");
+
+        // Record immutable audit event
+        String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank())
+                ? correlationId
+                : UUID.randomUUID().toString();
+
+        recordAudit(
+                session.getId(),
+                actor.accountId(),
+                "ATTENDANCE_FINALIZED",
+                "SUCCESS",
+                effectiveCorrelationId,
+                String.format("{\"fromState\":\"IN_PROGRESS\",\"toState\":\"ATTENDANCE_FINALIZED\",\"confirmedEnded\":true,\"noShowCount\":%d,\"checkedInCount\":%d}",
+                        counts.noShow(), counts.checkedIn())
+        );
+
+        log.info("Attendance finalized for session {} by actorId={}: {} tickets marked NO_SHOW, {} checked-in preserved",
+                sessionReference, actor.accountId(), counts.noShow(), counts.checkedIn());
+
+        return toSessionResponse(session);
+    }
+
+    /**
+     * FR-059: finalizes one session left running, in its own transaction. False when it is no longer
+     * IN_PROGRESS (finalized, cancellation requested or cancelled meanwhile) or not yet due; nothing is written.
+     *
+     * @param endedBy the latest scheduled end that is due, that is now minus the configured delay
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean finalizeBySystemIfStillDue(String sessionReference, Instant endedBy) {
+        WorkshopSession session = sessionRepository.findByReferenceWithLock(sessionReference).orElse(null);
+        if (session == null
+                || session.getState() != SessionState.IN_PROGRESS
+                || session.getScheduledEndAt() == null
+                || session.getScheduledEndAt().isAfter(endedBy)) {
+            return false;
+        }
+
+        Counts counts = closeAttendance(session, null, "SYSTEM_AUTO_FINALIZE", "SESSION_AUTO_FINALIZED_NO_SHOW",
+                "Automatically finalized: unchecked ticket marked NO_SHOW");
+
+        // Saved directly: an automatic closure without its audit event must roll back and be retried.
+        auditEventRepository.save(OperationsAuditEvent.builder()
+                .sessionId(session.getId())
+                .actorId(null)
+                .action("SESSION_AUTO_FINALIZED")
+                .outcome("SUCCESS")
+                .correlationId("scheduler-" + UUID.randomUUID())
+                .metadata(String.format("{\"fromState\":\"IN_PROGRESS\",\"toState\":\"ATTENDANCE_FINALIZED\",\"noShowCount\":%d,\"checkedInCount\":%d}",
+                        counts.noShow(), counts.checkedIn()))
+                .build());
+
+        log.info("Automatically finalized workshop session reference={}: {} tickets marked NO_SHOW, {} checked-in preserved",
+                sessionReference, counts.noShow(), counts.checkedIn());
+        return true;
+    }
+
+    private record Counts(int noShow, int checkedIn) {
+    }
+
+    /** Closes the session and marks every active unchecked ticket NO_SHOW; a null actor is the system. */
+    private Counts closeAttendance(WorkshopSession session, Long actorId, String channel, String reasonCode, String reasonNote) {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
         // 1. Transition session state to ATTENDANCE_FINALIZED
@@ -111,12 +179,10 @@ public class AttendanceFinalizationService {
                         .ticket(entitlement.getTicket())
                         .session(session)
                         .actionType(AttendanceActionType.FINALIZATION)
-                        .actorId(actor.accountId())
-                        .channel("ONSITE_FINALIZATION")
-                        .reasonCode("SESSION_FINALIZED_NO_SHOW")
-                        .reasonNote(request.getNote() != null && !request.getNote().isBlank()
-                                ? request.getNote()
-                                : "Attendance finalized: unchecked ticket marked NO_SHOW")
+                        .actorId(actorId)
+                        .channel(channel)
+                        .reasonCode(reasonCode)
+                        .reasonNote(reasonNote)
                         .occurredAt(now)
                         .build();
                 attendanceActionRepository.save(action);
@@ -127,25 +193,7 @@ public class AttendanceFinalizationService {
             }
         }
 
-        // 3. Record immutable audit event
-        String effectiveCorrelationId = (correlationId != null && !correlationId.isBlank())
-                ? correlationId
-                : UUID.randomUUID().toString();
-
-        recordAudit(
-                session.getId(),
-                actor.accountId(),
-                "ATTENDANCE_FINALIZED",
-                "SUCCESS",
-                effectiveCorrelationId,
-                String.format("{\"fromState\":\"IN_PROGRESS\",\"toState\":\"ATTENDANCE_FINALIZED\",\"confirmedEnded\":true,\"noShowCount\":%d,\"checkedInCount\":%d}",
-                        convertedNoShowCount, preservedCheckedInCount)
-        );
-
-        log.info("Attendance finalized for session {} by actorId={}: {} tickets marked NO_SHOW, {} checked-in preserved",
-                sessionReference, actor.accountId(), convertedNoShowCount, preservedCheckedInCount);
-
-        return toSessionResponse(session);
+        return new Counts(convertedNoShowCount, preservedCheckedInCount);
     }
 
     private WorkshopSession resolveSession(String sessionReference) {

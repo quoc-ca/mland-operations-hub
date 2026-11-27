@@ -7,7 +7,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
     const api = consultationChatApi(mockRequest);
 
     await api.getContextOptions();
-    expect(mockRequest).toHaveBeenCalledWith('/api/v1/consultations/context-options', {
+    expect(mockRequest).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/v1\/consultations\/context-options\?_t=\d+$/), {
       method: 'GET',
       auth: true,
     });
@@ -72,7 +72,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
 
     expect(mockRequest).toHaveBeenCalledWith('/api/v1/consultations', {
       method: 'GET',
-      query: { status: undefined, cursor: 'opaque-cursor', limit: 20 },
+      query: { status: undefined, cursor: 'opaque-cursor', limit: 20, _t: expect.any(Number) },
       auth: true,
     });
   });

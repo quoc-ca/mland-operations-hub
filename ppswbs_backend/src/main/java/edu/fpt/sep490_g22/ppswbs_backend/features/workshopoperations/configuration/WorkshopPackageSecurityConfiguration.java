@@ -21,6 +21,7 @@ public class WorkshopPackageSecurityConfiguration {
             new AntPathRequestMatcher("/api/v1/workshop-packages", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/workshop-packages/*", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/workshop-packages/*/sessions", HttpMethod.GET.name()),
+            new AntPathRequestMatcher("/api/v1/workshop-packages/*/image", HttpMethod.GET.name()),
             new AntPathRequestMatcher("/api/v1/workshop-packages/*/locations/*/add-ons", HttpMethod.GET.name()));
 
     @Bean

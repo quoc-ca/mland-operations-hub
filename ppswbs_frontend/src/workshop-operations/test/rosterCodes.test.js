@@ -20,7 +20,7 @@ import { paymentBadge } from '../pages/OperationsSessionPage';
 describe('paymentBadge', () => {
   it('says paid once the folio is finalized, whatever the session state', () => {
     expect(paymentBadge('FINALIZED', 'IN_PROGRESS')).toEqual({ key: 'paid', label: 'Đã thanh toán' });
-    expect(paymentBadge('CLOSED', 'ATTENDANCE_FINALIZED')).toEqual({ key: 'paid', label: 'Đã thanh toán' });
+    expect(paymentBadge('CLOSED', 'ATTENDANCE_FINALIZED')).toEqual({ key: 'closed', label: 'Hóa đơn đã đóng' });
   });
 
   it('says unpaid only after the session attendance is finalized', () => {

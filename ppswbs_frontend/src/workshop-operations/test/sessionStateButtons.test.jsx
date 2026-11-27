@@ -24,32 +24,49 @@ describe('session state buttons follow the allowed transitions (spec 003.2)', ()
 
   it('greys out the sales states once the session is IN PROGRESS, and says why', async () => {
     open('IN_PROGRESS');
-    await screen.findByText('Session facts');
+    await screen.findByRole('button', { name: 'Open sales' });
 
-    for (const name of ['Published', 'Sales paused', 'In progress']) {
+    for (const name of ['Open sales', 'Pause sales', 'Start session']) {
       expect(button(name)).toBeDisabled();
     }
-    expect(button('Published')).toHaveAttribute('title', expect.stringContaining('does not return'));
+    expect(button('Open sales')).toHaveAttribute('title', expect.stringContaining('does not return'));
     expect(button('Finalize attendance')).toBeEnabled();
   });
 
   it('lets a PUBLISHED session be paused or started early, but not "moved" to its own state', async () => {
     open('PUBLISHED');
-    await screen.findByText('Session facts');
+    await screen.findByRole('button', { name: 'Open sales' });
 
-    expect(button('Published')).toBeDisabled();
-    expect(button('Sales paused')).toBeEnabled();
-    expect(button('In progress')).toBeEnabled();
+    expect(button('Open sales')).toBeDisabled();
+    expect(button('Pause sales')).toBeEnabled();
+    expect(button('Start session')).toBeEnabled();
     expect(button('Finalize attendance')).toBeDisabled();
   });
 
   it('lets a SALES PAUSED session resume sales or start', async () => {
     open('SALES_PAUSED');
-    await screen.findByText('Session facts');
+    await screen.findByRole('button', { name: 'Open sales' });
 
-    expect(button('Published')).toBeEnabled();
-    expect(button('Sales paused')).toBeDisabled();
-    expect(button('In progress')).toBeEnabled();
+    expect(button('Open sales')).toBeEnabled();
+    expect(button('Pause sales')).toBeDisabled();
+    expect(button('Start session')).toBeEnabled();
+  });
+});
+
+describe('a Staff only starts a session', () => {
+  beforeEach(() => clearRoleCache());
+
+  it('shows no open or pause sales button to a Staff', async () => {
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'STAFF' }),
+      'GET /api/v1/workshop-sessions/session-1': json(200, { id: 'session-1', state: 'PUBLISHED', locationId: 4, capacity: 10 }),
+    });
+    renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
+
+    expect(await screen.findByRole('button', { name: 'Start session' })).toBeEnabled();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(screen.queryByRole('button', { name: 'Open sales' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pause sales' })).not.toBeInTheDocument();
   });
 });
 
@@ -63,7 +80,7 @@ describe('a refused state change says why, and does not send the user home', () 
       'POST /api/v1/workshop-sessions/session-1/state-transitions': json(403, { code: 'FORBIDDEN', message: 'Access denied: Staff member is not assigned to this workshop session', correlationId: 'c-9' }),
     });
     const { router } = renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'In progress' }));
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Start session' }));
     expect(await screen.findByText(/You are not assigned to this session/)).toBeInTheDocument();
     expect(screen.getByText('Code: FORBIDDEN')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/operations/sessions/session-1');

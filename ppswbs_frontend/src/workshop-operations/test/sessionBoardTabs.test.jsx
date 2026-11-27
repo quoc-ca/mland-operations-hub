@@ -26,10 +26,14 @@ describe('session board order and tabs', () => {
     expect(ids(sortSessions(SESSIONS))).toEqual(['running', 'soon', 'later', 'ended-old', 'cancelled']);
   });
 
-  it('shows past sessions only on the ended tab, but never hides one still running', () => {
-    expect(ids(sessionsOfTab(SESSIONS, 'all', true))).toEqual(['running', 'soon', 'later', 'cancelled']);
-    expect(ids(sessionsOfTab(SESSIONS, 'done', true))).toEqual(['ended-old']);
-    expect(ids(sessionsOfTab(SESSIONS, 'all', false))).toHaveLength(5);
+  it('keeps every tab inside the range it shows, a running session included', () => {
+    expect(ids(sessionsOfTab(SESSIONS, 'all', 'auto', ''))).toEqual(['soon', 'later', 'cancelled']);
+    expect(ids(sessionsOfTab(SESSIONS, 'live', 'auto', ''))).toEqual([]);
+    expect(ids(sessionsOfTab(SESSIONS, 'done', 'auto', ''))).toEqual(['ended-old']);
+    expect(ids(sessionsOfTab(SESSIONS, 'all', '', ''))).toHaveLength(5);
+    // Only To chosen: From stays the shown default, so nothing older slips in.
+    expect(ids(sessionsOfTab(SESSIONS, 'all', 'auto', localDay()))).toEqual([]);
+    expect(ids(sessionsOfTab(SESSIONS, 'live', localDay(1), localDay(1)))).toEqual(['running']);
   });
 
   it('counts each tab, hides the empty draft tab and moves the From date back on the ended tab', async () => {
@@ -42,7 +46,7 @@ describe('session board order and tabs', () => {
 
     const tabs = await screen.findByRole('tablist');
     expect(within(tabs).getAllByRole('tab').map(tab => tab.textContent))
-      .toEqual(['All (4)', 'In progress (1)', 'Upcoming (2)', 'Ended (1)', 'Cancelled (1)']);
+      .toEqual(['All (3)', 'In progress (0)', 'Upcoming (2)', 'Ended (1)', 'Cancelled (1)']);
     expect(screen.getByLabelText('From')).toHaveValue(localDay());
 
     await userEvent.setup().click(within(tabs).getByRole('tab', { name: 'Ended (1)' }));

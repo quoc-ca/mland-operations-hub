@@ -15,8 +15,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "workshop_packages")
@@ -63,6 +66,11 @@ public class WorkshopPackage {
     @Column(name = "state", nullable = false, length = 16)
     @Builder.Default
     private WorkshopPackageState state = WorkshopPackageState.DRAFT;
+
+    /** Cover image kept in the catalogue media store (FR-073); null when the Package has none. */
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "image_media_id", length = 36)
+    private UUID imageMediaId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

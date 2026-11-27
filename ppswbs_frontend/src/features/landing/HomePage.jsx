@@ -8,6 +8,7 @@ import { firebaseAuthClient } from '../accountmanagement/auth/FirebaseAuthClient
 import { listWorkshopPackages, listMemberBookingGroups } from '../../api/workshops';
 import { listPublicProducts, publicMediaUrl } from '../../api/catalogue';
 import MainTopbar from '../../shared/ui/MainTopbar';
+import { PackageImage } from '../../workshops/PackageImage';
 import { PublicProductGrid } from '../product-management/ui/public/PublicProductGrid';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../loyalty-promotion/publicOffers';
 import { landingMessages } from './messages';
@@ -150,6 +151,7 @@ export default function HomePage() {
       packageId: pkg.packageId,
       publicPrice: pkg.publicPrice,
       branchIds: pkg.branchIds,
+      imageMediaId: pkg.imageMediaId,
       tag: idx === 1 ? t('workshops.tagFeatured') : t('workshops.tagLive', { number: idx + 1 }),
       isFeatured: idx === 1,
       title: pkg.name || t('workshops.fallbackName'),
@@ -437,6 +439,7 @@ export default function HomePage() {
                 >
                   {pkg.tag}
                 </div>
+                <PackageImage packageId={pkg.packageId} imageMediaId={pkg.imageMediaId} alt={pkg.title} />
                 <h4 className="landing-workshop-name">{pkg.title}</h4>
                 <p className="landing-workshop-desc">{pkg.description}</p>
                 <p className="landing-workshop-meta">{pkg.durationAndMaterial}</p>

@@ -3,6 +3,7 @@ import './workshopList.css';
 import { listWorkshopPackages } from '../api/workshops';
 import { useFormat, useT } from '../shared/i18n/I18nProvider';
 import { messages } from './messages';
+import { PackageImage } from './PackageImage';
 import { Paginator, usePaged } from '../shared/ui/Paginator';
 import PackageReviewSummary from '../features/reviewmanagement/ui/PackageReviewSummary';
 import { offersForPackage, usePublicWorkshopPrograms, WorkshopOfferBadges, WorkshopOfferPrice } from '../features/loyalty-promotion/publicOffers';
@@ -102,9 +103,16 @@ export function WorkshopListPage() {
             const offers = offersForPackage(pkg, programs);
             return (
               <article className="wk-card" key={pkg.packageId}>
-                <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label={t('list.visualAria')}>
-                  <span />
-                </div>
+                <PackageImage
+                  packageId={pkg.packageId}
+                  imageMediaId={pkg.imageMediaId}
+                  alt={pkg.name}
+                  fallback={(
+                    <div className={`ring-visual ${idx % 2 === 0 ? 'gold' : 'pair'}`} aria-label={t('list.visualAria')}>
+                      <span />
+                    </div>
+                  )}
+                />
                 <div className="wk-body">
                   <h2 className="wk-name">{pkg.name}</h2>
                   <p className="wk-desc">{pkg.description}</p>

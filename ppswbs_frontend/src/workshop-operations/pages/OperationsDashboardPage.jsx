@@ -11,7 +11,7 @@ import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace
 import { Paginator, usePaged } from '../../shared/ui/Paginator';
 import { createOperationsApi } from '../api/operationsApi';
 import { createOperationsAdminApi } from '../api/operationsAdminApi';
-import { BOARD_TABS, DONE_DAYS_BACK, localDay, sessionsOfTab } from '../sessionBoard';
+import { BOARD_TABS, sessionsOfTab, tabFrom } from '../sessionBoard';
 import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
@@ -33,20 +33,20 @@ export default function OperationsDashboardPage() {
   // A Staff member sees only the sessions a Manager assigned to them (the backend filters the list).
   const isStaff = useRole() === 'STAFF';
   const api = createOperationsApi(useHttp());
-  // From "auto" is the default window: today onwards, and the last days for the ended tab. The tab filters on the client.
+  // From "auto" is the default window: today onwards, and the last days for the ended tab. Each tab filters its own
+  // range on the client, so the list is read once from the earliest of them.
   const [filters, setFilters] = useUrlFilters({ tab: 'all', locationId: '', from: 'auto', to: '' });
-  const autoFrom = filters.from === 'auto';
   const tab = BOARD_TABS.includes(filters.tab) ? filters.tab : 'all';
-  const query = { locationId: filters.locationId, from: autoFrom ? localDay(DONE_DAYS_BACK) : filters.from, to: filters.to };
+  const query = { locationId: filters.locationId, from: tabFrom('done', filters.from), to: filters.to };
   const resource = useResource(() => api.listSessions(query), [query.locationId, query.from, query.to]);
-  const fromShown = autoFrom ? localDay(tab === 'done' ? DONE_DAYS_BACK : 0) : filters.from;
+  const fromShown = tabFrom(tab, filters.from);
   // Locations the signed-in Staff or Manager may see: the board shows their names instead of bare ids.
   const http = useHttp();
   const locationsResource = useResource(() => createOperationsAdminApi(http).listLocations(), []);
   const locations = Array.isArray(locationsResource.data) ? locationsResource.data : [];
   const locationName = id => locations.find(item => String(item.id) === String(id))?.name || (id ? t('board.branchFallback', { id }) : '—');
   const loaded = useMemo(() => (Array.isArray(resource.data) ? resource.data : resource.data?.content || resource.data?.items || []), [resource.data]);
-  const byTab = useMemo(() => Object.fromEntries(BOARD_TABS.map(id => [id, sessionsOfTab(loaded, id, autoFrom)])), [loaded, autoFrom]);
+  const byTab = useMemo(() => Object.fromEntries(BOARD_TABS.map(id => [id, sessionsOfTab(loaded, id, filters.from, filters.to)])), [loaded, filters.from, filters.to]);
   const sessions = byTab[tab];
   const everything = byTab.all;
   const paged = usePaged(sessions, 15, sessions);

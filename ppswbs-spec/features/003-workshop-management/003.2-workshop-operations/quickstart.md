@@ -1,7 +1,7 @@
 # Quickstart: Workshop Operations Verification
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -24,8 +24,25 @@ authorize a production migration or a reset of existing workshop data.
 
 - Repeat scheduler execution/restart and verify no duplicate transition or
   duplicate audit side effect occurs.
-- Verify Staff outside the session location is denied and Staff cannot perform
-  attendance correction; an active Manager can perform correction globally.
+- Verify Staff outside the session location or not assigned to the session is
+  denied reversal and attendance correction; an assigned Staff and an active
+  Manager (globally) can perform both (amended 2026-11-27, FR-002b, FR-008).
+
+## Automatic finalization (FR-059)
+
+Off by default: `WORKSHOP_OPERATIONS_AUTO_FINALIZE_ENABLED=false`; delay
+`WORKSHOP_OPERATIONS_AUTO_FINALIZE_DELAY=PT2H`. Before switching it on, review
+the sessions the first run would close (read-only; times are UTC):
+
+```sql
+SELECT reference, workshop_date, scheduled_start_at, scheduled_end_at
+FROM workshop_sessions
+WHERE state = 'IN_PROGRESS' AND scheduled_end_at <= UTC_TIMESTAMP() - INTERVAL 2 HOUR
+ORDER BY scheduled_end_at;
+```
+
+The first run finalizes all of them: unchecked tickets become `NO_SHOW` and can
+be corrected for 24 hours only.
 
 ## Prerequisites
 
@@ -135,7 +152,8 @@ run is not sufficient proof of index, lock or migration behaviour.
    recorded. Verify the same QR can still check in once at session two, while a
    scan in a session/location without entitlement is rejected. Confirm a booking
    code never by itself checks a ticket in.
-10. Perform an authorised override and a post-finalisation Manager correction.
+10. Perform an authorised override, a Staff check-in reversal while the session
+   runs, and a post-finalisation correction as Manager and as assigned Staff.
    Verify both require a reason and create immutable audit events. Verify an
    override cannot move a ticket to another session or location.
 11. Finalise the session after actual end time. Checked-in tickets remain

@@ -21,7 +21,6 @@ export default function CashClosePage() {
   const isManager = role === 'MANAGER';
   const [pickedLocation, setPickedLocation] = useState('');
   const [workingDate, setWorkingDate] = useState('');
-  const [expected, setExpected] = useState(null);
   const [counted, setCounted] = useState('');
   const [differenceReason, setDifferenceReason] = useState('');
   const [close, setClose] = useState(null);
@@ -38,17 +37,22 @@ export default function CashClosePage() {
   const locations = Array.isArray(locationsResource.data) ? locationsResource.data : [];
   const locationId = pickedLocation || String(locations[0]?.id ?? '');
   const locationName = id => locations.find(item => String(item.id) === String(id))?.name || id;
-  // A figure belongs to the branch and day it was read for, so changing either drops it and the draft count.
+  // FR-036b: the figure and its entries are read on opening and again for every branch or day.
+  const subject = locationId ? `${locationId}|${workingDate}` : '';
+  const expectedResource = useResource(
+    () => (subject
+      ? api.getExpectedCash({ locationId, ...(workingDate ? { workingDate } : {}) }).then(data => ({ subject, data }))
+      : Promise.resolve(null)),
+    [subject]);
+  // A figure belongs to the branch and day it was read for: one read for another subject is never shown.
+  const expected = !expectedResource.loading && !expectedResource.error && expectedResource.data?.subject === subject
+    ? expectedResource.data?.data : null;
+  const entries = expected?.entries || [];
+  // Changing the branch or day also drops the draft count (FR-036a).
   const changeSubject = apply => {
     apply();
-    setExpected(null); setClose(null); setCounted(''); setDifferenceReason(''); setMessage('');
-  };
-
-  const loadExpected = async event => {
-    event.preventDefault();
-    setMessage(''); setClose(null);
-    const out = await command.run(() => api.getExpectedCash({ locationId, ...(workingDate ? { workingDate } : {}) }));
-    if (out.ok) setExpected(out.result);
+    setClose(null); setCounted(''); setDifferenceReason(''); setMessage('');
+    command.reset();
   };
 
   const submitClose = async event => {
@@ -100,19 +104,37 @@ export default function CashClosePage() {
       )}
       <section className="wsp-panel">
         <ProblemNotice error={locationsResource.error} onRetry={locationsResource.reload} onReload={locationsResource.reload} />
-        <form className="wsp-inline-form" aria-label={t('cash.expectedAria')} onSubmit={loadExpected}>
+        <form className="wsp-inline-form" aria-label={t('cash.expectedAria')} onSubmit={event => { event.preventDefault(); expectedResource.reload(); }}>
           <label>{t('cash.branch')}<select value={locationId} disabled={command.pending || locations.length === 0} onChange={event => changeSubject(() => setPickedLocation(event.target.value))}>
             {locations.length === 0 && <option value="">{locationsResource.loading ? t('cash.branchLoading') : t('cash.noBranch')}</option>}
             {locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select></label>
           <label>{t('cash.workingDay')}<input type="date" value={workingDate} disabled={command.pending} onChange={event => changeSubject(() => setWorkingDate(event.target.value))} /></label>
-          <button className="button outline" type="submit" disabled={command.pending || !locationId}>{t('cash.showExpected')}</button>
+          <button className="button outline" type="submit" disabled={command.pending || !locationId || expectedResource.loading}>{t('cash.reload')}</button>
         </form>
+        <ProblemNotice error={expectedResource.error} onRetry={expectedResource.reload} onReload={expectedResource.reload} />
+        {subject && expectedResource.loading && <Loading />}
         {expected && (
-          <dl className="ops-facts">
-            <div><dt>{t('cash.workingDay')}</dt><dd>{expected.workingDate}</dd></div>
-            <div><dt>{t('cash.expectedCash')}</dt><dd>{fmt.money(expected.expectedCashVnd)}</dd></div>
-          </dl>
+          <>
+            <dl className="ops-facts">
+              <div><dt>{t('cash.workingDay')}</dt><dd>{expected.workingDate}</dd></div>
+              <div><dt>{t('cash.expectedCash')}</dt><dd>{fmt.money(expected.expectedCashVnd)}</dd></div>
+            </dl>
+            <p className="muted small">{t('cash.expectedNote')}</p>
+            <h3>{t('cash.entries.title')}</h3>
+            {entries.length === 0 ? <div className="empty-state"><p>{t('cash.entries.empty')}</p></div> : (
+              <table className="ops-table" aria-label={t('cash.entries.title')}>
+                <thead><tr><th>{t('cash.entries.ticket')}</th><th>{t('cash.entries.time')}</th><th>{t('cash.entries.amount')}</th></tr></thead>
+                <tbody>{entries.map((entry, index) => (
+                  <tr key={`${entry.type}-${entry.ticketCode}-${index}`}>
+                    <td>{entry.ticketCode}{entry.type === 'REVERSAL' ? ` · ${t('cash.entries.reversal')}` : ''}</td>
+                    <td>{fmt.dateTime(entry.recordedAt)}</td>
+                    <td>{signedMoney(fmt, entry.amountVnd)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </>
         )}
       </section>
       {expected && !close && (

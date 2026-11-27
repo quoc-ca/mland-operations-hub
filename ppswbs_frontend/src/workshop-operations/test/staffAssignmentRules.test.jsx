@@ -23,7 +23,7 @@ const session = (extra = {}) => json(200, {
 const staffList = json(200, [{ accountId: 33, fullName: 'Local Test Staff' }]);
 
 function openSession(role, handlers) {
-  const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/accounts': staffList, ...handlers });
+  const calls = mockFetch({ 'GET /api/v1/accounts/me/profile': profile(role), 'GET /api/v1/workshop-sessions/session-1/assignable-staff': staffList, ...handlers });
   renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
   return calls;
 }

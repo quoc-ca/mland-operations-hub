@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -43,10 +43,19 @@ requires a new session ownership record.
 public `name`, description, required public per-participant price, inclusive
 `minParticipants` and `maxParticipants`, generic `requiredSessionCount`,
 `sameLocationRequired`, non-negative `minimumSameDaySlotGap`, non-negative
-`requiredFoundryWorkingDaysBetweenSessions`, lifecycle state
+`requiredFoundryWorkingDaysBetweenSessions`, an optional cover image reference
+`imageMediaId` (spec FR-073), lifecycle state
 and audit timestamps/references. It
 defines selection rules only: it has no concrete dated-session attachment,
 branch mapping or local copy of a Location.
+
+Cover image (spec FR-073): column `workshop_packages.image_media_id`
+`CHAR(36) NULL` (migration `V208__workshop_package_image.sql`), no foreign key
+across modules. The bytes and their state belong to Product Management's media
+store; Operations holds an active media reference with owner module
+`workshopoperations` and owner record `package:{packageId}`, attached and
+released in the same transaction as the Package change, through the
+`productmanagement :: facade` boundary only.
 
 Constraints and ownership invariants:
 
@@ -304,6 +313,13 @@ unchecked, checked in, or converted to no-show in each entitled session. There
 is one ticket per participant, not one ticket per booking or per session.
 
 ### AttendanceAction and OperationsAuditEvent
+
+*(2026-11-27, FR-059, migration `V207__attendance_action_system_actor.sql`)*
+`attendance_actions.actor_id` is nullable: null means the system (automatic
+finalization, `channel` = `SYSTEM_AUTO_FINALIZE`, `reason_code` =
+`SESSION_AUTO_FINALIZED_NO_SHOW`). Every action by a person keeps its account id.
+Since the same date the Manager correction and reversal below may also be made by
+an assigned Staff member (FR-002b, FR-008).
 
 Attendance actions record check-in, override, finalisation consequence or
 Manager correction with ticket/session, actor, time, channel, reason code and

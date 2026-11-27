@@ -61,7 +61,7 @@ where they conflict with the following V1 decisions:
   state-transition command remains only for explicit early start or recovery;
   it is not the normal scheduled path.
 - Attendance correction remains Manager-only. An active Manager may correct
-  attendance globally; Staff may not correct attendance.
+  attendance globally; Staff may not correct attendance. *(Superseded 2026-11-27, owner Hồ Hoàng Quốc; see "Session 2026-11-27 attendance closure and undo".)*
 - A finalized session records its finalization timestamp. Manager attendance
   corrections remain available until 24 hours after the latest required
   session for the booking is finalized. At that exclusive deadline, Operations
@@ -502,13 +502,146 @@ perform refunds or connect to external sales channels.
 
 ## Clarifications
 
+### Session 2026-11-27 package cover image (owner Hồ Hoàng Quốc)
+
+- Q: How many images does a Workshop Package have, and is one required? → A: At most one cover image, optional. Without it the customer screens keep the artwork they showed before (FR-073).
+- Q: Who uploads it and in which formats? → A: An active Manager, on the package management screen; JPEG, PNG or WebP up to 5 MB (FR-073).
+
+- **FR-073** *(package cover image, 2026-11-27)*: A Workshop Package MAY have one
+  cover image. An active Manager MUST be able to set, replace and remove it while
+  creating or editing a `DRAFT` or `PUBLISHED` Package; a `RETIRED` Package
+  stays read-only. An edit carries the whole Package, so an edit without an image
+  removes it. A new image MUST be a JPEG, PNG or WebP file of at most 5,000,000
+  bytes that the acting Manager uploaded; keeping the current image needs no new
+  upload, whoever uploaded it. A refused image leaves the Package unchanged. The
+  public MUST see the image of a `PUBLISHED` Package only; an active Manager sees
+  it in every state. The storage provider address is never exposed. The package
+  list, package detail and home package cards MUST show the image, and MUST keep
+  the previous artwork when there is none or it cannot be loaded. A replaced or
+  removed image is released to the catalogue media retention rules (feature 002).
+
+### Session 2026-11-27 session page scope (owner Hồ Hoàng Quốc)
+
+- Q: Does the session page keep the late-payment queue? → A: No. The Manager queue has its own screen, `/operations/late-payments`, reached from the menu (FR-070).
+- Q: Where does a Manager correct a finalized ticket folio? → A: On that ticket's folio page, not on the session page (FR-071; 003.3 FR-065).
+- Q: How does a Manager name the booking for a magic link action? → A: By choosing from the bookings on the session's attendance roster. There is no free text, so only a booking with a ticket in this session can be handled from here (FR-072).
+
+- **FR-070** *(late payments leave the session page, 2026-11-27)*: The session
+  page MUST NOT list or decide late payments. They are decided on the Manager
+  queue screen `/operations/late-payments` (003.1 FR-040a rules unchanged),
+  which MUST show why a decision was refused or failed.
+- **FR-071** *(bill correction leaves the session page, 2026-11-27)*: The session
+  page MUST NOT offer a folio correction. It is offered on the ticket folio page
+  (003.3 FR-065).
+- **FR-072** *(booking choice for recovery, 2026-11-27)*: Booking recovery
+  (revoke or rotate the magic link) MUST offer the booking codes of the session's
+  attendance roster, each once, with nothing selected at first, and MUST NOT
+  accept a typed code. With no booking on the roster the panel says so; a roster
+  that cannot be read is reported as a failed read, not as an empty roster. The
+  reason, note and confirmation rules (FR-068) are unchanged. A booking without a
+  ticket in this session cannot be handled from this page.
+  *(Amended the same day, owner Hồ Hoàng Quốc)*: the reasons offered are only
+  `LINK_COMPROMISED_SECURITY` (selected at first), `CUSTOMER_REQUESTED_NEW_LINK`
+  and `OTHER_REQUIRES_NOTE`; the payment reasons belong to the late-payment
+  queue screen, and the note no longer asks for a transaction reference.
+
+### Session 2026-11-27 session page defects (owner Hồ Hoàng Quốc)
+
+- Q: Which state actions does a Staff see on the session page? → A: Only starting the session. Opening and pausing sales are shown to a Manager only, greyed out when the current state does not allow them (FR-064).
+- Q: What does the session page offer when the session no longer accepts an action? → A: The action is not shown and, for check-in and Staff assignment, the page says why (FR-065).
+- Q: Is a closed ticket folio shown as paid? → A: No. It is shown as "bill closed" (FR-067).
+
+- **FR-063** *(session page content, 2026-11-27)*: The session page MUST show the
+  location by its name and no internal session identifier in its heading line,
+  MUST show no internal requirement number, command code or module name in its
+  texts, MUST show every attendance state of a looked-up ticket by its own label
+  (not checked in, checked in, no-show), and MUST report a booking link action as
+  a sentence naming the booking and what happened, never as raw response data.
+- **FR-064** *(state actions, 2026-11-27)*: The state buttons MUST be worded as
+  actions (open sales, pause sales, start session); the state badge keeps the
+  state's name. A Staff MUST be offered only "start session"; a Manager is
+  offered all three, greyed out with a reason where the lifecycle does not allow
+  the change.
+- **FR-065** *(blocks by session state, 2026-11-27)*: Camera scan and ticket-code
+  check-in MUST be offered only for `PUBLISHED`, `SALES_PAUSED` and
+  `IN_PROGRESS`; otherwise the desk states the reason, and booking lookup stays
+  available without the action that picks a ticket for check-in. Assigning a
+  Staff MUST be offered only for `DRAFT`, `PUBLISHED`, `SALES_PAUSED` and
+  `IN_PROGRESS`; the assigned list and removal stay, as removal is allowed in
+  every state. The cancellation request MUST NOT be offered for
+  `ATTENDANCE_FINALIZED`, `CANCELLATION_REQUESTED` or `CANCELLED`.
+- **FR-066** *(Staff assignment panel, 2026-11-27)*: The Staff picker MUST NOT
+  offer a Staff already assigned and MUST NOT offer any stand-in account; when
+  the Staff list cannot be read the panel says so and allows a retry. Removal is
+  offered only on each assigned Staff. The picker lists only the Staff of the
+  session's location (FR-069); eligibility stays decided by the server on
+  assignment (`STAFF_NOT_ELIGIBLE`).
+- **FR-069** *(assignable Staff of a session, 2026-11-27)*: An active Manager
+  MUST be able to read the `ACTIVE` `STAFF` whose location scope contains the
+  session's location, each with account ID and profile full name (or none),
+  ordered by name, and without login email or other contact data. Any other
+  caller is refused with `403`; an unknown session is `404`; when the account
+  service cannot answer, the read fails with `503` and offers no substitute
+  list. The read is available in every session state so that assigned Staff keep
+  their names.
+- **FR-067** *(payment badge, 2026-11-27)*: The roster MUST mark a ticket "paid"
+  only when its folio (003.3) is `FINALIZED`, "bill closed" when it is
+  `CLOSED`, and "unpaid" for another known folio state once attendance is
+  finalized; nothing is shown for an unknown folio.
+- **FR-068** *(confirmation and feedback, 2026-11-27)*: Revoking or rotating a
+  booking magic link MUST ask for confirmation first. The result or error of an
+  action on the session page MUST stay visible wherever the page is scrolled.
+
+### Session 2026-11-27 attendance closure and undo (owner Hồ Hoàng Quốc)
+
+- Q: May attendance become no-show after the ticket's folio is finalized? → A: No, for anyone, and its check-in cannot be reversed either (FR-062).
+- Q: Is check-in override still offered on the session page? → A: No. Checking in by ticket code covers it; the reason lists and the evidence reference field are reduced accordingly (FR-061).
+- Q: Is a session left running finalized by the system? → A: Yes, 2 hours after its scheduled end; the delay is configurable and the behaviour has an on/off switch that is off until the owner has reviewed the sessions already left running (FR-059).
+- Q: Who may undo a check-in while the session is running? → A: A Manager, or a Staff member assigned to the session, with a required reason and audit evidence; the ticket returns to not checked-in (FR-002b).
+- Q: Who may correct attendance after the session is finalized? → A: A Manager, or a Staff member assigned to the session whose location scope contains it, between checked-in and no-show, within the 24-hour correction window, with a required reason and audit evidence (FR-002b, FR-008, FR-032).
+
+- **FR-062** *(finalized folio, 2026-11-27)*: Correcting attendance to
+  `NO_SHOW` MUST be refused with `409 INVALID_STATE`, for a Manager as for
+  Staff, when the ticket's folio (003.3) is finalized. An open, closed or absent
+  folio does not block it, and the other direction is unaffected. A repeat that
+  sets the value the ticket already has stays `200`. The state is read at the
+  time of the action. *(Extended the same day)*: reversing a check-in of such a
+  ticket before attendance finalization MUST be refused the same way. The session
+  page offers neither for such a ticket and says why.
+- **FR-061** *(override removed from the screens, 2026-11-27)*: The session
+  page MUST NOT offer check-in override. A customer who cannot show a ticket,
+  also after a failed or throttled resend, is found by booking code and checked
+  in by ticket code (FR-003, FR-004). This supersedes the screen side of FR-004
+  and the override suggestion of FR-003c; the override operation stays available
+  in the API with its rules unchanged. The page offers undo and correction with
+  the reasons `RECORDING_ERROR` and `OTHER_REQUIRES_NOTE` only, each with a
+  required note, and asks for no evidence reference. *(Extended the same day)*:
+  undo and correction are offered only from the roster row (FR-058); the
+  separate form with a typed ticket code is removed.
+- **FR-059** *(automatic finalization, 2026-11-27)*: When the switch is on, the
+  system MUST finalize every `IN_PROGRESS` session whose scheduled end is at least
+  the configured delay (default 2 hours) in the past, with the same outcome as a
+  manual finalization: unchecked active tickets become `NO_SHOW`, checked-in
+  tickets are unchanged and the finalization time is recorded. Each session MUST
+  be finalized independently, so one failure does not stop the others, and a
+  session no longer `IN_PROGRESS` (including cancellation requested or
+  cancelled) MUST be left untouched. The audit event is
+  `SESSION_AUTO_FINALIZED` with the system as actor (no account), and the
+  per-ticket attendance actions have no actor. The switch MUST default to off.
+- **FR-060** *(correction deadline on the roster, 2026-11-27)*: For a finalized
+  session the attendance roster MUST give, per ticket, the instant its
+  correction window closes (FR-032), or nothing while another required session
+  of that ticket is not finalized. The session page offers a per-ticket
+  correction only before that instant and says the window has closed after it.
+  The server remains the authority.
+
 ### Session 2026-11-27 ticket scanning and roster check-in (owner Hồ Hoàng Quốc)
 
 - Q: Where is a ticket QR scanned? → A: With the camera of the computer, on the session page of the operations workspace (FR-057). A separate scanning page for phones is out of scope.
 - Q: Is the typed QR code kept? → A: No. The "or Check-in QR code" input is removed; the ticket-code input stays as the fallback (FR-057).
 - Q: Does the session page refresh itself on a timer? → A: No. It reloads after an action only.
 - Q: Can a ticket be checked in from the roster? → A: Yes, by pressing its row and confirming (FR-058).
-- Q: Who may undo or correct from the roster? → A: Only who may do it today (Manager, FR-007a and FR-008). Letting assigned Staff undo is a later change and is not part of this one.
+- Q: Who may undo or correct from the roster? → A: Only who may do it today (Manager, FR-007a and FR-008). Letting assigned Staff undo is a later change and is not part of this one. *(Superseded 2026-11-27, owner Hồ Hoàng Quốc; see "Session 2026-11-27 attendance closure and undo".)*
 
 - **FR-057** *(camera scan, 2026-11-27)*: The session page MUST offer "Scan with
   camera". While the scan panel is open it reads ticket QR codes and sends each as
@@ -525,16 +658,18 @@ perform refunds or connect to external sales channels.
   ticket: a ticket that is not checked in is checked in after a confirmation, using
   its ticket code; when check-in is not open (session state, or before the opening
   time) the reason MUST be shown and no check-in offered. A checked-in ticket
-  shows its check-in time. A Manager is additionally offered, before attendance
+  shows its check-in time. The actor is additionally offered, before attendance
   finalization, to reverse a check-in, and after finalization to correct between
-  checked in and no-show, each with the standardized reason of FR-007a. Staff are
-  not offered these actions. The server remains the authority.
+  checked in and no-show (within the window of FR-060), each with the
+  standardized reason of FR-007a: a Manager in both cases, an assigned Staff
+  member only while the session is `IN_PROGRESS` or `ATTENDANCE_FINALIZED`
+  *(amended 2026-11-27; was Manager only)*. The server remains the authority.
 
 ### Session 2026-11-27 session board (owner Hồ Hoàng Quốc)
 
 - Q: How is the session list filtered by state? → A: By tabs with counts instead of a state select: All, In progress, Upcoming (published and sales paused), Ended (attendance finalized), Cancelled (cancellation requested and cancelled), and Drafts only when there is one (FR-056).
 - Q: In which order are sessions listed? → A: Running first (ending soonest), then upcoming (soonest), then ended (latest), then cancelled and drafts (FR-056).
-- Q: Which dates does the list show by default? → A: From today, never hiding a running session of the last 7 days; the Ended tab starts 7 days back. A From date the user chooses applies to every tab (FR-056).
+- Q: Which dates does the list show by default? → A: From today, never hiding a running session of the last 7 days; the Ended tab starts 7 days back. A From date the user chooses applies to every tab (FR-056). *(The running-session exception is superseded the same day: every tab shows only the From-To range on screen.)*
 - Q: How are states told apart? → A: Each state has its own background colour, always with its text label (FR-056).
 
 - **FR-056** *(session board, 2026-11-27)*: The operational session list MUST offer
@@ -543,7 +678,10 @@ perform refunds or connect to external sales channels.
   state a distinct background colour beside its text label: draft grey, published
   blue, sales paused yellow, in progress green, attendance finalized light
   purple, cancellation requested orange, cancelled red. The server's visibility
-  rules are unchanged.
+  rules are unchanged. *(Added 2026-11-27, owner Hồ Hoàng Quốc)*: Every tab,
+  running sessions included, MUST list and count only the sessions inside the
+  From-To range it shows on screen: From defaults to today, 7 days back on the
+  Ended tab; a From date the user chooses applies to every tab.
 
 *(Note 2026-11-14: every clarification below that grants Staff authority by
 location scope alone is superseded by the 2026-11-06 "Staff session-assignment
@@ -566,7 +704,7 @@ answers are marked inline.)*
 
 ### Session 2026-10-23
 
-- Q: Who may finalize attendance for a session and correct it later? → A: A Staff member assigned to that session or a Manager may finalize attendance. Only a Manager may correct attendance after finalization, and the correction requires audit evidence.
+- Q: Who may finalize attendance for a session and correct it later? → A: A Staff member assigned to that session or a Manager may finalize attendance. Only a Manager may correct attendance after finalization, and the correction requires audit evidence. *(Superseded 2026-11-27, owner Hồ Hoàng Quốc; see "Session 2026-11-27 attendance closure and undo".)*
 - Q: What happens when Manager cancels a session that already has valid tickets? → A: Manager marks the session `CANCELLATION_REQUESTED`, stops its operations and creates an audited handoff case. Feature 003.3 owns customer notification, manual reschedule, refund, QR replacement and capacity consequences.
 - Q: Which Staff may perform normal ticket check-in? → A: An active Staff member whose `activeLocationIds` contains the session location, or any active Manager, may perform normal check-in. No session assignment or capability key is required. *(Superseded 2026-11-06: Staff also needs an active assignment to the session.)*
 - Q: Which commitments constrain a capacity reduction? → A: Manager may not reduce capacity below the total of confirmed attendance tickets and unexpired payment capacity holds. An expired hold no longer constrains capacity.
@@ -588,10 +726,10 @@ answers are marked inline.)*
 ### Session 2026-10-24
 
 - Q: What happens to unexpired payment capacity holds when Manager pauses sales? → A: `SALES_PAUSED` rejects new bookings and holds but preserves unexpired holds created before the pause. Those holds may complete payment until their existing deadline, then expire and release capacity normally.
-- Q: Who may reverse an erroneous check-in? → A: Only Manager may reverse a recorded check-in before or after attendance finalization. Before finalization, the ticket returns to not checked-in and may be scanned again. After finalization, Manager must select the correct final attendance (`CHECKED_IN` or `NO_SHOW`). The reversal requires a standardized reason code and preserves before/after audit evidence rather than deleting the original scan.
+- Q: Who may reverse an erroneous check-in? → A: Only Manager may reverse a recorded check-in before or after attendance finalization. Before finalization, the ticket returns to not checked-in and may be scanned again. After finalization, Manager must select the correct final attendance (`CHECKED_IN` or `NO_SHOW`). The reversal requires a standardized reason code and preserves before/after audit evidence rather than deleting the original scan. *(Superseded 2026-11-27, owner Hồ Hoàng Quốc; see "Session 2026-11-27 attendance closure and undo".)*
 - Q: What is shown when a ticket is scanned again after check-in? → A: The result states that the ticket is already checked in and shows its most recent check-in time only; it does not expose booking-contact data or the identity of the Staff member who scanned it.
 - Q: Does a ticket need a separate `COMPLETED` or `ATTENDED` status? → A: No. A ticket remains `CHECKED_IN` after attendance finalization; an unchecked ticket becomes `NO_SHOW`. Workshop closure is inferred from `CHECKED_IN` plus the corresponding final bill being `PAID`, while the session itself records `ATTENDANCE_FINALIZED`.
-- Q: Is attendance finalized automatically at the scheduled end time? → A: No. An authorized Staff member in the session location or any active Manager manually finalizes the entire session after it actually ends. Scheduled end time is informational only.
+- Q: Is attendance finalized automatically at the scheduled end time? → A: No. An authorized Staff member in the session location or any active Manager manually finalizes the entire session after it actually ends. Scheduled end time is informational only. *(Superseded 2026-11-27, owner Hồ Hoàng Quốc; see "Session 2026-11-27 attendance closure and undo".)*
 
 ### Session 2026-10-24
 
@@ -1339,8 +1477,9 @@ scope. The target implementation and all public contracts use `location` and
   that the session has actually ended, or to `CANCELLATION_REQUESTED` for an
   interruption before finalization. This action is available only while the
   session is `IN_PROGRESS`, may occur earlier or later than scheduled, and
-  records audit evidence. Scheduled end time does not finalize attendance
-  automatically. When a session has a confirmed ticket or unexpired payment
+  records audit evidence. Scheduled end time itself does not finalize attendance;
+  the system finalizes a session left running only after the delay of FR-059
+  *(amended 2026-11-27)*. When a session has a confirmed ticket or unexpired payment
   hold, `CANCELLATION_REQUESTED` is available before finalization and follows
   the feature-003.3 handoff rule; after that handling is complete, it becomes
   terminal `CANCELLED`. Without either commitment, Manager may cancel directly
@@ -1550,13 +1689,15 @@ The result states that the ticket is already checked in and shows its most
 recent check-in time. It does not expose booking-contact data or the identity
 of the Staff member who scanned it.
 
-### Manager reverses an erroneous check-in
+### Manager or assigned Staff reverses an erroneous check-in
 
-Only Manager may reverse a recorded check-in. The original scan remains in the
-audit trail and the reversal requires a standardized reason code and before/after
-evidence. Before attendance finalization the ticket returns to not checked-in
-and may be scanned again. After finalization, Manager must select the corrected
-final attendance: `CHECKED_IN` or `NO_SHOW`.
+A Manager, or a Staff member assigned to the session, may reverse a recorded
+check-in *(amended 2026-11-27)*. The original scan remains in the audit trail and
+the reversal requires a standardized reason code and before/after evidence.
+Before attendance finalization the ticket returns to not checked-in and may be
+scanned again (Staff: only while the session is `IN_PROGRESS`). After
+finalization the actor selects the corrected final attendance, `CHECKED_IN` or
+`NO_SHOW`, within the 24-hour window.
 
 ### Staff handles loss of connectivity
 
@@ -1582,8 +1723,10 @@ resend outcome.
 After the session actually ends, an active Staff member whose location scope
 contains the session location or any active Manager reviews attendance and finalizes the whole session in
 one action. Checked-in tickets remain
-`CHECKED_IN`; unchecked tickets become `NO_SHOW`. Only Manager may make a later
-correction, with before/after audit evidence.
+`CHECKED_IN`; unchecked tickets become `NO_SHOW`. A Manager or an assigned Staff
+member may make a later correction within the 24-hour window, with before/after
+audit evidence. A session left running is finalized by the system (FR-059)
+*(amended 2026-11-27)*.
 
 ## Functional requirements
 
@@ -1718,11 +1861,15 @@ correction, with before/after audit evidence.
   normal scan.
 - **FR-002a**: The system MUST require an online Mland connection for V1
   check-in and MUST NOT create an offline scan queue.
-- **FR-002b**: The system MUST allow only Manager to reverse a recorded
-  check-in, before or after attendance finalization, with a standardized reason
-  code and immutable before/after audit evidence; it MUST NOT delete the
-  original scan. Before finalization it MUST return the ticket to not checked-in;
-  after finalization it MUST require Manager to select `CHECKED_IN` or `NO_SHOW`.
+- **FR-002b** *(amended 2026-11-27; was Manager only)*: The system MUST allow a
+  Manager, or a Staff member with the session location in scope who is actively
+  assigned to the session, to reverse a recorded check-in, before or after
+  attendance finalization, with a standardized reason code and immutable
+  before/after audit evidence; it MUST NOT delete the original scan. Before
+  finalization it MUST return the ticket to not checked-in; Staff MAY do so only
+  while the session is `IN_PROGRESS` (otherwise `409 INVALID_STATE`), a Manager
+  in any state before finalization. After finalization it MUST require the actor
+  to select `CHECKED_IN` or `NO_SHOW` (FR-008).
 - **FR-002c**: When a ticket is scanned again at the same session after it has
   been checked in there, the system MUST return `200 OK` with `checkInResult`
   `ALREADY_CHECKED_IN` and the most recent `checkedInAt`; it MUST show only its
@@ -1844,7 +1991,8 @@ correction, with before/after audit evidence.
   scheduled end time. It MUST be allowed only while the session is
   `IN_PROGRESS` after the actor confirms that the session has actually ended;
   it may occur before or after `scheduled_end_at` and MUST record that
-  confirmation in the audit trail.
+  confirmation in the audit trail. *(Amended 2026-11-27: the only automatic
+  finalization is the delayed one of FR-059, which needs no confirmation.)*
 - **FR-007**: The system MUST record actor, time, source and correlation data
   for check-ins, resend requests, overrides, finalization and corrections.
 - **FR-007b** *(added 2026-11-15, owner decision Hồ Hoàng Quốc, CHK032, T131)*:
@@ -1875,8 +2023,8 @@ correction, with before/after audit evidence.
   | Create or edit a workshop location (FR-012c) | `LOCATION_CREATED`; one event per applied edit with prior and new value: `LOCATION_RENAMED`, `LOCATION_ADDRESS_CHANGED`, `LOCATION_DEACTIVATED`, `LOCATION_REACTIVATED` |
   | Set or clear a session's reschedule quota (FR-035) | one event `RESCHEDULE_QUOTA_SET`, prior and new quota, reason text (free text, FR-035) |
   | Assign or revoke a Staff member (Staff session-assignment access) | one event per assignment or removal; a refused removal of the last Staff and the confirmed one are both audited (Q3) |
-  | Reverse a check-in (FR-002b) | before/after, reason code |
-  | Correct finalized attendance (FR-008) | before/after, reason code |
+  | Reverse a check-in (FR-002b; also assigned Staff since 2026-11-27) | before/after, reason code |
+  | Correct finalized attendance (FR-008; also assigned Staff since 2026-11-27) | before/after, reason code |
   | Request cancellation or cancel directly (FR-009, FR-009a) | prior state, reason code |
   | Manager booking lookup (FR-003b) | actor, booking code |
   A refused attempt at a sensitive action is audited as `DENIED` under FR-007b.
@@ -1887,8 +2035,10 @@ correction, with before/after audit evidence.
   system-controlled catalogue; Manager MUST NOT create or alter reason codes
   per location. The catalogue MUST include `OTHER_REQUIRES_NOTE`, which MUST
   require a clear note or evidence reference.
-- **FR-008**: The system MUST allow only Manager to correct finalized attendance
-  and MUST preserve the before/after state and correction reason in the audit
+- **FR-008** *(amended 2026-11-27; was Manager only)*: The system MUST allow a
+  Manager, or a Staff member with the session location in scope who is actively
+  assigned to the session, to correct finalized attendance between `CHECKED_IN`
+  and `NO_SHOW` within the window of FR-032, and MUST preserve the before/after state and correction reason in the audit
   record.
 - **FR-009**: The system MUST allow only Manager to request cancellation of an
   operable session with a confirmed ticket or unexpired payment capacity hold;

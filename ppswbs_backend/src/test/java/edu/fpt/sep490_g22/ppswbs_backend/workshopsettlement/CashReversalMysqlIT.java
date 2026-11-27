@@ -138,6 +138,8 @@ class CashReversalMysqlIT {
         assertThat(reversal.workingDate()).isEqualTo(TODAY.plusDays(1));
         assertThat(balanceDue(ticket)).isEqualTo(200_000);
         assertThat(cashClose.expectedCash(branch, TODAY.plusDays(1))).isEqualTo(-120_000);
+        assertThat(cashClose.cashEntries(branch, TODAY.plusDays(1))).extracting(e -> e.type(), e -> e.amountVnd())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("REVERSAL", -120_000L));
         // the closed day and the original collection are never edited
         var closeAfter = closes.findByBranchIdAndBusinessDay(branch, TODAY).orElseThrow();
         assertThat(closeAfter.getExpectedCashVnd()).isEqualTo(closeBefore.getExpectedCashVnd());
@@ -171,6 +173,10 @@ class CashReversalMysqlIT {
         assertThat(confirmed.expectedCashVnd()).isEqualTo(100_000);
         assertThat(cashClose.expectedCash(branch, TODAY)).isEqualTo(100_000);
         assertThat(cashClose.expectedCash(branch, TODAY.plusDays(1))).isEqualTo(50_000);
+        // FR-036b: the listed entries are the rows of the figure
+        assertThat(cashClose.cashEntries(branch, TODAY)).extracting(e -> e.amountVnd()).containsExactly(100_000L);
+        assertThat(cashClose.cashEntries(branch, TODAY.plusDays(1))).extracting(e -> e.ticketCode(), e -> e.amountVnd())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(ticket, 50_000L));
     }
 
     @Test

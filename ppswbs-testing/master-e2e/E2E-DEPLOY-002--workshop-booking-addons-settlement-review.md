@@ -191,6 +191,8 @@ Kiểm chứng toàn trình (End-to-End) chuỗi giá trị dịch vụ Workshop
   3. Kiểm tra số dư nợ: `Balance due` chuyển về chính xác **`0 VNĐ`**.
   4. Bấm nút **"Xuất hóa đơn tất toán"** (`Finalize Folio`).
   5. Quay lại trang ca học `/operations/sessions/:sessionId`, bấm nút **"Hoàn tất ca học"** (`Finalize Attendance`) để ghi nhận Khách hàng checkout rời xưởng.
+  6. Hoàn tác và sửa điểm danh (003.2 FR-002b, FR-008, FR-060, từ 2026-11-27): khi ca đang diễn ra, Staff được phân ca bấm **"Hoàn tác"** trên hàng vé đã check-in, ghi lý do, vé về "Chưa check-in" (check-in lại trước khi chốt). Sau khi chốt, trong 24 giờ bấm **"Sửa"** để đổi "Đã check-in" ↔ "Vắng"; quá hạn hàng vé ghi "Quá hạn sửa". Staff không được phân ca không mở được ca.
+  7. Tự đóng ca (FR-059) mặc định tắt; không bật trên môi trường dùng chung khi chạy kịch bản này.
 - **Observable Expected**:
   - Trạng thái Folio chuyển sang badge hoàn tất: **`FINALIZED`**.
   - Ca học ghi nhận hoàn tất, không còn khoản nợ tồn đọng.

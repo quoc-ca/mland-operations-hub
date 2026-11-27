@@ -8,6 +8,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.TicketS
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopSessionRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.*;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.entity.*;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.facade.TicketFolioStateQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,19 +21,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * T044: Service managing Manager-only erroneous-check-in reversal and post-finalization attendance correction.
+ * T044: Service managing erroneous-check-in reversal and post-finalization attendance correction.
  * <p>
  * Requirements (FR-007, FR-007a, FR-008, Clarifications 2026-10-24):
  * - Erroneous-check-in reversal is permitted ONLY BEFORE attendance finalization (session in PUBLISHED or IN_PROGRESS).
  *   Reverts ticket attendance state back to NOT_CHECKED_IN and clears checkedInAt so it can be scanned again.
  * - Attendance correction is permitted ONLY AFTER attendance finalization (session in ATTENDANCE_FINALIZED).
  *   Post-finalization outcome is strictly limited to CHECKED_IN or NO_SHOW (NOT_CHECKED_IN is rejected).
- * - Restricted strictly to active Manager with global location authority.
- *   Staff is denied (WorkshopForbiddenException).
+ * - Allowed to an active Manager (global) or a Staff member assigned to the session with its location in scope
+ *   (003.2 FR-002b, FR-008, amended 2026-11-27). Staff may reverse only while the session is IN_PROGRESS.
  * - Enforces standardized reason code validation and mandatory note/evidence requirements.
  * - Does NOT use or require 'workshop.checkin.override' authority.
  * - Does NOT directly inspect Firebase tokens, claims, or Account entities/DAOs (delegates to authorizationService).
  * - Preserves immutable audit history: retains original actions and appends new AttendanceAction and OperationsAuditEvent.
+ * - A ticket whose folio is finalized cannot be reversed or corrected to NO_SHOW (003.2 FR-062).
  * - Performs NO refund, settlement, reschedule, or customer notification side-effects.
  */
 @Service
@@ -46,6 +48,7 @@ public class AttendanceCorrectionService {
     private final AttendanceActionRepository attendanceActionRepository;
     private final OperationsAuditEventRepository auditEventRepository;
     private final WorkshopOperationsAuthorizationService authorizationService;
+    private final TicketFolioStateQuery folioState;
 
     /**
      * Reverses an erroneous check-in before attendance finalization.
@@ -73,7 +76,11 @@ public class AttendanceCorrectionService {
 
         validateReason(request);
 
-        WorkshopSession session = resolveSession(sessionReference);
+        // Locked: a finalization (manual or automatic) must not run between the state check and the write.
+        WorkshopSession session = resolveSessionForUpdate(sessionReference);
+
+        // Authority comes before state, so an unassigned Staff gets 403 whatever the session state.
+        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
 
         // Guard: check-in reversal is permitted only before attendance finalization
         if (session.getState() == SessionState.ATTENDANCE_FINALIZED || session.getState() == SessionState.CANCELLED) {
@@ -82,8 +89,11 @@ public class AttendanceCorrectionService {
                     + "; check-in reversal is only permitted before attendance finalization. Use attendance-corrections for finalized sessions.");
         }
 
-        // Authorization: strictly active Manager globally (Staff denied)
-        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
+        if (!authorizationService.isGlobalWorkshopActor(actor) && session.getState() != SessionState.IN_PROGRESS) {
+            log.warn("Check-in reversal rejected for Staff: session {} is in state {}", sessionReference, session.getState());
+            throw new WorkshopLifecycleException("Session is in state " + session.getState()
+                    + "; Staff may reverse a check-in only while the session is IN_PROGRESS");
+        }
 
         AttendanceTicket ticket = ticketRepository.findByAnyTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
@@ -101,6 +111,12 @@ public class AttendanceCorrectionService {
             // T140 (FR-010kh): a repeat finds the ticket no longer checked in: a state conflict, 409 INVALID_STATE.
             throw new WorkshopLifecycleException("Ticket " + ticket.getTicketCode() + " is in state "
                     + entitlement.getAttendanceState() + "; check-in reversal requires currently CHECKED_IN ticket");
+        }
+
+        // FR-062: an unchecked ticket would become NO_SHOW at finalization, against its finalized folio.
+        if (folioState.isTicketFolioFinalized(ticket.getReference())) {
+            log.warn("Check-in reversal rejected: the folio of ticket {} is finalized", ticket.getTicketCode());
+            throw new WorkshopLifecycleException("The folio of this ticket is already finalized; the check-in cannot be reversed");
         }
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
@@ -139,7 +155,7 @@ public class AttendanceCorrectionService {
                         ticket.getTicketCode(), request.getReasonCode().trim())
         );
 
-        log.info("Check-in reversed for ticket {} at session {} by Manager accountId={}",
+        log.info("Check-in reversed for ticket {} at session {} by accountId={}",
                 ticket.getTicketCode(), sessionReference, actor.accountId());
 
         return Ticket.builder()
@@ -190,15 +206,14 @@ public class AttendanceCorrectionService {
 
         WorkshopSession session = resolveSessionForUpdate(sessionReference);
 
+        AccountSummary actor = authorizationService.requireStaffSessionAssignment(authHeader, session.getId());
+
         // Guard: attendance correction is permitted only after attendance finalization
         if (session.getState() != SessionState.ATTENDANCE_FINALIZED) {
             log.warn("Attendance correction rejected: session {} is in state {}", sessionReference, session.getState());
             throw new WorkshopLifecycleException("Session is in state " + session.getState()
                     + "; attendance correction requires ATTENDANCE_FINALIZED. Use check-in-reversals before finalization.");
         }
-
-        // Authorization: strictly active Manager globally (Staff denied)
-        AccountSummary actor = authorizationService.requireGlobalManager(authHeader);
 
         AttendanceTicket ticket = ticketRepository.findByAnyTicketCode(request.getTicketCode())
                 .orElseThrow(() -> new WorkshopNotFoundException("Ticket not found for ticket code: " + request.getTicketCode()));
@@ -226,6 +241,13 @@ public class AttendanceCorrectionService {
                     .attendanceState(entitlement.getAttendanceState())
                     .checkedInAt(entitlement.getCheckedInAt())
                     .build();
+        }
+
+        // FR-062: a paid and finalized folio says the participant was served.
+        if (request.getCorrectedAttendanceState() == AttendanceState.NO_SHOW
+                && folioState.isTicketFolioFinalized(ticket.getReference())) {
+            log.warn("Attendance correction rejected: the folio of ticket {} is finalized", ticket.getTicketCode());
+            throw new WorkshopLifecycleException("The folio of this ticket is already finalized; attendance cannot be changed to NO_SHOW");
         }
 
         // 1. Apply correction to entitlement
@@ -269,7 +291,7 @@ public class AttendanceCorrectionService {
                         ticket.getTicketCode(), previousState, request.getCorrectedAttendanceState(), request.getReasonCode().trim())
         );
 
-        log.info("Attendance corrected for ticket {} at session {} from {} to {} by Manager accountId={}",
+        log.info("Attendance corrected for ticket {} at session {} from {} to {} by accountId={}",
                 ticket.getTicketCode(), sessionReference, previousState, request.getCorrectedAttendanceState(), actor.accountId());
 
         return Ticket.builder()
@@ -311,18 +333,6 @@ public class AttendanceCorrectionService {
                 throw new WorkshopValidationException("For reasonCode " + code.name() + ", a descriptive reasonNote or evidenceReference is required");
             }
         }
-    }
-
-    private WorkshopSession resolveSession(String sessionReference) {
-        return sessionRepository.findByReference(sessionReference)
-                .or(() -> {
-                    try {
-                        return sessionRepository.findById(Long.parseLong(sessionReference));
-                    } catch (NumberFormatException e) {
-                        return Optional.empty();
-                    }
-                })
-                .orElseThrow(() -> new WorkshopNotFoundException("Workshop session not found with reference or ID: " + sessionReference));
     }
 
     private WorkshopSession resolveSessionForUpdate(String sessionReference) {
