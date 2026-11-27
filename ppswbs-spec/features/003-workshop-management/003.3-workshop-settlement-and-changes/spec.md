@@ -296,6 +296,22 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   by name from the server's branch list, preselect the first, show branch names
   in the confirmation queue, and MUST NOT keep a figure or a draft count after
   the branch or working day changes. The server's scope check is unchanged.
+  *(Amended 2026-11-27)*: after such a change the screen drops the old figure,
+  entries, counted amount, reason and shown result, and reads the figure and
+  entries of the new branch and day at once (FR-036b). A failed read shows no
+  figure and offers a retry.
+
+- **FR-036b** *(expected cash and its entries, 2026-11-27)*: Opening the
+  cash-close screen MUST show, without a further action, the expected cash of the
+  preselected branch for today, with the list of entries that make it up: each
+  confirmed cash collection counted on that working day (ticket code, amount net
+  of change, time collected) and each cash reversal counted on that day (ticket
+  code, negative amount, time recorded), oldest first. The entries and the figure
+  MUST come from one read and their sum MUST equal the figure. Retail cash is not
+  part of it. The same authority as FR-036 applies; reading changes and audits
+  nothing. The expected figure is never typed or edited by a user: the closer
+  enters only the counted amount and, for a difference, the reason. A close still
+  records the total the server computes at submission.
 
 - **FR-037**: Add-on and variable-charge prices remain at least 5,000 VND. A
   wrongly recorded line is voided whole with history by a Manager while the
@@ -994,6 +1010,10 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or serve external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-27 cash-close figure (owner Hồ Hoàng Quốc)
+
+- Q: Must the closer ask for the expected cash? → A: No. It is shown when the screen opens and reloads when the branch or day changes, with the cash entries that make it up; it cannot be edited (FR-036b). Retail cash is not counted.
 
 ### Session 2026-11-27
 

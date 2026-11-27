@@ -37,6 +37,6 @@ describe('Settlement screens follow the chosen language', () => {
     mockFetch({ [PROFILE]: asRole('MANAGER') });
     renderRoutes(settlementRoutes, { language: 'vi', path: '/settlement/cash-close' });
     expect(await screen.findByLabelText('Chi nhánh')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Xem tiền mặt kỳ vọng' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tải lại số kỳ vọng' })).toBeInTheDocument();
   });
 });

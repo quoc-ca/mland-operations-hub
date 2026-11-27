@@ -474,3 +474,12 @@ Mapping: FR-045a → T211–T214; FR-036a → T211, T213, T214.
 - [ ] T216 [Test] Browser check of the correction on a finalized ticket folio as Manager against a live stack.
 
 Mapping: FR-065 → T215, T216.
+
+## Phase 19: Expected cash and its entries on the cash-close screen (spec FR-036b, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T217 **Done 2026-11-27** [Spec] FR-036b, FR-036a amendment, contract `workshop-settlement-ticket.openapi.yaml` (`entries`), data-model, `design/ui-flow.md`.
+- [x] T218 **Done 2026-11-27** [BE] Expected-cash read returns the entries and a total equal to their sum, including reversals. Check: JUnit and the MySQL status contract test. Evidence: `CashDayCloseServiceTest`, `FolioCollectionApiServiceTest`, `FolioCollectionControllerTest`, `CashReversalMysqlIT` passed; full `mvnw test` 3140 tests, the only failure was unrelated to this task.
+- [x] T219 **Done 2026-11-27** [FE] `CashClosePage` reads on opening and on branch/date change, lists the entries, clears the draft. Check: Vitest. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 174 files, 1447 tests passed; `npm run build` passed.
+- [ ] T220 [Test] Browser check against a live stack as Staff and Manager.
+
+Mapping: FR-036b → T217–T220. Depends: T217 → T218 → T219 → T220.

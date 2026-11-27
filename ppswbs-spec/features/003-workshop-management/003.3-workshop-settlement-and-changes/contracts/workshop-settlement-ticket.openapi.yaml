@@ -576,11 +576,24 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [locationId, workingDate, expectedCashVnd]
+                required: [locationId, workingDate, expectedCashVnd, entries]
                 properties:
                   locationId: {type: integer, format: int64}
                   workingDate: {type: string, format: date}
-                  expectedCashVnd: {type: integer, format: int64}
+                  expectedCashVnd: {type: integer, format: int64, description: Always the sum of entries.amountVnd.}
+                  entries:
+                    type: array
+                    description: >-
+                      FR-036b (2026-11-27): the cash entries counted on this branch and day, oldest first, read in
+                      the same transaction as the total. Empty when there is none.
+                    items:
+                      type: object
+                      required: [type, ticketCode, amountVnd, recordedAt]
+                      properties:
+                        type: {type: string, enum: [COLLECTION, REVERSAL]}
+                        ticketCode: {type: string, description: Ticket code (or direct booking code) of the folio.}
+                        amountVnd: {type: integer, format: int64, description: Net of change; negative for a REVERSAL.}
+                        recordedAt: {type: string, format: date-time, description: 'Time the cash was confirmed, or the reversal recorded.'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes:

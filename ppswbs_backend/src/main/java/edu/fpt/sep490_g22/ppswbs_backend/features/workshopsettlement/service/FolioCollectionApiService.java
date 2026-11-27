@@ -126,7 +126,9 @@ public class FolioCollectionApiService {
     public ExpectedCashResponse expectedCash(Long branchId, LocalDate businessDay, CurrentAccountActor actor) {
         authorization.requireManagerOrStaff(actor, branchId);
         LocalDate day = CashDayCloseService.dayOrToday(businessDay);
-        return new ExpectedCashResponse(branchId, day, cashCloses.expectedCash(branchId, day));
+        java.util.List<CashEntry> entries = cashCloses.cashEntries(branchId, day);
+        long expected = entries.stream().mapToLong(CashEntry::amountVnd).reduce(0L, Math::addExact);
+        return new ExpectedCashResponse(branchId, day, expected, entries);
     }
 
     private static void requireKey(String idempotencyKey) {

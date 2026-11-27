@@ -15,7 +15,7 @@ describe('Cash close', () => {
   const CLOSE = { closeReference: 'CLOSE-1', locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000, countedCashVnd: 990000, differenceVnd: -10000, differenceReason: 'miscount', status: 'PENDING_MANAGER_CONFIRMATION' };
   const handlers = {
     [PROFILE]: asRole('MANAGER'),
-    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000 }),
+    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000, entries: [] }),
     'POST /api/v1/workshop-cash-closes': json(201, CLOSE),
     'GET /api/v1/workshop-locations': json(200, [{ id: 3, name: 'MLAND Tây Hồ' }, { id: 4, name: 'MLAND Hoàn Kiếm' }]),
     'POST /api/v1/workshop-cash-closes/CLOSE-1/difference-confirmations': json(200, { ...CLOSE, status: 'CLOSED' }),
@@ -26,7 +26,6 @@ describe('Cash close', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
     expect(await screen.findByText('1,000,000 ₫')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Counted cash (VND)'), '990000');
     await user.type(screen.getByLabelText(/Difference reason/), 'miscount');
@@ -59,7 +58,6 @@ describe('Cash close', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '990000');
     await user.click(screen.getByRole('button', { name: 'Close cash book' }));
     expect(await screen.findByText(/A Manager must confirm/)).toBeInTheDocument();
@@ -71,7 +69,6 @@ describe('Cash close', () => {
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
     await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '1000000');
     await user.click(screen.getByRole('button', { name: 'Close cash book' }));
     expect(await screen.findByText(/Reload the latest data/)).toBeInTheDocument();

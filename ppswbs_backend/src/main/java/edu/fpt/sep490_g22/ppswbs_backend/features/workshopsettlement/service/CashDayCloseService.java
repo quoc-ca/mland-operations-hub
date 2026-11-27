@@ -4,6 +4,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.Settlem
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashReversalRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementCashDayCloseRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dao.SettlementFolioCollectionRepository;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.CashEntry;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.CashDayCloseStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementBusinessAudit;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCashDayClose;
@@ -15,7 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Closes a branch's cash book once per Vietnam working day (003.3 T096, FR-036).
@@ -53,6 +57,21 @@ public class CashDayCloseService {
     @Transactional(readOnly = true)
     public long expectedCash(Long branchId, LocalDate businessDay) {
         return cashOf(branchId, dayOrToday(businessDay));
+    }
+
+    /**
+     * FR-036b: the entries behind {@link #expectedCash}, oldest first, read in one transaction so their sum is the
+     * figure shown beside them.
+     */
+    @Transactional(readOnly = true)
+    public List<CashEntry> cashEntries(Long branchId, LocalDate businessDay) {
+        LocalDate day = dayOrToday(businessDay);
+        Stream<CashEntry> collected = collections.findConfirmedCash(branchId, day).stream()
+                .map(c -> new CashEntry("COLLECTION", c.getBookingReference(), c.getAmountVnd(),
+                        c.getConfirmedAt() != null ? c.getConfirmedAt() : c.getCreatedAt()));
+        Stream<CashEntry> reversed = cashReversals.findByBranchIdAndCashBusinessDay(branchId, day).stream()
+                .map(r -> new CashEntry("REVERSAL", r.getTicketCode(), r.getAmountVnd(), r.getRecordedAt()));
+        return Stream.concat(collected, reversed).sorted(Comparator.comparing(CashEntry::recordedAt)).toList();
     }
 
     /**

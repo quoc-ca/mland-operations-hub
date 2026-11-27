@@ -116,14 +116,20 @@ class FolioCollectionControllerTest {
     @Test
     void expectedCashReadsLocationIdAndWorkingDate() throws Exception {
         when(api.expectedCash(eq(7L), eq(LocalDate.of(2026, 11, 16)), eq(staff)))
-                .thenReturn(new ExpectedCashResponse(7L, LocalDate.of(2026, 11, 16), 150_000L));
+                .thenReturn(new ExpectedCashResponse(7L, LocalDate.of(2026, 11, 16), 150_000L,
+                        java.util.List.of(new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.CashEntry(
+                                "COLLECTION", "T-1", 150_000L, java.time.Instant.parse("2026-11-16T03:00:00Z")))));
 
         mvc.perform(get(CLOSES + "/expected-cash").param("locationId", "7").param("workingDate", "2026-11-16")
                         .principal(new UsernamePasswordAuthenticationToken(staff, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.locationId").value(7))
                 .andExpect(jsonPath("$.workingDate").value("2026-11-16"))
-                .andExpect(jsonPath("$.expectedCashVnd").value(150000));
+                .andExpect(jsonPath("$.expectedCashVnd").value(150000))
+                .andExpect(jsonPath("$.entries[0].type").value("COLLECTION"))
+                .andExpect(jsonPath("$.entries[0].ticketCode").value("T-1"))
+                .andExpect(jsonPath("$.entries[0].amountVnd").value(150000))
+                .andExpect(jsonPath("$.entries[0].recordedAt").exists());
 
         mvc.perform(get(CLOSES + "/expected-cash").param("branchId", "7")
                         .principal(new UsernamePasswordAuthenticationToken(staff, null)))
