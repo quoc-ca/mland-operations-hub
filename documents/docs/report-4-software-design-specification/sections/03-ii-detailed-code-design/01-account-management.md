@@ -1,4 +1,4 @@
-## 1. Account Management (FE-01)
+## 1. Account Management 
 
 **Implementation status:** Existing backend/frontend slices; broader account scope remains governed by the approved Feature-001 contract.
 

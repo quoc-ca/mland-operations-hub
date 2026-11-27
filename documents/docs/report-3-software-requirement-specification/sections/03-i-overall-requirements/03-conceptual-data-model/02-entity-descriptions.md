@@ -1,7 +1,5 @@
 ### 3.2 Entity Descriptions
 
-Each block describes one entity in the ERD with its purpose and key business attributes only. The database tables named in brackets are described column by column in Report 4, section 3.
-
 **Entity: Account (accounts, account_profiles)**
 
 | Field | Value |

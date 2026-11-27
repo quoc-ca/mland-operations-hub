@@ -1,6 +1,6 @@
 #### 2.1.3 Forgot Password
 
-![](assets/screens/05-forgot-password.png)
+![](assets/screens/live/04-forgot-password.png)
 
 This screen allows users with an email-and-password account to:
 
@@ -9,13 +9,16 @@ This screen allows users with an email-and-password account to:
 - Set the new password through the link in the email, on the identity provider's page.
 - Return to User Login.
 
-Google sign-in is not offered on this screen.
+Google sign-in is not offered on this screen. The page title is **Recover password**, with "Forgot your password?".
+
+**Field Description**
 
 | Field Name | Description |
 | --- | --- |
-| Description | States that the message does not confirm whether the email has an account. |
-| Email address | Required; must be a valid email format. |
-| Send reset link | Requests the reset email; shows "Processing…" while working. |
+| ← Back | Opens User Login. |
+| Description | States that recovery instructions are sent if the request can be processed, and that the message does not confirm whether the email has an account. |
 | Confirmation | "If the email exists in the system, a password reset message has been sent." shown for every valid request. |
+| Email address | Required; must be a valid email format. |
 | Validation error | Shown only when the email is empty or not a valid address. |
-| Back to sign in | Opens User Login. |
+| Send reset link | Requests the reset email; shows "Processing…" while working. |
+| Back to sign in | Also opens User Login. |
