@@ -70,7 +70,7 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
 
   it('renders Guest topbar CTA when unauthenticated', () => {
     renderHomePage({ initialAuthState: { status: 'signed-out' } });
-    const loginLink = screen.getByRole('link', { name: 'Đăng nhập' });
+    const loginLink = screen.getByRole('banner').querySelector('.main-topbar-login-btn');
     expect(loginLink).toBeInTheDocument();
     expect(loginLink).toHaveAttribute('href', '/login');
     expect(screen.queryByText('ACTIVE · MEMBER')).not.toBeInTheDocument();
@@ -348,7 +348,9 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     expect(links[1]).toHaveAttribute('href', '/workshops');
     expect(links[2]).toHaveAttribute('href', '/products');
     expect(links[3]).toHaveAttribute('href', '/workshop-booking/lookup');
-    expect(links[4]).toHaveAttribute('href', '/profile');
+    expect(links[3]).toHaveTextContent('Tra cứu');
+    expect(links[4]).toHaveAttribute('href', '/login');
+    expect(links[4]).toHaveTextContent('Đăng nhập');
   });
 
   it.each(['STAFF', 'MANAGER', 'ADMIN', 'CARRIER'])('offers %s no Member journey, cart or Member menu entry', (role) => {
@@ -370,6 +372,8 @@ describe('Landing HomePage (Figma Page 01 · Public & Live Features Integration)
     if (role !== 'CARRIER') {
       expect(within(nav).getByRole('link', { name: 'Workshop' })).toBeInTheDocument();
       expect(within(nav).getByRole('link', { name: 'Ready Rings' })).toBeInTheDocument();
+    } else {
+      expect(screen.getByRole('banner').querySelector('.main-topbar-brand')).toHaveAttribute('href', '/carrier');
     }
 
     expect(screen.queryByText('🎨 Chế tác theo yêu cầu')).not.toBeInTheDocument();

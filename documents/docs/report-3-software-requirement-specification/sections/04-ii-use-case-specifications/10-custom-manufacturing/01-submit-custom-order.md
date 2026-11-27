@@ -26,15 +26,15 @@ Staff or a Manager opens an accepted custom design request to prepare a quote.
 #### Normal Flow
 
 1. Staff opens the accepted custom design request.
-2. Staff enters the total amount, payment deadline, and pricing note.
-3. System checks role, request state, owning Member, and amount.
-4. System creates the custom order and stores a new quote version.
-5. Manager reviews and approves the Staff-prepared quote.
-6. System marks the quote payable and sets the order to wait for full payment.
+2. Staff enters the total amount, payment deadline (24–72 hours), and pricing note.
+3. System checks role, request state, owning Member, amount and payment deadline.
+4. Staff confirms **Duyệt gửi báo giá**; the system records the accepted decision and creates or updates the custom order with a new quote version.
+5. The order enters `QUOTE_PENDING`; a Manager reviews and approves the Staff-prepared quote.
+6. System marks the quote payable and sets the order to `FULL_PAYMENT_PENDING`, then submits the quote-approved notification to the Member when a recipient email is available.
 
 #### Alternative Flows
 
-2a. Quote prepared by a Manager → System approves the quote immediately and sets the order to wait for full payment.
+2a. Quote prepared by a Manager → System approves the quote immediately and sets the order to `FULL_PAYMENT_PENDING`.
 
 4a. Custom order already exists for the request → System reuses the existing order and stores a new immutable quote version.
 

@@ -38,7 +38,11 @@ public class ConsultationController {
         }
 
         List<ContextOptionDto> items = contextService.getMemberContextOptions(caller.accountId());
-        return ResponseEntity.ok(ContextOptionListDto.builder().items(items).build());
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(ContextOptionListDto.builder().items(items).build());
     }
 
     @PostMapping
@@ -60,7 +64,11 @@ public class ConsultationController {
     ) {
         AccountActorPort.CallerActor caller = requireCaller();
         ConversationListDto result = applicationService.listConversations(status, cursor, limit, caller);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(result);
     }
 
     @GetMapping("/{conversationReference}")
@@ -69,7 +77,11 @@ public class ConsultationController {
     ) {
         AccountActorPort.CallerActor caller = requireCaller();
         ConversationDetailDto result = applicationService.getConversationDetail(conversationReference, caller);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(result);
     }
 
     @PostMapping("/{conversationReference}/messages")

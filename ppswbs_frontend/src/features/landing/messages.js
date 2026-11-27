@@ -110,6 +110,8 @@ export const landingMessages = {
     'mobileNav.workshop': 'Workshop',
     'mobileNav.rings': 'Nhẫn',
     'mobileNav.ticket': 'Vé QR',
+    'mobileNav.lookup': 'Tra cứu',
+    'mobileNav.signIn': 'Đăng nhập',
     'mobileNav.account': 'Tài khoản',
   },
   en: {
@@ -222,6 +224,8 @@ export const landingMessages = {
     'mobileNav.workshop': 'Workshop',
     'mobileNav.rings': 'Rings',
     'mobileNav.ticket': 'QR ticket',
+    'mobileNav.lookup': 'Lookup',
+    'mobileNav.signIn': 'Sign in',
     'mobileNav.account': 'Account',
   },
 };

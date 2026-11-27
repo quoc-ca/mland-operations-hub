@@ -16,3 +16,7 @@
 
 {{r4-sd-fe13-close-hide-chat width=100% align=center}}
 
+### 13.5 Current freshness and incoming-message feedback
+
+Consultation context, list and detail reads are returned with no-cache response headers and the client adds a timestamp query parameter to avoid stale intermediary responses. Member and Staff screens poll every 3 seconds while visible and every 6 seconds while hidden, with an immediate refresh on focus or visibility restoration. The Staff inbox detects a newly observed Member message and shows an in-app toast while attempting a short Web Audio chime.
+

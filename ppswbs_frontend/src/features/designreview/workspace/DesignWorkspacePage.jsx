@@ -263,8 +263,12 @@ export default function DesignWorkspacePage() {
     e.preventDefault();
     const newErrors = {};
 
-    if (!description.trim() && selectedImages.length === 0) {
-      newErrors.form = t('validation.contentRequired');
+    const hasText = Boolean(description && description.trim());
+    const hasImages = selectedImages && selectedImages.length > 0;
+    const hasDesign = Boolean(selectedDesignRef || ringDesignRef);
+
+    if (!hasText && !hasImages && !hasDesign) {
+      newErrors.form = 'Vui lòng cung cấp ít nhất một thông tin: mô tả yêu cầu, đính kèm mẫu thiết kế, hoặc tải lên ảnh mẫu.';
     }
     if (description && [...description].length > LIMITS.descriptionMax) {
       newErrors.description = t('validation.descriptionTooLong');

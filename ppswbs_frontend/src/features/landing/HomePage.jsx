@@ -630,12 +630,12 @@ export default function HomePage() {
         </Link>
         <Link to="/workshop-booking/lookup" className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">🎫</span>
-          <span className="landing-mobile-nav-label">{t('mobileNav.ticket')}</span>
+          <span className="landing-mobile-nav-label">{t('mobileNav.lookup')}</span>
         </Link>
         {/* A Carrier has no profile page; password self-service is their only account page. */}
-        <Link to={userRole === 'CARRIER' ? '/security/password' : '/profile'} className="landing-mobile-nav-item">
+        <Link to={!isAuthenticated ? '/login' : userRole === 'CARRIER' ? '/security/password' : '/profile'} className="landing-mobile-nav-item">
           <span className="landing-mobile-nav-icon" aria-hidden="true">👤</span>
-          <span className="landing-mobile-nav-label">{t('mobileNav.account')}</span>
+          <span className="landing-mobile-nav-label">{t(isAuthenticated ? 'mobileNav.account' : 'mobileNav.signIn')}</span>
         </Link>
       </nav>
     </div>

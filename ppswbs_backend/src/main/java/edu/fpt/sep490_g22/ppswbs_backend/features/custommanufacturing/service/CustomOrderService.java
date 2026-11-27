@@ -21,9 +21,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
+import edu.fpt.sep490_g22.ppswbs_backend.common.notification.NotificationIntentPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,6 +76,13 @@ public class CustomOrderService {
     private final AccountFacade accountFacade;
     private final CustomOrderShipmentService customOrderShipmentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired(required = false)
+    private NotificationIntentPort notificationIntentPort;
+
+    public void setNotificationIntentPort(NotificationIntentPort notificationIntentPort) {
+        this.notificationIntentPort = notificationIntentPort;
+    }
 
     @Transactional
     public QuoteProjectionDto prepareOrUpdateQuote(
@@ -203,6 +212,26 @@ public class CustomOrderService {
         order.setStatus("FULL_PAYMENT_PENDING");
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
+
+        if (notificationIntentPort != null) {
+            try {
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "QUOTE_APPROVED_" + quote.getQuoteReference(),
+                            "CUSTOM_ORDER_QUOTE_APPROVED",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "quoteReference", quote.getQuoteReference(),
+                                    "totalAmount", quote.getTotalAmount(),
+                                    "expiresAt", quote.getExpiresAt().toString()
+                            )
+                    );
+                });
+            } catch (Exception ex) {
+                log.warn("Failed to submit quote approval notification: {}", ex.getMessage());
+            }
+        }
 
         return mapToQuoteDto(quote);
     }
@@ -464,6 +493,58 @@ public class CustomOrderService {
         customOrderRepository.save(order);
 
         log.info("Custom order {} successfully marked PAID and queued for production", customOrderReference);
+
+        if (notificationIntentPort != null) {
+            try {
+                // 1. Notify member
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "ORDER_PAID_" + order.getCustomOrderReference(),
+                            "CUSTOM_ORDER_IN_PRODUCTION",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "status", "PAID"
+                            )
+                    );
+                });
+
+                // 2. Alert active Staff and Managers
+                List<String> staffEmails = accountFacade.listActiveStaffEmails();
+                if (staffEmails != null) {
+                    for (String staffEmail : staffEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_PAID_STAFF_" + order.getCustomOrderReference() + "_" + staffEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                staffEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "PAID",
+                                        "recipientRole", "STAFF"
+                                )
+                        );
+                    }
+                }
+
+                List<String> managerEmails = accountFacade.listActiveManagerEmails();
+                if (managerEmails != null) {
+                    for (String managerEmail : managerEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_PAID_MGR_" + order.getCustomOrderReference() + "_" + managerEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                managerEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "PAID",
+                                        "recipientRole", "MANAGER"
+                                )
+                        );
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to submit order paid notification: {}", ex.getMessage());
+            }
+        }
     }
 
     /**
@@ -519,6 +600,58 @@ public class CustomOrderService {
         order.setFulfilmentStatus(stage.fulfilmentStatus());
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
+
+        if ("IN_PRODUCTION".equals(target) && notificationIntentPort != null) {
+            try {
+                // 1. Notify member
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "ORDER_IN_PRODUCTION_" + order.getCustomOrderReference(),
+                            "CUSTOM_ORDER_IN_PRODUCTION",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "status", "IN_PRODUCTION"
+                            )
+                    );
+                });
+
+                // 2. Alert active Staff and Managers
+                List<String> staffEmails = accountFacade.listActiveStaffEmails();
+                if (staffEmails != null) {
+                    for (String staffEmail : staffEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_IN_PROD_STAFF_" + order.getCustomOrderReference() + "_" + staffEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                staffEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "IN_PRODUCTION",
+                                        "recipientRole", "STAFF"
+                                )
+                        );
+                    }
+                }
+
+                List<String> managerEmails = accountFacade.listActiveManagerEmails();
+                if (managerEmails != null) {
+                    for (String managerEmail : managerEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_IN_PROD_MGR_" + order.getCustomOrderReference() + "_" + managerEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                managerEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "IN_PRODUCTION",
+                                        "recipientRole", "MANAGER"
+                                )
+                        );
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to submit in-production notification: {}", ex.getMessage());
+            }
+        }
 
         if ("READY_FOR_FULFILMENT".equals(target) && customOrderShipmentService != null) {
             customOrderShipmentService.createShipmentForOrder(order);

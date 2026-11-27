@@ -1,11 +1,23 @@
 # Verification Report: Account Management (FE-001)
 
-> **R-INV (2026-11-25): SCOPED DESIGN APPROVED; IMPLEMENTATION NOT VERIFIED.** There is no fresh app execution evidence. The local source mocks are preview-only and do not verify an ADMIN screen, JSON export, invitation delivery or MEMBER retirement. Historical V-04 and checked task markers do not verify the amended flow. Scoped review/JSON must label DEMO and deny retirement; live MEMBER retirement is deferred to T117 pending authoritative source facts, an approved acceptance/retirement fence and separate approval. See [R-INV design](design/revision-2026-11-24.md), FE-001 T105–T117 and FE-007 T038–T045; update implementation status only after actual evidence is recorded.
+> **R-INV (2026-11-27): PARTIAL IMPLEMENTATION VERIFIED; END-TO-END OPEN.** The invitation setup happy-case and navigation correction has focused build/test evidence below. No configured Firebase/mail-adapter journey or actual email-link/browser completion was executed, so T116/T124 and FE-007 T045 remain open. The local source mocks are preview-only and do not verify MEMBER retirement; live MEMBER retirement is deferred to T117. Historical V-04 and checked task markers do not verify the amended flow. See [R-INV design](design/revision-2026-11-24.md).
 
 **Date created**: 2026-11-03
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-27
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
+
+### 2026-11-27 correction evidence
+
+| Scope | Fresh result | Limit |
+| --- | --- | --- |
+| FE-001 frontend invitation and landing tests | `npm test -- src/features/accountmanagement/tests/rInvAccountInvitation.test.tsx src/features/landing/HomePage.test.jsx`: 38 passed across 2 files | Mocked Firebase/API; no real email link or Edge session |
+| FE-001 frontend bundle | `npm run build`: passed | Build only |
+| FE-001 backend invitation integration test | `mvnw.cmd -q -Dtest=InternalAccountInvitationIT test`: passed; unavailable Firebase returns 503 and leaves the invitation pending | Does not prove successful configured Firebase activation |
+| FE-007 invitation notification integration test | `mvnw.cmd -q -Dtest=InternalAccountInvitationNotificationIT test`: passed | Fixture-level delivery evidence only; see [FE-007 verification](../007-notification-management/verification.md) |
+| FE-001 backend compile | `mvnw.cmd -q -DskipTests compile`: passed | Compile only |
+
+The original failure was a generated `/setup-account` link with no matching frontend route; the routed page is `/invitations/setup`. The browser client also expected fields outside the OpenAPI contract and required a bearer token on the public exchange. These are corrected in T120–T122. T123 corrects the CARRIER and mobile navigation. Real STAFF/MANAGER invitation delivery, one-UID password/Google completion, and FE-007 delivery status need fresh configured evidence under T116/T124/T045.
 
 **Report status**: Historical implementation evidence retained except the explicitly removed pre-R-404 route-denial cases. Revision R-SL implementation and V-13 evidence verified PASS; Revision R-404 (Browser route masking) verified PASS (V-15); Revision R-MGA (Phase 11) Manager-Global Authorization & UI Wording verified PASS.
 

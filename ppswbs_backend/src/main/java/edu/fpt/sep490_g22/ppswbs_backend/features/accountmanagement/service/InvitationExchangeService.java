@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.service;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.UserInfo;
+import com.google.firebase.auth.UserRecord;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountLocationAssignmentRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.AccountRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.dao.InternalAccountInvitationRepository;
@@ -15,6 +17,7 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.Inter
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.entity.enums.AccountStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.VerifiedIdentity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -77,19 +80,16 @@ public class InvitationExchangeService {
         }
 
         // Generate Firebase custom token for the bound UID
+        if (FirebaseApp.getApps().isEmpty()) {
+            throw new SetupProviderUnavailableException();
+        }
         String customToken;
-        if (!FirebaseApp.getApps().isEmpty()) {
-            try {
-                customToken = FirebaseAuth.getInstance().createCustomToken(
-                        account.getFirebaseUid(),
-                        Map.of("role", account.getRole().name())
-                );
-            } catch (Exception e) {
-                log.warn("Firebase custom token generation failed, falling back to simulated token: {}", e.getMessage());
-                customToken = "custom-token-sim-" + UUID.randomUUID();
-            }
-        } else {
-            customToken = "custom-token-dev-" + UUID.randomUUID();
+        try {
+            customToken = FirebaseAuth.getInstance().createCustomToken(
+                    account.getFirebaseUid(), Map.of("role", account.getRole().name()));
+        } catch (Exception e) {
+            log.warn("Firebase custom token generation failed for invitation {}", invitation.getId(), e);
+            throw new SetupProviderUnavailableException(e);
         }
 
         // Create ephemeral setup session (15m validity)
@@ -114,6 +114,7 @@ public class InvitationExchangeService {
     public InvitationCompletionResponse completeSetup(
             InvitationCompletionRequest request,
             CurrentAccountActor authenticatedActor,
+            VerifiedIdentity verifiedIdentity,
             String correlationId
     ) {
         if (request == null || request.getSetupSession() == null) {
@@ -137,15 +138,47 @@ public class InvitationExchangeService {
         InternalAccountInvitation invitation = invitationRepository.findById(session.invitationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
 
-        if (!"PENDING".equalsIgnoreCase(invitation.getUseState())) {
+        if (!"PENDING".equalsIgnoreCase(invitation.getUseState()) || Instant.now().isAfter(invitation.getExpiresAt())) {
             sessionCache.remove(request.getSetupSession());
-            throw new OptimisticLockConflictException("Invitation link has already been consumed");
+            throw new OptimisticLockConflictException("Invitation link has expired or already been consumed");
         }
 
-        // Validate that caller's authenticated actor matches bound account
-        if (authenticatedActor != null && authenticatedActor.accountId() != null) {
-            if (!Objects.equals(authenticatedActor.accountId(), account.getId())) {
-                throw new RoleAssignmentForbiddenException("Authenticated actor does not match the invited account");
+        if (authenticatedActor == null || verifiedIdentity == null
+                || !Objects.equals(authenticatedActor.accountId(), account.getId())
+                || !Objects.equals(verifiedIdentity.uid(), session.boundFirebaseUid())
+                || !Objects.equals(account.getFirebaseUid(), session.boundFirebaseUid())
+                || verifiedIdentity.email() == null
+                || !verifiedIdentity.email().equalsIgnoreCase(session.intendedEmail())) {
+            throw new RoleAssignmentForbiddenException("Authenticated identity does not match the invitation");
+        }
+
+        String method = request.getMethod();
+        if (!"PASSWORD".equals(method) && !"GOOGLE".equals(method)) {
+            throw new IllegalArgumentException("Unsupported setup method");
+        }
+        if ("PASSWORD".equals(method) && !"password".equals(verifiedIdentity.signInProvider())) {
+            throw new RoleAssignmentForbiddenException("Password credential has not been verified");
+        }
+        if ("GOOGLE".equals(method)) {
+            try {
+                UserRecord user = FirebaseAuth.getInstance().getUser(session.boundFirebaseUid());
+                boolean linked = false;
+                for (UserInfo provider : user.getProviderData()) {
+                    if ("google.com".equals(provider.getProviderId())
+                            && provider.getEmail() != null
+                            && provider.getEmail().equalsIgnoreCase(session.intendedEmail())) {
+                        linked = true;
+                        break;
+                    }
+                }
+                if (!linked) {
+                    throw new RoleAssignmentForbiddenException("Intended Google identity has not been linked");
+                }
+            } catch (RoleAssignmentForbiddenException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("Unable to verify linked Google provider for account {}", account.getId(), e);
+                throw new SetupProviderUnavailableException(e);
             }
         }
 
@@ -178,7 +211,7 @@ public class InvitationExchangeService {
                 Map.of("role", account.getRole().name(), "method", request.getMethod() != null ? request.getMethod() : "UNKNOWN")
         );
 
-        String homeRoute = account.getRole() == AccountRole.STAFF ? "/staff" : "/manager";
+        String homeRoute = account.getRole() == AccountRole.STAFF ? "/staff/home" : "/manager/dashboard";
         return InvitationCompletionResponse.builder()
                 .accountId(account.getId())
                 .role(account.getRole().name())

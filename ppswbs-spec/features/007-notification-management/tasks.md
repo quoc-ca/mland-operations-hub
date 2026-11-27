@@ -1,9 +1,9 @@
 # Tasks: FE-007 Notification Management
 
-> **R-INV invitation extension approved for implementation (2026-11-25):** T038–T043 and T045 remain open; T044 is documentation-only completion. Historical completion markers do not establish implementation of this extension. See [approval](approval.md), [R-INV](../001-account-management/design/revision-2026-11-24.md) and [facade §6](contracts/notification-facade.md).
+> **R-INV invitation extension approved for implementation (2026-11-25):** T038–T043 now have implementation markers; T045 configured delivery evidence remains open. T044 is documentation-only completion. Historical completion markers do not establish end-to-end delivery of this extension. See [approval](approval.md), [R-INV](../001-account-management/design/revision-2026-11-24.md) and [facade §6](contracts/notification-facade.md).
 
 **Date created**: 2026-11-06
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-27
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
@@ -127,7 +127,7 @@
 
 ## Phase 8: R-INV internal-account invitation delivery (2026-11-24)
 
-**Status:** R-INV invitation design approved 2026-11-25 for T038–T043 and T045. Those tasks remain unimplemented/unexecuted; T044 is documentation-only completion. FE-001 T110 provides the invitation event and materialization/status facade before FE-007 worker integration. Generic notification resend/redeliver/cancel does not handle this template.
+**Status:** R-INV invitation design approved 2026-11-25 for T038–T043 and T045. T038–T043 have implementation markers; integrated T045 remains unexecuted. T044 is documentation-only completion. FE-001 T110 provides the invitation event and materialization/status facade for FE-007 worker integration. Generic notification resend/redeliver/cancel does not handle this template.
 
 - [x] T038 Register `INTERNAL_ACCOUNT_INVITATION` and a pinned active template version with static subject/body and a setup-URL sentinel in an append-only FE-007 migration. Template allowlist contains only safe recipient and exact expiry copy fields; general preview never materializes a live URL. (FE-007 FR-030)
 - [x] T039 Consume the FE-001 `InternalAccountInvitationRequested` outbox event idempotently in `notificationmanagement`, creating one original request per invitation ID/version and approved recipient. Persist only invitation reference/version, safe recipient snapshot and static rendition; record validation failure as `OperationalFailure` without rolling back the Account. (FR-030–031; FE-001 T110)
@@ -136,7 +136,7 @@
 - [x] T042 Exclude `INTERNAL_ACCOUNT_INVITATION` from generic FE-007 manual resend/redeliver/cancel; FE-001 ADMIN resend alone rotates a link. Implement the ADMIN-only `GET /api/v1/admin/notification-requests/{requestId}/manual-invitation` against `contracts/r-inv.openapi.yaml`: FE-007 checks two definite failures/terminal `FAILED` from its own durable attempts, passes ADMIN actor and `MANUAL_CONTENT` to FE-001 for independent actor/current-version validation, composes pinned subject/HTML/plain text with the current link only in a `no-store` response and audits access without content. Keep general diagnostics masked; retrieval does not mark `SENT`. (FR-033–034)
 - [x] T043 Add focused FE-007 service/integration tests for outbox replay/deduplication, immutable recipient/template version, creation-based expiry, two-attempt retry, transient link on retry, stale-version cancellation, status callback recovery, manual-content ADMIN/FAILED/expiry guard, UNKNOWN_OUTCOME and secret-free persistence/log/general preview. Verify Spring Modulith one-way boundary. (FR-030–034)
 - [x] T044 Reconcile FE-007 operational quickstart and verification matrix for creation-based 48-hour expiry, two attempts, ADMIN manual content after terminal `FAILED`, no false `SENT`, UNKNOWN_OUTCOME and secret-free persistence. Historical test results remain historical; no runtime check is marked passed. (FR-032–034; documentation only; scoped approval recorded 2026-11-25)
-- [ ] T045 Run the integrated FE-001/FE-007 delivery journey only after approval, implementation and configured Firebase/mail test adapters; record actual result in both feature verification artifacts, including manual content retrieval and outside-delivery status. FE-001 T116 owns full Account-ID continuity and setup-method evidence. (FR-030–034)
+- [ ] T045 Run the integrated FE-001/FE-007 delivery journey with configured Firebase/mail test adapters; record actual result in both feature verification artifacts, including the canonical frontend `/invitations/setup` link, manual content retrieval and outside-delivery status. FE-001 T116/T124 own full Account-ID continuity and setup-method evidence. The 2026-11-27 route fixture correction is not delivery acceptance evidence. (FR-030–034)
 
 **Order:** FE-001 T105 and FE-007 T044 document reconciliation → explicit Tech Lead approval → FE-001 T109/T110 event/facade → T038–T039 → T040–T042 → T043/T045. FE-007 delivery and failure states are required for the FE-001 ADMIN flow.
 

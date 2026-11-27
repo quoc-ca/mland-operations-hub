@@ -31,6 +31,9 @@ export default function RingConfigurationPage() {
   const api = useWorkshopRingDesignApi();
   const [loadedDesign, setLoadedDesign] = useState(null);
   const [initialLoading, setInitialLoading] = useState(Boolean(targetDesignId));
+  const [showSizeGuideModal, setShowSizeGuideModal] = useState(false);
+  const [sampleMeasurementImg, setSampleMeasurementImg] = useState(null);
+  const [imageNotice, setImageNotice] = useState('');
 
   const { options, loading: optionsLoading, error: optionsError } = useWorkshopDesignOptions(packageReference);
   const {
@@ -259,7 +262,32 @@ export default function RingConfigurationPage() {
             </DesignControlField>
 
             <DesignControlField
-              label={t.ringSizeLabel}
+              label={
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', width: '100%' }}>
+                  <span>{t.ringSizeLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSizeGuideModal(true)}
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '0.25rem 0.65rem',
+                      color: '#0284c7',
+                      border: '1px solid #bae6fd',
+                      background: '#f0f9ff',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      fontWeight: 500,
+                    }}
+                    data-testid="open-size-guide-modal-btn"
+                    title="Bấm để xem ảnh bảng quy đổi và hướng dẫn đo size nhẫn"
+                  >
+                    📏 {lang === 'en' ? 'Ring Size Guide & Chart' : 'Bảng quy đổi kích cỡ nhẫn'}
+                  </button>
+                </div>
+              }
               helperText={`${t.ringSizeHelper} ${lang === 'en' ? 'Selected' : 'Đã chọn'}: Size ${draft.ringSize} — ${lang === 'en' ? 'Circumference' : 'Chu vi'}: ${getRingCircumferenceMm(draft.ringSize)} mm (${lang === 'en' ? 'Inner diameter' : 'Đường kính trong'}: ~${getRingDiameterMm(draft.ringSize)} mm)`}
               required
               errorText={clientValidation.errors.ringSize}
@@ -885,6 +913,285 @@ export default function RingConfigurationPage() {
           )}
         </div>
       </div>
+
+      {/* Ring Size Guide & Interactive Selection Modal */}
+      {showSizeGuideModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="size-guide-modal-title"
+          data-testid="size-guide-modal"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowSizeGuideModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              maxWidth: '820px',
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.5rem',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#f8fafc',
+              }}
+            >
+              <h2 id="size-guide-modal-title" style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📏 {lang === 'en' ? 'Ring Size Guide & Conversion Chart' : 'Bảng Quy Đổi Kích Cỡ Nhẫn & Hướng Dẫn Đo'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowSizeGuideModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  lineHeight: 1,
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  padding: '0.25rem 0.5rem',
+                }}
+                data-testid="close-size-guide-modal-btn"
+                aria-label="Đóng bảng quy đổi"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                Đo đường kính lòng nhẫn hoặc chu vi ngón tay, rồi đối chiếu với bảng dưới đây để chọn size (ni) phù hợp nhất cho chiếc nhẫn của bạn.
+              </p>
+
+              {/* Chart Image */}
+              <div style={{ textAlign: 'center', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <img
+                  src="/size-guide/bang-size.jpg"
+                  alt="Bảng quy đổi kích cỡ size nhẫn chuẩn Mland"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '320px',
+                    objectFit: 'contain',
+                    borderRadius: '6px',
+                    display: 'inline-block',
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+
+              {/* Measurement Methods */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#166534', fontSize: '0.95rem' }}>
+                    Cách 1: Đo theo đường kính (dùng nhẫn có sẵn)
+                  </h4>
+                  <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#334155', lineHeight: 1.5 }}>
+                    <li>Chọn chiếc nhẫn bạn đeo vừa ngón muốn đeo nhẫn mới.</li>
+                    <li>Đặt nhẫn lên thước kẻ, đo khoảng cách mép trong lòng nhẫn đi qua tâm.</li>
+                    <li>Lấy số đo mm đối chiếu cột Đường kính trong bảng phía dưới để bấm chọn size.</li>
+                  </ol>
+                </div>
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#0369a1', fontSize: '0.95rem' }}>
+                    Cách 2: Đo theo chu vi ngón tay (dùng giấy & thước)
+                  </h4>
+                  <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.85rem', color: '#334155', lineHeight: 1.5 }}>
+                    <li>Cắt mảnh giấy dài ~10 cm, rộng ~1 cm quấn sát quanh ngón tay.</li>
+                    <li>Đánh dấu điểm giáp mí hai đầu giấy rồi trải ra đo chiều dài bằng thước kẻ.</li>
+                    <li>Lấy số đo chu vi mm đối chiếu cột Chu vi trong bảng dưới đây để bấm chọn size.</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Interactive Clickable Size Selection Table */}
+              <div>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', color: '#0f172a' }}>
+                  Bảng chọn nhanh kích cỡ (Bấm để áp dụng ngay vào thiết kế):
+                </h3>
+                <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', textAlign: 'left' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#f1f5f9', zIndex: 1 }}>
+                      <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                        <th style={{ padding: '0.5rem 0.75rem' }}>Size nhẫn (Ni)</th>
+                        <th style={{ padding: '0.5rem 0.75rem' }}>Đường kính trong</th>
+                        <th style={{ padding: '0.5rem 0.75rem' }}>Chu vi ngón tay</th>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(options?.sizes || Array.from({ length: 24 }, (_, i) => String(i + 6))).map((size) => {
+                        const isCurrent = draft.ringSize === String(size);
+                        const circ = getRingCircumferenceMm(size);
+                        const diam = getRingDiameterMm(size);
+                        return (
+                          <tr
+                            key={size}
+                            style={{
+                              borderBottom: '1px solid #e2e8f0',
+                              backgroundColor: isCurrent ? '#f0fdf4' : 'transparent',
+                            }}
+                          >
+                            <td style={{ padding: '0.45rem 0.75rem', fontWeight: isCurrent ? 700 : 500 }}>
+                              Size {size}
+                            </td>
+                            <td style={{ padding: '0.45rem 0.75rem' }}>~{diam} mm</td>
+                            <td style={{ padding: '0.45rem 0.75rem' }}>{circ} mm</td>
+                            <td style={{ padding: '0.45rem 0.75rem', textAlign: 'center' }}>
+                              {isCurrent ? (
+                                <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.85rem' }}>
+                                  ✓ Đang chọn
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateRingSize(size);
+                                    setImageNotice(`Đã cập nhật sang Size ${size} (${circ} mm) thành công.`);
+                                  }}
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    padding: '0.2rem 0.6rem',
+                                    background: '#0284c7',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                  }}
+                                  data-testid={`select-size-modal-${size}`}
+                                >
+                                  Chọn size {size}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Hand/Ruler Reference Image Upload Box */}
+              <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem', color: '#334155' }}>
+                      📷 Tải ảnh chụp đo ngón tay để đối chiếu (Tùy chọn)
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+                      Tải ảnh ngón tay đặt cạnh thước kẻ. Bạn có thể quan sát trực quan để bấm chọn size tương ứng ở bảng trên.
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: 'inline-block',
+                        padding: '0.35rem 0.75rem',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        color: '#1e293b',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Chọn tệp ảnh
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const url = URL.createObjectURL(file);
+                          setSampleMeasurementImg(url);
+                          setImageNotice('Ảnh đo ngón tay đã được tải lên thành công. Bạn có thể đối chiếu số đo trên ảnh với bảng kích cỡ phía trên để chọn size chính xác.');
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {sampleMeasurementImg && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <img
+                      src={sampleMeasurementImg}
+                      alt="Ảnh đo ngón tay tham chiếu"
+                      style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    />
+                    <div style={{ fontSize: '0.85rem', color: '#0369a1' }}>
+                      {imageNotice}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.75rem 1.5rem',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc',
+              }}
+            >
+              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 600 }}>
+                Size hiện tại: Size {draft.ringSize} ({getRingCircumferenceMm(draft.ringSize)} mm)
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSizeGuideModal(false)}
+                className="button button-primary"
+                style={{
+                  padding: '0.45rem 1.25rem',
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Xong & Quay lại cấu hình
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

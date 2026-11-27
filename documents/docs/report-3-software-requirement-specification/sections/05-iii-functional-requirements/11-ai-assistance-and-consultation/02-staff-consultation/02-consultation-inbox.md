@@ -8,7 +8,7 @@ This screen allows Staff and Managers to:
 - Close an open conversation and reopen a closed one.
 - As a Manager, assign a conversation to a branch.
 
-Staff see only conversations of their current active branch and the screen asks them to claim an unclaimed conversation before replying (the server does not require the claim); Managers see all branches and may reply without claiming. Both Staff and Managers may close or reopen a conversation within their authority. The server enforces role and branch scope. The inbox is paginated, and its loading, empty and loaded states reserve the same width. The inbox and the open conversation refresh every 3 seconds while the page is visible, and again when it regains focus without forcing the viewport or message scroll position to the bottom.
+Staff see only conversations of their current active branch and the screen asks them to claim an unclaimed conversation before replying (the server does not require the claim); Managers see all branches and may reply without claiming. Both Staff and Managers may close or reopen a conversation within their authority. The server enforces role and branch scope. The inbox is paginated, and its loading, empty and loaded states reserve the same width. The inbox and the open conversation refresh every 3 seconds while the page is visible and every 6 seconds while the tab is hidden; returning to the tab or window focus triggers an immediate refresh without forcing the viewport or message scroll position to the bottom. When a newly observed last message is from a Member, the Staff screen shows an in-app toast and attempts a short Web Audio notification chime.
 
 | Field Name | Description |
 | --- | --- |

@@ -90,4 +90,13 @@ public interface AccountFacade {
      * @return de-duplicated and sorted List of active Manager login emails, or empty list
      */
     List<String> listActiveManagerEmails();
+
+    /**
+     * Cross-feature contract for operational notifications.
+     * Returns login emails of every Account with role STAFF and status ACTIVE,
+     * de-duplicated and sorted alphabetically. Empty list when none qualifies.
+     */
+    default List<String> listActiveStaffEmails() {
+        return List.of();
+    }
 }

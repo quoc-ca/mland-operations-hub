@@ -113,6 +113,11 @@ public class AccountExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "INVALID_STATE", ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(SetupProviderUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleSetupProviderUnavailable(SetupProviderUnavailableException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
         String correlationId = resolveCorrelationId(request);

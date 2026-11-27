@@ -1,6 +1,7 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.service;
 
 import java.util.List;
+import edu.fpt.sep490_g22.ppswbs_backend.common.notification.NotificationIntentPort;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.application.DesignReviewException;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.DesignRequest;
 import edu.fpt.sep490_g22.ppswbs_backend.designreview.domain.ReviewStatus;
@@ -76,6 +77,9 @@ class CustomOrderServiceTest {
     @Mock
     private CustomOrderShipmentService customOrderShipmentService;
 
+    @Mock
+    private NotificationIntentPort notificationIntentPort;
+
     private VnpayPaymentGatewayCheckoutAdapter vnpayAdapter;
 
     private CustomOrderService customOrderService;
@@ -107,6 +111,7 @@ class CustomOrderServiceTest {
                 vnpayAdapter,
                 accountFacade,
                 customOrderShipmentService);
+        customOrderService.setNotificationIntentPort(notificationIntentPort);
 
         testOrder = CustomOrder.builder()
                 .id(orderId)
@@ -253,6 +258,41 @@ class CustomOrderServiceTest {
     }
 
     @Test
+    @DisplayName("applyVerifiedFullPayment dispatches notifications to Member, active Staff, and active Managers")
+    void applyVerifiedFullPayment_DispatchesNotificationsToMemberStaffAndManagers() {
+        when(customOrderRepository.findByCustomOrderReference(orderRef)).thenReturn(Optional.of(testOrder));
+        when(quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(orderId))
+                .thenReturn(Optional.of(testQuote));
+
+        var context = paymentContext("quote-uuid-123");
+        when(paymentContextRepository.findByMerchantReference("MERCH-1")).thenReturn(Optional.of(context));
+        when(accountFacade.findAccountEmail(memberAccountId)).thenReturn(Optional.of("member@test.vn"));
+        when(accountFacade.listActiveStaffEmails()).thenReturn(List.of("staff1@mland.vn"));
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of("manager1@mland.vn"));
+
+        customOrderService.applyVerifiedFullPayment(
+                orderRef, "MERCH-1", "TXN-VNPAY-999", 4_500_000L, "VND");
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_PAID_" + orderRef),
+                eq("CUSTOM_ORDER_IN_PRODUCTION"),
+                eq("member@test.vn"),
+                any());
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_PAID_STAFF_" + orderRef + "_staff1@mland.vn"),
+                eq("CUSTOM_ORDER_IN_PRODUCTION_ALERT"),
+                eq("staff1@mland.vn"),
+                any());
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_PAID_MGR_" + orderRef + "_manager1@mland.vn"),
+                eq("CUSTOM_ORDER_IN_PRODUCTION_ALERT"),
+                eq("manager1@mland.vn"),
+                any());
+    }
+
+    @Test
     @DisplayName("applyVerifiedFullPayment keeps late evidence for review and does not pay the order")
     void applyVerifiedFullPayment_ExpiredQuote_RequiresReview() {
         testQuote.setExpiresAt(Instant.now().minus(Duration.ofMinutes(1)));
@@ -294,6 +334,37 @@ class CustomOrderServiceTest {
         assertThat(testOrder.getStatus()).isEqualTo("IN_PRODUCTION");
         assertThat(testOrder.getProductionStatus()).isEqualTo("IN_PRODUCTION");
         verify(customOrderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("updateProductionOrFulfilmentStatus to IN_PRODUCTION dispatches notifications to Member, Staff, and Managers")
+    void updateProductionOrFulfilmentStatus_InProduction_DispatchesNotifications() {
+        paidOrder("PAID");
+        when(accountFacade.findAccountEmail(memberAccountId)).thenReturn(Optional.of("member@test.vn"));
+        when(accountFacade.listActiveStaffEmails()).thenReturn(List.of("staff1@mland.vn"));
+        when(accountFacade.listActiveManagerEmails()).thenReturn(List.of("manager1@mland.vn"));
+
+        customOrderService.updateProductionOrFulfilmentStatus(orderId, null, null, "IN_PRODUCTION");
+
+        assertThat(testOrder.getStatus()).isEqualTo("IN_PRODUCTION");
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_IN_PRODUCTION_" + orderRef),
+                eq("CUSTOM_ORDER_IN_PRODUCTION"),
+                eq("member@test.vn"),
+                any());
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_IN_PROD_STAFF_" + orderRef + "_staff1@mland.vn"),
+                eq("CUSTOM_ORDER_IN_PRODUCTION_ALERT"),
+                eq("staff1@mland.vn"),
+                any());
+
+        verify(notificationIntentPort).submitIntent(
+                eq("ORDER_IN_PROD_MGR_" + orderRef + "_manager1@mland.vn"),
+                eq("CUSTOM_ORDER_IN_PRODUCTION_ALERT"),
+                eq("manager1@mland.vn"),
+                any());
     }
 
     @Test

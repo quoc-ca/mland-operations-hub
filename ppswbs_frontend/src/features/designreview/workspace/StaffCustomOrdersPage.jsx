@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router';
 import { useHttp } from '../../../shared/api/useHttp';
+import { useRole } from '../../../shared/auth/useRole';
 import { designReviewApi } from '../api/designReviewApi';
 import {
   ORDER_STAGES,
@@ -11,6 +12,7 @@ import {
   getFulfilmentStatusLabel,
 } from '../customOrderStatus';
 import DesignImage from '../components/DesignImage';
+import Design3dDetailModal from '../components/Design3dDetailModal';
 import '../designreview.css';
 
 const formatVND = (val) => {
@@ -23,6 +25,7 @@ const formatVND = (val) => {
 };
 
 const TABS = [
+  { id: 'QUOTE_PENDING', vi: 'Chờ Quản lý duyệt', en: 'Awaiting manager approval' },
   { id: 'PAID', vi: 'Chờ chế tác', en: 'Awaiting production' },
   { id: 'IN_PRODUCTION', vi: 'Đang gia công', en: 'In production' },
   { id: 'READY_FOR_FULFILMENT', vi: 'Sẵn sàng giao hàng', en: 'Ready for fulfilment' },
@@ -33,6 +36,8 @@ const TABS = [
 export default function StaffCustomOrdersPage() {
   const http = useHttp();
   const api = useMemo(() => designReviewApi(http), [http]);
+  const role = useRole();
+  const isManager = role === 'MANAGER';
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +48,7 @@ export default function StaffCustomOrdersPage() {
   const [notification, setNotification] = useState(null);
   const [activeLightboxImg, setActiveLightboxImg] = useState(null);
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [selected3dOrder, setSelected3dOrder] = useState(null);
 
   // Confirmation modal state for radio button stage transition
   const [pendingTransition, setPendingTransition] = useState(null);
@@ -64,9 +70,30 @@ export default function StaffCustomOrdersPage() {
     loadOrders();
   }, [loadOrders]);
 
+  // Quick Manager approve quote handler
+  const handleManagerApproveQuote = async (orderRef) => {
+    setActionBusyId(orderRef);
+    setNotification(null);
+    try {
+      await api.approveCustomOrderQuote(orderRef, { managerReason: 'Quản lý phê duyệt báo giá từ danh sách đơn hàng' });
+      setNotification({
+        type: 'success',
+        message: `Đã phê duyệt báo giá cho đơn hàng ${orderRef} thành công! Đơn hàng đã chuyển sang chờ khách hàng thanh toán 100%.`,
+      });
+      await loadOrders();
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: err.message || `Phê duyệt báo giá cho đơn hàng ${orderRef} thất bại.`,
+      });
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
   // Accurate stage counts based on normalized order stage
   const counts = useMemo(() => {
-    const map = { PAID: 0, IN_PRODUCTION: 0, READY_FOR_FULFILMENT: 0, CLOSED: 0, ALL: orders.length };
+    const map = { QUOTE_PENDING: 0, PAID: 0, IN_PRODUCTION: 0, READY_FOR_FULFILMENT: 0, CLOSED: 0, ALL: orders.length };
     orders.forEach((o) => {
       const stage = getOrderStage(o);
       if (map[stage] !== undefined) {
@@ -214,11 +241,15 @@ export default function StaffCustomOrdersPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: '1rem',
           marginBottom: '1.5rem',
         }}
       >
+        <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '1rem' }}>
+          <span style={{ fontSize: '0.85rem', color: '#c2410c', display: 'block' }}>Chờ Quản lý duyệt</span>
+          <strong style={{ fontSize: '1.5rem', color: '#ea580c' }}>{counts.QUOTE_PENDING || 0}</strong>
+        </div>
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' }}>
           <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'block' }}>Chờ chuẩn bị chế tác</span>
           <strong style={{ fontSize: '1.5rem', color: '#0284c7' }}>{counts.PAID || 0}</strong>
@@ -503,8 +534,78 @@ export default function StaffCustomOrdersPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Button to view 3D Ring Model & Tech Specs */}
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelected3dOrder(order)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.4rem 0.85rem',
+                            borderRadius: 6,
+                            border: '1px solid #0284c7',
+                            background: '#f0f9ff',
+                            color: '#0284c7',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🔍 Xem chi tiết thiết kế & Thông số
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Manager Quote Approval banner */}
+                  {currentStageKey === 'QUOTE_PENDING' && (
+                    <div
+                      style={{
+                        marginTop: '1.25rem',
+                        padding: '1rem',
+                        background: '#fff7ed',
+                        borderRadius: 8,
+                        border: '1px solid #fed7aa',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '0.75rem',
+                      }}
+                    >
+                      <div>
+                        <strong style={{ color: '#c2410c', fontSize: '0.95rem', display: 'block' }}>
+                          ⏳ Đơn hàng đang chờ Quản lý (Manager) phê duyệt báo giá
+                        </strong>
+                        <span style={{ fontSize: '0.85rem', color: '#9a3412' }}>
+                          Báo giá: <strong>{formatVND(order.quote?.totalAmount)}</strong> | Mã: {order.quote?.quoteReference || 'Chưa cấp'}
+                        </span>
+                      </div>
+                      {isManager && (
+                        <button
+                          type="button"
+                          onClick={() => handleManagerApproveQuote(order.customOrderReference)}
+                          disabled={isBusy}
+                          style={{
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: 6,
+                            border: 'none',
+                            background: '#16a34a',
+                            color: '#ffffff',
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            cursor: isBusy ? 'not-allowed' : 'pointer',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          }}
+                        >
+                          {isBusy ? 'Đang duyệt...' : '✓ Phê duyệt Báo giá'}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Interactive Radio Button Stage Switcher */}
                   <div
@@ -905,6 +1006,14 @@ export default function StaffCustomOrdersPage() {
           </div>
         </div>
       )}
+
+      {/* 3D Interactive Ring Model Modal */}
+      <Design3dDetailModal
+        isOpen={Boolean(selected3dOrder)}
+        onClose={() => setSelected3dOrder(null)}
+        designSnapshot={selected3dOrder?.designSnapshot}
+        designReference={selected3dOrder?.customOrderReference || selected3dOrder?.designRequestReference}
+      />
     </div>
   );
 }

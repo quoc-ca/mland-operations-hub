@@ -14,14 +14,14 @@
 
 | Field Name | Description |
 | --- | --- |
-| Advisory banner | Notes that displayed price and difficulty are advisory and do not alter package prices. |
-| 1. Chất liệu nhẫn | Selects material (Sterling Silver 925, Copper, or Stainless Steel 316L) with unit price. |
-| 2. Dáng đai & Kích thước | Selects band shape, ring size (6–29), thickness (1.0–3.0 mm), and width (1.5–6.0 mm). |
-| 3. Đá quý đính kèm | Adds up to 10 gemstones and positions them on the top view. |
-| 4. Họa tiết trang trí | Selects optional decorative attachments and finishes. |
-| 5. Khắc chữ & Hình ảnh cá nhân hóa | Configures text/symbol engraving (up to 2 placements) and up to 2 laser images. |
-| Preview and summary | Shows live top/side ring views, estimated weight, and advisory cost breakdown. |
-| **Lưu & Thẩm định** | Saves the design and opens Design Evaluation. |
-| **Lưu & Xem danh sách đã lưu** | Saves the design and opens My Ring Designs. |
+| Advisory banner | States that the price and difficulty are for reference only and do not change any workshop package price or payment amount. |
+| 1. Chất liệu nhẫn | Material cards (Bạc Ý 925, đồng, thép không gỉ 316L) with unit price; exactly one is selected. |
+| 2. Dáng đai & Kích thước | Required band shape, ring size from 6 (46 mm) to 29 (69 mm) with circumference and inner diameter, thickness 1.0–3.0 mm and band width 1.5–6.0 mm in 0.1 mm steps. Includes ring-size guide reference and interactive size table. |
+| 3. Đá quý đính kèm | Gemstone cards with per-stone price and quantity controls; at most 10 stones in total, positioned by dragging on the top view. |
+| 4. Họa tiết trang trí | Optional attachment cards such as milgrain edges or brushed finishing, each with its added price. |
+| 5. Khắc chữ & Hình ảnh cá nhân hóa | Text and symbol engraving for a one-time fee of 80,000 VND (at most 2 placements, 50 characters each, inner or outer band) and up to 2 laser images at 100,000 VND each, cropped to a 160 × 160 px black-and-white frame. The image picker also offers six built-in quick presets (clover, heart, sun, moon, star and infinity), which are converted to image data and count toward the same two-image limit. A warning recommends inner-band engraving on textured bands. |
+| Preview and summary | Ring preview, "Bản nháp" status, "Giá tham khảo" badge, an unsaved-changes notice and a summary of material (Bạc: 900.000 đ, Đồng/Thép: 750.000 đ), shape, size, dimensions, estimated weight (standard ≤ 3.0 g; excess mass > 3.0 g adds 120.000 đ/g), stones and engraving. |
+| **Lưu & Thẩm định** | Saves and evaluates the design, then opens Design Evaluation; shows "Đang lưu & thẩm định..." while saving and the server error message if saving fails. |
+| **Lưu & Xem danh sách đã lưu** | Saves the design in the same way, then opens My Ring Designs. |
 
 :::
