@@ -40,7 +40,7 @@ Without consent, the image cannot be stored or submitted.
 | View own request/status/feedback | Deny | Own requests only | Review scope | Review scope | Full view (Admin oversight) | Deny |
 | Submit revision after clarification | Deny | Own request only | Deny | Deny | Deny | Deny |
 | Review request | Deny | Deny | Allow | Allow | Deny | Deny |
-| Write decision explanation | Deny | Deny | Mandatory explanation | Mandatory explanation | Deny | Deny |
+| Write decision explanation | Deny | Deny | Mandatory for REJECTED; optional for ACCEPTED | Mandatory for REJECTED; optional for ACCEPTED | Deny | Deny |
 | Prepare/approve quote | Deny | View own quote/payment state | Prepare quote (all Staff in V1) | Approve business quote | Deny | Deny |
 | Pay custom order | Deny | Own order, full payment (10-min VNPay window) | Deny | Deny | Deny | Deny |
 | Pack & advance custom shipment | Deny | Deny | Advance to `READY_FOR_CARRIER` | Advance to `READY_FOR_CARRIER` | Deny | Deny |
@@ -69,6 +69,12 @@ Approved in session by Hồ Hoàng Quốc and Feature owner Ngô Tiến Đạt o
   - Upon reaching `READY_FOR_FULFILMENT`, a mock GHTK tracking code `S...` is generated in `PREPARING` status.
   - Workshop Staff packs the parcel and advances shipment to `READY_FOR_CARRIER` ("Chờ bưu tá lấy"). Staff cannot advance beyond this step.
   - Couriers with role `CARRIER` access `/api/v1/carrier/shipments` to execute `PICKED_UP` ($\rightarrow$ `HANDED_TO_CARRIER`) and `DELIVERED` ($\rightarrow$ `DELIVERED`). Marking `DELIVERED` automatically synchronizes `CustomOrder.status` to `CLOSED` and `fulfilment_status = 'DELIVERED'`.
+- **Design Detail Inspection for Staff and Manager:**
+  - Staff and Manager access design details via modal triggers on `/design-review-requests/:id` and `/staff/custom-orders`.
+  - The modal presents the 2D visual SVG preview and full technical specifications (material, band shape, dimensions, size, gemstones, laser engraving text and images, and cost estimate) identical to the Member's saved design detail page (`DesignEvaluationPage`), without requiring 3D WebGL (out of scope).
+- **Notification alerts for Member, Staff, and Manager:**
+  - Quote Approved: Member is notified via `CUSTOM_ORDER_QUOTE_APPROVED`.
+  - Order Paid and In-Production: Member is notified via `CUSTOM_ORDER_IN_PRODUCTION`. All active Staff and active Managers are notified via `CUSTOM_ORDER_IN_PRODUCTION_ALERT` upon order full payment and upon status advancement to `IN_PRODUCTION`.
 - **Legacy Basic AI Support:** while the legacy route remains, all Guest prompts together are capped per day (default 100, configurable) in addition to the per-session limit; exceeding it returns the existing `429` quota answer. Member limits are unchanged.
 
 > [!NOTE]
@@ -90,7 +96,7 @@ Guest sees feature entry
   → Member views status and staff/manager explanation
 ```
 
-At least one description or image is required. Each image is validated in the
+Submission requires at least one of: text description, attached 3D ring design from Feature-012, or reference images (1 to 5). If any of these three is provided, submission is valid. Each image is validated in the
 browser for type, size and readable quality, then revalidated by the backend.
 `TOO_BLURRY` blocks submission. The backend owns all quality thresholds.
 
@@ -103,11 +109,16 @@ alter the request. An archived design cannot be attached.
 
 ```text
 NEED_REVIEW → CLARIFICATION_REQUIRED → NEED_REVIEW
-NEED_REVIEW → ACCEPTED
-NEED_REVIEW → REJECTED
+NEED_REVIEW → QUOTE_PENDING (Staff "Duyệt gửi báo giá")
+QUOTE_PENDING → FULL_PAYMENT_PENDING (Manager approves quote)
+NEED_REVIEW / QUOTE_PENDING → REJECTED
 ```
 
-Staff and Manager must provide a non-empty explanation for every decision.
+Staff review and quoting are unified in a single action "Duyệt gửi báo giá".
+Submitting the quote moves the order to `QUOTE_PENDING`. Manager reviews and approves
+the quote, advancing the order to `FULL_PAYMENT_PENDING` (`QUOTE_READY`) for member payment.
+Staff and Manager must provide a non-empty explanation for rejection (`REJECTED` or `CLARIFICATION_REQUIRED`).
+For approval and quoting (`ACCEPTED`), explanation is optional.
 Every decision records actor, role, request version, timestamp and audit data.
 Admin has technical/audit access only and cannot make a business decision.
 

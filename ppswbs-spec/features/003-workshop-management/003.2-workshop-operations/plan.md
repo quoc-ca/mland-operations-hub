@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -682,6 +682,14 @@ no skipped row), for the 7-day default window and for 403 on Staff/Admin with a
 `DENIED` row written for the Operations route; contract test that no
 non-whitelisted metadata key and no e-mail-like value is returned; Modulith
 verify; FE component and page tests, then a real-backend run against the dev DB.
+
+## Camera scan and roster check-in (plan 2026-11-27, FR-057, FR-058)
+
+Frontend only; the check-in, reversal and correction routes are unchanged.
+`@zxing/browser` 0.2.1 with `@zxing/library` 0.23.0 decodes QR codes from the
+webcam (`workshop-operations/components/QrCheckInScanner.jsx`); the roster row
+opens `RosterTicketDialog.jsx`. The session page keeps its content while it
+reloads. A camera needs `localhost` or HTTPS.
 
 ## Validation Strategy
 

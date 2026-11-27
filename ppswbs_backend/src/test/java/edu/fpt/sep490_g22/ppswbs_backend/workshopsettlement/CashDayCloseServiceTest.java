@@ -53,6 +53,24 @@ class CashDayCloseServiceTest {
     }
 
     @Test
+    void theCashEntriesAreTheConfirmedCollectionsAndReversalsOldestFirst() {
+        var early = java.time.Instant.parse("2026-11-27T01:00:00Z");
+        var later = early.plusSeconds(60);
+        when(collections.findConfirmedCash(BRANCH, DAY)).thenReturn(java.util.List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementFolioCollection.builder()
+                        .bookingReference("T-LATE").amountVnd(200_000).confirmedAt(later).build()));
+        when(reversals.findByBranchIdAndCashBusinessDay(BRANCH, DAY)).thenReturn(java.util.List.of(
+                edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.entity.SettlementCashReversal.builder()
+                        .ticketCode("T-EARLY").amountVnd(-50_000).recordedAt(early).build()));
+
+        var entries = service.cashEntries(BRANCH, null);
+
+        assertThat(entries).extracting("type", "ticketCode", "amountVnd", "recordedAt").containsExactly(
+                org.assertj.core.groups.Tuple.tuple("REVERSAL", "T-EARLY", -50_000L, early),
+                org.assertj.core.groups.Tuple.tuple("COLLECTION", "T-LATE", 200_000L, later));
+    }
+
+    @Test
     void aDayThatBalancesIsClosedStraightAway() {
         when(collections.sumConfirmedCash(BRANCH, DAY)).thenReturn(1_000_000L);
 

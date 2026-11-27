@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -629,3 +629,89 @@ Excluded by `approval.md` (PARTIALLY APPROVED 2026-11-17). Each needs its own de
 | B4 | 003.4: "push the matrix change to the OTA listing" step | 003.4 owner | Out of scope by owner decision (FR-039); the matrix never updates a listing | Only if the 003.4 owner chooses to build it |
 | B5 | ~~003.3: Settlement audit route, service and repository query (T171)~~ | 003.3 owner (Hồ Hoàng Quốc owns 003.3, agreement needed in that feature's tasks) | Route and query live inside 003.3, avoiding a module cycle (finding F1) | Before T171 | **Agreed 2026-11-17** (owner of 003.3, see `approval.md` "Design approval — audit workshop") |
 | B6 | ~~Audit review page UI and wording (T173–T174)~~ **Unblocked 2026-11-17**: mockup `design/audit-review-mockup.html` approved by Hồ Hoàng Quốc (`approval.md` "UI approval — trang audit workshop") | — | — | — |
+
+## Session board tabs, order and colours (spec FR-056, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T179 **Done 2026-11-27** [FE] State tabs with counts, order and default date window (`workshop-operations/sessionBoard.js`, `OperationsDashboardPage.jsx`), one badge colour per state on the board, the administration list and the session page. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.
+- [ ] T180 [Test] Browser check of the tabs, order and colours against a live stack as Staff and Manager.
+
+Mapping: FR-056 → T179, T180.
+
+## Camera scan and roster check-in (spec FR-057, FR-058, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T181 **Done 2026-11-27** [FE] Camera scan panel on the session page (`@zxing/browser`, `runCheckIn({ qrToken })`): large result, sound, repeat-scan guard, camera off on close and unmount, message when the camera is unavailable. Traces to FR-057. Check: Vitest. `QrCheckInScanner.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T182 **Done 2026-11-27** [FE] Keep the session page (and the camera) while it reloads; remove the typed QR code input and its messages. Traces to FR-057. Check: Vitest. `OperationsSessionPage.jsx` keeps its content on reload; typed QR input removed. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T183 **Done 2026-11-27** [FE] Roster row opens the ticket: confirm check-in by ticket code, refusal reason outside check-in, check-in time, Manager-only reversal/correction with reason. Traces to FR-058. Check: Vitest. `RosterTicketDialog.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [ ] T184 [Test] Browser check of camera scan and roster actions against a live stack as Staff and Manager (default browser: the in-app pane blocks the camera).
+
+Mapping: FR-057 → T181, T182, T184. FR-058 → T183, T184.
+
+## Automatic finalization and attendance undo by assigned Staff (spec FR-002b, FR-008, FR-059, FR-060, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T185 **Done 2026-11-27** [BE] Assigned Staff may reverse a check-in (only while IN_PROGRESS) and correct finalized attendance within the 24-hour window; Manager unchanged; authority before state; reversal locks the session. Traces to FR-002b, FR-008. Check: JUnit/MockMvc. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T186 **Done 2026-11-27** [BE] Automatic finalization: V207 (nullable `attendance_actions.actor_id`), scheduler with one transaction per session, switch default off, delay PT2H, audit `SESSION_AUTO_FINALIZED`. Traces to FR-059. Check: JUnit, MySQL IT. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T187 **Done 2026-11-27** [BE] `correctionClosesAt` on the attendance roster. Traces to FR-060. Check: JUnit. Evidence (2026-11-27): narrow backend run 10 classes, 74 tests passed (`WorkshopClosureIT`, `DeniedAttemptAuditIT`, `AttendanceRosterTest`, `WorkshopSessionAutoFinalizeSchedulerTest` and related); V207 applied on the MySQL test schema; full backend suite not run (owner: not needed now).
+- [x] T188 **Done 2026-11-27** [FE] Roster dialog actions for Manager and assigned Staff, window closed message; Manager-only buttons of the exceptions panel no longer shown to Staff. Traces to FR-058, FR-060. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+- [ ] T189 [Test] Browser check as Staff and Manager against a live stack; list of sessions left running reviewed by the owner before the switch is turned on.
+
+Mapping: FR-002b, FR-008 → T185, T188, T189. FR-059 → T186, T189. FR-060 → T187, T188.
+
+- [x] T190 **Done 2026-11-27** [FE] Date range fix (FR-056, amended 2026-11-27): every tab lists and counts only the From-To range it shows, with no exception for running sessions. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+
+Mapping: FR-056 → T190.
+
+- [x] T191 **Done 2026-11-27** [FE] Remove check-in override from the session page; undo/correction reasons `RECORDING_ERROR` and `OTHER_REQUIRES_NOTE` with a required note, no evidence field; resend refusal suggests check-in by ticket code. Check: Vitest. Evidence (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1419 tests passed; `npm run build` passed.
+
+Mapping: FR-061 → T191.
+
+- [x] T192 **Done 2026-11-27** [BE+FE] Refuse check-in reversal and the correction to `NO_SHOW` while the ticket folio is finalized (`TicketFolioStateQuery` implemented by Settlement); the session page offers no such change and says why. Check: JUnit/MockMvc, Modulith, Vitest. Evidence (2026-11-27): backend narrow run 10 classes, 79 tests passed including `ModulithArchitectureTests`; Vitest 171 files, 1420 tests passed; `npm run build` passed.
+
+Mapping: FR-062 → T192.
+
+- [x] T193 **Done 2026-11-27** [FE] Remove the separate check-in correction form; shorter reason labels in the roster dialog. Check: Vitest. Evidence (2026-11-27): full Vitest 171 files, 1421 tests passed; `npm run build` passed.
+
+Mapping: FR-058, FR-061 → T193.
+
+## Session page defects (spec FR-063–FR-068, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T194 **Done 2026-11-27** [FE] Session page content: real attendance state in booking lookup, location name without the session identifier, no internal references in the vi/en texts, booking link result as a sentence. Traces to FR-063. Check: Vitest (`checkInBookingLookup.test.jsx`, `bookingLinkIncident.test.jsx`).
+- [x] T195 **Done 2026-11-27** [FE] Verb labels on the state buttons; Staff see only "start session". Traces to FR-064. Check: Vitest (`sessionStateButtons.test.jsx`).
+- [x] T196 **Done 2026-11-27** [FE] Hide check-in, Staff assignment form and cancellation block by session state. Traces to FR-065. Check: Vitest (`checkInBookingLookup.test.jsx`, `assignedStaff.test.jsx`).
+- [x] T197 **Done 2026-11-27** [FE] Staff panel: no stand-in account, assigned Staff left out of the picker, load error with retry, one remove button per Staff. Traces to FR-066. Check: Vitest (`assignedStaff.test.jsx`). Not done: filtering the picker by location (the account list returns none).
+- [x] T198 **Done 2026-11-27** [FE] "Bill closed" badge for a `CLOSED` folio. Traces to FR-067. Check: Vitest (`rosterCodes.test.js`).
+- [x] T199 **Done 2026-11-27** [FE] Confirm before revoke/rotate; sticky result and error notices. Traces to FR-068. Check: Vitest (`bookingLinkIncident.test.jsx`); sticky position not checked by an automated test.
+- [ ] T200 [Test] Browser check of the session page as Staff and Manager against a live stack, including the sticky notices and a session in each state.
+
+Evidence for T194–T199 (2026-11-27): full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1432 tests passed; `npm run build` passed. Not checked in a browser.
+
+Mapping: FR-063 → T194, T200. FR-064 → T195, T200. FR-065 → T196, T200. FR-066 → T197, T200. FR-067 → T198, T200. FR-068 → T199, T200.
+
+- [x] T201 **Done 2026-11-27** [FE] Remove internal requirement numbers and command codes from the late-payment queue page texts (`messages.audit.js`, vi/en). Extends FR-063's wording rule to `/operations/late-payments`. Evidence (2026-11-27): full Vitest 172 files, 1432 tests passed; `npm run build` passed.
+
+## Assignable Staff by session location (spec FR-069, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T202 **Done 2026-11-27** [BE+FE] `GET /workshop-sessions/{sessionId}/assignable-staff` (Manager only) over the existing `AccountFacade.findEligibleRoster` and `findAccountFullName` (no change in feature 001); the session page picker uses it. Supersedes the "not done" note of T197. Check: JUnit, Modulith, Vitest. Evidence (2026-11-27): backend narrow run `WorkshopResponsibilityServiceTest`, `StaffAutoAssignmentServiceTest`, `StaffAuthorityIT`, `StaffSessionAssignmentRuleIT`, `ModulithArchitectureTests` passed (service test rerun after the final change: 30 tests); full Vitest 172 files, 1439 tests passed; `npm run build` passed. The HTTP route has no MockMvc test of its own; not checked in a browser.
+
+Mapping: FR-069 → T202, T200.
+
+## Session page scope (spec FR-070–FR-072, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T203 **Done 2026-11-27** [FE] Remove the late-payment block from the session page with its state and unused texts; show the decision error on `LatePaymentReviewsPage`. Traces to FR-070. Check: Vitest (`latePaymentReviewsPage.test.jsx`, `managerOnlyPanels.test.jsx`).
+- [x] T204 **Done 2026-11-27** [FE] Remove the bill correction panel from the session page (moved by 003.3 T215). Traces to FR-071. Check: Vitest (`managerOnlyPanels.test.jsx`).
+- [x] T205 **Done 2026-11-27** [FE] Booking recovery picks a roster booking code; empty and failed roster states; section hint updated. Traces to FR-072. Check: Vitest (`bookingLinkIncident.test.jsx`).
+- [ ] T206 [Test] Browser check of the session page recovery picker and the late-payment queue as Manager against a live stack.
+
+- [x] T207 **Done 2026-11-27** [FE] Booking recovery offers only the magic link reasons and `OTHER_REQUIRES_NOTE`; note wording without a transaction reference. Traces to FR-072. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1440 tests passed; `npm run build` passed.
+
+Evidence for T203–T205 (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
+
+Mapping: FR-070 → T203, T206. FR-071 → T204, T206. FR-072 → T205, T206, T207.
+
+## Package cover image (spec FR-073, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T216 **Done 2026-11-27** [Spec] FR-073, contract `workshop-operations.openapi.yaml`, data-model, `design/ui-flow.md`, `design/architecture.md`.
+- [x] T217 **Done 2026-11-27** [BE] `V208__workshop_package_image.sql`, `SharedMediaFacade`, package attach/release and the two image routes with their security rules. Check: JUnit for attach, replace, remove, refusal and visibility; Modulith verification; migration on MySQL. Evidence: `WorkshopPackageServiceTest`, `WorkshopPackageImageMysqlIT` (MySQL, V208), `WorkshopPackageContractIT`, `ModulithArchitectureTests` passed; full `mvnw test` 3140 tests, 1 failure (missing Problem.code values), fixed and the contract class rerun passed, 16 skipped.
+- [x] T218 **Done 2026-11-27** [FE] Upload, preview and removal on package management; image on package list, detail and home cards with the previous artwork as fallback. Check: Vitest. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 174 files, 1447 tests passed; `npm run build` passed.
+- [ ] T219 [Test] Browser check against a live stack as Manager and Guest, with a real upload.
+
+Mapping: FR-073 → T216–T219. Depends: T216 → T217 → T218 → T219.

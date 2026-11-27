@@ -4,7 +4,7 @@ export const messagesCommon = {
     'topline.operations': 'MLAND / VẬN HÀNH WORKSHOP',
     'topline.operationsShort': 'MLAND / VẬN HÀNH',
     'topline.session': 'MLAND / CHI TIẾT CA',
-    'topline.latePayments': 'MLAND / THANH TOÁN VỀ TRỄ',
+    'topline.latePayments': 'MLAND / THANH TOÁN TRỄ',
     'authorized': 'Backend phân quyền',
     'records': '{count} bản ghi',
     // Session states of a workshop session

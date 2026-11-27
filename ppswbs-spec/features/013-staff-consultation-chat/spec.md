@@ -135,7 +135,7 @@ conversation history accidentally.
 - Guest chat.
 - AI participation or AI-generated staff replies.
 - Attachments, reference-image uploads, files, links or rich text.
-- Email notifications, notification center, push notifications, WebSocket/SSE.
+- Email notifications, notification center, push notifications, WebSocket/SSE (in-app real-time polling, audio chime, and in-screen alert banners are used for message delivery).
 - Threaded messages, reactions, read receipts visible to customers beyond unread state.
 - Booking/order/payment support actions or final quote approval.
 
@@ -184,4 +184,8 @@ same rule.
 
 The implementation must preserve UTF-8 Vietnamese text, shared i18n behavior,
 and equal sidebar width for loading, empty, error and loaded states.
+
+## 13. HTTP Cache-Control & Real-time message polling (2026-11-27)
+
+Consultation message endpoints strictly emit `Cache-Control: no-cache, no-store, max-age=0, must-revalidate` and `Pragma: no-cache`. Frontend API requests attach a unique `_t` timestamp parameter to circumvent stale intermediate or proxy caching. The chat interface performs real-time polling every 3 seconds while in foreground and 6 seconds while in background. Incoming customer messages trigger a synthesized Web Audio API chime and display an in-app toast notification banner on the staff consultant screen.
 

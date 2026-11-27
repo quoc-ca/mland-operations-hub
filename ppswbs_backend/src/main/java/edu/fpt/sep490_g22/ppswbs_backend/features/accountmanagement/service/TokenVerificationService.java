@@ -52,11 +52,16 @@ public class TokenVerificationService {
                 ? Instant.ofEpochSecond(((Number) decodedToken.getClaims().get("auth_time")).longValue())
                 : Instant.now();
 
+            Object firebaseClaim = decodedToken.getClaims().get("firebase");
+            String signInProvider = firebaseClaim instanceof java.util.Map<?, ?> firebase
+                && firebase.get("sign_in_provider") instanceof String provider ? provider : null;
+
             return new VerifiedIdentity(
                 decodedToken.getUid(),
                 decodedToken.getEmail(),
                 decodedToken.isEmailVerified(),
-                authTime
+                authTime,
+                signInProvider
             );
 
         } catch (FirebaseAuthException e) {

@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-06
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -852,6 +852,21 @@ or acceptance path for 003.1 V1. A later feature may reference a booking only
 through an approved boundary.
 
 ## Clarifications
+
+### Session 2026-11-27 ticket QR (owner Hồ Hoàng Quốc)
+
+- Q: How does the customer get a scannable ticket? → A: Each ticket shows a real QR image on the booking pages, which can be enlarged, and the buyer confirmation and ticket recipient emails carry the same image (FR-063).
+- Q: Must the QR token be signed, as FR-014b says? → A: No. A random, unguessable opaque token that the server looks up is accepted; it is not signed (FR-014b amended).
+
+- **FR-063** *(ticket QR image, 2026-11-27)*: Wherever the booking projection
+  carries a ticket's QR reference, the web MUST show it as a QR image that can be
+  enlarged, instead of the raw text. The buyer confirmation email (and its resend)
+  MUST show one QR image per ticket next to that ticket, and the ticket recipient
+  email MUST show the recipient's ticket QR. The image is part of the email itself
+  (no external image address). The QR image holds exactly the ticket's current QR
+  reference and nothing else (FR-014b). The text of the email keeps the reference
+  for mail clients that show no images. Who receives which ticket is unchanged
+  (FR-041).
 
 ### Session 2026-11-15
 
@@ -2109,9 +2124,11 @@ deadline.
   booking contact in V1 and include the complete QR ticket set directly and a
   protected Magic Link to the read-only booking details. The contact may share
   tickets independently; no participant-specific delivery is performed.
-- **FR-014b**: The QR Check-in ticket MUST contain only a signed opaque
+- **FR-014b**: The QR Check-in ticket MUST contain only a ~~signed~~ opaque
   token/reference and MUST NOT contain PII, payment data, raw Magic Link tokens,
-  or secrets.
+  or secrets. *(Amended 2026-11-27, owner Hồ Hoàng Quốc: the token is a random,
+  unguessable value that Operations looks up; it is not signed. Revocation is the
+  server no longer accepting the value.)*
 - **FR-014c**: Each QR Check-in ticket MUST remain valid until the associated
   workshop ends and MUST support revocation without changing the booking's
   historical payment evidence.

@@ -171,7 +171,7 @@ describe('003.2 FR-001e/FR-001f slot and session forms are Manager-only', () => 
     await user.click(screen.getByRole('button', { name: 'Slots' }));
     await screen.findByLabelText('Location');
     expect(screen.queryByRole('button', { name: 'Create slot' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Sessions' }));
+    await user.click(screen.getByRole('button', { name: 'Session schedule' }));
     await screen.findByText('No sessions match the current scope.');
     expect(screen.queryByRole('button', { name: 'New session' })).not.toBeInTheDocument();
   });
@@ -182,7 +182,7 @@ describe('003.2 FR-001e/FR-001f slot and session forms are Manager-only', () => 
     await screen.findByText('MLAND Quận 1');
     await user.click(screen.getByRole('button', { name: 'Slots' }));
     expect(await screen.findByRole('button', { name: 'Create slot' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Sessions' }));
+    await user.click(screen.getByRole('button', { name: 'Session schedule' }));
     expect(await screen.findByRole('button', { name: 'New session' })).toBeInTheDocument();
   });
 });

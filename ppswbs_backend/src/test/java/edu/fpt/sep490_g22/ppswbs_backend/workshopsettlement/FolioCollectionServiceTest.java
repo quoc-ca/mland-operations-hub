@@ -516,14 +516,12 @@ class FolioCollectionServiceTest {
     }
 
     @Test
-    void aDebtIsRecordedAndClosedWithAReasonAndNeverAboveTheBalance() {
-        SettlementFinalBill withDebt = finalization.recordDebt(TICKET, MANAGER, 300_000, "Khach xin no", "corr");
+    void aDebtIsTheBalanceDueAndIsRecordedAndClosedWithAReason() {
+        SettlementFinalBill withDebt = finalization.recordDebt(TICKET, MANAGER, "Khach xin no", "corr");
         assertThat(withDebt.getDebtAmountVnd()).isEqualTo(300_000);
         assertThat(withDebt.getDebtRecordedByAccountId()).isEqualTo(MANAGER);
 
-        assertThatThrownBy(() -> finalization.recordDebt(TICKET, MANAGER, 400_000, "Qua so du", "corr"))
-                .isInstanceOf(WorkshopSettlementValidationException.class);
-        assertThatThrownBy(() -> finalization.recordDebt(TICKET, MANAGER, 1_000, "  ", "corr"))
+        assertThatThrownBy(() -> finalization.recordDebt(TICKET, MANAGER, "  ", "corr"))
                 .isInstanceOf(WorkshopSettlementValidationException.class);
 
         SettlementFinalBill closed = finalization.closeDebt(TICKET, MANAGER, "Khach da tra", "corr");

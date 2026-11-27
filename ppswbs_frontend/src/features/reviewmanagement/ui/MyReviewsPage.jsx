@@ -34,7 +34,8 @@ export default function MyReviewsPage() {
   const sources = useMemo(() => resource.data?.items || resource.data?.sources || [], [resource.data]);
 
   const pending = useMemo(() => sources
-    .filter(source => !source.alreadyReviewed && !source.reviewId && source.eligible !== false)
+    .filter(source => !source.alreadyReviewed && !source.reviewId
+      && (source.eligible !== false || source.reasonCode === 'BALANCE_DUE'))
     .filter(source => !targetType || source.targetType === targetType)
     .sort((a, b) => time(b.completedAt) - time(a.completedAt)), [sources, targetType]);
 
@@ -118,7 +119,8 @@ export default function MyReviewsPage() {
                 <li key={sourceKey(source)} className="review-pending-item">
                   <SourceHeader source={source} linkProduct />
                   {source.completedAt && <span className="muted small">{t('completedOn')} {formatDateTime(source.completedAt)}</span>}
-                  <button type="button" className="button primary" onClick={() => startReview(source)}>
+                  {source.reasonCode === 'BALANCE_DUE' && <span className="muted small">{t('balanceDueHint')}</span>}
+                  <button type="button" className="button primary" disabled={source.eligible === false} onClick={() => startReview(source)}>
                     {t('reviewNow')}
                   </button>
                 </li>

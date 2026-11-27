@@ -1,7 +1,20 @@
 ## 1. Project Process/Methodology
 
-We will use an iterative and incremental process over the illustrative 14-week plan. The team will work in seven two-week cycles, choose a small set of prioritized outcomes for each cycle, and refine the next cycle using review feedback and test results. This gives the group regular opportunities to discover unclear requirements before they become expensive to change.
+The team applies the **Iterative and Incremental** development model. After initial planning, the product is built in three two-week iterations (weeks 6–11). Each iteration repeats the same cycle and adds a working increment that is demonstrated to the supervisor and the Mland representative.
 
-Each cycle will begin with a short planning session to confirm scope and acceptance criteria. The team will then design, implement, and test the selected work, review the result with relevant stakeholders, and record decisions or defects in the project workspace. The Project Lead will update priorities and the remaining estimate after each review. Weeks 13–14 are reserved for final acceptance, release readiness, and handover; the team should protect this window from unreviewed scope additions.
+{{r2-process-model width=90% align=center}}
 
-The seven-cycle schedule and role assignments are planning proposals for SEP490_G22 to validate, not a record of work already completed.
+*Figure 1. Iterative and Incremental Development Model*
+
+| Phase | Activities in this project | Output |
+|---|---|---|
+| Initial planning | Define the project scope, features, schedule, and roles (Stages 1–3). | Report 1, Report 2, initial SRS and SDS |
+| Planning | Select the features and tasks for the iteration; each feature has one owner. | Iteration scope and task list |
+| Requirements | Write or update the feature specification and clarify open rules with Mland. | Approved feature spec, SRS update |
+| Analysis & design | Design the data model, API contracts, and screens. | SDS update |
+| Implementation | Code and unit-test each task on the member's branch; merge into `develop` through a reviewed pull request. | Code package, unit test report |
+| Testing | Run integration and end-to-end tests on the merged build. | Integration test report |
+| Evaluation | Demonstrate the increment and record feedback for the next iteration. | Feedback, updated backlog |
+| Deployment | Merge `develop` into `main` and deploy the release to the demo server. | Software package version |
+
+The model suits the project because Mland's rules were still being clarified during development. Each iteration exposes misunderstandings early, while the most important workflows are delivered first.

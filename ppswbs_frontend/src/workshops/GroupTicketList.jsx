@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { TicketQrCode } from './TicketQrCode';
 import {
   cancelTicket,
   changeTicketRecipient,
@@ -614,13 +615,13 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
                     <><dt>{t('ticket.addOn')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentAddOnVnd, language)}</dd></>
                   )}
                   <dt>{t('ticket.paidSoFar')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.currentPaidVnd, language)}</dd>
-                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.status === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.currentBalanceDueVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.ticketStatus === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.currentBalanceDueVnd, language)}</dd>
                 </>
               ) : (
                 <>
                   <dt>{t('ticket.price')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.finalPriceVnd, language)}</dd>
                   <dt>{t('ticket.paidAtBooking')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{vnd(ticket.collectedAtBookingVnd, language)}</dd>
-                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.status === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.remainingVnd, language)}</dd>
+                  <dt>{t('ticket.remaining')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{ticket.ticketStatus === 'CANCELLED' ? t('ticket.notCollected') : vnd(ticket.remainingVnd, language)}</dd>
                 </>
               )}
               <dt>{t('ticket.collectionKind')}</dt><dd style={{ margin: 0, textAlign: 'right' }}>{collectionKindLabel(ticket.collectionKind, language)}</dd>
@@ -630,12 +631,7 @@ export function GroupTicketList({ group, authorization, proof, onTicketUpdated, 
               {t('ticket.recipientLabel')} {ticket.recipientEmailMasked || t('ticket.recipientBuyer')}
             </p>
 
-            {ticket.qrReference && (
-              <>
-                <span className="muted" style={{ fontSize: '12px', marginTop: '6px', display: 'block' }}>{t('ticket.qr')}</span>
-                <code style={{ fontSize: '12px', background: '#f5f5f5', padding: '2px 6px' }}>{ticket.qrReference}</code>
-              </>
-            )}
+            {ticket.qrReference && <TicketQrCode value={ticket.qrReference} ticketCode={ticket.ticketCode} />}
 
             {noShow && (
               <p role="note" style={{ margin: '8px 0 0', fontSize: '12px', color: '#874d00' }}>{ticketNoShowNote(language)}</p>

@@ -74,7 +74,7 @@ describe('Feature-004 & Custom Manufacturing Frontend (Dev C)', () => {
     open('/account/my-custom-orders', { session: fakeSession('signed-in') });
 
     // Wait for page to render
-    expect(await screen.findByText('Đơn hàng cá nhân')).toBeInTheDocument();
+    expect(await screen.findByText('Đơn gia công của tôi')).toBeInTheDocument();
 
     // Click Requests tab
     const requestsTab = screen.getByRole('button', { name: /Yêu cầu thiết kế/i });

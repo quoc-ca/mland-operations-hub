@@ -376,7 +376,7 @@ describe('Customer ticket folio', () => {
   it('reads a Member folio with the bearer', async () => {
     const calls = mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, FOLIO) });
     renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
-    expect(await screen.findByLabelText('Ticket folio')).toHaveTextContent('450,000 ₫');
+    expect(await screen.findByLabelText('Ticket bill')).toHaveTextContent('450,000 ₫');
     expect(calls[0].headers.Authorization).toBe('Bearer test-token');
   });
 
@@ -389,7 +389,7 @@ describe('Customer ticket folio', () => {
   it('shows no voucher notice on a folio without an expired voucher', async () => {
     mockFetch({ 'GET /api/v1/workshop-tickets/TK-1/folio': json(200, { ...FOLIO, voucherRestoration: { restored: false, reason: null } }) });
     renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
-    expect(await screen.findByLabelText('Ticket folio')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Ticket bill')).toBeInTheDocument();
     expect(screen.queryByLabelText('Voucher not restored')).not.toBeInTheDocument();
   });
 
@@ -401,7 +401,7 @@ describe('Customer ticket folio', () => {
     expect(show).toBeDisabled();
     await user.type(screen.getByLabelText('Email'), 'buyer@example.com');
     await user.click(show);
-    expect(await screen.findByLabelText('Ticket folio')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Ticket bill')).toBeInTheDocument();
     expect(calls[0].body).toEqual({ contactEmail: 'buyer@example.com' });
     expect(calls[0].path).toBe('/api/v1/workshop-tickets/TK-1/folio-lookups');
     expect(calls[0].query).toEqual({});

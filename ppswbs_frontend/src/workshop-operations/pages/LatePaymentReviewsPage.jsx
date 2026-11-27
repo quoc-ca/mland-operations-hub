@@ -4,13 +4,13 @@ import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../shared/ui/messages';
 import { messages } from '../messages';
 import { useRole } from '../../shared/auth/useRole';
-import { Loading, useCommand } from '../../shared/ui/components';
+import { ErrorNotice, Loading, useCommand } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { decideLatePaymentReview, listLatePaymentReviews } from '../../api/workshops';
 import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
-// Same standardized reasons as the session page recovery panel (003.1 FR-040a decisions need a reason).
+// Standardized decision reasons (003.1 FR-040a decisions need a reason).
 const REASONS = [
   { code: 'PROVIDER_CONFIRMED_LATE_DEPOSIT' },
   { code: 'CUSTOMER_PRESENTED_RECEIPT' },
@@ -100,6 +100,7 @@ export default function LatePaymentReviewsPage() {
         </button>
       </div>
       {message && <p role="status">{message}</p>}
+      <ErrorNotice error={command.error} onRetry={command.retry} onReload={load} />
       {error && <p role="alert" style={{ color: '#b00' }}>{error}</p>}
       {Array.isArray(reviews) && reviews.length === 0 && (
         <p className="muted">{t('late.empty')}</p>

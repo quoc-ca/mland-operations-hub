@@ -2,6 +2,8 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SharedMediaException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SharedMediaFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.PackageLifecycleTargetState;
@@ -17,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,10 +30,14 @@ public class WorkshopPackageService {
     private final WorkshopPackageRepository packageRepository;
     private final OperationsAuditEventRepository auditRepository;
     private final ObjectMapper objectMapper;
+    private final SharedMediaFacade sharedMedia;
+
+    private static final String MEDIA_OWNER = "workshopoperations";
 
     @Transactional
     public PackageResponse createDraft(PackageRequest request, Long actorId, String correlationReference) {
         WorkshopPackage created = packageRepository.save(toEntity(request, WorkshopPackageState.DRAFT));
+        changeImage(created, request.getImageMediaId(), actorId);
         recordAudit("WORKSHOP_PACKAGE_CREATED", actorId, created.getId(), created.getState(), correlationReference);
         return toResponse(created);
     }
@@ -58,6 +66,54 @@ public class WorkshopPackageService {
         return toResponse(workshopPackage);
     }
 
+    /** Public cover image: a PUBLISHED Package only (FR-073). Not transactional, the provider is called outside. */
+    public SharedMediaFacade.Content openPublishedImage(Long packageId) {
+        return openImage(packageRepository.findById(packageId)
+                .filter(candidate -> candidate.getState() == WorkshopPackageState.PUBLISHED));
+    }
+
+    /** Manager preview of the cover image in any lifecycle state; the caller has authorized the Manager. */
+    public SharedMediaFacade.Content openManagedImage(Long packageId) {
+        return openImage(packageRepository.findById(packageId));
+    }
+
+    private SharedMediaFacade.Content openImage(Optional<WorkshopPackage> found) {
+        WorkshopPackage workshopPackage = found.filter(candidate -> candidate.getImageMediaId() != null)
+                .orElseThrow(WorkshopPackageImageNotFoundException::new);
+        try {
+            return sharedMedia.open(MEDIA_OWNER, mediaRef(workshopPackage.getId()), workshopPackage.getImageMediaId());
+        } catch (SharedMediaException failure) {
+            if (failure.reason() == SharedMediaException.Reason.DEPENDENCY_UNAVAILABLE) {
+                throw new WorkshopDependencyUnavailableException("Image storage is unavailable", failure);
+            }
+            throw new WorkshopPackageImageNotFoundException();
+        }
+    }
+
+    /** Attaches the newly chosen image and releases the previous one in the caller's transaction (FR-073). */
+    private void changeImage(WorkshopPackage workshopPackage, UUID chosen, Long actorId) {
+        UUID current = workshopPackage.getImageMediaId();
+        if (Objects.equals(current, chosen)) {
+            return;
+        }
+        String ownerRef = mediaRef(workshopPackage.getId());
+        try {
+            if (chosen != null) {
+                sharedMedia.attachOwned(String.valueOf(actorId), MEDIA_OWNER, ownerRef, chosen);
+            }
+            if (current != null) {
+                sharedMedia.release(MEDIA_OWNER, ownerRef, current);
+            }
+        } catch (SharedMediaException failure) {
+            throw new WorkshopPackageImageInvalidException(failure);
+        }
+        workshopPackage.setImageMediaId(chosen);
+    }
+
+    private static String mediaRef(Long packageId) {
+        return "package:" + packageId;
+    }
+
     @Transactional
     public PackageResponse updateProspectively(Long packageId, PackageRequest request, Long actorId,
                                                String correlationReference) {
@@ -67,6 +123,7 @@ public class WorkshopPackageService {
             throw new WorkshopLifecycleException("Retired Workshop Package cannot be edited");
         }
         applyRequest(workshopPackage, request);
+        changeImage(workshopPackage, request.getImageMediaId(), actorId);
         WorkshopPackage saved = packageRepository.save(workshopPackage);
         recordAudit("WORKSHOP_PACKAGE_UPDATED", actorId, saved.getId(), saved.getState(), correlationReference);
         return toResponse(saved);
@@ -148,6 +205,7 @@ public class WorkshopPackageService {
                 .sameLocationRequired(entity.isSameLocationRequired())
                 .minimumSameDaySlotGap(entity.getMinimumSameDaySlotGap())
                 .requiredFoundryWorkingDaysBetweenSessions(entity.getRequiredFoundryWorkingDaysBetweenSessions())
+                .imageMediaId(entity.getImageMediaId())
                 .state(edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.WorkshopPackageState
                         .valueOf(entity.getState().name()))
                 .build();

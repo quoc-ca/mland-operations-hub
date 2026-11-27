@@ -6,6 +6,10 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.Accou
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SharedMediaException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.productmanagement.facade.SharedMediaFacade;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageImageInvalidException;
+import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.service.WorkshopPackageImageNotFoundException;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.OperationsAuditEventRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopLocationRepository;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.WorkshopPackageRepository;
@@ -30,11 +34,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +53,7 @@ class WorkshopPackageServiceTest {
     @Mock private WorkshopLocationRepository locationRepository;
     @Mock private WorkshopPackageRepository packageRepository;
     @Mock private OperationsAuditEventRepository auditRepository;
+    @Mock private SharedMediaFacade sharedMedia;
 
     private WorkshopPackageAuthorizationService authorization;
     private WorkshopPackageService packageService;
@@ -52,7 +61,7 @@ class WorkshopPackageServiceTest {
     @BeforeEach
     void setUp() {
         authorization = new WorkshopPackageAuthorizationService(authenticationService);
-        packageService = new WorkshopPackageService(packageRepository, auditRepository, new ObjectMapper());
+        packageService = new WorkshopPackageService(packageRepository, auditRepository, new ObjectMapper(), sharedMedia);
     }
 
     @Test
@@ -165,6 +174,78 @@ class WorkshopPackageServiceTest {
                 .containsExactly(61L);
         verify(packageRepository).findAllByOrderByIdAsc();
         verify(packageRepository).findByStateOrderByIdAsc(WorkshopPackageState.DRAFT);
+    }
+
+    @Test
+    void aNewCoverImageIsAttachedForTheActingManagerAndReturned() {
+        when(packageRepository.save(any(WorkshopPackage.class))).thenAnswer(invocation -> {
+            WorkshopPackage entity = invocation.getArgument(0);
+            entity.setId(71L);
+            return entity;
+        });
+        UUID image = UUID.randomUUID();
+
+        var created = packageService.createDraft(request(500_000L).toBuilder().imageMediaId(image).build(), 17L, "c");
+
+        assertThat(created.getImageMediaId()).isEqualTo(image);
+        verify(sharedMedia).attachOwned("17", "workshopoperations", "package:71", image);
+    }
+
+    @Test
+    void replacingReleasesThePreviousImageAndOmittingItRemovesIt() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        WorkshopPackage entity = packageEntity(72L, WorkshopPackageState.PUBLISHED);
+        entity.setImageMediaId(first);
+        when(packageRepository.findByIdWithLock(72L)).thenReturn(Optional.of(entity));
+        when(packageRepository.save(any(WorkshopPackage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        packageService.updateProspectively(72L, request(1L).toBuilder().imageMediaId(first).build(), 18L, "c");
+        verifyNoInteractions(sharedMedia);
+
+        packageService.updateProspectively(72L, request(1L).toBuilder().imageMediaId(second).build(), 18L, "c");
+        verify(sharedMedia).attachOwned("18", "workshopoperations", "package:72", second);
+        verify(sharedMedia).release("workshopoperations", "package:72", first);
+
+        var removed = packageService.updateProspectively(72L, request(1L), 18L, "c");
+        assertThat(removed.getImageMediaId()).isNull();
+        verify(sharedMedia).release("workshopoperations", "package:72", second);
+    }
+
+    @Test
+    void anImageThatCannotBeUsedIsRefused() {
+        UUID image = UUID.randomUUID();
+        WorkshopPackage entity = packageEntity(73L, WorkshopPackageState.DRAFT);
+        when(packageRepository.findByIdWithLock(73L)).thenReturn(Optional.of(entity));
+        doThrow(new SharedMediaException(SharedMediaException.Reason.NOT_FOUND, null))
+                .when(sharedMedia).attachOwned("17", "workshopoperations", "package:73", image);
+
+        assertThatThrownBy(() -> packageService.updateProspectively(73L,
+                request(1L).toBuilder().imageMediaId(image).build(), 17L, "c"))
+                .isInstanceOf(WorkshopPackageImageInvalidException.class);
+        assertThat(entity.getImageMediaId()).isNull();
+        verify(packageRepository, never()).save(any(WorkshopPackage.class));
+    }
+
+    @Test
+    void thePublicSeesTheImageOfAPublishedPackageOnly() {
+        UUID image = UUID.randomUUID();
+        WorkshopPackage draft = packageEntity(74L, WorkshopPackageState.DRAFT);
+        draft.setImageMediaId(image);
+        when(packageRepository.findById(74L)).thenReturn(Optional.of(draft));
+        var content = new SharedMediaFacade.Content("image/png", java.io.InputStream.nullInputStream());
+        when(sharedMedia.open("workshopoperations", "package:74", image)).thenReturn(content);
+
+        assertThatThrownBy(() -> packageService.openPublishedImage(74L))
+                .isInstanceOf(WorkshopPackageImageNotFoundException.class);
+        assertThat(packageService.openManagedImage(74L)).isSameAs(content);
+
+        draft.setState(WorkshopPackageState.PUBLISHED);
+        assertThat(packageService.openPublishedImage(74L)).isSameAs(content);
+
+        draft.setImageMediaId(null);
+        assertThatThrownBy(() -> packageService.openManagedImage(74L))
+                .isInstanceOf(WorkshopPackageImageNotFoundException.class);
     }
 
     private static WorkshopPackage packageEntity(Long id, WorkshopPackageState state) {

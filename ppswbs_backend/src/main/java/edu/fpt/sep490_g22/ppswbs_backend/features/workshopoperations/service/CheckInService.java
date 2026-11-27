@@ -137,8 +137,23 @@ public class CheckInService {
         return entitlementRepository.findActiveBySessionIdOrdered(session.getId()).stream()
                 .map(e -> new edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dto.AttendanceRosterEntry(
                         e.getTicket().getTicketCode(), e.getTicket().getBookingReference(), e.getTicket().getTicketSequence(),
-                        e.getAttendanceState(), e.getCheckedInAt()))
+                        e.getAttendanceState(), e.getCheckedInAt(), correctionClosesAt(session, e)))
                 .toList();
+    }
+
+    /** Null while the correction window is not running: this session, or another one of the ticket, is not finalized. */
+    private Instant correctionClosesAt(WorkshopSession session, TicketSessionEntitlement entitlement) {
+        if (session.getState() != SessionState.ATTENDANCE_FINALIZED) {
+            return null;
+        }
+        List<TicketSessionEntitlement> own = entitlementRepository
+                .findActiveByTicketReference(entitlement.getTicket().getReference());
+        if (own.stream().anyMatch(item -> item.getSession().getState() != SessionState.ATTENDANCE_FINALIZED)) {
+            return null;
+        }
+        return AttendanceCorrectionWindowPolicy
+                .closesAt(own.stream().map(item -> item.getSession().getAttendanceFinalizedAt()).toList())
+                .orElse(null);
     }
 
     @Transactional(readOnly = true)

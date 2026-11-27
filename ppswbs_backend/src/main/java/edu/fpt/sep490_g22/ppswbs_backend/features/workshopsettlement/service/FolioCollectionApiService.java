@@ -56,11 +56,10 @@ public class FolioCollectionApiService {
         finalization.approveHandoverException(bookingReference, manager.accountId(), request.reason(), correlation);
     }
 
-    public void recordDebt(String bookingReference, DebtRequest request, String correlation,
+    public void recordDebt(String bookingReference, ManagerReasonRequest request, String correlation,
                            CurrentAccountActor actor) {
         CurrentAccountActor manager = authorization.requireManager(actor);
-        finalization.recordDebt(bookingReference, manager.accountId(), request.amountVnd(), request.reason(),
-                correlation);
+        finalization.recordDebt(bookingReference, manager.accountId(), request.reason(), correlation);
     }
 
     public void closeDebt(String bookingReference, ManagerReasonRequest request, String correlation,
@@ -127,7 +126,9 @@ public class FolioCollectionApiService {
     public ExpectedCashResponse expectedCash(Long branchId, LocalDate businessDay, CurrentAccountActor actor) {
         authorization.requireManagerOrStaff(actor, branchId);
         LocalDate day = CashDayCloseService.dayOrToday(businessDay);
-        return new ExpectedCashResponse(branchId, day, cashCloses.expectedCash(branchId, day));
+        java.util.List<CashEntry> entries = cashCloses.cashEntries(branchId, day);
+        long expected = entries.stream().mapToLong(CashEntry::amountVnd).reduce(0L, Math::addExact);
+        return new ExpectedCashResponse(branchId, day, expected, entries);
     }
 
     private static void requireKey(String idempotencyKey) {

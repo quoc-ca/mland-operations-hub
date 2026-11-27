@@ -22,7 +22,7 @@ const CORRECTION = {
 
 async function openFolio(user) {
   await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
-  await user.click(screen.getByRole('button', { name: 'Open folio' }));
+  await user.click(screen.getByRole('button', { name: 'Open bill' }));
 }
 
 describe('T126: Manager handover exception on an unsettled ticket folio (FR-035)', () => {
@@ -98,7 +98,7 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
     await openFolio(user);
     await user.type(await screen.findByLabelText('Correction reference'), 'CORR-1');
     await user.click(screen.getByRole('button', { name: 'View correction' }));
-    const details = await screen.findByLabelText('Folio correction');
+    const details = await screen.findByLabelText('Bill correction');
     expect(details).toHaveTextContent('50,000 ₫');
     expect(details).toHaveTextContent('PENDING_PROVIDER');
     expect(details).toHaveTextContent('R-1');
@@ -130,7 +130,7 @@ describe('T127: read-only view of a posted folio correction (FR-050, FR-048)', (
     renderRoutes(settlementRoutes, { language: 'en', path: '/workshop-tickets/TK-1/folio' });
     await user.type(await screen.findByLabelText('Correction reference'), 'CORR-1');
     await user.click(screen.getByRole('button', { name: 'View correction' }));
-    expect(await screen.findByLabelText('Folio correction')).toHaveTextContent('CORR-1');
+    expect(await screen.findByLabelText('Bill correction')).toHaveTextContent('CORR-1');
     expect(calls.find(call => call.path.endsWith('/corrections/CORR-1')).headers.Authorization).toBe('Bearer test-token');
   });
 

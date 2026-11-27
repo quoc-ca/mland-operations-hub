@@ -29,7 +29,7 @@ describe('ticket card money position', () => {
     })} authorization="Bearer member-token" onTicketUpdated={() => {}} />);
 
     expect(rowValue('Còn phải trả')).toMatch(/^0\s?₫$/);
-    expect(screen.getByText('Add-on đã xác nhận')).toBeTruthy();
+    expect(screen.getByText('Dịch vụ thêm đã xác nhận')).toBeTruthy();
     expect(rowValue('Đã thanh toán')).toContain('825.000');
     expect(screen.queryByText('Đã trả khi đặt')).toBeNull();
   });
@@ -39,6 +39,16 @@ describe('ticket card money position', () => {
 
     expect(rowValue('Còn phải trả')).toContain('525.000');
     expect(screen.getByText('Đã trả khi đặt')).toBeTruthy();
-    expect(screen.queryByText('Add-on đã xác nhận')).toBeNull();
+    expect(screen.queryByText('Dịch vụ thêm đã xác nhận')).toBeNull();
+  });
+
+  it.each([
+    ['booking-time figures', {}],
+    ['folio figures', { currentTotalVnd: 725000, currentAddOnVnd: 0, currentPaidVnd: 200000, currentBalanceDueVnd: 525000 }],
+  ])('a cancelled ticket shows nothing to collect (%s)', (_, money) => {
+    render(<GroupDetailCard group={group({ ...baseTicket, ...money, ticketStatus: 'CANCELLED' })}
+      authorization="Bearer member-token" onTicketUpdated={() => {}} />);
+
+    expect(rowValue('Còn phải trả')).toBe('Không phải thu');
   });
 });

@@ -416,5 +416,15 @@ export function designReviewApi(request) {
         auth,
       });
     },
+
+    /**
+     * Advance custom order shipment to READY_FOR_CARRIER (Staff handoff).
+     */
+    async advanceCustomOrderShipmentToReadyForCarrier(customOrderId, auth = true) {
+      return request(`/api/v1/custom-orders/${encodeURIComponent(customOrderId)}/shipment/ready-for-carrier`, {
+        method: 'POST',
+        auth,
+      });
+    },
   };
 }

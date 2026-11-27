@@ -2,11 +2,9 @@
 
 # CAPSTONE PROJECT REPORT
 
-## Report 1 Project Introduction
+## Report 1 – Project Introduction
 
-**Project:** Personalized Product Sales and Workshop Booking System  
-**Group:** SEP490_G22
-**Status:** Active project, under validation
+– Hanoi, Nov 2026 –
 
 # Table of Contents
 

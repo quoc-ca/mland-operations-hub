@@ -168,7 +168,7 @@ class DeniedAttemptAuditIT {
         Map<String, MockHttpServletRequestBuilder> cases = new LinkedHashMap<>();
         cases.put("MANAGER_BOOKING_LOOKUP", get("/api/v1/workshop-booking-lookups/" + BOOKING)
                 .header("Authorization", STAFF).header("X-Correlation-Id", "corr-t131"));
-        cases.put("CHECK_IN_REVERSED", json(post(path("/check-in-reversals")), STAFF,
+        cases.put("CHECK_IN_REVERSED", json(post(path("/check-in-reversals")), OTHER_STAFF,
                 "{\"ticketCode\":\"" + TICKET_CODE + "\",\"reasonCode\":\"RECORDING_ERROR\",\"reasonNote\":\"typo\"}"));
         cases.put("SESSION_CANCELLATION_REQUESTED", json(post(path("/cancellation-requests")), STAFF,
                 "{\"reasonCode\":\"FACILITY_ISSUE\",\"reasonNote\":\"leak\"}"));
@@ -186,7 +186,7 @@ class DeniedAttemptAuditIT {
         for (Map.Entry<String, MockHttpServletRequestBuilder> c : cases.entrySet()) {
             auditRepository.deleteAll();
             mockMvc.perform(c.getValue()).andExpect(status().isForbidden());
-            boolean unassignedActor = List.of("TICKET_CHECK_IN_OVERRIDE", "ATTENDANCE_FINALIZED",
+            boolean unassignedActor = List.of("CHECK_IN_REVERSED", "TICKET_CHECK_IN_OVERRIDE", "ATTENDANCE_FINALIZED",
                     "TICKET_REDELIVERY_REQUESTED").contains(c.getKey());
             // The lookup route has no session in its path.
             assertSingleDenied(c.getKey(), unassignedActor ? 102L : 101L,
@@ -199,16 +199,15 @@ class DeniedAttemptAuditIT {
     }
 
     @Test
-    @DisplayName("T131: a Staff attendance correction on a finalized session (403) is audited")
+    @DisplayName("T131: an unassigned Staff attendance correction (403) is audited")
     void attendanceCorrectionRefusalIsAudited() throws Exception {
-        // The correction route checks the session state (409) before the authority, so it must be finalized.
         session.setState(SessionState.ATTENDANCE_FINALIZED);
         sessionRepository.saveAndFlush(session);
-        mockMvc.perform(json(post(path("/attendance-corrections")), STAFF,
+        mockMvc.perform(json(post(path("/attendance-corrections")), OTHER_STAFF,
                         "{\"ticketCode\":\"" + TICKET_CODE + "\",\"correctedAttendanceState\":\"CHECKED_IN\","
                                 + "\"reasonCode\":\"RECORDING_ERROR\",\"reasonNote\":\"typo\"}"))
                 .andExpect(status().isForbidden());
-        assertSingleDenied("ATTENDANCE_CORRECTED", 101L, true, "FORBIDDEN", 403);
+        assertSingleDenied("ATTENDANCE_CORRECTED", 102L, true, "FORBIDDEN", 403);
     }
 
     @Test

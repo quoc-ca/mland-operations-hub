@@ -15,8 +15,9 @@ describe('Cash close', () => {
   const CLOSE = { closeReference: 'CLOSE-1', locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000, countedCashVnd: 990000, differenceVnd: -10000, differenceReason: 'miscount', status: 'PENDING_MANAGER_CONFIRMATION' };
   const handlers = {
     [PROFILE]: asRole('MANAGER'),
-    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000 }),
+    'GET /api/v1/workshop-cash-closes/expected-cash': json(200, { locationId: 3, workingDate: '2026-11-14', expectedCashVnd: 1000000, entries: [] }),
     'POST /api/v1/workshop-cash-closes': json(201, CLOSE),
+    'GET /api/v1/workshop-locations': json(200, [{ id: 3, name: 'MLAND Tây Hồ' }, { id: 4, name: 'MLAND Hoàn Kiếm' }]),
     'POST /api/v1/workshop-cash-closes/CLOSE-1/difference-confirmations': json(200, { ...CLOSE, status: 'CLOSED' }),
   };
 
@@ -24,8 +25,7 @@ describe('Cash close', () => {
     const calls = mockFetch(handlers);
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
-    await user.type(await screen.findByLabelText('Branch ID'), '3');
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
+    await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
     expect(await screen.findByText('1,000,000 ₫')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Counted cash (VND)'), '990000');
     await user.type(screen.getByLabelText(/Difference reason/), 'miscount');
@@ -57,8 +57,7 @@ describe('Cash close', () => {
     mockFetch({ ...handlers, [PROFILE]: asRole('STAFF') });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
-    await user.type(await screen.findByLabelText('Branch ID'), '3');
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
+    await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '990000');
     await user.click(screen.getByRole('button', { name: 'Close cash book' }));
     expect(await screen.findByText(/A Manager must confirm/)).toBeInTheDocument();
@@ -69,8 +68,7 @@ describe('Cash close', () => {
     mockFetch({ ...handlers, 'POST /api/v1/workshop-cash-closes': json(409, { code: 'IDEMPOTENCY_CONFLICT', correlationId: 'c-1' }) });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/cash-close' });
-    await user.type(await screen.findByLabelText('Branch ID'), '3');
-    await user.click(screen.getByRole('button', { name: 'Show expected cash' }));
+    await screen.findByRole('option', { name: 'MLAND Tây Hồ' });
     await user.type(await screen.findByLabelText('Counted cash (VND)'), '1000000');
     await user.click(screen.getByRole('button', { name: 'Close cash book' }));
     expect(await screen.findByText(/Reload the latest data/)).toBeInTheDocument();
@@ -180,7 +178,7 @@ describe('Refund queue', () => {
 describe('Change request queue', () => {
   const request = { requestReference: 'CR-1', ticketCode: 'TK-1', type: 'ADVANCE', targetSessionReferences: ['s1'], blockedRules: ['RESCHEDULE_QUOTA_EXHAUSTED'], status: 'PENDING', priceIncreaseAmount: '30000', buyerConfirmedIncrease: true, expiresAt: '2026-11-20T00:00:00Z' };
 
-  it('lists pending requests and approves one with a reason and an Idempotency-Key', async () => {
+  it('lists pending requests and approves one without a reason, with an Idempotency-Key', async () => {
     const calls = mockFetch({
       [PROFILE]: asRole('MANAGER'),
       'GET /api/v1/workshop-change-requests': json(200, [request]),
@@ -188,14 +186,14 @@ describe('Change request queue', () => {
     });
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
-    expect(await screen.findByText('RESCHEDULE_QUOTA_EXHAUSTED')).toBeInTheDocument();
+    expect(await screen.findByText('the session’s reschedule quota is full')).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Reason (required)'), 'Quota raised in 003.2');
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Change approved and applied.')).toBeInTheDocument();
     const post = calls.find(call => call.method === 'POST');
-    expect(post.body).toEqual({ decision: 'APPROVE', reason: 'Quota raised in 003.2' });
+    expect(post.body).toEqual({ decision: 'APPROVE' });
     expect(post.headers['Idempotency-Key']).toBeTruthy();
   });
 
@@ -217,7 +215,8 @@ describe('Change request queue', () => {
   it('gives Staff the queue with the decision buttons (owner decision 2026-11-17)', async () => {
     mockFetch({ [PROFILE]: asRole('STAFF'), 'GET /api/v1/workshop-change-requests': json(200, [request]) });
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
-    expect(await screen.findByText('CR-1')).toBeInTheDocument();
+    expect(await screen.findByText('TK-1')).toBeInTheDocument();
+    expect(screen.queryByText('CR-1')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
   });
@@ -225,7 +224,7 @@ describe('Change request queue', () => {
   it('opens a detail row with both sessions, the reason and the dates', async () => {
     mockFetch({
       [PROFILE]: asRole('MANAGER'),
-      'GET /api/v1/workshop-change-requests': json(200, [{ ...request, groupCode: 'GRP-1', reason: 'Customer is sick', requesterRole: 'MEMBER', channel: 'WEB', fromSessionReferences: ['from-1'], targetSessionReferences: ['to-1'] }]),
+      'GET /api/v1/workshop-change-requests': json(200, [{ ...request, groupCode: 'GRP-1', reason: 'Customer is sick', requesterRole: 'MEMBER', requesterName: 'Nguyen Van A', channel: 'WEB', fromSessionReferences: ['from-1'], targetSessionReferences: ['to-1'] }]),
       'GET /api/v1/workshop-sessions/from-1': json(200, { id: 'from-1', workshopDate: '2026-12-01', scheduledStartAt: '2026-12-01T02:00:00Z', scheduledEndAt: '2026-12-01T04:00:00Z', locationName: 'Mland Hà Nội' }),
       'GET /api/v1/workshop-sessions/to-1': json(200, { id: 'to-1', workshopDate: '2026-12-08', scheduledStartAt: '2026-12-08T07:00:00Z', scheduledEndAt: '2026-12-08T09:00:00Z', locationName: 'Mland TP.HCM' }),
     });
@@ -233,7 +232,8 @@ describe('Change request queue', () => {
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     await user.click(await screen.findByRole('button', { name: 'Details' }));
     expect(await screen.findByText('Customer is sick')).toBeInTheDocument();
-    expect(screen.getByText('Member · WEB')).toBeInTheDocument();
+    expect(screen.getByText('Nguyen Van A')).toBeInTheDocument();
+    expect(screen.queryByText(/WEB/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Hide details' }));
     expect(screen.queryByText('Customer is sick')).not.toBeInTheDocument();
   });
@@ -263,7 +263,7 @@ describe('Change request queue', () => {
     const routes = [{ element: <SessionNavigationBoundary />, children: [...settlementRoutes, { path: '/', element: <p>HOME</p> }] }];
     const { router } = renderRoutes(routes, { language: 'en', path: '/settlement/change-requests?status=REJECTED' });
     expect(await screen.findByText('2026-12-01')).toBeInTheDocument();
-    expect(await screen.findByText(/other-br/)).toBeInTheDocument();
+    expect(await screen.findByText('Session details unavailable')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/settlement/change-requests');
     expect(screen.queryByText('HOME')).not.toBeInTheDocument();
   });

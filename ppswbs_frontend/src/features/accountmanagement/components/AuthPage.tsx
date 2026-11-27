@@ -474,6 +474,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode = 'signin' }) => {
 
       <div className="account-card" style={{ marginTop: '0.5rem' }}>
         <header className="account-page-header" style={{ marginBottom: '1.25rem' }}>
+          <img
+            className="account-auth-brand-logo"
+            src="/brand-logo.png"
+            alt="Mland"
+            width={72}
+            height={72}
+          />
           <h1 className="account-page-title" style={{ fontSize: '1.35rem' }}>{getHeading()}</h1>
           <h2 style={{ fontSize: '1.15rem', fontWeight: 600, margin: '0.25rem 0', color: '#1a1a1a' }}>
             {getFigmaTitle()}

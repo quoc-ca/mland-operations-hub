@@ -3,7 +3,7 @@
 > *Ghi chép lịch sử. OTA/003.4 đã bị loại 2026-11-25, các nội dung OTA dưới đây không còn hiệu lực: [quyết định loại OTA](../../ota-removal-2026-11-25.md).*
 
 **Date created**: 2026-11-17
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -201,3 +201,13 @@ AuditReviewPage → auditReviewApi.readSettlementRecords → SettlementAuditRevi
   → WorkshopSettlementAuthorizationService (error: 403, ghi `DENIED_<reason>` theo cách 003.3 đang làm) → SettlementBusinessAuditRepository (truy vấn con trỏ) → AccountFacade.findAccountFullName → dto settlement
 ```
 Hướng phụ thuộc: **không thêm phụ thuộc giữa hai module**. `workshopsettlement` đã phụ thuộc `workshopoperations :: facade` nên route quyết toán nằm trong 003.3; Operations không gọi 003.3 (gọi sẽ tạo vòng và fail `ApplicationModules.verify()`, phát hiện F1 của analyze 2026-11-17). `actor_reference` của settlement có dạng `account:<id>` hoặc `SYSTEM` (xác minh trong code 2026-11-17: `AbsorbedUnderchargeService`, `BankRefundService`, `CashDayCloseService`, `CancellationHandoffCompletionService`): `account:<id>` được tách ra thành id để lấy tên; giá trị khác hiện nguyên văn.
+
+## Package cover image (spec FR-073, added 2026-11-27)
+
+- `productmanagement :: facade` gains `SharedMediaFacade` (attach own image, release, open bytes for an owner
+  reference) with `SharedMediaException`; `MediaReferenceService` and `PublicMediaService` stay internal.
+  Operations decides who may see a Package image; Product Management checks that the object is `READY` and
+  actively referenced by that owner.
+- Dependency direction is unchanged: `workshopoperations -> productmanagement :: facade`.
+- New production unit: `WorkshopPackageImageController`; image handling stays in `WorkshopPackageService`.
+- Upload reuses `POST /api/v1/catalogue-management/media-uploads`.

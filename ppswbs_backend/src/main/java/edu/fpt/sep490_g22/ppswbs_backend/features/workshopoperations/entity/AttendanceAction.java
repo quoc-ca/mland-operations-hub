@@ -30,7 +30,8 @@ public class AttendanceAction {
     @Column(name = "action_type", nullable = false, length = 32)
     private AttendanceActionType actionType;
 
-    @Column(name = "actor_id", nullable = false)
+    /** Null means the system (automatic finalization, FR-059). */
+    @Column(name = "actor_id")
     private Long actorId;
 
     @Column(name = "channel", nullable = false, length = 32)

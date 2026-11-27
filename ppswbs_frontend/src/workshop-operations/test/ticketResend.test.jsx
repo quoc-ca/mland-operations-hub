@@ -23,7 +23,7 @@ async function openAndType(user) {
 }
 
 describe('Ticket resend refusals', () => {
-  it('shows the wait from Retry-After and suggests the TICKET_REDELIVERY_UNAVAILABLE override on 429', async () => {
+  it('shows the wait from Retry-After and suggests checking in by ticket code on 429', async () => {
     const calls = mockFetch({
       'GET /api/v1/workshop-sessions/session-1': session(),
       [RESEND]: json(429, { code: 'REDELIVERY_THROTTLED', detail: 'limit', correlationId: 'c-1' }, { 'Retry-After': '421' }),
@@ -32,7 +32,7 @@ describe('Ticket resend refusals', () => {
     await user.click(await openAndType(user));
 
     const alert = await screen.findByText(/try again in 421 seconds/);
-    expect(alert).toHaveTextContent('TICKET_REDELIVERY_UNAVAILABLE');
+    expect(alert).toHaveTextContent('check in by ticket code');
     expect(resendCalls(calls)).toHaveLength(1);
     // The generic notice does not repeat it, and the button is usable again.
     expect(screen.getAllByRole('alert')).toHaveLength(1);
@@ -49,7 +49,7 @@ describe('Ticket resend refusals', () => {
 
     const alert = await screen.findByText(/3 times in 15 minutes/);
     expect(alert).not.toHaveTextContent('seconds');
-    expect(alert).toHaveTextContent('TICKET_REDELIVERY_UNAVAILABLE');
+    expect(alert).toHaveTextContent('check in by ticket code');
   });
 
   it.each([
@@ -112,6 +112,7 @@ describe('Operational commands are locked while a request is pending (T140)', ()
     const gate = new Promise(resolve => { release = resolve; });
     mockFetch({
       'GET /api/v1/workshop-sessions/session-1': json(200, { id: 'session-1', state: 'IN_PROGRESS', locationId: 4, capacity: 10 }),
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
       'POST /api/v1/workshop-sessions/session-1/attendance-finalizations': async () => { await gate; return json(200, { id: 'session-1', state: 'ATTENDANCE_FINALIZED' }); },
     });
     const user = userEvent.setup();
@@ -122,9 +123,7 @@ describe('Operational commands are locked while a request is pending (T140)', ()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Finalize attendance' })).toBeDisabled());
     // Typed input alone must not re-enable a command button while the request is pending.
     await user.type(screen.getAllByPlaceholderText('GRP-…-L0-T1')[0], 'TK-1');
-    for (const name of ['Override check-in', 'Mark checked-in', 'Reverse check-in']) {
-      expect(screen.getByRole('button', { name })).toBeDisabled();
-    }
+    expect(screen.getByRole('button', { name: 'Check in' })).toBeDisabled();
     await user.type(screen.getByPlaceholderText('GRP-… (Booking code)'), 'BK-1');
     expect(screen.getByRole('button', { name: 'Resend ticket' })).toBeDisabled();
     release();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { Link } from 'react-router';
 import { useAuth } from '../../shared/auth/AuthProvider';
@@ -11,14 +11,9 @@ import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace
 import { Paginator, usePaged } from '../../shared/ui/Paginator';
 import { createOperationsApi } from '../api/operationsApi';
 import { createOperationsAdminApi } from '../api/operationsAdminApi';
+import { BOARD_TABS, sessionsOfTab, tabFrom } from '../sessionBoard';
 import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
-
-/** Today as yyyy-mm-dd in the browser's local calendar (the board opens on today's and later sessions). */
-const localToday = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 
 /** "09:30 – 12:00" of a session, in the viewer's time zone; empty when the times are unknown. */
 export const sessionTimeRange = item => {
@@ -38,17 +33,25 @@ export default function OperationsDashboardPage() {
   // A Staff member sees only the sessions a Manager assigned to them (the backend filters the list).
   const isStaff = useRole() === 'STAFF';
   const api = createOperationsApi(useHttp());
-  const [filters, setFilters] = useUrlFilters({ state: '', locationId: '', from: localToday(), to: '' });
-  const resource = useResource(() => api.listSessions(filters), [filters.state, filters.locationId, filters.from, filters.to]);
+  // From "auto" is the default window: today onwards, and the last days for the ended tab. Each tab filters its own
+  // range on the client, so the list is read once from the earliest of them.
+  const [filters, setFilters] = useUrlFilters({ tab: 'all', locationId: '', from: 'auto', to: '' });
+  const tab = BOARD_TABS.includes(filters.tab) ? filters.tab : 'all';
+  const query = { locationId: filters.locationId, from: tabFrom('done', filters.from), to: filters.to };
+  const resource = useResource(() => api.listSessions(query), [query.locationId, query.from, query.to]);
+  const fromShown = tabFrom(tab, filters.from);
   // Locations the signed-in Staff or Manager may see: the board shows their names instead of bare ids.
   const http = useHttp();
   const locationsResource = useResource(() => createOperationsAdminApi(http).listLocations(), []);
   const locations = Array.isArray(locationsResource.data) ? locationsResource.data : [];
   const locationName = id => locations.find(item => String(item.id) === String(id))?.name || (id ? t('board.branchFallback', { id }) : '—');
-  const sessions = Array.isArray(resource.data) ? resource.data : resource.data?.content || resource.data?.items || [];
-  const paged = usePaged(sessions, 15, resource.data);
+  const loaded = useMemo(() => (Array.isArray(resource.data) ? resource.data : resource.data?.content || resource.data?.items || []), [resource.data]);
+  const byTab = useMemo(() => Object.fromEntries(BOARD_TABS.map(id => [id, sessionsOfTab(loaded, id, filters.from, filters.to)])), [loaded, filters.from, filters.to]);
+  const sessions = byTab[tab];
+  const everything = byTab.all;
+  const paged = usePaged(sessions, 15, sessions);
   // BUG-E2E-0035: a row is named by its time slot. A slot list that cannot be read leaves the short code.
-  const slotLocations = [...new Set(sessions.map(item => item.locationId).filter(Boolean))].sort().join(',');
+  const slotLocations = [...new Set(loaded.map(item => item.locationId).filter(Boolean))].sort().join(',');
   const slotsResource = useResource(async () => {
     const lists = await Promise.all(slotLocations.split(',').filter(Boolean).map(id =>
       http(`/api/v1/workshop-locations/${encodeURIComponent(id)}/slots`, { suppressAccessDenied: true }).catch(() => [])));
@@ -65,7 +68,7 @@ export default function OperationsDashboardPage() {
       />
     );
   }
-  const counts = sessions.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
+  const counts = everything.reduce((acc, item) => { acc[item.state] = (acc[item.state] || 0) + 1; return acc; }, {});
   return <div className="wsp-workspace">
     
     <main className="wsp-main"><div className="wsp-topline">{t('topline.operations')} <span>● {t('authorized')}</span></div><header className="wsp-page-heading"><div><p>{isStaff ? t('board.staffIntro') : t('board.managerIntro')}</p>{isStaff && (
@@ -73,8 +76,9 @@ export default function OperationsDashboardPage() {
           {t('board.yourBranches')} <strong>{locationsResource.loading ? t('board.loadingLower') : (locations.length ? locations.map(item => item.name).join(', ') : t('board.noBranch'))}</strong>
         </p>
       )}</div></header>
-      <section className="ops-metrics"><div><span>{t('board.metric.all')}</span><strong>{sessions.length}</strong></div><div><span>{stateLabel('PUBLISHED')}</span><strong>{counts.PUBLISHED || 0}</strong></div><div><span>{stateLabel('IN_PROGRESS')}</span><strong>{counts.IN_PROGRESS || 0}</strong></div><div><span>{t('board.metric.finalized')}</span><strong>{counts.ATTENDANCE_FINALIZED || 0}</strong></div></section>
-      <section className="wsp-panel"><form className="wsp-inline-form ops-filter-form" onSubmit={e => { e.preventDefault(); resource.reload(); }}><label>{t('admin.from')}<input type="date" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} /></label><label>{t('admin.to')}<input type="date" value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} /></label><label>{t('admin.state')}<select value={filters.state} onChange={e => setFilters({ ...filters, state: e.target.value })}><option value="">{t('admin.allStates')}</option>{['PUBLISHED','SALES_PAUSED','IN_PROGRESS','ATTENDANCE_FINALIZED'].map(v => <option key={v} value={v}>{stateLabel(v)}</option>)}</select></label><label>{t('admin.location')}<select value={filters.locationId} onChange={e => setFilters({ ...filters, locationId: e.target.value })}><option value="">{t('admin.allLocations')}</option>{locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button outline" type="button" onClick={() => setFilters({ state: "", locationId: "", from: "", to: "" })}>{t('admin.clearFilters')}</button></form></section>
-      <ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} />{resource.loading ? <Loading /> : sessions.length === 0 ? <div className="empty-state"><p>{isStaff ? t('board.emptyStaff') : t('board.emptyManager')}</p></div> : <section className="wsp-panel"><div className="wsp-panel-head"><h2>{t('admin.sessionQueue')}</h2><span>{t('records', { count: sessions.length })}</span></div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>{t('admin.col.date')}</th><th>{t('admin.col.time')}</th><th>{t('admin.col.session')}</th><th>{t('admin.col.location')}</th><th>{t('admin.col.capacity')}</th><th>{t('admin.state')}</th><th /></tr></thead><tbody>{paged.pageItems.map(item => <tr key={item.id}><td>{item.workshopDate || '—'}</td><td><strong>{sessionTimeRange(item) || '—'}</strong></td><td title={item.id}>{slotName(item.slotId) ? <strong>{slotName(item.slotId)}</strong> : <code>{String(item.id).slice(0, 8)}</code>}</td><td>{item.locationName || locationName(item.locationId)}</td><td>{item.capacity ?? '—'}</td><td><span className="ops-status">{stateLabel(item.state)}</span></td><td><Link className="button outline small" to={`/operations/sessions/${item.id}`}>{t('board.open')}</Link></td></tr>)}</tbody></table></div><Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label={t('board.pagination')} /></section>}
+      <section className="ops-metrics"><div><span>{t('board.metric.all')}</span><strong>{everything.length}</strong></div><div><span>{stateLabel('PUBLISHED')}</span><strong>{counts.PUBLISHED || 0}</strong></div><div><span>{stateLabel('IN_PROGRESS')}</span><strong>{counts.IN_PROGRESS || 0}</strong></div><div><span>{t('board.metric.finalized')}</span><strong>{byTab.done.length}</strong></div></section>
+      <div className="roster-tabs" role="tablist" aria-label={t('board.tabs')}>{BOARD_TABS.filter(id => id !== 'draft' || tab === 'draft' || byTab.draft.length > 0).map(id => <button key={id} type="button" role="tab" aria-selected={tab === id} className={`roster-tab${tab === id ? ' active' : ''}`} onClick={() => setFilters({ ...filters, tab: id })}>{t(`board.tab.${id}`)} ({byTab[id].length})</button>)}</div>
+      <section className="wsp-panel"><form className="wsp-inline-form ops-filter-form" onSubmit={e => { e.preventDefault(); resource.reload(); }}><label>{t('admin.from')}<input type="date" value={fromShown} onChange={e => setFilters({ ...filters, from: e.target.value })} /></label><label>{t('admin.to')}<input type="date" value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} /></label><label>{t('admin.location')}<select value={filters.locationId} onChange={e => setFilters({ ...filters, locationId: e.target.value })}><option value="">{t('admin.allLocations')}</option>{locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button outline" type="button" onClick={() => setFilters({ tab: 'all', locationId: '', from: '', to: '' })}>{t('admin.clearFilters')}</button></form></section>
+      <ErrorNotice error={resource.error} onRetry={resource.reload} onReload={resource.reload} />{resource.loading ? <Loading /> : sessions.length === 0 ? <div className="empty-state"><p>{isStaff ? t('board.emptyStaff') : t('board.emptyManager')}</p></div> : <section className="wsp-panel"><div className="wsp-panel-head"><h2>{t('admin.sessionQueue')}</h2><span>{t('records', { count: sessions.length })}</span></div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>{t('admin.col.date')}</th><th>{t('admin.col.time')}</th><th>{t('admin.col.session')}</th><th>{t('admin.col.location')}</th><th>{t('admin.col.capacity')}</th><th>{t('admin.state')}</th><th /></tr></thead><tbody>{paged.pageItems.map(item => <tr key={item.id}><td>{item.workshopDate || '—'}</td><td><strong>{sessionTimeRange(item) || '—'}</strong></td><td title={item.id}>{slotName(item.slotId) ? <strong>{slotName(item.slotId)}</strong> : <code>{String(item.id).slice(0, 8)}</code>}</td><td>{item.locationName || locationName(item.locationId)}</td><td>{item.capacity ?? '—'}</td><td><span className={`ops-status session-state session-state-${String(item.state).toLowerCase()}`}>{stateLabel(item.state)}</span></td><td><Link className="button outline small" to={`/operations/sessions/${item.id}`}>{t('board.open')}</Link></td></tr>)}</tbody></table></div><Paginator page={paged.page} pageCount={paged.pageCount} onChange={paged.setPage} label={t('board.pagination')} /></section>}
     </main></div>;
 }

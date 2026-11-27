@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountSummary;
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.RosterOutcome;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorStatus;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.TargetAccountSnapshot;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopoperations.dao.SessionStaffAssignmentRepository;
@@ -158,6 +159,14 @@ public class WorkshopOperationsAuthorizationService {
 
     public Optional<TargetAccountSnapshot> getTargetAccount(Long accountId) {
         return callAccountFacade(() -> accountFacade.getTargetAccount(accountId));
+    }
+
+    public RosterOutcome findEligibleRoster(Long locationId) {
+        return callAccountFacade(() -> accountFacade.findEligibleRoster(locationId));
+    }
+
+    public Optional<String> findAccountFullName(Long accountId) {
+        return callAccountFacade(() -> accountFacade.findAccountFullName(accountId));
     }
 
     private <T> T callAccountFacade(Supplier<T> call) {

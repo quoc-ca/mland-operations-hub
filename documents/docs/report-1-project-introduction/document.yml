@@ -14,7 +14,9 @@
       "sections/05-iii-existing-solutions/00-overview.md",
       "sections/05-iii-existing-solutions/01-manual-multi-channel-coordination.md",
       "sections/05-iii-existing-solutions/02-generic-calendar-and-booking-tools.md",
-      "sections/05-iii-existing-solutions/03-section-summary.md",
+      "sections/05-iii-existing-solutions/03-dominos-build-your-own-pizza.md",
+      "sections/05-iii-existing-solutions/04-section-summary.md",
+      "sections/05-iii-existing-solutions/05-identified-gaps.md",
       "sections/06-iv-proposed-solution/00-overview.md",
       "sections/07-v-project-scope-limitations/00-overview.md",
       "sections/07-v-project-scope-limitations/01-major-features.md",
@@ -23,7 +25,7 @@
   "change_log":
     {
       "format": "template",
-      "history_paths": ["documents/docs/report-1-project-introduction"],
+      "history_paths": ["docs/report-1-project-introduction"],
       "default_action": "M"
     }
 }

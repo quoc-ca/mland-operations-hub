@@ -3,7 +3,7 @@
 > **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
 
 **Date created**: 2026-11-22 (decisions); split out of `013-manager-home` on 2026-11-25
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-28
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -34,12 +34,13 @@ any screen it links to. Each page, queue and count belongs to its owning feature
 | --- | --- |
 | 010 Manager Dashboard | Owns the page `/manager/dashboard` and its blocks. The shell's `home` group opens it for a Manager. `/manager/home` redirects there. |
 | 003.1 / 003.2 / 003.3 | Own the queues the badges count: late payments, refund queue, ticket change requests, cash-close differences. The shell never owns or edits them. |
-| 004 Customer design review | Owns the design-review queue that the `customers/design-review` badge counts. |
+| 004 Customer design review | Owns the design-review queue that the `customers/design-review` badge counts, and the custom-order list that the `customers/custom-orders-ops` badge counts. |
+| 013 Staff consultation chat | Owns the consultation inbox that the `customers/consultations` badge counts. |
 | 011 Review management | Has no "awaiting moderation" queue, so the `customers/reviews` tab has no badge (decision 2026-11-18). |
 | 001 Account management | Role and sign-in. Decides which groups a role sees together with the route access matrix. |
 | All other features | Their pages appear as tabs of the groups below; the shell never changes their content. |
 
-**Out of scope:** the content of any page, the Ctrl K search box, Staff badges, dedicated count endpoints
+**Out of scope:** the content of any page, the Ctrl K search box, new dedicated count endpoints
 (each is a later change by the owning feature), push notifications, and any file export.
 
 ## Clarifications
@@ -66,6 +67,21 @@ and Manager Home is merged with the Manager Dashboard (010). Approved on the pro
 ### Session 2026-11-26 (browser access)
 
 - Q: Which roles may open the Staff home `/staff/home`? → A: STAFF only. A signed-in MEMBER, MANAGER, ADMIN or CARRIER is replaced to `/404` before any request; a Guest is asked to sign in (owner decision Hồ Hoàng Quốc).
+
+### Session 2026-11-27 (ticket tabs; owner Hồ Hoàng Quốc)
+
+- Q: What is the ticket cancel-and-change tab called and where does it sit? → A: "Hỗ trợ đổi vé và hủy" (English "Change & cancellation support"), after "Yêu cầu đổi vé". Tab ids, routes, visibility and badges are unchanged (FR-002 table).
+
+### Session 2026-11-27 (Khách hàng badges; owner Hồ Hoàng Quốc)
+
+- Q: Which waiting work of the `customers` group gets a badge besides design review? → A: Two. `customers/custom-orders-ops` for Staff and Manager counts the custom orders paid and waiting for production (the "Chờ chế tác" set). `customers/consultations` is shown to the Manager too, with the Staff definition: open conversations nobody has claimed. Custom orders waiting for the Manager's quote approval are not counted.
+
+### Session 2026-11-28 (tab names; owner Hồ Hoàng Quốc)
+
+- Q: Which tabs are renamed? → A: `consultations` "Tư vấn"; `orders` "Đơn bán lẻ"; retail `reconciliation` "Đối soát thanh toán"; `sessions` "Điều phối ca" (Staff stays "Ca của tôi"); `locations` "Chi nhánh và lịch ca"; `availability` "Chi nhánh áp dụng gói"; `add-ons` "Dịch vụ thêm của gói"; `late-payments` "Thanh toán trễ"; `cases` "Hồ sơ quyết toán"; `delivery-logs` "Nhật ký gửi email"; `audit` "Lịch sử thao tác". Ids, routes, visibility and badges are unchanged.
+- Q: Which tab is current on `/operations/admin?tab=sessions`? → A: `locations`, like the other two sections of that page. This replaces the earlier rule that moved it to the `sessions` tab.
+
+- Q: Which other names change? → A: The Manager `home` group and `dashboard` tab read "Tổng quan" in Vietnamese; the catalogue header button reads "Nhập từ Excel" (English "Excel import"); the carrier group and tab read "Vận đơn"; the English name of the collections `reconciliation` tab is "Collection reconciliation". The same day, menu entries, home cards and page headings outside the shell were aligned with the tab names.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -134,24 +150,27 @@ A user collapses the rail to icons only to gain room, and the choice is remember
 ### Functional Requirements
 
 - **FR-001** *(access)*: The rail shows a group to a role by the same rules the old sidebar used (Manager only, Manager and Staff, everyone but Admin). The server decides every permission; hiding a menu entry is not the control. Staff, Admin, Member and signed-out visitors see no Manager figure.
-- **FR-002** *(rail and tabs)*: The rail has the 9 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Import Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
+- **FR-002** *(rail and tabs)*: The rail has the 9 groups below. Inside a group the pages are tabs, at most 5 per group, no horizontal scrolling. The group and tab ids are a contract used by the badges. No former menu entry is dropped; "Thêm sản phẩm", "Nhập từ Excel", "Tạo chương trình" and "Thêm khung giờ" are buttons in the page header, not menu entries.
 
   | Group (id) | Tabs (id) |
   | --- | --- |
-  | Dashboard (`home`) | Manager "Dashboard"; Staff "Trang chủ" `/staff/home` |
+  | Tổng quan (`home`) | Manager "Tổng quan"; Staff "Trang chủ" `/staff/home` |
   | Sản phẩm (`products`) | Danh sách sản phẩm `list`, Danh mục `categories` |
   | Ưu đãi (`promotions`) | Chương trình ưu đãi `programs`, Chính sách điểm `point-policy` |
-  | Khách hàng (`customers`) | Duyệt thiết kế `design-review`, Tư vấn khách hàng `consultations`, Đánh giá `reviews` |
-  | Bán lẻ (`retail`) | Đơn bán lẻ chi nhánh `orders`, Đối soát thanh toán bán lẻ `reconciliation` |
-  | Workshop (`workshop`) | Bảng điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và khung giờ `locations`, Gói workshop `packages`, Hiệu lực gói `availability`, Add-on gói `add-ons` |
-  | Thu tiền (`collect`) | Folio vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán về trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
-  | Vé và hoàn tiền (`tickets`) | Hủy và đổi vé `ticket-actions`, Yêu cầu đổi vé `change-requests`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases` |
-  | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit` |
+  | Khách hàng (`customers`) | Duyệt thiết kế `design-review`, Đơn gia công `custom-orders-ops`, Tư vấn `consultations`, Đánh giá `reviews` |
+  | Bán lẻ (`retail`) | Đơn bán lẻ `orders`, Đối soát thanh toán `reconciliation` |
+  | Workshop (`workshop`) | Điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và lịch ca `locations`, Gói workshop `packages`, Chi nhánh áp dụng gói `availability`, Dịch vụ thêm của gói `add-ons` |
+  | Thu tiền (`collect`) | Hóa đơn vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
+  | Vé và hoàn tiền (`tickets`) | Yêu cầu đổi vé `change-requests`, Hỗ trợ đổi vé và hủy `ticket-actions`, Hàng đợi hoàn tiền `refunds`, Hồ sơ quyết toán `cases` |
+  | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi email `delivery-logs`, Lịch sử thao tác `audit` |
 
 - **FR-003** *(rail width and collapse)*: The rail is 112 px wide (icon above a 13 px label). A toggle at the top collapses it to 60 px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`). The toggle is hidden at 640 px and below, where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
 - **FR-004** *(page header)*: Every operations page has a header with breadcrumb, title, action buttons and the group's tabs. The own title of about 25 pages is removed so it does not repeat the header; the content below is unchanged. A page with its own header button registers it into the header.
 - **FR-005** *(badges and count equals list)*: The rail and tabs show count badges. Hook `useNavBadges(role)` returns `{ status: 'loading' | 'ready', counts: { [groupId]: number, [`${groupId}/${tabId}`]: number } }`. A badge's number MUST equal the number of items the linked list shows when opened from the badge, and the tab opens that list filtered to exactly the counted set. A badge MUST NOT show a number it cannot back with that list.
-  Manager counts come from the existing count reads (design review `customers/design-review`, change requests `tickets/change-requests`, refund queue `tickets/refunds`, cash-close differences `collect/cash-close`, late payments `collect/late-payments`); see `contracts/reads.md`. Staff: `counts` is empty for now (the Staff badges are a later change by another owner).
+  Manager counts: design review `customers/design-review`, custom orders `customers/custom-orders-ops`, consultations `customers/consultations`, change requests `tickets/change-requests`, refund queue `tickets/refunds`, cash-close differences `collect/cash-close`, late payments `collect/late-payments`.
+  Staff counts: workshop tasks `workshop/sessions`, open branch orders `retail/orders`, change requests `tickets/change-requests`, design review, custom orders and consultations. See `contracts/reads.md`.
+  Custom orders are those in the paid, waiting-for-production stage; the tab opens on that stage. Consultations are the `OPEN` ones with no claimant, within what the inbox returns to the caller. The inbox list is paged without a total: at most 4 pages of 50 are read, and if pages remain the number is used only when it is at least 100 (shown as "99+"), otherwise there is no badge.
+  The consultations tab opens `/operations/consultations?status=OPEN&unclaimed=true`, the inbox filtered to "Chưa tiếp nhận"; the user can change the filter there. The filter is a 013 change (query parameter `unclaimed`), agreed with its owner as confirmed by Hồ Hoàng Quốc on 2026-11-27. The inbox loads 20 conversations at a time, so a larger set is reached through its "load more".
 - **FR-006** *(group sums and failures)*: A group count is the sum of its tabs' counts and exists only when every one of them was read. A count that cannot be read has no key and no badge, and the rail keeps working. Zero shows no badge. An unreadable count is never shown as 0.
 - **FR-007** *(refresh)*: Counts are read once on entry, cached 30 seconds, and refreshed every 60 seconds while the page is visible. The badges are not dashboard data, so the dashboard's "no timer" rule (010 FR-023) does not apply to them.
 - **FR-008** *(read-only)*: The shell creates, changes or deletes no business data.
@@ -179,7 +198,7 @@ A user collapses the rail to icons only to gain room, and the choice is remember
 ## Assumptions
 
 - The queues already exist in their owning features; where a feature offers a list but no way to count it, adding a count is part of delivering that badge and does not change the queue itself. Until it exists, that badge is hidden.
-- "Waiting" means the items the owning feature defines as awaiting a Manager's action; the owner uses that one definition for the count and for the list the badge opens.
+- "Waiting" means the items the owning feature defines as awaiting action from the signed-in Manager or Staff; the owner uses that one definition for the count and for the list the badge opens.
 - Manager authority is global across branches for Feature 003, so the counts cover every branch their sources return.
 - The count reads of 003 and 004 are listed in `contracts/reads.md`; the owner-side reads proposed there (R-1 to R-5) are delivered by their owning features.
 - The Staff home keeps its current fixed cards; any change to it is a separate decision.

@@ -350,7 +350,7 @@ def _prepare_front_matter(content: str, report_id: str) -> str:
 
 
 def _build_cover_and_toc_blocks(
-    document: ET.Element, qname: callable, report_id: str
+    document: ET.Element, qname: callable, report_id: str, text_width: int
 ) -> list[ET.Element]:
     """Build cover page and auto-generated Table of Contents OOXML blocks."""
     xml_space = "{http://www.w3.org/XML/1998/namespace}space"
@@ -449,7 +449,8 @@ def _build_cover_and_toc_blocks(
             p.append(bm_end)
         toc_entries.append((level, heading_text, anchor))
 
-    # Wrap ToC in a native Word SDT + TOC field so Word updates page numbers automatically.
+    # Keep the native TOC field and cache linked entries with PAGEREF fields.
+    # Word resolves each bookmark's page after pagination.
     sdt = ET.Element(qname("sdt"))
     sdtPr = ET.SubElement(sdt, qname("sdtPr"))
     docPartObj = ET.SubElement(sdtPr, qname("docPartObj"))
@@ -462,6 +463,7 @@ def _build_cover_and_toc_blocks(
     r_begin = ET.SubElement(field_start, qname("r"))
     fc_begin = ET.SubElement(r_begin, qname("fldChar"))
     fc_begin.set(qname("fldCharType"), "begin")
+    fc_begin.set(qname("dirty"), "1")
     r_instr = ET.SubElement(field_start, qname("r"))
     instr = ET.SubElement(r_instr, qname("instrText"))
     instr.set(xml_space, "preserve")
@@ -479,6 +481,11 @@ def _build_cover_and_toc_blocks(
         sp.set(qname("after"), "40" if level == 1 else "20")
         ind = ET.SubElement(pPr, qname("ind"))
         ind.set(qname("left"), indents[level])
+        tabs = ET.SubElement(pPr, qname("tabs"))
+        tab = ET.SubElement(tabs, qname("tab"))
+        tab.set(qname("val"), "right")
+        tab.set(qname("leader"), "dot")
+        tab.set(qname("pos"), str(text_width))
         hl = ET.SubElement(p, qname("hyperlink"))
         hl.set(qname("anchor"), anchor)
         hl.set(qname("history"), "1")
@@ -495,6 +502,22 @@ def _build_cover_and_toc_blocks(
         t = ET.SubElement(r, qname("t"))
         t.set(xml_space, "preserve")
         t.text = heading_text
+        r_tab = ET.SubElement(p, qname("r"))
+        ET.SubElement(r_tab, qname("tab"))
+        r_page_begin = ET.SubElement(p, qname("r"))
+        page_begin = ET.SubElement(r_page_begin, qname("fldChar"))
+        page_begin.set(qname("fldCharType"), "begin")
+        page_begin.set(qname("dirty"), "1")
+        r_page_instr = ET.SubElement(p, qname("r"))
+        page_instr = ET.SubElement(r_page_instr, qname("instrText"))
+        page_instr.set(xml_space, "preserve")
+        page_instr.text = f" PAGEREF {anchor} \\h "
+        r_page_sep = ET.SubElement(p, qname("r"))
+        page_sep = ET.SubElement(r_page_sep, qname("fldChar"))
+        page_sep.set(qname("fldCharType"), "separate")
+        r_page_end = ET.SubElement(p, qname("r"))
+        page_end = ET.SubElement(r_page_end, qname("fldChar"))
+        page_end.set(qname("fldCharType"), "end")
 
     field_end = ET.SubElement(sdtContent, qname("p"))
     r_end = ET.SubElement(field_end, qname("r"))
@@ -554,7 +577,34 @@ def _apply_docx_layout(docx_path: Path, report_id: str | None = None) -> tuple[i
         raise ValueError("DOCX page margins leave no printable text width for tables.")
 
     changed_tables = 0
+    changed_headers = 0
     for table in document.findall(".//" + qname("tbl")):
+        first_row = table.find("./" + qname("tr"))
+        if first_row is not None:
+            changed_headers += 1
+            for cell in first_row.findall("./" + qname("tc")):
+                cell_properties = cell.find("./" + qname("tcPr"))
+                if cell_properties is None:
+                    cell_properties = ET.Element(qname("tcPr"))
+                    cell.insert(0, cell_properties)
+                shading = cell_properties.find("./" + qname("shd"))
+                if shading is None:
+                    shading = ET.SubElement(cell_properties, qname("shd"))
+                shading.set(qname("fill"), "DAE9F7")
+                for run in cell.findall(".//" + qname("r")):
+                    run_properties = run.find("./" + qname("rPr"))
+                    if run_properties is None:
+                        run_properties = ET.Element(qname("rPr"))
+                        run.insert(0, run_properties)
+                    bold = run_properties.find("./" + qname("b"))
+                    if bold is None:
+                        bold = ET.SubElement(run_properties, qname("b"))
+                    bold.set(qname("val"), "1")
+                    for size_name in ("sz", "szCs"):
+                        size = run_properties.find("./" + qname(size_name))
+                        if size is None:
+                            size = ET.SubElement(run_properties, qname(size_name))
+                        size.set(qname("val"), "24")
         properties = table.find("./" + qname("tblPr"))
         if properties is None:
             continue
@@ -662,14 +712,14 @@ def _apply_docx_layout(docx_path: Path, report_id: str | None = None) -> tuple[i
         if body is not None:
             for idx, child in enumerate(list(body)):
                 if child.tag == qname("p") and "".join(t.text or "" for t in child.findall(".//" + qname("t"))).strip() == COVER_AND_TOC_MARKER:
-                    cover_blocks = _build_cover_and_toc_blocks(document, qname, report_id)
+                    cover_blocks = _build_cover_and_toc_blocks(document, qname, report_id, text_width)
                     body.remove(child)
                     for offset, blk in enumerate(cover_blocks):
                         body.insert(idx + offset, blk)
                     changed_cover = 1
                     break
 
-    if not changed_tables and not changed_images and not changed_footers and not changed_cover:
+    if not changed_tables and not changed_headers and not changed_images and not changed_footers and not changed_cover:
         return 0, 0
 
     entries[document_entry] = (

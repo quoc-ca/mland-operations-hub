@@ -344,3 +344,4 @@
    and a sticky block would cover the session list under it (BUG-E2E-0025). */
 .workshop-detail-aside { position: sticky; top: 125px; display: grid; gap: 16px; }
 @media (max-width: 600px) { .workshop-detail-aside { position: static; } }
+.workshop-detail-image { display: block; width: 100%; height: 320px; object-fit: cover; border-radius: 8px; }

@@ -12,19 +12,23 @@ const norm = value => String(value ?? '').trim().toLowerCase();
  * ticket that was checked in may be reviewed. Nothing is inferred from attendance or group status.
  */
 export function reviewSourceFor(ticket, sources) {
+  const source = findSource(ticket, sources);
+  return source?.eligible !== false ? source : undefined;
+}
+
+function findSource(ticket, sources) {
   if (!ticket || !Array.isArray(sources) || sources.length === 0) return undefined;
   const sessions = new Set((ticket.sessions || []).map(session => norm(session.sessionReference)).filter(Boolean));
   const reference = norm(ticket.ticketReference);
   if (sessions.size === 0 || !reference) return undefined;
-  return sources.find(source => source?.eligible !== false
-    && source?.targetType === 'WORKSHOP_SESSION'
+  return sources.find(source => source?.targetType === 'WORKSHOP_SESSION'
     && sessions.has(norm(source.targetReference))
     && norm(source.sourceReference) === reference);
 }
 
 /**
  * "Write a review" for a workshop session this ticket attended. The review target is the session, never the branch. A
- * confirmed ticket that has not attended yet shows the same action greyed out; no source identifier, contact or
+ * confirmed ticket that has not attended yet, or one that still owes money, shows the action greyed out; no source identifier, contact or
  * transaction detail is shown.
  */
 export function ReviewCta({ ticket, sources, onReview }) {
@@ -39,6 +43,19 @@ export function ReviewCta({ ticket, sources, onReview }) {
         aria-label={t('review.writeAria', { code: ticket.ticketCode })}
       >
         {t('review.write')}
+      </button>
+    );
+  }
+  if (findSource(ticket, sources)?.reasonCode === 'BALANCE_DUE') {
+    return (
+      <button
+        type="button"
+        className="button outline small"
+        disabled
+        title={t('review.balanceTitle')}
+        aria-label={t('review.balanceAria', { code: ticket.ticketCode })}
+      >
+        {t('review.balance')}
       </button>
     );
   }

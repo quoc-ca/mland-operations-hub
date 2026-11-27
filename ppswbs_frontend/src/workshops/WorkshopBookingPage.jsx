@@ -8,7 +8,7 @@ import {
   quoteWorkshopCart,
   WorkshopApiError,
 } from '../api/workshops';
-import { CartBenefitPicker } from './CartBenefitPicker';
+import { CartBenefitPicker, usableOffers } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { GroupDetailCard } from './GroupDetailCard';
@@ -164,7 +164,7 @@ export function WorkshopBookingPage({ packageId }) {
           .filter(item => item.kind === 'VOUCHER' && item.code)
           .filter(item => !(item.targets?.packageIds?.length)
             || item.targets.packageIds.map(String).includes(String(packageId)))
-          .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount })));
+          .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount, availability: item.availability })));
       })
       .catch(() => { if (active) setWorkshopOffers([]); })
       .finally(() => { if (active) setVouchersLoaded(current => ({ ...current, offers: true })); });
@@ -334,7 +334,7 @@ export function WorkshopBookingPage({ packageId }) {
           && ((item.packageIds || []).length === 0 || item.packageIds.map(String).includes(String(packageId)));
         const codes = [...new Set([
           ...savedVouchers.filter(fits).map(item => item.code),
-          ...workshopOffers.map(item => item.code),
+          ...usableOffers(workshopOffers, savedVouchers).map(item => item.code),
         ])].slice(0, 5);
         for (const code of codes) {
           if (userPicked.current) return;

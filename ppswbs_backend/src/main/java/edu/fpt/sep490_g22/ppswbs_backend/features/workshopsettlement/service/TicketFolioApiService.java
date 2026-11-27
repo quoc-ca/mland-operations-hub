@@ -277,16 +277,15 @@ public class TicketFolioApiService {
 
     @Transactional
     public void recordDebt(String ticketCode, String idempotencyKey, String correlationId,
-                           FolioCollectionDtos.DebtRequest request, CurrentAccountActor actor) {
+                           FolioCollectionDtos.ManagerReasonRequest request, CurrentAccountActor actor) {
         requireKey(idempotencyKey);
         CurrentAccountActor manager = authorization.requireManager(actor);
         String code = required(ticketCode, "ticketCode");
         String correlation = correlation(correlationId);
         String op = "DEBT:" + code + ":" + idempotencyKey.trim();
-        String fp = "DEBT:" + code + ":" + request.amountVnd() + ":" + request.reason().trim();
+        String fp = "DEBT:" + code + ":" + request.reason().trim();
         idempotency.execute(op, fp, () -> {
-            folioFinalizationService.recordDebt(code, manager.accountId(), request.amountVnd(),
-                    request.reason(), correlation);
+            folioFinalizationService.recordDebt(code, manager.accountId(), request.reason(), correlation);
             return "DEBT-RECORDED";
         });
     }

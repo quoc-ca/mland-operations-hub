@@ -32,6 +32,8 @@ const counts = (overrides = {}) => ({
   'GET /api/v1/design-review-requests': json(200, { items: [{}] }),
   'GET /api/v1/workshop-refund-requests/waiting-count': json(200, { waiting: 4 }),
   'GET /api/v1/workshop-cash-closes/awaiting-confirmation-count': json(200, { waiting: 1 }),
+  'GET /api/v1/custom-orders': json(200, []),
+  'GET /api/v1/consultations': json(200, { items: [], nextCursor: null, hasMore: false }),
   ...overrides,
 });
 
@@ -58,18 +60,18 @@ describe('operations shell', () => {
 
   it('shows a Manager the nine groups on the rail with the current one marked', async () => {
     open('MANAGER', '/settlement/refunds');
-    await rail().findByRole('link', { name: /^Dashboard/ });
-    ['Dashboard', 'Sản phẩm', 'Ưu đãi', 'Khách hàng', 'Bán lẻ', 'Workshop', 'Thu tiền', 'Vé và hoàn tiền', 'Hệ thống']
+    await rail().findByRole('link', { name: /^Tổng quan/ });
+    ['Tổng quan', 'Sản phẩm', 'Ưu đãi', 'Khách hàng', 'Bán lẻ', 'Workshop', 'Thu tiền', 'Vé và hoàn tiền', 'Hệ thống']
       .forEach(name => expect(rail().getByRole('link', { name: new RegExp(`^${name}`) })).toBeInTheDocument());
     expect(rail().getByRole('link', { name: /^Vé và hoàn tiền/ })).toHaveAttribute('aria-current', 'true');
-    expect(rail().getByRole('link', { name: /^Dashboard/ })).toHaveAttribute('href', '/manager/dashboard');
+    expect(rail().getByRole('link', { name: /^Tổng quan/ })).toHaveAttribute('href', '/manager/dashboard');
   });
 
   it('shows the group tabs with the current one marked, the title and the breadcrumb', async () => {
     open('MANAGER', '/settlement/refunds');
     expect(await header().findByRole('heading', { level: 1, name: 'Hàng đợi hoàn tiền' })).toBeInTheDocument();
     const tabs = within(screen.getByRole('navigation', { name: 'Trang trong nhóm' }));
-    expect(tabs.getAllByRole('link').map(link => link.textContent.replace(/\d+$/, ''))).toEqual(['Hủy và đổi vé', 'Yêu cầu đổi vé', 'Hàng đợi hoàn tiền', 'Sự vụ và bồi hoàn', 'Thay khóa hoàn tiền']);
+    expect(tabs.getAllByRole('link').map(link => link.textContent.replace(/\d+$/, ''))).toEqual(['Yêu cầu đổi vé', 'Hỗ trợ đổi vé và hủy', 'Hàng đợi hoàn tiền', 'Hồ sơ quyết toán', 'Thay khóa hoàn tiền']);
     expect(tabs.getByRole('link', { name: /^Hàng đợi hoàn tiền/ })).toHaveAttribute('aria-current', 'page');
     expect(within(screen.getByRole('navigation', { name: 'Đường dẫn trang' })).getByText('Vé và hoàn tiền')).toBeInTheDocument();
   });
@@ -88,18 +90,18 @@ describe('operations shell', () => {
   it('puts the tab actions and a page action in the header, and Staff see their own labels', async () => {
     open('MANAGER', '/catalogue-management/products');
     expect(await header().findByRole('link', { name: 'Thêm sản phẩm' })).toHaveAttribute('href', '/catalogue-management/products/new');
-    expect(header().getByRole('link', { name: 'Import Excel' })).toHaveAttribute('href', '/catalogue-management/imports');
+    expect(header().getByRole('link', { name: 'Nhập từ Excel' })).toHaveAttribute('href', '/catalogue-management/imports');
     expect(header().getByRole('button', { name: 'Hành động của trang' })).toBeInTheDocument();
   });
 
   it('titles a create page by its action and shows no actions there', async () => {
     open('MANAGER', '/catalogue-management/products/new');
     expect(await header().findByRole('heading', { level: 1, name: 'Thêm sản phẩm' })).toBeInTheDocument();
-    expect(header().queryByRole('link', { name: 'Import Excel' })).not.toBeInTheDocument();
+    expect(header().queryByRole('link', { name: 'Nhập từ Excel' })).not.toBeInTheDocument();
   });
 
   it('shows a Staff their sessions, their home in the first place and no Manager group, and reads only their own work counts', async () => {
-    const calls = open('STAFF', '/operations/sessions', { 'GET /api/v1/consultations': json(200, { items: [], nextCursor: null, hasMore: false }) });
+    const calls = open('STAFF', '/operations/sessions');
     expect(await header().findByRole('heading', { level: 1, name: 'Ca của tôi' })).toBeInTheDocument();
     await waitFor(() => expect(rail().getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/staff/home'));
     expect(rail().queryByRole('link', { name: /Ưu đãi/ })).not.toBeInTheDocument();
@@ -107,7 +109,7 @@ describe('operations shell', () => {
     await new Promise(resolve => setTimeout(resolve, 30));
     // Staff badges read lists the backend limits to this Staff (sessions, branch orders, change requests, design queue), never a Manager count.
     const paths = calls.filter(call => call.path !== '/api/v1/accounts/me/profile').map(call => call.path);
-    const own = ['/api/v1/workshop-sessions', '/api/v1/staff/retail-pickups', '/api/v1/staff/retail-shipments', '/api/v1/workshop-change-requests', '/api/v1/design-review-requests', '/api/v1/consultations'];
+    const own = ['/api/v1/workshop-sessions', '/api/v1/staff/retail-pickups', '/api/v1/staff/retail-shipments', '/api/v1/workshop-change-requests', '/api/v1/design-review-requests', '/api/v1/custom-orders', '/api/v1/consultations'];
     expect(paths.filter(path => !own.includes(path))).toEqual([]);
     // The default mocks hold 1 design waiting for review, no open consultation and 2 pending change requests: a Staff sees 1 on Khách hàng and 2 on Vé và hoàn tiền.
     expect(await rail().findByLabelText('1 việc chờ')).toBeInTheDocument();
@@ -116,7 +118,7 @@ describe('operations shell', () => {
 
   it('gives a GHTK carrier its three pages, the G logo, and language and sign-out at the top right (2026-11-23)', async () => {
     open('CARRIER', '/carrier/orders', { 'GET /api/v1/carrier/shipments': json(200, { items: [], totalPages: 0 }) });
-    await rail().findByRole('link', { name: /^Đơn hàng/ });
+    await rail().findByRole('link', { name: /^Vận đơn/ });
     expect(rail().getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/carrier', '/carrier', '/carrier/orders', '/carrier/stats']);
     expect(rail().getByRole('link', { name: 'GHTK' })).toBeInTheDocument();
     expect(rail().queryByRole('button', { name: 'EN' })).not.toBeInTheDocument();

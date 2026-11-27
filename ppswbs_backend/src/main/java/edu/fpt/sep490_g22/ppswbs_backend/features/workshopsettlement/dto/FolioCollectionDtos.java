@@ -41,11 +41,6 @@ public final class FolioCollectionDtos {
     public record ManagerReasonRequest(@NotBlank @Size(max = 1000) String reason) {
     }
 
-    public record DebtRequest(
-            @NotNull @Positive Long amountVnd,
-            @NotBlank @Size(max = 1000) String reason) {
-    }
-
     /** T131 (C2): the contract body; {@code countedAmount} is the contract's whole-VND string. */
     public record CashCloseRequest(
             @NotNull Long locationId,
@@ -59,7 +54,12 @@ public final class FolioCollectionDtos {
     }
 
     /** T120: what the system expects in a branch's drawer for one Vietnam working day, before anyone counts. */
-    public record ExpectedCashResponse(Long locationId, LocalDate workingDate, long expectedCashVnd) {
+    /** FR-036b: one cash movement counted on the day; {@code amountVnd} is negative for a reversal. */
+    public record CashEntry(String type, String ticketCode, long amountVnd, java.time.Instant recordedAt) {
+    }
+
+    public record ExpectedCashResponse(Long locationId, LocalDate workingDate, long expectedCashVnd,
+                                       java.util.List<CashEntry> entries) {
     }
 
     public record CashCloseResponse(

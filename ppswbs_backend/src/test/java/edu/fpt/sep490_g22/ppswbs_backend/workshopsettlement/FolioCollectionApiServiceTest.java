@@ -120,11 +120,17 @@ class FolioCollectionApiServiceTest {
 
     @Test
     void expectedCashIsReadUnderTheCashCloseResourceForTheBranch() {
-        when(cashCloses.expectedCash(1L, LocalDate.of(2026, 11, 14))).thenReturn(150_000L);
+        var at = java.time.Instant.parse("2026-11-14T03:00:00Z");
+        var entries = java.util.List.of(
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.CashEntry(
+                        "COLLECTION", "T-1", 200_000L, at),
+                new edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.dto.FolioCollectionDtos.CashEntry(
+                        "REVERSAL", "T-2", -50_000L, at));
+        when(cashCloses.cashEntries(1L, LocalDate.of(2026, 11, 14))).thenReturn(entries);
 
         ExpectedCashResponse expected = service.expectedCash(1L, LocalDate.of(2026, 11, 14), staff);
 
-        assertThat(expected).isEqualTo(new ExpectedCashResponse(1L, LocalDate.of(2026, 11, 14), 150_000L));
+        assertThat(expected).isEqualTo(new ExpectedCashResponse(1L, LocalDate.of(2026, 11, 14), 150_000L, entries));
         verify(authorization).requireManagerOrStaff(staff, 1L);
     }
 }

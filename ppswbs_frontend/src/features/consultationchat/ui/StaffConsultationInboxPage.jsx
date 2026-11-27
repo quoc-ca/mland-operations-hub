@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 import { useConsultationChatApi } from '../api/useConsultationChatApi';
 import { consultationMessages } from '../messages';
 import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
@@ -23,7 +24,16 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedRef, setSelectedRef] = useState(null);
   const [activeConversation, setActiveConversation] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  // The filter lives in the URL, so the rail badge can open the inbox on exactly the set it counts.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+  let statusFilter = ['OPEN', 'CLOSED'].includes(statusParam) ? statusParam : '';
+  if (searchParams.get('unclaimed') === 'true') statusFilter = 'UNCLAIMED';
+  const setStatusFilter = (value) => {
+    let next = value ? { status: value } : {};
+    if (value === 'UNCLAIMED') next = { status: 'OPEN', unclaimed: 'true' };
+    setSearchParams(next, { replace: true });
+  };
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [messageInput, setMessageInput] = useState('');
@@ -35,11 +45,13 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState('HN-HOANKIEM');
   const [assigning, setAssigning] = useState(false);
+  const [incomingToast, setIncomingToast] = useState(null);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const userJustSentRef = useRef(false);
   const pollTimerRef = useRef(null);
+  const lastMsgRefMap = useRef({});
   const apiRef = useRef(api);
   apiRef.current = api;
   const selectedRefRef = useRef(selectedRef);
@@ -48,6 +60,47 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   statusFilterRef.current = statusFilter;
   const nextCursorRef = useRef(nextCursor);
   nextCursorRef.current = nextCursor;
+
+  // Synthesized notification chime via Web Audio API
+  const playNotificationChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(784, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.15);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1046, now + 0.1);
+      gain2.gain.setValueAtTime(0.15, now + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.1);
+      osc2.stop(now + 0.35);
+    } catch {
+      // Audio context might be restricted before user interaction
+    }
+  }, []);
+
+  // Dismiss incoming toast after 6 seconds
+  useEffect(() => {
+    if (!incomingToast) return;
+    const tId = setTimeout(() => setIncomingToast(null), 6000);
+    return () => clearTimeout(tId);
+  }, [incomingToast]);
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -60,7 +113,9 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     if (append) setLoadingMore(true);
     try {
       const res = await apiRef.current.listConversations({
-        status: statusFilterRef.current || undefined,
+        ...(statusFilterRef.current === 'UNCLAIMED'
+          ? { status: 'OPEN', unclaimed: true }
+          : { status: statusFilterRef.current || undefined }),
         cursor: append ? nextCursorRef.current : undefined,
         limit: 20,
       });
@@ -87,16 +142,29 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       setActiveConversation(detail);
 
       const msgs = detail?.messages || [];
-      if (msgs.length > 0 && detail.unreadCount > 0) {
+      if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
-        apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
+        const prevLastId = lastMsgRefMap.current[convRef];
+        if (prevLastId && prevLastId !== lastMsg.messageReference && lastMsg.senderType === 'MEMBER') {
+          playNotificationChime();
+          setIncomingToast({
+            sender: detail.memberName || 'Khách hàng',
+            text: lastMsg.messageText,
+            ref: convRef,
+          });
+        }
+        lastMsgRefMap.current[convRef] = lastMsg.messageReference;
+
+        if (detail.unreadCount > 0) {
+          apiRef.current.recordRead(convRef, { messageReference: lastMsg.messageReference }).catch(() => { });
+        }
       }
     } catch (err) {
       if (!silent) setError(err.message || t.errorGeneral);
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t.errorGeneral]);
+  }, [t.errorGeneral, playNotificationChime]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -119,30 +187,35 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     }
   }, [activeConversation?.messages]);
 
-  // Visible-tab polling every 3s and instant sync on focus / visibility change
+  // Continuous background & foreground polling: every 3s when visible, every 6s when hidden
   useEffect(() => {
-    const poll = () => {
+    let timerId = null;
+
+    const runPoll = () => {
+      loadConversations(true);
+      if (selectedRefRef.current) {
+        loadDetail(selectedRefRef.current, true);
+      }
+      const interval = document.visibilityState === 'visible' ? POLLING_INTERVAL_MS : 6000;
+      timerId = setTimeout(runPoll, interval);
+    };
+
+    timerId = setTimeout(runPoll, POLLING_INTERVAL_MS);
+
+    const handleFocusOrVisible = () => {
       if (document.visibilityState === 'visible') {
-        loadConversations(true);
-        if (selectedRefRef.current) {
-          loadDetail(selectedRefRef.current, true);
-        }
+        if (timerId) clearTimeout(timerId);
+        runPoll();
       }
     };
 
-    pollTimerRef.current = setInterval(poll, POLLING_INTERVAL_MS);
-    const handleFocus = () => poll();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') poll();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
 
     return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
+      if (timerId) clearTimeout(timerId);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
     };
   }, [loadConversations, loadDetail]);
 
@@ -267,6 +340,53 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
 
   return (
     <div className="wsp-workspace">
+      {/* Real-time screen notification toast for incoming customer messages */}
+      {incomingToast && (
+        <div
+          data-testid="chat-screen-notification"
+          style={{
+            position: 'fixed',
+            top: '1.25rem',
+            right: '1.25rem',
+            zIndex: 99999,
+            backgroundColor: '#0284c7',
+            color: '#ffffff',
+            padding: '0.85rem 1.25rem',
+            borderRadius: 8,
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            maxWidth: 380,
+            cursor: 'pointer',
+            border: '2px solid #38bdf8',
+          }}
+          onClick={() => {
+            setSelectedRef(incomingToast.ref);
+            setIncomingToast(null);
+          }}
+        >
+          <span style={{ fontSize: '1.5rem' }}>🔔</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+              Tin nhắn mới từ {incomingToast.sender}:
+            </div>
+            <div style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.95 }}>
+              "{incomingToast.text}"
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIncomingToast(null);
+            }}
+            style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <main className="wsp-main">
         <div className="consultation-layout">
@@ -284,6 +404,7 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
               >
                 <option value="">{t.allStatuses}</option>
                 <option value="OPEN">{t.filterOpen}</option>
+                <option value="UNCLAIMED">{t.filterUnclaimed}</option>
                 <option value="CLOSED">{t.filterClosed}</option>
               </select>
             </div>

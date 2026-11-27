@@ -1,24 +1,21 @@
 {{fpt-university width=35% align=center}}
 
-# REPORT 2 — PROJECT MANAGEMENT PLAN
+# CAPSTONE PROJECT REPORT
 
-## Personalized Product Sales and Workshop Booking System
+## Report 2 – Project Management Plan
 
-**Group:** SEP490_G22  
-**Status:** Active project, under validation  
-**Document status:** Current management baseline; illustrative estimates remain subject to project approval.
+– Hanoi, Nov 2026 –
 
 ## Table of Contents
 
 - Change Log
 - I. Project Overview
   - 1. Scope and Purpose
-  - 2. Assumptions and Constraints
+  - 2. Assumptions & Constraints
   - 3. Cost & Time Estimations
   - 4. Capacity Planning
   - 5. Project Objectives
   - 6. Risks and Mitigations
-  - 7. Evidences and Decision Traceability
 - II. Management Approach
   - 1. Project Process/Methodology
   - 2. Quality Management

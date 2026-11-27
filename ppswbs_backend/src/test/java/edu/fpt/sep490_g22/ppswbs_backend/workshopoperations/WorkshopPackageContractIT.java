@@ -102,7 +102,8 @@ class WorkshopPackageContractIT {
         Set<String> expected = Set.of("name", "description", "publicPrice", "minParticipants", "maxParticipants",
                 "requiredSessionCount", "sameLocationRequired", "minimumSameDaySlotGap",
                 "requiredFoundryWorkingDaysBetweenSessions");
-        assertThat(properties.keySet()).containsExactlyInAnyOrderElementsOf(expected);
+        // imageMediaId (FR-073) is the only optional write field
+        assertThat(properties.keySet()).containsAll(expected).hasSize(expected.size() + 1).contains("imageMediaId");
         assertThat((List<String>) writeSchema.get("required")).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(((Map<String, Object>) properties.get("publicPrice"))).containsEntry("type", "integer")
                 .containsEntry("format", "int64").containsEntry("minimum", 0);

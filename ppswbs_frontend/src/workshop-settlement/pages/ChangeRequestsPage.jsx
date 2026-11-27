@@ -2,7 +2,7 @@ import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { useHttp } from '../../shared/api/useHttp';
 import { useRole } from '../../shared/auth/useRole';
-import { Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { ConfirmDialog, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { createSettlementApi } from '../api/settlementApi';
 import { createOperationsApi } from '../../workshop-operations/api/operationsApi';
 import { OpsPage } from '../OpsPage';
@@ -24,10 +24,10 @@ function SessionTime({ reference, operations }) {
   }, [reference]);
   if (state.loading) return <small className="muted">{tShared('loading')}</small>;
   const session = state.data;
-  if (!session) return <small className="muted" title={reference}>{t('cr.session', { ref: String(reference).slice(0, 8) })}</small>;
+  if (!session) return <small className="muted">{t('cr.sessionUnknown')}</small>;
   const time = value => (value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '—');
   return (
-    <span className="cr-session" title={reference}>
+    <span className="cr-session">
       <strong>{session.workshopDate || '—'}</strong> {time(session.scheduledStartAt)}–{time(session.scheduledEndAt)}
       {session.locationName ? <small className="muted">{session.locationName}</small> : null}
     </span>
@@ -44,6 +44,23 @@ import { messages } from '../messages';
 import { ProblemNotice, ReasonDialog, asList } from '../ui';
 
 
+/** Who asked, by name (FR-045a, 2026-11-27): never the raw role/channel pair. */
+function requesterText(request, t, roleLabel) {
+  const { requesterRole: role, requesterName: name } = request;
+  if (!role) return '—';
+  if (role === 'GUEST') return t('cr.requester.guest');
+  if (!name) return roleLabel(role);
+  return role === 'STAFF' || role === 'MANAGER' ? `${name} (${t(`cr.requester.${role}`)})` : name;
+}
+
+/** Blocked rules as text; an unknown code keeps its code rather than being hidden. */
+function blockedText(request, t) {
+  return (request.blockedRules || []).map(rule => {
+    const key = `picker.rule.${rule}`;
+    return t(key) === key ? rule : t(key);
+  }).join(', ');
+}
+
 function RequestDetails({ request, operations }) {
   const t = useT(messages);
   const fmt = useFormat();
@@ -51,22 +68,20 @@ function RequestDetails({ request, operations }) {
   const typeLabel = useEnumLabel(messages, 'changeType');
   const roleLabel = useEnumLabel(messages, 'actorRole');
   const rows = [
-    [t('cr.d.request'), request.requestReference],
     [t('cr.d.ticket'), request.ticketCode],
     [t('cr.d.group'), request.groupCode || '—'],
     [t('cr.d.type'), typeLabel(request.type)],
     [t('cr.d.status'), statusLabel(request.status)],
     [t('cr.d.current'), <SessionList key="from" references={request.fromSessionReferences} operations={operations} />],
     [t('cr.d.requested'), <SessionList key="to" references={request.targetSessionReferences} operations={operations} />],
-    [t('cr.d.blocked'), (request.blockedRules || []).join(', ') || '—'],
+    [t('cr.d.blocked'), blockedText(request, t) || '—'],
     [t('cr.d.increase'), `${fmt.money(request.priceIncreaseAmount)}${request.buyerConfirmedIncrease ? t('cr.buyerConfirmed') : ''}`],
-    [t('cr.d.requestedBy'), [request.requesterRole ? roleLabel(request.requesterRole) : '', request.channel].filter(Boolean).join(' · ') || '—'],
+    [t('cr.d.requestedBy'), requesterText(request, t, roleLabel)],
     [t('cr.d.reason'), request.reason || '—'],
     [t('cr.d.created'), fmt.dateTime(request.createdAt)],
     [t('cr.d.expires'), fmt.dateTime(request.expiresAt)],
     [t('cr.d.decided'), request.decidedAt ? fmt.dateTime(request.decidedAt) : '—'],
     [t('cr.d.decisionReason'), request.decisionReason || '—'],
-    [t('cr.d.applied'), request.appliedChangeReference || '—'],
   ];
   return (
     <dl className="cr-details">
@@ -97,7 +112,8 @@ export default function ChangeRequestsPage() {
 
   const decide = async reason => {
     const { request, decision } = deciding;
-    const out = await command.run(key => api.decideChangeRequest(request.requestReference, { decision, reason }, key));
+    const body = reason ? { decision, reason } : { decision };
+    const out = await command.run(key => api.decideChangeRequest(request.requestReference, body, key));
     if (out.ok) { setDeciding(null); setMessage(t(decision === 'APPROVE' ? 'cr.msg.approved' : 'cr.msg.rejected')); queue.reload(); }
   };
 
@@ -121,14 +137,11 @@ export default function ChangeRequestsPage() {
               {requests.map(request => (
                 <Fragment key={request.requestReference}>
                 <tr>
-                  <td className="cr-wrap" title={request.requestReference}>
-                    {request.ticketCode}
-                    <small className="cr-ref muted">{String(request.requestReference || '').slice(0, 16)}{String(request.requestReference || '').length > 16 ? '…' : ''}</small>
-                  </td>
+                  <td className="cr-wrap">{request.ticketCode}</td>
                   <td>{typeLabel(request.type)}</td>
                   <td><SessionList references={request.fromSessionReferences} operations={operations} /></td>
                   <td><SessionList references={request.targetSessionReferences} operations={operations} /></td>
-                  <td className="cr-wrap">{(request.blockedRules || []).join(', ')}</td>
+                  <td className="cr-wrap">{blockedText(request, t)}</td>
                   <td>{fmt.money(request.priceIncreaseAmount)}{request.buyerConfirmedIncrease ? t('cr.buyerConfirmed') : ''}</td>
                   <td>{fmt.dateTime(request.expiresAt)}</td>
                   <td><span className="ops-status">{statusLabel(request.status)}</span></td>
@@ -152,9 +165,13 @@ export default function ChangeRequestsPage() {
           </table></div>
         )}
       </section>
-      <ReasonDialog open={Boolean(deciding)} title={t(deciding?.decision === 'APPROVE' ? 'cr.approveTitle' : 'cr.rejectTitle')}
-        confirmLabel={t(deciding?.decision === 'APPROVE' ? 'cr.approve' : 'cr.reject')} pending={command.pending} onCancel={() => setDeciding(null)} onConfirm={decide}>
-        <p>{t(deciding?.decision === 'REJECT' ? 'cr.rejectBody' : 'cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
+      <ConfirmDialog open={deciding?.decision === 'APPROVE'} title={t('cr.approveTitle')} confirmLabel={t('cr.approve')}
+        pending={command.pending} onCancel={() => setDeciding(null)} onConfirm={() => decide()}>
+        <p>{t('cr.dialogBody', { code: deciding?.request.ticketCode })}</p>
+      </ConfirmDialog>
+      <ReasonDialog open={deciding?.decision === 'REJECT'} title={t('cr.rejectTitle')} confirmLabel={t('cr.reject')}
+        pending={command.pending} onCancel={() => setDeciding(null)} onConfirm={decide}>
+        <p>{t('cr.rejectBody', { code: deciding?.request.ticketCode })}</p>
       </ReasonDialog>
     </OpsPage>
   );

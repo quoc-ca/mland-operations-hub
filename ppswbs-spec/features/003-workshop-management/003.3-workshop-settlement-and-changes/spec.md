@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -259,6 +259,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   verification is an exception only a Manager may approve, with a reason and
   audit. Recording a real debt (`Còn nợ`) and closing it are Manager-only, with
   a reason; there is no automatic reminder, deadline or booking block.
+  *(decided 2026-11-27, Hồ Hoàng Quốc)* The debt amount is the folio's
+  `balanceDue` taken by the server when the debt is recorded; the Manager sends
+  only the reason, and a folio with `balanceDue = 0` is refused.
   *(clarified 2026-11-15, checklist CHK012)* A recorded debt (`Còn nợ`) never
   finalizes a folio: `balanceDue` stays above 0, so the folio stays `OPEN` until
   a later collection clears it and finalizes it; the handover exception
@@ -289,6 +292,27 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   contains the branch; the session-assignment rule does not apply because the
   close is per branch, not per session. The closer is recorded on the close
   record, and only a Manager confirms a difference.
+- **FR-036a** *(cash-close screen, 2026-11-27)*: The screen MUST offer the branch
+  by name from the server's branch list, preselect the first, show branch names
+  in the confirmation queue, and MUST NOT keep a figure or a draft count after
+  the branch or working day changes. The server's scope check is unchanged.
+  *(Amended 2026-11-27)*: after such a change the screen drops the old figure,
+  entries, counted amount, reason and shown result, and reads the figure and
+  entries of the new branch and day at once (FR-036b). A failed read shows no
+  figure and offers a retry.
+
+- **FR-036b** *(expected cash and its entries, 2026-11-27)*: Opening the
+  cash-close screen MUST show, without a further action, the expected cash of the
+  preselected branch for today, with the list of entries that make it up: each
+  confirmed cash collection counted on that working day (ticket code, amount net
+  of change, time collected) and each cash reversal counted on that day (ticket
+  code, negative amount, time recorded), oldest first. The entries and the figure
+  MUST come from one read and their sum MUST equal the figure. Retail cash is not
+  part of it. The same authority as FR-036 applies; reading changes and audits
+  nothing. The expected figure is never typed or edited by a user: the closer
+  enters only the counted amount and, for a difference, the reason. A close still
+  records the total the server computes at submission.
+
 - **FR-037**: Add-on and variable-charge prices remain at least 5,000 VND. A
   wrongly recorded line is voided whole with history by a Manager while the
   folio is OPEN; this is not a customer's right to cancel a used service.
@@ -603,6 +627,14 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   change), then added to the ticket's checkout balance; it need not be paid at
   the time of the change.
 
+- **FR-045a (queue decision and display, amended 2026-11-27)**: a decision on a
+  queued request MUST carry a reason for `REJECT` and MAY omit it for
+  `APPROVE`; the approval's allowance grant then records "Duyệt yêu cầu đổi vé".
+  The queue MUST name the requester with `requesterName` (the account's full
+  name, absent for a Guest or an account without a name) and MUST NOT show the
+  request reference, applied change reference, session identifiers, raw channel
+  or raw rule codes.
+
 - **FR-045a — when an online change is auto-approved** *(decided 2026-11-14 by
   Hồ Hoàng Quốc, owner Feature 003; closes the "Open before implementation"
   item below)*: an online change requested by the buyer MUST be approved by the
@@ -791,6 +823,13 @@ branch (`branch_id`), while charges, add-ons, final bills and change records sto
   `workshop.settlement.change-request-expiry-interval-ms`) marks due `PENDING` requests `EXPIRED` and sends (c);
   the queue listing does the same under the row lock, so a request is expired, audited and emailed once.
 
+- **FR-065 — Where a Manager corrects a finalized folio** *(decided 2026-11-27, owner Hồ Hoàng Quốc;
+  tasks T215–T216)*: the post-`FINALIZED` correction (FR-050) is entered on the folio page of the ticket
+  (`/settlement?ticket=…`), for the ticket that is open: the Manager types no ticket code. The form is
+  offered only to a Manager and only while the folio is `FINALIZED` (an `OPEN` folio is refused
+  `FOLIO_NOT_FINALIZED`, a `CLOSED` one `FOLIO_CLOSED`). It is no longer on the session page
+  (003.2 FR-071). Amount, reason, idempotency, refusal and read-back rules are unchanged; no API change.
+
 *(Superseded 2026-11-14 by FR-045a.)* **Decided 2026-11-14 (formerly "Open before implementation"):** the exact
 auto-approval conditions for online
 changes. Customer email content was approved 2026-11-12 in
@@ -971,6 +1010,18 @@ does not create sessions, perform normal check-in, provide customer self-service
 rescheduling, or serve external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-27 cash-close figure (owner Hồ Hoàng Quốc)
+
+- Q: Must the closer ask for the expected cash? → A: No. It is shown when the screen opens and reloads when the branch or day changes, with the cash entries that make it up; it cannot be edited (FR-036b). Retail cash is not counted.
+
+### Session 2026-11-27
+
+*(Decided by Hồ Hoàng Quốc, owner of Feature 003.)*
+
+- Q: How does the closer choose the branch of a cash close? → A: By name from the branches the signed-in Staff or Manager may see, the first one filled in; changing the branch or the working day drops the expected figure, the counted amount and the reason (FR-036a).
+- Q: Is a reason required for both decisions on a queued change request? → A: Only for `REJECT`. `APPROVE` needs a confirmation only; when no reason is sent, the allowance granted by the approval records "Duyệt yêu cầu đổi vé" (FR-045a).
+- Q: What does the queue show about the requester and the request? → A: The requester's full name (a Member by name; a Staff member or Manager who entered it as "name (Nhân viên)" or "name (Quản lý)"; a Guest without an account as "Khách vãng lai"). The request reference, applied change reference, session identifiers, raw channel and the technical frame line are not shown; blocked rules are shown as text (FR-045a).
 
 ### Session 2026-11-26 — findings of the staging E2E run (owner Hồ Hoàng Quốc)
 

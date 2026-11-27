@@ -9,7 +9,7 @@ import MainTopbar from '../../../shared/ui/MainTopbar';
 import { fakeSession, json, mockFetch } from '../../../test/render';
 import { signInAs } from './fixtures';
 
-// T119: the "Quản lý Ưu đãi" entry of the account menu is for the Manager only (FR-001; /promotion-management/* is a
+// T119: the "Chương trình ưu đãi" entry of the account menu is for the Manager only (FR-001; /promotion-management/* is a
 // MANAGER route family, so an Admin would only reach /404).
 async function openMenuAs(role) {
   signInAs(role);
@@ -26,13 +26,13 @@ async function openMenuAs(role) {
 describe('T119 promotion management link in the top bar', () => {
   it('is shown to a Manager', async () => {
     await openMenuAs('MANAGER');
-    expect(await screen.findByRole('menuitem', { name: /Quản lý Ưu đãi/ })).toHaveAttribute('href', '/promotion-management/programs');
+    expect(await screen.findByRole('menuitem', { name: /Chương trình ưu đãi/ })).toHaveAttribute('href', '/promotion-management/programs');
   });
 
   it('is not shown to an Admin, nor is product management (002 route masking: STAFF/MANAGER only)', async () => {
     await openMenuAs('ADMIN');
     expect(await screen.findByRole('menuitem', { name: /Tài khoản|tài khoản/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /Quản trị Sản phẩm/ })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: /Quản lý Ưu đãi/ })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Chương trình ưu đãi/ })).toBeNull();
   });
 });

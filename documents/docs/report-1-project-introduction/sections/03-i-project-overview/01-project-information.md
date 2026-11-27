@@ -1,8 +1,7 @@
 ## 1. Project Information {#project-information}
 
-| Field                | Value                                                  |
-| -------------------- | ------------------------------------------------------ |
-| English project name | Personalized Product Sales and Workshop Booking System |
-| Group name           | SEP490_G22                                             |
-| Project code         | PPSWBS                                                 |
-| Software type        | Web-application                                        |
+- English name: Personalized Product Sales and Workshop Booking System
+- Vietnamese name: Hệ thống bán sản phẩm cá nhân hóa và đặt lịch workshop
+- Project code: PPSWBS
+- Group name: SEP490_G22
+- Software type: Web Application

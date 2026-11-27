@@ -60,8 +60,8 @@ class AttendanceRosterTest {
 
         verify(authorization).requireStaffSessionAssignment("Bearer t", 12L);
         assertThat(roster).containsExactly(
-                new AttendanceRosterEntry("TK-1", "BK-A", 1, AttendanceState.CHECKED_IN, at),
-                new AttendanceRosterEntry("TK-2", "BK-A", 2, AttendanceState.NOT_CHECKED_IN, null));
+                new AttendanceRosterEntry("TK-1", "BK-A", 1, AttendanceState.CHECKED_IN, at, null),
+                new AttendanceRosterEntry("TK-2", "BK-A", 2, AttendanceState.NOT_CHECKED_IN, null, null));
     }
 
     @Test

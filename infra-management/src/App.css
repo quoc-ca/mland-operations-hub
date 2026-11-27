@@ -25,6 +25,18 @@
 .branch-input-row:focus-within{border-color:#7892d1;box-shadow:0 0 0 3px #7892d122}
 .branch-tag{background:#f8f9fa;color:var(--dim);font:600 11px var(--mono);padding:9px 12px;border-right:1px solid #edf0f3}
 .branch-input-row input{flex:1;border:none;outline:none;padding:9px 12px;font:13px var(--mono);color:var(--text);background:transparent}
-.terminal-pre{margin:0;font:11px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow-y:auto;width:100%;color:#4b5563}
+.terminal-pre{margin:0;font:11px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;max-height:360px;overflow-y:auto;width:100%;color:#4b5563}
 .operation-entry{border-top:1px solid #edf0f3;padding:16px 4px;color:var(--muted);font-size:12px;line-height:1.7}.operation-entry strong{color:var(--text)}.operation-entry p{margin:5px 0}.operation-entry small{color:var(--dim)}.check-state:has(+ div small){flex-shrink:0}
 .cooldown-active{color:var(--dim)!important;cursor:not-allowed!important;opacity:0.65}
+.runtime-details-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:32px}
+.runtime-details-grid>div{display:grid;grid-template-columns:155px 1fr;align-items:center;min-height:39px;border-top:1px solid #edf0f3;font-size:14px}
+.log-subtabs{display:inline-flex;align-items:center;gap:4px;background:#f4f5f7;border:1px solid var(--line);border-radius:6px;padding:3px}
+.log-subtab{border:0;background:transparent;color:var(--muted);padding:5px 11px;border-radius:4px;font:600 12px var(--mono);cursor:pointer;transition:all .15s ease}
+.log-subtab:hover{color:var(--text)}
+.log-subtab.active{background:#fff;color:var(--blue);box-shadow:0 1px 3px rgba(37,52,75,.08)}
+.live-badge{display:inline-flex;align-items:center;gap:6px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px #16a34a22}
+.container-meta-badge{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:4px;font:600 11px var(--mono);border:1px solid #d8dee6;background:#f8f9fa;color:#526071}
+.container-meta-badge.running{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}
+.container-meta-badge.dead{border-color:#fecaca;background:#fef2f2;color:#b91c1c}
+@media(max-width:800px){.runtime-details-grid{grid-template-columns:1fr}.log-actions{flex-wrap:wrap}}

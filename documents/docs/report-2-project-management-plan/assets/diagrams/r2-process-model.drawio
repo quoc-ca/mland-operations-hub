@@ -1,0 +1,96 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="r2-process" name="Iterative and Incremental">
+    <mxGraphModel dx="1000" dy="700" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="640" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ring" value="" style="ellipse;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#AAAAAA;" vertex="1" parent="1">
+          <mxGeometry x="290" y="210" width="220" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="center" value="&lt;b&gt;Iterative &amp;amp;&lt;br&gt;Incremental&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontColor=#1565C0;" vertex="1" parent="1">
+          <mxGeometry x="310" y="285" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="aF" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#4FC3F7;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="246" y="392" as="sourcePoint" />
+            <mxPoint x="246" y="248" as="targetPoint" />
+            <Array as="points"><mxPoint x="222" y="320" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aA" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#29B6F6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="261" y="223" as="sourcePoint" />
+            <mxPoint x="385" y="151" as="targetPoint" />
+            <Array as="points"><mxPoint x="311" y="166" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aB" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#039BE5;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="415" y="151" as="sourcePoint" />
+            <mxPoint x="539" y="223" as="targetPoint" />
+            <Array as="points"><mxPoint x="489" y="166" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aC" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#0288D1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="554" y="248" as="sourcePoint" />
+            <mxPoint x="554" y="392" as="targetPoint" />
+            <Array as="points"><mxPoint x="578" y="320" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aD" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#0277BD;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="539" y="417" as="sourcePoint" />
+            <mxPoint x="415" y="489" as="targetPoint" />
+            <Array as="points"><mxPoint x="489" y="474" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="aE" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#01579B;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="385" y="489" as="sourcePoint" />
+            <mxPoint x="261" y="417" as="targetPoint" />
+            <Array as="points"><mxPoint x="311" y="474" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="entry" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#FB8C00;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="80" y="190" as="sourcePoint" />
+            <mxPoint x="228" y="408" as="targetPoint" />
+            <Array as="points"><mxPoint x="110" y="350" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="exit" style="curved=1;html=1;endArrow=open;endFill=0;endSize=3;strokeWidth=14;strokeColor=#7CB342;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="568" y="402" as="sourcePoint" />
+            <mxPoint x="760" y="590" as="targetPoint" />
+            <Array as="points"><mxPoint x="660" y="470" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lF" value="&lt;b&gt;Planning&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Iteration scope &amp;amp; tasks&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="90" y="215" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lA" value="&lt;b&gt;Requirements&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Feature spec, clarify with Mland&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="200" y="100" width="190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lB" value="&lt;b&gt;Analysis &amp;amp; design&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Data model, API, screens&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="420" y="100" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lC" value="&lt;b&gt;Implementation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Code, unit test, PR review&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="590" y="250" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lD" value="&lt;b&gt;Testing&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Integration &amp;amp; E2E tests&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="470" y="500" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lE" value="&lt;b&gt;Evaluation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Demo &amp;amp; feedback&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="180" y="500" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lEntry" value="&lt;b&gt;Initial planning&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Report 1, Report 2&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="0" y="380" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lExit" value="&lt;b&gt;Deployment&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Release to main, demo server&lt;/font&gt;" style="text;html=1;align=center;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="650" y="400" width="170" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

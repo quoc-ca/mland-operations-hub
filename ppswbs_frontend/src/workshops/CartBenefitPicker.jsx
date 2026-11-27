@@ -11,6 +11,13 @@ const isWhole = value => /^(0|[1-9][0-9]*)$/.test(String(value ?? ''));
 const wholeOf = value => (isWhole(value) ? String(value) : null);
 
 /**
+ * Running offers the Member can still use: not one with no use left in total, and not a saved one that 006 reports as
+ * anything but ACTIVE (expired, paused, the Member's own limit reached).
+ */
+export const usableOffers = (offers, savedVouchers) => offers.filter(offer => offer.availability !== 'NO_USES_LEFT'
+  && !savedVouchers.some(item => item.code === offer.code && item.availability && item.availability !== 'ACTIVE'));
+
+/**
  * Voucher and points for a cart quote (003.1 FR-033, FR-034). One voucher use covers one group confirmation and the
  * points are asked for the whole cart; Feature 006 decides what may be used and `POST /workshop-cart-quotes` reports
  * the limits (`maxPoints`, `minRedeemPoints`, `pointValueVnd`), its `reasons` and what was applied per ticket.
@@ -48,11 +55,14 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
   const offerByCode = Object.fromEntries(offers.map(offer => [offer.code, offer]));
   const suggestions = [
     ...usable.map(item => ({ code: item.code, name: item.name, benefit: benefitText(offerByCode[item.code]), saved: true })),
-    ...offers.filter(offer => !usable.some(item => item.code === offer.code))
+    ...usableOffers(offers, savedVouchers).filter(offer => !usable.some(item => item.code === offer.code))
       .map(offer => ({ code: offer.code, name: offer.name, benefit: benefitText(offer), saved: false })),
   ];
   const voucherChosen = selection.choice === 'VOUCHER' && Boolean(selection.voucherCode);
   const selectedVoucher = savedVouchers.find(item => item.code === selection.voucherCode);
+
+  // The quote answers for the chosen code: no voucher discount means 006 did not apply it (the reason is shown below).
+  const voucherRefused = voucherChosen && Boolean(quote) && wholeOf(quote.voucherDiscountVnd) === '0';
 
   const available = wholeOf(account?.availablePoints);
   const held = wholeOf(account?.heldPoints) && account.heldPoints !== '0' ? String(account.heldPoints) : null;
@@ -90,10 +100,11 @@ export function CartBenefitPicker({ selection, onChange, savedVouchers = [], off
     <section className="retail-benefits" aria-label={tw('benefit.aria')}>
       <button type="button" className="retail-benefit-row" onClick={() => setPickerOpen(true)}>
         <span className="retail-benefit-icon">▣</span><strong>{tw('benefit.voucher')}</strong>
-        <span className={voucherChosen ? 'benefit-applied' : 'muted'}>
+        <span className={voucherChosen && !voucherRefused ? 'benefit-applied' : 'muted'}>
           {voucherChosen
             ? (selectedVoucher?.name || suggestions.find(item => item.code === selection.voucherCode)?.name || selection.voucherCode)
             : tw('benefit.chooseOrEnter')}
+          {voucherRefused ? ` · ${tw('benefit.notApplied')}` : ''}
         </span>
         <span>›</span>
       </button>

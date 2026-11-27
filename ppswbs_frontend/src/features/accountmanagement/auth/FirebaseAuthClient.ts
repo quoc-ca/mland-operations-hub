@@ -12,6 +12,7 @@ import {
   verifyBeforeUpdateEmail as fbVerifyBeforeUpdateEmail,
   GoogleAuthProvider,
   signInWithRedirect as fbSignInWithRedirect,
+  linkWithRedirect as fbLinkWithRedirect,
   getRedirectResult as fbGetRedirectResult,
   signInWithPopup as fbSignInWithPopup,
   EmailAuthProvider,
@@ -177,6 +178,18 @@ class FirebaseAuthClient {
     this.lastRedirectError = null;
     const provider = new GoogleAuthProvider();
     await fbSignInWithRedirect(auth, provider);
+  }
+
+  public async linkGoogleWithRedirect(): Promise<void> {
+    const user = this.getCurrentUser();
+    if (!user) {
+      throw new Error('No authenticated invitation user to link');
+    }
+    this.redirectPromise = null;
+    this.lastRedirectError = null;
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await fbLinkWithRedirect(user, provider);
   }
 
   public async getRedirectAuthResult(): Promise<User | null> {

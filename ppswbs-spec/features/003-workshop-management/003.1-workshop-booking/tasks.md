@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -449,3 +449,11 @@ form disabled. Verified with `npm run build` and `npm test -- --run` (189/189).
 - [ ] T176 [BE] Refuse creating a booking group for a retiring MEMBER under the group-creation lock (FR-062): typed error, no other account data, existing groups unchanged. Traces to FR-062. Check: `BookingGroupRetirementBlockIT` (a retirement set between read and create refuses the create).
 - [ ] T177 [Test] Table-driven tests of every FR-060 blocker and every CLEAR case (including `NO_SHOW` + `DEPOSIT_PAID` = CLEAR and `COMPLETED` + `DEPOSIT_PAID` = BLOCKED), UNAVAILABLE on a failed dependency, Guest bookings with the same email not matched, sensitive fields absent from the result. Traces to FR-059, FR-060, SC-010. Check: the named tests green.
 - [ ] T178 [Contract] Keep the facade contract, `plan.md` and `data-model.md` (no new table; the text is drafted 2026-11-25, confirm after T174) in line with FR-059–FR-062. Traces to FR-059–FR-062. Check: contract text matches the code at converge.
+
+## Ticket QR image (spec FR-063, FR-014b amendment, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T179 **Done 2026-11-27** [FE] Show each ticket QR as an image that can be enlarged in `GroupTicketList.jsx`. Traces to FR-063. Check: Vitest. `TicketQrCode.jsx`; `groupRecovery.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T180 **Done 2026-11-27** [BE] Inline QR images in the buyer confirmation, its resend and the ticket recipient email (ZXing, `MailMessage` inline images, SMTP adapter). Traces to FR-063, FR-014b. Check: composer and adapter unit tests decode the image back to the reference. `TicketQrImage.java`, `BookingMailComposer`, `SmtpMailAdapter`; `TicketQrMailTest` 3/3. Evidence: full `mvnw test` 3117 tests, 16 skipped, one failure `CatalogueCloudinaryIT` NOT RUN for missing Cloudinary variables, rerun with them 5/5 passed (2026-11-27).
+- [ ] T181 [Test] Browser check of the ticket QR and one real email client check of the images.
+
+Mapping: FR-063 → T179, T180, T181.

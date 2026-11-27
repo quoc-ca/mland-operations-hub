@@ -184,7 +184,7 @@ class WorkshopSettlementStatusContractIT {
                 post("/api/v1/workshop-tickets/T-1/folio/collections/C-1/confirmations",
                         "{\"bankTransactionReference\":\"FT-1\"}"),
                 post("/api/v1/workshop-tickets/T-1/folio/handover-exceptions", reason),
-                post("/api/v1/workshop-tickets/T-1/folio/debts", "{\"amountVnd\":1000,\"reason\":\"Contract test\"}"),
+                post("/api/v1/workshop-tickets/T-1/folio/debts", reason),
                 post("/api/v1/workshop-tickets/T-1/folio/debts/closures", reason),
                 post("/api/v1/workshop-tickets/T-1/folio/collections/C-1/cash-reversals", reason),
                 post("/api/v1/workshop-tickets/T-1/folio/absorbed-undercharges",

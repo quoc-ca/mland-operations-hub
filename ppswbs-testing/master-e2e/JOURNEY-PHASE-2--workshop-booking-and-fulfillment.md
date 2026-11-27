@@ -64,7 +64,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
 - Phân tích chi phí cọc 50% và tích hợp cổng thanh toán VNPay Sandbox.
 - Quy trình xuất vé, hiển thị mã vé `TKT-...` và mã QR trên giao diện người dùng.
 - Đổi slot vé (003.3 FR-044/FR-045): một lượt đổi mỗi vé, hạn 24 giờ, chỉ liệt kê buổi còn chỗ, xác nhận khoản tăng giá, bấm đúp; khách chỉ đổi trước buổi học, đến muộn chỉ Staff/Manager (FR-044b).
-- Hàng chờ yêu cầu đổi lịch (`/settlement/change-requests`): Staff và Manager duyệt hoặc từ chối kèm lý do, phạm vi chi nhánh của Staff, Admin bị chặn (FR-045a).
+- Hàng chờ yêu cầu đổi lịch (`/settlement/change-requests`): Staff và Manager duyệt (không cần lý do) hoặc từ chối (bắt buộc lý do), phạm vi chi nhánh của Staff, Admin bị chặn (FR-045a).
 - Màn hình vận hành xưởng của Staff (`003.2`): Nhập mã vé, kiểm tra quyền chi nhánh, cập nhật trạng thái `CHECKED_IN`.
 - Màn hình tất toán của Manager (`003.3`): Xuất hóa đơn tất toán, cập nhật trạng thái `COMPLETED` và tự động tích điểm Loyalty.
 
@@ -227,17 +227,17 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
 
 ### Bước 5c (P2-S05c): Staff Duyệt / Từ chối Yêu cầu Đổi lịch trong Hàng chờ (Browser 2)
 
-> Căn cứ: `003.3 spec.md` FR-045a (sửa đổi 2026-11-17: hàng chờ do **Staff hoặc Manager** quyết định). Trang: `/settlement/change-requests` (menu **"Yêu cầu đổi vé"**). Tiền điều kiện: có 2 yêu cầu `PENDING` tại chi nhánh của Staff, trên **2 vé khác nhau**: vé C (còn dưới 24 giờ, P2-S05b nhánh 3) và vé B (hết lượt đổi, nhánh 2); thêm 1 yêu cầu thứ 3 `PENDING` trên vé thứ ba cho P2-S05d.
+> Căn cứ: `003.3 spec.md` FR-045a (sửa đổi 2026-11-17: hàng chờ do **Staff hoặc Manager** quyết định). Trang: `/settlement/change-requests` (menu **"Yêu cầu đổi vé"**, đứng trước tab **"Hỗ trợ đổi vé và hủy"**). Tiền điều kiện: có 2 yêu cầu `PENDING` tại chi nhánh của Staff, trên **2 vé khác nhau**: vé C (còn dưới 24 giờ, P2-S05b nhánh 3) và vé B (hết lượt đổi, nhánh 2); thêm 1 yêu cầu thứ 3 `PENDING` trên vé thứ ba cho P2-S05d.
 
 - **(a) Quan sát & Dò tìm (Backstage Discovery)**:
   - Tại **Browser 2**, đăng nhập Staff `staff.test@mland.vn`. Nhân viên tìm mục **"Yêu cầu đổi vé"** trên menu bên: có thấy dễ không?
   - Mở trang: bộ lọc trạng thái là **ô chọn** (`PENDING`/`APPROVED`/`REJECTED`/`EXPIRED`, mặc định `PENDING`) kèm nút "Refresh", không phải tab; bảng có các cột Ticket, Type, Current session, Requested session, Blocked by, Price increase, Expires, Status, Decision.
   - Nhãn trang là **tiếng Anh** ("Change requests", "Status", "Details", "Approve", "Reject") trong khi menu là tiếng Việt: đây là hiện trạng đã biết, ghi nhận một lần như SOFT FAIL, không lặp lại ở từng bước.
-  - Bấm **"Details"** ở một yêu cầu: hiển thị buổi hiện tại và buổi muốn đổi (ngày, giờ, chi nhánh), `Blocked by` hiển thị **mã thô** (VD: `ADVANCE_CHANGE_WINDOW_EXPIRED` cho vé C, `CHANGE_ALLOWANCE_EXHAUSTED` cho vé B), khoản tăng giá, hạn hết hạn. Nếu `Price increase` trống hoặc 0 mà yêu cầu có tăng giá, ghi là chưa xác minh.
+  - Bấm **"Details"** ở một yêu cầu: hiển thị buổi hiện tại và buổi muốn đổi (ngày, giờ, chi nhánh), `Blocked by` hiển thị **bằng chữ**, không hiện mã thô (vé C: quá hạn 24 giờ; vé B: đã dùng lượt đổi), "Requested by" hiện **họ tên** người yêu cầu (nhân viên kèm "(Staff)"/"(Manager)", khách không tài khoản là "Walk-in guest"), không có mã yêu cầu, mã ca hay kênh, khoản tăng giá, hạn hết hạn. Nếu `Price increase` trống hoặc 0 mà yêu cầu có tăng giá, ghi là chưa xác minh.
 - **(b) Thử nghiệm & Hành động (Action Execution)**:
-  - **Nhánh 1 — Staff duyệt**: Với yêu cầu của vé C (còn dưới 24 giờ), bấm **"Approve"** ➔ hộp thoại lý do ➔ nhập lý do ➔ xác nhận. Kỳ vọng: thông báo *"Change approved and applied."*, yêu cầu rời danh sách `PENDING`, sang `APPROVED` kèm `Applied change`; hạn mức đổi của buổi mới giảm 1 (lúc duyệt, không phải lúc xếp hàng chờ). Duyệt có thể **thất bại** và yêu cầu vẫn `PENDING` không đổi dữ liệu (`INSUFFICIENT_CAPACITY`, `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, `TICKET_FOLIO_NOT_OPEN`, `CONFIRM_INCREASE_REQUIRED`...): ghi lại mã nếu gặp.
+  - **Nhánh 1 — Staff duyệt**: Với yêu cầu của vé C (còn dưới 24 giờ), bấm **"Approve"** ➔ hộp thoại xác nhận **không có ô lý do** ➔ xác nhận. Kỳ vọng: thông báo *"Change approved and applied."*, yêu cầu rời danh sách `PENDING`, sang `APPROVED`; hạn mức đổi của buổi mới giảm 1 (lúc duyệt, không phải lúc xếp hàng chờ). Duyệt có thể **thất bại** và yêu cầu vẫn `PENDING` không đổi dữ liệu (`INSUFFICIENT_CAPACITY`, `PACKAGE_NOT_AVAILABLE_AT_LOCATION`, `TICKET_FOLIO_NOT_OPEN`, `CONFIRM_INCREASE_REQUIRED`...): ghi lại mã nếu gặp.
   - **Nhánh 2 — Staff từ chối**: Với yêu cầu của vé B (hết lượt đổi), bấm **"Reject"** ➔ nhập lý do ➔ xác nhận. Kỳ vọng: *"Change rejected."*, sang `REJECTED`, `Decision reason` hiển thị lý do vừa nhập; vé **không đổi slot**.
-  - **Nhánh 3 — Lý do trống (Abnormal)**: Thử xác nhận hộp thoại khi để trống lý do (cả Approve lẫn Reject) ➔ hộp thoại hiện *"A reason is required."* và không gửi gì; yêu cầu vẫn `PENDING`. (Nếu gọi API trực tiếp: `422 REASON_REQUIRED`.)
+  - **Nhánh 3 — Lý do trống (Abnormal)**: Thử xác nhận hộp thoại **Reject** khi để trống lý do ➔ hộp thoại hiện *"A reason is required."* và không gửi gì; yêu cầu vẫn `PENDING`. (Nếu gọi API trực tiếp với `REJECT` không lý do: `422 REASON_REQUIRED`; `APPROVE` không lý do được chấp nhận.)
   - **Nhánh 4 — Ngoài phạm vi (Abuse)**: Danh sách `PENDING` đã lọc theo chi nhánh của Staff, nên yêu cầu của chi nhánh khác **không hiện** với Staff này; qua giao diện không thể thử duyệt. Assertion: yêu cầu ngoài phạm vi (nếu có) không có trong danh sách của Staff. `403 LOCATION_SCOPE_DENIED` chỉ gặp khi gọi API trực tiếp bằng mã yêu cầu; không có dữ liệu hoặc không thử API thì ghi `NOT RUN`.
   - **Nhánh 5 — Chống bấm đúp**: Bấm **"Approve"** xác nhận hai lần liên tiếp ➔ nút xác nhận bị khóa khi đang gửi, chỉ ghi một quyết định và một lần đổi. Nếu một lần gửi lọt thêm: `409 CHANGE_REQUEST_NOT_PENDING`, không đổi lần hai.
 - **(c) Đối chiếu phía Khách (Browser 1)**:
@@ -257,7 +257,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
   - Tại Browser 2, đăng nhập Manager `manager.test@mland.vn`, mở **"Yêu cầu đổi vé"** (`/settlement/change-requests`).
   - Manager có phạm vi toàn cục: thấy yêu cầu `PENDING` của mọi chi nhánh, kể cả yêu cầu mà Staff không thấy hoặc không được quyết ở P2-S05c nhánh 4.
 - **(b) Thử nghiệm & Hành động**:
-  - **Nhánh 1 — Manager duyệt**: Mở **"Details"** yêu cầu thứ 3 ➔ **"Approve"** ➔ nhập lý do ➔ xác nhận. Kỳ vọng: *"Change approved and applied."*, sang `APPROVED`, có `Decided` (thời điểm) và `Decision reason`. **Người quyết định không hiển thị trên giao diện**: muốn xác minh "quyết định ghi dưới tài khoản Manager" phải kiểm tra qua API hoặc audit, nếu không thì ghi `NOT RUN`.
+  - **Nhánh 1 — Manager duyệt**: Mở **"Details"** yêu cầu thứ 3 ➔ **"Approve"** ➔ xác nhận (không có ô lý do). Kỳ vọng: *"Change approved and applied."*, sang `APPROVED`, có `Decided` (thời điểm); `Decision reason` là "—". **Người quyết định không hiển thị trên giao diện**: muốn xác minh "quyết định ghi dưới tài khoản Manager" phải kiểm tra qua API hoặc audit, nếu không thì ghi `NOT RUN`.
   - **Nhánh 2 — Yêu cầu đã quyết (Boundary)**: Đổi ô chọn trạng thái sang `APPROVED` rồi `REJECTED`: các yêu cầu ở P2-S05c và P2-S05d hiện đúng trạng thái; yêu cầu đã quyết **không còn nút Approve/Reject**.
   - **Nhánh 3 — Tranh chấp quyết định (Race)**: Nếu Staff vừa quyết một yêu cầu, Manager mở trang chưa tải lại và bấm Approve cùng yêu cầu ➔ `409 CHANGE_REQUEST_NOT_PENDING` (hoặc `CHANGE_REQUEST_EXPIRED` nếu đã hết hạn), **không** đổi lần hai.
   - **Nhánh 4 — Hết hạn**: Yêu cầu quá `Expires` được đánh dấu `EXPIRED` khi tải danh sách; chọn trạng thái `EXPIRED` thấy yêu cầu đó, không còn nút quyết định, và quyết định qua API trả `409 CHANGE_REQUEST_EXPIRED`. Hạn là thời điểm sớm hơn giữa giờ bắt đầu buổi cũ và giờ bắt đầu các buổi đích tương lai; không tạo được dữ liệu hết hạn thì ghi `NOT RUN`.
@@ -279,7 +279,7 @@ Kiểm chứng tính Dẫn dắt (Wayfinding), sự Trực quan và Khả năng 
   - Đăng nhập tài khoản Staff: `staff.test@mland.vn` / `StaffTest@123456`.
   - Nhân viên nhìn vào thanh menu: Có thấy mục **"Điều hành xưởng & Check-in"** (`/operator/workshop-operations`) không?
 - **(b) Thử nghiệm Đối nghịch & Bẫy vé giả (Adversarial Probing)**:
-  - Mở màn hình check-in: Ô nhập mã vé / quét QR nằm ở vị trí trung tâm.
+  - Mở màn hình check-in: nút **"Quét bằng camera"** và ô nhập mã vé nằm ở bàn check-in (003.2 FR-057; không còn ô nhập mã QR). Bấm hàng vé trong danh sách điểm danh cũng check-in được sau khi xác nhận (FR-058).
   - **Thử nhập vé giả**: Gõ `TKT-FAKE-99999` ➔ Bấm "Kiểm tra vé".
     + Hệ thống hiển thị thông báo lỗi màu đỏ rõ ràng: *"Mã vé không tồn tại hoặc không thuộc ca học này"*.
   - **Quét vé thật**: Nhập mã vé `WORKSHOP_TICKET_CODE` vừa sinh từ Bước 5.

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import CartTabs from '../shared/ui/CartTabs';
 import { createBookingGroup, listWorkshopLocations, quoteWorkshopCart } from '../api/workshops';
-import { CartBenefitPicker } from './CartBenefitPicker';
+import { CartBenefitPicker, usableOffers } from './CartBenefitPicker';
 import { contactForRequest, EMPTY_CONTACT, splitPhone, validateBookingContact } from './contactValidation';
 import { CartQuotePanel } from './CartQuotePanel';
 import { CartQuoteDialog } from './CartQuoteDialog';
@@ -144,7 +144,7 @@ export function WorkshopCartPage() {
         if (!active) return;
         setWorkshopOffers((result?.items || [])
           .filter(item => item.kind === 'VOUCHER' && item.code)
-          .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount })));
+          .map(item => ({ code: item.code, name: item.name || item.code, discount: item.discount, availability: item.availability })));
       })
       .catch(() => { if (active) setWorkshopOffers([]); });
     http('/api/v1/members/me/loyalty-accounts/current')
@@ -184,7 +184,7 @@ export function WorkshopCartPage() {
     };
     const codes = [
       ...savedVouchers.filter(item => item.availability === 'ACTIVE' && fits(item)).map(item => item.code),
-      ...workshopOffers.map(item => item.code),
+      ...usableOffers(workshopOffers, savedVouchers).map(item => item.code),
     ];
     return [...new Set(codes)].slice(0, 5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,6 +318,8 @@ export function WorkshopCartPage() {
   const changeBenefitSelection = next => {
     const hadQuote = Boolean(quote);
     userPicked.current = true;
+    // The preview answers for the previous voucher: drop it until the new one arrives.
+    if (next.voucherCode !== benefitSelection.voucherCode) setPreview(null);
     setBenefitSelection(next);
     invalidateQuote();
     runPreview(next);

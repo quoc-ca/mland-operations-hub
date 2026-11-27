@@ -6,5 +6,10 @@ public record VerifiedIdentity(
     String uid,
     String email,
     boolean emailVerified,
-    Instant authTime
-) {}
+    Instant authTime,
+    String signInProvider
+) {
+    public VerifiedIdentity(String uid, String email, boolean emailVerified, Instant authTime) {
+        this(uid, email, emailVerified, authTime, null);
+    }
+}

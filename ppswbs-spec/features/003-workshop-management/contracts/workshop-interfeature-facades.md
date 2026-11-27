@@ -1,7 +1,7 @@
 # 003 Workshop Management — Internal Facade Contract
 
 **Date created**: 2026-10-25
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -591,3 +591,10 @@ repositories or treats a group-level design as the ticket snapshot.
 
 Only a `VALIDATED` design version is eligible for workshop attachment. This is
 technical validation plus immutable snapshot creation, not Staff/Manager approval.
+
+## `TicketFolioStateQuery` (added 2026-11-27, 003.2 FR-062)
+
+Declared in `workshopoperations :: facade`, implemented by 003.3 Settlement.
+`isTicketFolioFinalized(operationsTicketReference)` is true only for a folio in
+`FINALIZED`; open, closed or no folio is false. Read-only, no lock across modules.
+

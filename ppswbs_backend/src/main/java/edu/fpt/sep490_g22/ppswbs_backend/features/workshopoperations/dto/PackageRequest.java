@@ -49,6 +49,9 @@ public class PackageRequest {
     @Builder.Default
     private Integer requiredFoundryWorkingDaysBetweenSessions = 0;
 
+    /** Cover image uploaded beforehand (FR-073); null means the Package has no image. */
+    private java.util.UUID imageMediaId;
+
     @JsonIgnore
     @AssertTrue(message = "maxParticipants must be greater than or equal to minParticipants")
     public boolean isParticipantRangeValid() {

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface SettlementCashReversalRepository extends JpaRepository<SettlementCashReversal, Long> {
@@ -19,6 +20,9 @@ public interface SettlementCashReversalRepository extends JpaRepository<Settleme
     /** Negative sum of the reversals of one folio; zero when there are none. */
     @Query("select coalesce(sum(r.amountVnd), 0) from SettlementCashReversal r where r.billReference = :billReference")
     long sumByBillReference(@Param("billReference") String billReference);
+
+    /** FR-036b: the rows {@link #sumForBranchDay} adds up. */
+    List<SettlementCashReversal> findByBranchIdAndCashBusinessDay(Long branchId, LocalDate cashBusinessDay);
 
     /** Negative sum of the reversals counting on one branch working day (FR-036 expected cash). */
     @Query("""

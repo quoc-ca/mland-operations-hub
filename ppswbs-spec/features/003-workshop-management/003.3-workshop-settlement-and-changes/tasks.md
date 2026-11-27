@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -458,3 +458,28 @@ Mapping: FR-064 → T194–T199.
 - [ ] T210 [Test] Browser run of the `quickstart.md` "Change types" steps against a live stack.
 
 Mapping: FR-044b → T206–T210. Depends: T206 → T207, T208 → T209, T210.
+
+## Phase 18: Change-request queue and cash-close screen (spec FR-045a amendment and FR-036a, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T211 **Done 2026-11-27** [Spec] FR-045a queue decision and display amendment, FR-036a; contract `workshop-settlement-ticket.openapi.yaml` (`reason` optional for `APPROVE`, `requesterName`); `design/ui-flow.md`.
+- [x] T212 **Done 2026-11-27** [BE] `TicketChangeRequestService`: reason required for `REJECT` only, default grant reason on approval, `requesterName` from the account facade. Evidence: 63 targeted tests passed including the module tests; full backend suite not run; commit `e6879039`.
+- [x] T213 **Done 2026-11-27** [FE] Change-request queue (requester name, no technical identifiers, translated blocked rules, approval confirmation) and cash-close branch select. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.
+- [ ] T214 [Test] Browser check of the queue and the cash close against a live stack, and the full backend suite.
+
+Mapping: FR-045a → T211–T214; FR-036a → T211, T213, T214.
+
+## Folio correction on the ticket folio page (spec FR-065, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T215 **Done 2026-11-27** [FE] Move the correction form to `workshop-settlement/FolioCorrectionPanel` on `SettlementWorkspacePage`: open ticket preselected, Manager only, `FINALIZED` only; wording moved to the settlement dictionary. Replaces `StaffWorkshopAddonPanel` (T040, T124, T127). Check: Vitest (`folioCorrectionPanel.test.jsx`). Evidence (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
+- [ ] T216 [Test] Browser check of the correction on a finalized ticket folio as Manager against a live stack.
+
+Mapping: FR-065 → T215, T216.
+
+## Phase 19: Expected cash and its entries on the cash-close screen (spec FR-036b, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T217 **Done 2026-11-27** [Spec] FR-036b, FR-036a amendment, contract `workshop-settlement-ticket.openapi.yaml` (`entries`), data-model, `design/ui-flow.md`.
+- [x] T218 **Done 2026-11-27** [BE] Expected-cash read returns the entries and a total equal to their sum, including reversals. Check: JUnit and the MySQL status contract test. Evidence: `CashDayCloseServiceTest`, `FolioCollectionApiServiceTest`, `FolioCollectionControllerTest`, `CashReversalMysqlIT` passed; full `mvnw test` 3140 tests, the only failure was unrelated to this task.
+- [x] T219 **Done 2026-11-27** [FE] `CashClosePage` reads on opening and on branch/date change, lists the entries, clears the draft. Check: Vitest. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 174 files, 1447 tests passed; `npm run build` passed.
+- [ ] T220 [Test] Browser check against a live stack as Staff and Manager.
+
+Mapping: FR-036b → T217–T220. Depends: T217 → T218 → T219 → T220.

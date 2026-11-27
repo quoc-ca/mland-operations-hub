@@ -39,7 +39,13 @@ public class VnpayBrowserReturnController {
         String bookingCode = extractBookingCode(params.getFirst("vnp_OrderInfo"));
         UriComponentsBuilder target = UriComponentsBuilder.fromUriString(frontendBaseUrl);
         String orderInfo = params.getFirst("vnp_OrderInfo");
-        if (orderInfo != null && (orderInfo.contains("CO-") || orderInfo.startsWith("Retail checkout CO-"))) {
+        String txnRef = params.getFirst("vnp_TxnRef");
+        String customOrderRef = extractCustomOrderRef(orderInfo, txnRef);
+
+        if (customOrderRef != null) {
+            target.path("/account/my-custom-orders/" + customOrderRef);
+            target.queryParam("orderRef", customOrderRef);
+        } else if (orderInfo != null && (orderInfo.contains("CO-") || orderInfo.startsWith("Retail checkout CO-"))) {
             target.path("/account/my-custom-orders");
         } else if (orderInfo != null && orderInfo.startsWith(RETAIL_PREFIX)
                 && suffix(orderInfo, RETAIL_PREFIX) != null) {
@@ -75,6 +81,24 @@ public class VnpayBrowserReturnController {
         if (orderInfo == null || orderInfo.isBlank()) return null;
         if (orderInfo.startsWith(DEPOSIT_PREFIX)) return suffix(orderInfo, DEPOSIT_PREFIX);
         if (orderInfo.startsWith(FINAL_PREFIX)) return suffix(orderInfo, FINAL_PREFIX);
+        return null;
+    }
+
+    private static String extractCustomOrderRef(String orderInfo, String txnRef) {
+        if (orderInfo != null) {
+            int idx = orderInfo.indexOf("CO-");
+            if (idx >= 0) {
+                String sub = orderInfo.substring(idx).trim();
+                int spaceIdx = sub.indexOf(' ');
+                return spaceIdx > 0 ? sub.substring(0, spaceIdx) : sub;
+            }
+        }
+        if (txnRef != null && txnRef.startsWith("CUST-")) {
+            String[] parts = txnRef.split("-");
+            if (parts.length >= 2) {
+                return "CO-" + parts[1];
+            }
+        }
         return null;
     }
 

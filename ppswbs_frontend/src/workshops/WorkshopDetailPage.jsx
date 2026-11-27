@@ -5,6 +5,7 @@ import { getEffectiveParticipantMax } from './bookingCapacity';
 import { buildCheckoutPath, parseSelection, selectionProblem } from './bookingSelection';
 import { useFormat, useLanguage, useT } from '../shared/i18n/I18nProvider';
 import { messages } from './messages';
+import { PackageImage } from './PackageImage';
 import { addCartLine, cartLineCount, subscribeToCart } from './cartStorage';
 import { formatSessionWindow } from './groupDisplay';
 import './figmaPublicShell.css';
@@ -312,9 +313,17 @@ export function WorkshopDetailPage({ packageId }) {
       <div className="detail-grid" style={{ alignItems: 'start', marginTop: '24px' }}>
         {/* The left column stays in view while the long right column scrolls, and carries the package rules so it is not an empty gap. */}
         <div className="workshop-detail-aside">
-          <div className="ring-visual gold" aria-label={t('detail.visualAria')} style={{ height: '320px' }}>
-            <span />
-          </div>
+          <PackageImage
+            packageId={pkg.packageId}
+            imageMediaId={pkg.imageMediaId}
+            alt={pkg.name}
+            className="workshop-detail-image"
+            fallback={(
+              <div className="ring-visual gold" aria-label={t('detail.visualAria')} style={{ height: '320px' }}>
+                <span />
+              </div>
+            )}
+          />
 
           <div className="workspace-card" style={{ padding: '18px', backgroundColor: '#fafafa' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>{t('detail.rules.title')}</h3>

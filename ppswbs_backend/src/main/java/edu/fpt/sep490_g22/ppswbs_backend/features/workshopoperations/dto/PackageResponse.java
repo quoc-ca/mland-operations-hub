@@ -21,6 +21,8 @@ public class PackageResponse {
     private Integer minimumSameDaySlotGap;
     private Integer requiredFoundryWorkingDaysBetweenSessions;
     private WorkshopPackageState state;
+    /** Cover image (FR-073); the bytes are read from the package image routes. */
+    private java.util.UUID imageMediaId;
     /** Locations where the package is sellable; filled by the public list and detail so offers can be priced per branch. */
     private java.util.List<Long> branchIds;
 }

@@ -19,7 +19,7 @@ const folio = (over = {}) => json(200, {
 });
 async function openFolio(user) {
   await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
-  await user.click(screen.getByRole('button', { name: 'Open folio' }));
+  await user.click(screen.getByRole('button', { name: 'Open bill' }));
 }
 
 // T145 (FR-036, FR-053): the button comes from the server's cashDayClosed.
@@ -148,7 +148,7 @@ describe('Absorbed undercharges', () => {
     await user.type(within(dialog).getByLabelText('Amount (VND)'), '999999999');
     await user.type(within(dialog).getByLabelText('Reason (required)'), 'x');
     await user.click(within(dialog).getByRole('button', { name: 'Record undercharge' }));
-    expect(await screen.findByText(/exceeds the folio total/)).toBeInTheDocument();
+    expect(await screen.findByText(/exceeds the bill total/)).toBeInTheDocument();
   });
 
   const LIST = { locationId: 3, from: '2026-11-01', to: '2026-11-30', totalVnd: '20000', records: [RECORD, { ...RECORD, underchargeReference: 'UC-2', amountVnd: '5000', status: 'VOIDED', voidReason: 'dup' }] };

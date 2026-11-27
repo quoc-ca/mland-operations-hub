@@ -193,7 +193,7 @@ class InternalAccountInvitationNotificationIT {
         renditionRepository.save(rendition);
 
         // Mock materialization facade response
-        String transientUrl = "https://hub.mland.vn/setup-account?secret=mock_transient_secret_999";
+        String transientUrl = "https://hub.mland.vn/invitations/setup?secret=mock_transient_secret_999";
         when(invitationService.materialize(any()))
                 .thenReturn(MaterializationOutcome.available(transientUrl, Instant.now().plusSeconds(86400)));
 

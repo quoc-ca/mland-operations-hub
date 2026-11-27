@@ -59,4 +59,18 @@ public interface ConsultationConversationRepository extends JpaRepository<Consul
     Page<ConsultationConversation> findByStatusOrderByUpdatedAtDescConversationReferenceDesc(
             ConsultationStatus status, Pageable pageable
     );
+
+    Page<ConsultationConversation> findByAssignedLocationIdInAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(
+            List<Long> locationIds, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByAssignedLocationIdInAndStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(
+            List<Long> locationIds, ConsultationStatus status, Pageable pageable
+    );
+
+    Page<ConsultationConversation> findByClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(Pageable pageable);
+
+    Page<ConsultationConversation> findByStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(
+            ConsultationStatus status, Pageable pageable
+    );
 }

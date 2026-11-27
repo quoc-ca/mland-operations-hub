@@ -21,9 +21,11 @@ import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.Cus
 import edu.fpt.sep490_g22.ppswbs_backend.features.custommanufacturing.domain.CustomOrderQuote;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerKind;
 import edu.fpt.sep490_g22.ppswbs_backend.features.paymentintegration.facade.PaymentOwnerRegistry;
+import edu.fpt.sep490_g22.ppswbs_backend.common.notification.NotificationIntentPort;
 import edu.fpt.sep490_g22.ppswbs_backend.common.payment.PaymentGatewayCheckoutPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,11 +42,15 @@ public class CustomOrderService {
     private static final String PAYMENT_PAID = "PAID";
     private static final String PAYMENT_REVIEW_REQUIRED = "REVIEW_REQUIRED";
 
-    private record Stage(String previous, String productionStatus, String fulfilmentStatus) {}
+    private record Stage(String previous, String productionStatus, String fulfilmentStatus) {
+    }
 
-    /** Order statuses after full payment: no quote command may touch the order any more (spec 004 2.1). */
-    private static final Set<String> QUOTE_LOCKED_STATUSES =
-            Set.of("PAID", "IN_PRODUCTION", "READY_FOR_FULFILMENT", "CLOSED");
+    /**
+     * Order statuses after full payment: no quote command may touch the order any
+     * more (spec 004 2.1).
+     */
+    private static final Set<String> QUOTE_LOCKED_STATUSES = Set.of("PAID", "IN_PRODUCTION", "READY_FOR_FULFILMENT",
+            "CLOSED");
 
     private static void requireQuoteUnlocked(CustomOrder order) {
         if (QUOTE_LOCKED_STATUSES.contains(order.getStatus())) {
@@ -68,7 +74,15 @@ public class CustomOrderService {
     private final PaymentOwnerRegistry paymentOwnerRegistry;
     private final PaymentGatewayCheckoutPort vnpayAdapter;
     private final AccountFacade accountFacade;
+    private final CustomOrderShipmentService customOrderShipmentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired(required = false)
+    private NotificationIntentPort notificationIntentPort;
+
+    public void setNotificationIntentPort(NotificationIntentPort notificationIntentPort) {
+        this.notificationIntentPort = notificationIntentPort;
+    }
 
     @Transactional
     public QuoteProjectionDto prepareOrUpdateQuote(
@@ -78,8 +92,7 @@ public class CustomOrderService {
             Long totalAmount,
             String currency,
             Instant expiresAt,
-            String managerReason
-    ) {
+            String managerReason) {
         log.info("Preparing quote for request: id={}, staff={}, isManager={}, amount={}",
                 designRequestId, staffAccountId, isManager, totalAmount);
 
@@ -159,9 +172,9 @@ public class CustomOrderService {
             String customOrderIdOrRef,
             String quoteIdOrRef,
             Long managerAccountId,
-            String managerReason
-    ) {
-        log.info("Manager approving quote: order={}, quote={}, manager={}", customOrderIdOrRef, quoteIdOrRef, managerAccountId);
+            String managerReason) {
+        log.info("Manager approving quote: order={}, quote={}, manager={}", customOrderIdOrRef, quoteIdOrRef,
+                managerAccountId);
 
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
@@ -172,7 +185,8 @@ public class CustomOrderService {
                         .or(() -> quoteRepository.findByQuoteReference(quoteIdOrRef))
                         .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá."))
                 : quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
-                        .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá nào cho đơn hàng này."));
+                        .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                                "Không tìm thấy báo giá nào cho đơn hàng này."));
 
         requireQuoteUnlocked(order);
         boolean latest = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
@@ -199,6 +213,26 @@ public class CustomOrderService {
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
 
+        if (notificationIntentPort != null) {
+            try {
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "QUOTE_APPROVED_" + quote.getQuoteReference(),
+                            "CUSTOM_ORDER_QUOTE_APPROVED",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "quoteReference", quote.getQuoteReference(),
+                                    "totalAmount", quote.getTotalAmount(),
+                                    "expiresAt", quote.getExpiresAt().toString()
+                            )
+                    );
+                });
+            } catch (Exception ex) {
+                log.warn("Failed to submit quote approval notification: {}", ex.getMessage());
+            }
+        }
+
         return mapToQuoteDto(quote);
     }
 
@@ -213,10 +247,10 @@ public class CustomOrderService {
     public QuoteProjectionDto approveQuoteByDesignRequestId(
             String designRequestId,
             Long managerAccountId,
-            String managerReason
-    ) {
+            String managerReason) {
         CustomOrder order = customOrderRepository.findByDesignRequestId(designRequestId)
-                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh cho yêu cầu này."));
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy đơn hàng tùy chỉnh cho yêu cầu này."));
         return approveQuote(order.getId(), null, managerAccountId, managerReason);
     }
 
@@ -246,7 +280,8 @@ public class CustomOrderService {
     public CustomOrderProjectionDto getCustomOrderForOperations(String customOrderIdOrRef) {
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
-                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng gia công tùy chỉnh."));
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy đơn hàng gia công tùy chỉnh."));
         return mapToOrderDto(order);
     }
 
@@ -254,7 +289,8 @@ public class CustomOrderService {
     public CustomOrderProjectionDto getMyCustomOrder(Long memberAccountId, String customOrderIdOrRef) {
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
-                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng gia công tùy chỉnh."));
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy đơn hàng gia công tùy chỉnh."));
 
         if (!order.getMemberAccountId().equals(memberAccountId)) {
             throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền truy cập đơn hàng này.");
@@ -268,8 +304,7 @@ public class CustomOrderService {
             Long memberAccountId,
             String customOrderIdOrRef,
             String idempotencyKey,
-            String clientIp
-    ) {
+            String clientIp) {
         log.info("Starting full payment for custom order: ref={}, member={}", customOrderIdOrRef, memberAccountId);
 
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
@@ -281,7 +316,8 @@ public class CustomOrderService {
         }
 
         CustomOrderQuote quote = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
-                .orElseThrow(() -> DesignReviewException.unprocessable("NO_QUOTE_FOUND", "Đơn hàng chưa có báo giá để thanh toán."));
+                .orElseThrow(() -> DesignReviewException.unprocessable("NO_QUOTE_FOUND",
+                        "Đơn hàng chưa có báo giá để thanh toán."));
 
         // Expiry check
         if (Instant.now().isAfter(quote.getExpiresAt())) {
@@ -294,32 +330,39 @@ public class CustomOrderService {
         }
 
         if ("PAID".equalsIgnoreCase(quote.getStatus()) || "PAID".equalsIgnoreCase(order.getStatus())) {
-            throw DesignReviewException.conflict("ORDER_ALREADY_PAID", "Đơn hàng này đã được thanh toán toàn bộ trước đó.");
+            throw DesignReviewException.conflict("ORDER_ALREADY_PAID",
+                    "Đơn hàng này đã được thanh toán toàn bộ trước đó.");
         }
 
-        if (!"QUOTE_READY".equalsIgnoreCase(quote.getStatus()) && !"FULL_PAYMENT_PENDING".equalsIgnoreCase(order.getStatus())) {
+        if (!"QUOTE_READY".equalsIgnoreCase(quote.getStatus())
+                && !"FULL_PAYMENT_PENDING".equalsIgnoreCase(order.getStatus())) {
             throw DesignReviewException.conflict("QUOTE_NOT_PAYABLE",
                     "Báo giá chưa sẵn sàng để thanh toán (cần sự phê duyệt của Manager).");
         }
 
-        String merchantRef = "CUST-" + order.getCustomOrderReference().replace("CO-", "") + "-" + System.currentTimeMillis();
+        String merchantRef = "CUST-" + order.getCustomOrderReference().replace("CO-", "") + "-"
+                + System.currentTimeMillis();
 
         paymentOwnerRegistry.register(
                 merchantRef,
                 order.getCustomOrderReference(),
                 PaymentOwnerKind.CUSTOM_ORDER_FULL_PAYMENT,
                 quote.getTotalAmount(),
-                quote.getCurrency()
-        );
+                quote.getCurrency());
+
+        Instant now = Instant.now();
+        Instant attemptExpiry = now.plus(Duration.ofMinutes(10));
+        if (quote.getExpiresAt().isBefore(attemptExpiry)) {
+            attemptExpiry = quote.getExpiresAt();
+        }
 
         String paymentUrl = vnpayAdapter.createRetailPaymentUrl(
                 merchantRef,
                 order.getCustomOrderReference(),
                 quote.getTotalAmount(),
-                Instant.now(),
-                quote.getExpiresAt(),
-                clientIp
-        );
+                now,
+                attemptExpiry,
+                clientIp);
 
         CustomOrderPaymentContext paymentContext = CustomOrderPaymentContext.builder()
                 .customOrderId(order.getId())
@@ -330,9 +373,9 @@ public class CustomOrderService {
                 .currency(quote.getCurrency())
                 .status("INITIATED")
                 .paymentUrl(paymentUrl)
-                .expiresAt(quote.getExpiresAt())
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
+                .expiresAt(attemptExpiry)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
         paymentContextRepository.save(paymentContext);
 
@@ -347,23 +390,26 @@ public class CustomOrderService {
     public CustomOrderProjectionDto requestNewQuote(
             Long memberAccountId,
             String customOrderIdOrRef,
-            String idempotencyKey
-    ) {
-        log.info("Member requesting new quote for custom order: order={}, member={}", customOrderIdOrRef, memberAccountId);
+            String idempotencyKey) {
+        log.info("Member requesting new quote for custom order: order={}, member={}", customOrderIdOrRef,
+                memberAccountId);
 
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh."));
 
         if (!order.getMemberAccountId().equals(memberAccountId)) {
-            throw DesignReviewException.forbidden("ACCESS_DENIED", "Bạn không có quyền yêu cầu báo giá cho đơn hàng này.");
+            throw DesignReviewException.forbidden("ACCESS_DENIED",
+                    "Bạn không có quyền yêu cầu báo giá cho đơn hàng này.");
         }
         requireQuoteUnlocked(order);
 
-        Optional<CustomOrderQuote> latestQuoteOpt = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId());
+        Optional<CustomOrderQuote> latestQuoteOpt = quoteRepository
+                .findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId());
         if (latestQuoteOpt.isPresent()) {
             CustomOrderQuote latestQuote = latestQuoteOpt.get();
-            boolean isExpired = Instant.now().isAfter(latestQuote.getExpiresAt()) || "QUOTE_EXPIRED".equalsIgnoreCase(latestQuote.getStatus());
+            boolean isExpired = Instant.now().isAfter(latestQuote.getExpiresAt())
+                    || "QUOTE_EXPIRED".equalsIgnoreCase(latestQuote.getStatus());
             boolean isCancelled = "CANCELLED".equalsIgnoreCase(latestQuote.getStatus());
 
             if (!isExpired && !isCancelled && !"QUOTE_EXPIRED".equalsIgnoreCase(order.getStatus())) {
@@ -386,9 +432,12 @@ public class CustomOrderService {
     }
 
     /**
-     * Applies a verified VNPay success only to the quote the payment was started for, while that quote is still the
-     * latest one, payable and unexpired. Any other evidence (late, replaced quote, already paid order, different
-     * amount) is kept on the payment context as {@code REVIEW_REQUIRED} for manual handling; the order is not paid.
+     * Applies a verified VNPay success only to the quote the payment was started
+     * for, while that quote is still the
+     * latest one, payable and unexpired. Any other evidence (late, replaced quote,
+     * already paid order, different
+     * amount) is kept on the payment context as {@code REVIEW_REQUIRED} for manual
+     * handling; the order is not paid.
      */
     @Transactional
     public void applyVerifiedFullPayment(
@@ -396,8 +445,7 @@ public class CustomOrderService {
             String merchantReference,
             String providerTransactionNumber,
             long amountVnd,
-            String currencyCode
-    ) {
+            String currencyCode) {
         log.info("Applying verified full payment: orderRef={}, merchantRef={}, amount={}",
                 customOrderReference, merchantReference, amountVnd);
 
@@ -413,7 +461,8 @@ public class CustomOrderService {
         }
 
         CustomOrderQuote quote = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
-                .orElseThrow(() -> new IllegalStateException("No quote found for custom order: " + customOrderReference));
+                .orElseThrow(
+                        () -> new IllegalStateException("No quote found for custom order: " + customOrderReference));
 
         boolean applicable = quote.getId().equals(context.getQuoteId())
                 && "FULL_PAYMENT_PENDING".equals(order.getStatus())
@@ -444,19 +493,72 @@ public class CustomOrderService {
         customOrderRepository.save(order);
 
         log.info("Custom order {} successfully marked PAID and queued for production", customOrderReference);
+
+        if (notificationIntentPort != null) {
+            try {
+                // 1. Notify member
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "ORDER_PAID_" + order.getCustomOrderReference(),
+                            "CUSTOM_ORDER_IN_PRODUCTION",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "status", "PAID"
+                            )
+                    );
+                });
+
+                // 2. Alert active Staff and Managers
+                List<String> staffEmails = accountFacade.listActiveStaffEmails();
+                if (staffEmails != null) {
+                    for (String staffEmail : staffEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_PAID_STAFF_" + order.getCustomOrderReference() + "_" + staffEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                staffEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "PAID",
+                                        "recipientRole", "STAFF"
+                                )
+                        );
+                    }
+                }
+
+                List<String> managerEmails = accountFacade.listActiveManagerEmails();
+                if (managerEmails != null) {
+                    for (String managerEmail : managerEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_PAID_MGR_" + order.getCustomOrderReference() + "_" + managerEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                managerEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "PAID",
+                                        "recipientRole", "MANAGER"
+                                )
+                        );
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to submit order paid notification: {}", ex.getMessage());
+            }
+        }
     }
 
     /**
-     * Moves a fully paid order one stage forward: PAID, IN_PRODUCTION, READY_FOR_FULFILMENT, CLOSED. Production and
-     * fulfilment statuses follow from the stage. Repeating the current stage changes nothing.
+     * Moves a fully paid order one stage forward: PAID, IN_PRODUCTION,
+     * READY_FOR_FULFILMENT, CLOSED. Production and
+     * fulfilment statuses follow from the stage. Repeating the current stage
+     * changes nothing.
      */
     @Transactional
     public CustomOrderProjectionDto updateProductionOrFulfilmentStatus(
             String customOrderIdOrRef,
             String productionStatus,
             String fulfilmentStatus,
-            String overallStatus
-    ) {
+            String overallStatus) {
         CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
                 .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
                 .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh."));
@@ -485,11 +587,75 @@ public class CustomOrderService {
                     "Chỉ có thể chuyển đơn sang bước kế tiếp.");
         }
 
+        if ("CLOSED".equals(target) && customOrderShipmentService != null) {
+            var shipmentOpt = customOrderShipmentService.findByCustomOrderReference(order.getCustomOrderReference());
+            if (shipmentOpt.isEmpty() || !"DELIVERED".equalsIgnoreCase(shipmentOpt.get().getStatus())) {
+                throw DesignReviewException.conflict("CUSTOM_ORDER_STATUS_CONFLICT",
+                        "Đơn hàng chỉ được đóng (CLOSED) khi bưu tá đã giao hàng thành công (DELIVERED).");
+            }
+        }
+
         order.setStatus(target);
         order.setProductionStatus(stage.productionStatus());
         order.setFulfilmentStatus(stage.fulfilmentStatus());
         order.setUpdatedAt(Instant.now());
         customOrderRepository.save(order);
+
+        if ("IN_PRODUCTION".equals(target) && notificationIntentPort != null) {
+            try {
+                // 1. Notify member
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "ORDER_IN_PRODUCTION_" + order.getCustomOrderReference(),
+                            "CUSTOM_ORDER_IN_PRODUCTION",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "status", "IN_PRODUCTION"
+                            )
+                    );
+                });
+
+                // 2. Alert active Staff and Managers
+                List<String> staffEmails = accountFacade.listActiveStaffEmails();
+                if (staffEmails != null) {
+                    for (String staffEmail : staffEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_IN_PROD_STAFF_" + order.getCustomOrderReference() + "_" + staffEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                staffEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "IN_PRODUCTION",
+                                        "recipientRole", "STAFF"
+                                )
+                        );
+                    }
+                }
+
+                List<String> managerEmails = accountFacade.listActiveManagerEmails();
+                if (managerEmails != null) {
+                    for (String managerEmail : managerEmails) {
+                        notificationIntentPort.submitIntent(
+                                "ORDER_IN_PROD_MGR_" + order.getCustomOrderReference() + "_" + managerEmail,
+                                "CUSTOM_ORDER_IN_PRODUCTION_ALERT",
+                                managerEmail,
+                                Map.of(
+                                        "customOrderReference", order.getCustomOrderReference(),
+                                        "status", "IN_PRODUCTION",
+                                        "recipientRole", "MANAGER"
+                                )
+                        );
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to submit in-production notification: {}", ex.getMessage());
+            }
+        }
+
+        if ("READY_FOR_FULFILMENT".equals(target) && customOrderShipmentService != null) {
+            customOrderShipmentService.createShipmentForOrder(order);
+        }
 
         return mapToOrderDto(order);
     }
@@ -499,7 +665,8 @@ public class CustomOrderService {
     }
 
     public QuoteProjectionDto mapToQuoteDto(CustomOrderQuote quote) {
-        if (quote == null) return null;
+        if (quote == null)
+            return null;
         return QuoteProjectionDto.builder()
                 .quoteReference(quote.getQuoteReference())
                 .status(quote.getStatus())
@@ -514,16 +681,21 @@ public class CustomOrderService {
     }
 
     public CustomOrderProjectionDto mapToOrderDto(CustomOrder order) {
-        if (order == null) return null;
+        if (order == null)
+            return null;
 
-        Optional<CustomOrderQuote> quoteOpt = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId());
+        Optional<CustomOrderQuote> quoteOpt = quoteRepository
+                .findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId());
         QuoteProjectionDto quoteDto = quoteOpt.map(this::mapToQuoteDto).orElse(null);
 
         Object snapshot = null;
-        Optional<CustomDesignReferenceSnapshot> snapshotOpt = snapshotRepository.findTopByRequestIdOrderByCreatedAtDesc(order.getDesignRequestId());
+        Optional<CustomDesignReferenceSnapshot> snapshotOpt = snapshotRepository
+                .findTopByRequestIdOrderByCreatedAtDesc(order.getDesignRequestId());
         if (snapshotOpt.isPresent()) {
             try {
-                snapshot = objectMapper.readValue(snapshotOpt.get().getSnapshotJson(), new TypeReference<Map<String, Object>>() {});
+                snapshot = objectMapper.readValue(snapshotOpt.get().getSnapshotJson(),
+                        new TypeReference<Map<String, Object>>() {
+                        });
             } catch (Exception e) {
                 log.warn("Failed to parse design snapshot json: {}", e.getMessage());
             }
@@ -535,6 +707,7 @@ public class CustomOrderService {
             case "PAID" -> "PREPARING_PRODUCTION";
             case "IN_PRODUCTION" -> "PRODUCTION_IN_PROGRESS";
             case "READY_FOR_FULFILMENT" -> "AWAITING_DELIVERY_OR_PICKUP";
+            case "DELIVERING" -> "DELIVERY_IN_PROGRESS";
             case "CLOSED" -> "ORDER_COMPLETED";
             case "QUOTE_EXPIRED" -> "REQUEST_NEW_QUOTE_AVAILABLE";
             default -> null;
@@ -558,7 +731,8 @@ public class CustomOrderService {
                 accountFacade.findAccountFullName(order.getMemberAccountId()).ifPresent(builder::customerName);
                 accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(builder::customerEmail);
             } catch (Exception e) {
-                log.debug("Could not resolve account info for memberAccountId {}: {}", order.getMemberAccountId(), e.getMessage());
+                log.debug("Could not resolve account info for memberAccountId {}: {}", order.getMemberAccountId(),
+                        e.getMessage());
             }
         }
 
@@ -571,7 +745,8 @@ public class CustomOrderService {
                 builder.staffExplanation(dr.getDecisionExplanation());
             });
 
-            List<DesignRequestImage> images = designRequestImageRepository.findByDesignRequestId(order.getDesignRequestId());
+            List<DesignRequestImage> images = designRequestImageRepository
+                    .findByDesignRequestId(order.getDesignRequestId());
             if (images != null && !images.isEmpty()) {
                 List<ImageProjectionDto> imageDtos = images.stream().map(img -> ImageProjectionDto.builder()
                         .imageReference(img.getImageReference())
@@ -579,12 +754,41 @@ public class CustomOrderService {
                         .qualityReason(img.getQualityReason())
                         .originalFilename(img.getOriginalFilename())
                         .fileSizeBytes(img.getFileSizeBytes())
-                        .build()
-                ).collect(Collectors.toList());
+                        .build()).collect(Collectors.toList());
                 builder.designImages(imageDtos);
             }
         }
 
+        if (customOrderShipmentService != null) {
+            customOrderShipmentService.findByCustomOrderReference(order.getCustomOrderReference())
+                    .ifPresent(shipment -> {
+                        builder.trackingNumber(shipment.getTrackingNumber());
+                        builder.shipmentStatus(shipment.getStatus());
+                        builder.carrierService(shipment.getCarrierService());
+                        if (shipment.getPickedUpAt() != null) {
+                            builder.shipmentPickedUpAt(shipment.getPickedUpAt().toString());
+                        }
+                        if (shipment.getDeliveredAt() != null) {
+                            builder.shipmentDeliveredAt(shipment.getDeliveredAt().toString());
+                        }
+                    });
+        }
+
         return builder.build();
+    }
+
+    @Transactional
+    public CustomOrderProjectionDto staffAdvanceShipmentToReadyForCarrier(String customOrderIdOrRef) {
+        CustomOrder order = customOrderRepository.findById(customOrderIdOrRef)
+                .or(() -> customOrderRepository.findByCustomOrderReference(customOrderIdOrRef))
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng tùy chỉnh."));
+
+        if (customOrderShipmentService != null) {
+            customOrderShipmentService.staffAdvanceToReadyForCarrier(order.getCustomOrderReference());
+        }
+        order.setFulfilmentStatus("READY_FOR_CARRIER");
+        order.setUpdatedAt(Instant.now());
+        CustomOrder saved = customOrderRepository.save(order);
+        return mapToOrderDto(saved);
     }
 }

@@ -1,7 +1,7 @@
 # General Spec
 
 **Date created**: 2026-09-29
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Phan Son
 **Last updated by**: Phan Sơn
 
@@ -99,6 +99,8 @@ The Router-level session boundary is the only client component allowed to perfor
 Flash notices are navigation state delivered to Home, localized through the shared UI/i18n mechanism, and are shown until the user dismisses them or leaves Home. They are not stored in `localStorage`, `sessionStorage`, cookies, URLs, or logs. Route masking never passes an access-denied flash or the attempted route to `/404`. No password, Firebase token, refresh credential, or private draft may be persisted as part of recovery.
 
 **Route inventory for this shared boundary:** public/guest-capable routes include public browsing, Basic AI, the public/guest review flow, and Feature-003.1 Workshop Booking/lookup/access/payment-return routes under that feature's approved contact-proof or Magic-Link rules. Authenticated Member routes include Account/Profile/Address/Security (including compatibility aliases), Member retail/history, and Design Request; `/design-requests/new` is Member-only. For an unauthenticated Guest, `/design-requests/new` renders an unauthenticated Empty State notice ("Vui lòng đăng nhập để tạo yêu cầu thiết kế tùy chỉnh") with a direct “Đăng nhập” button leading to `/login`. Other protected internal routes require the same session boundary and an explicit browser-route allowlist; a signed-in actor outside it is replaced to `/404`. The allowlists and exceptions are maintained in [route-access-matrix.md](route-access-matrix.md); their action/resource checks remain owned by the relevant feature and backend. `/sign-in` is a compatibility route that redirects with `replace` to canonical `/login`. New UI links use canonical Account URLs `/profile`, `/profile/addresses`, `/security/password`, and `/security/email`; the aliases remain supported and receive the same guard.
+
+**Shared navigation correction (2026-11-27):** The CARRIER password-page heading returns to `/carrier`. On mobile, a signed-out Guest Account entry is labelled “Đăng nhập” and opens `/login`; the workshop lookup entry is labelled “Tra cứu” and keeps its lookup destination. Invitation email links use the configured frontend origin and the public browser route `/invitations/setup`.
 
 **Google local scope & Bootstrap synchronization:** Google uses Firebase redirect only (`signInWithRedirect` then `getRedirectResult`); popup is not a supported flow. Local evidence requires the existing Firebase configuration, Google provider enabled, `localhost` authorized in Firebase, and origin `http://localhost:5173`. On redirect return, `AuthPage` and the client session MUST complete Account Bootstrap (`PUT /api/v1/accounts/me`) atomically before the global session broadcast triggers background calls (`/api/v1/accounts/me/profile`), preventing race-condition 401 `ACCOUNT_NOT_FOUND` session evictions. When `getRedirectResult` resolves null while a Google redirect session is in progress, the client must verify the current Firebase identity and complete the pending bootstrap instead of dropping navigation. `auth/account-exists-with-different-credential` directs the person to Email/Password without linking accounts. Other redirect failures use a safe generic message and offer retry or Email/Password. Firebase Hosting, production domain, and `authDomain` decisions remain release/infra work outside this revision.
 

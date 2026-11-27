@@ -171,7 +171,6 @@ describe('Manager: change-request approval refused for a switched-off location',
     const user = userEvent.setup();
     renderRoutes(settlementRoutes, { language: 'en', path: '/settlement/change-requests' });
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
-    await user.type(within(screen.getByRole('dialog')).getByRole('textbox'), 'ok');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Approve' }));
     expect(await screen.findByText(/no longer sold at the chosen location/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Load latest' })).toBeInTheDocument();
@@ -184,7 +183,7 @@ describe('Manager: add-ons sold at the previous location', () => {
 
   async function open(user) {
     await user.type(await screen.findByPlaceholderText('GRP-…-L0-T1'), 'TK-1');
-    await user.click(screen.getByRole('button', { name: 'Open folio' }));
+    await user.click(screen.getByRole('button', { name: 'Open bill' }));
   }
 
   it('lists them read-only for a Manager and renders nothing when the list is empty', async () => {

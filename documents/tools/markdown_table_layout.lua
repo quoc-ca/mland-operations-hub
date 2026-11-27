@@ -61,22 +61,6 @@ local function parse_columns(value, count)
   return result
 end
 
-local function mark_skip(block)
-  if block.t == "Table" then
-    block.attr.attributes[INTERNAL_PREFIX .. "skip"] = "true"
-  elseif block.t == "Div" or block.t == "BlockQuote" then
-    for _, child in ipairs(block.content) do
-      mark_skip(child)
-    end
-  elseif block.t == "BulletList" or block.t == "OrderedList" then
-    for _, item in ipairs(block.content) do
-      for _, child in ipairs(item) do
-        mark_skip(child)
-      end
-    end
-  end
-end
-
 local function parse_div_settings(div)
   local allowed = { width = true, columns = true, ["repeat-header"] = true }
   for name in pairs(div.attributes) do
@@ -156,8 +140,7 @@ local function inferred_widths(colspecs)
 end
 
 local function apply_layout(tbl)
-  if tbl.attr.attributes[INTERNAL_PREFIX .. "skip"] == "true"
-      or tbl.attr.attributes["custom-style"] == "MetadataTable" then
+  if tbl.attr.attributes["custom-style"] == "MetadataTable" then
     for name in pairs(tbl.attr.attributes) do
       if name:sub(1, #INTERNAL_PREFIX) == INTERNAL_PREFIX then
         tbl.attr.attributes[name] = nil
@@ -205,9 +188,10 @@ end
 
 function filter.Div(div)
   if has_class(div, "generated-history") then
-    for _, child in ipairs(div.content) do
-      mark_skip(child)
+    if #div.content ~= 1 or div.content[1].t ~= "Table" then
+      fail(".generated-history must contain exactly one Markdown table.")
     end
+    set_internal_settings(div.content[1], { width = 1, columns = "25%,15%,25%,35%", repeat_header = false })
     return div
   end
   if not has_class(div, "docx-table") then

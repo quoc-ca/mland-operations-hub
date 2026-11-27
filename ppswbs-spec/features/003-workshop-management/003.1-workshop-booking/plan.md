@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-07
-**Date updated**: 2026-11-25
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -331,6 +331,14 @@ FR-057; `ApplicationModules.verify()` and `WorkshopBookingContractIT`.
 - `workshopbooking.facade` implements FE-001's `WorkshopMemberReplacementReader`; it reads only 003.1 tables by `buyer_member_account_id` and reaches Operations and Settlement through their facades (UNAVAILABLE on failure). `MockMemberReplacementBookingReader` stays `local`-only.
 - The new-booking block is one extra check at the start of group creation, under the existing group-creation lock, against a read on `AccountFacade` (proposed, task T174). Module direction stays one way (booking to account); no event and no new table.
 - Verification: `MemberReplacementReaderIT`, `BookingGroupRetirementBlockIT`, `ApplicationModules.verify()` (tasks T175–T177, SC-010).
+
+## Ticket QR image (plan 2026-11-27, FR-063)
+
+Web: `qrcode.react` in `workshops/GroupTicketList.jsx`. Email:
+`notificationmanagement` draws a PNG with `com.google.zxing:core` 3.5.3 from the
+`QR: <reference>` line of the rendered ticket artifacts and attaches it inline
+(Content-ID). No API, payload, schema or migration change. The captured mail
+adapter stores text only.
 
 ## Verification plan
 

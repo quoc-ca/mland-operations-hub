@@ -503,7 +503,7 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
 
     open('/review-moderation/rev-mod-02', { session: fakeSession('signed-in') });
 
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Đánh giá')).toBeInTheDocument();
     expect(screen.getByText('Cần ẩn đánh giá này do chứa từ ngữ vi phạm')).toBeInTheDocument();
 
     const reasonInput = screen.getByPlaceholderText(/Nhập lý do xử lý/);
@@ -544,7 +544,7 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
     });
 
     open('/review-moderation/rev-mod-03', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Đánh giá')).toBeInTheDocument();
 
     const replyInput = screen.getByPlaceholderText(/Viết phản hồi cho khách hàng/);
     await user.type(replyInput, 'Mland xin lỗi và sẽ cải thiện ngay lập tức.');
@@ -576,7 +576,7 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
     });
 
     open('/review-moderation/rev-mod-04', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Đánh giá')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Ẩn đánh giá' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Gỡ đánh giá' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Lưu phản hồi' })).not.toBeInTheDocument();
@@ -598,7 +598,7 @@ describe('F11-MODERATION-DETAIL Screen (/review-moderation/:id)', () => {
     });
 
     open('/review-moderation/rev-mod-05', { session: fakeSession('signed-in') });
-    expect(await screen.findByText('Quản lý đánh giá')).toBeInTheDocument();
+    expect(await screen.findByText('Đánh giá')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Khôi phục công khai' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Gỡ đánh giá' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lưu phản hồi' })).toBeInTheDocument();

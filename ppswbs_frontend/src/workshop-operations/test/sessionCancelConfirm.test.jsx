@@ -22,7 +22,7 @@ describe('session cancellation asks for confirmation', () => {
     renderRoutes(operationsRoutes, { language: 'en', path: '/operations/sessions/session-1' });
     const request = await screen.findByRole('button', { name: 'Request cancellation' });
     const sent = () => calls.filter(call => call.path.endsWith('/cancellation-requests'));
-    await user.type(screen.getByPlaceholderText(/settlement/i), 'broken oven');
+    await user.type(screen.getByPlaceholderText(/what happened/i), 'broken oven');
 
     await user.click(request);
     expect(sent()).toHaveLength(0);

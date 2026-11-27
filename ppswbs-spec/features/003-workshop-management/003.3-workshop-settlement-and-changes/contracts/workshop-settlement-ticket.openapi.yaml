@@ -576,11 +576,24 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [locationId, workingDate, expectedCashVnd]
+                required: [locationId, workingDate, expectedCashVnd, entries]
                 properties:
                   locationId: {type: integer, format: int64}
                   workingDate: {type: string, format: date}
-                  expectedCashVnd: {type: integer, format: int64}
+                  expectedCashVnd: {type: integer, format: int64, description: Always the sum of entries.amountVnd.}
+                  entries:
+                    type: array
+                    description: >-
+                      FR-036b (2026-11-27): the cash entries counted on this branch and day, oldest first, read in
+                      the same transaction as the total. Empty when there is none.
+                    items:
+                      type: object
+                      required: [type, ticketCode, amountVnd, recordedAt]
+                      properties:
+                        type: {type: string, enum: [COLLECTION, REVERSAL]}
+                        ticketCode: {type: string, description: Ticket code (or direct booking code) of the folio.}
+                        amountVnd: {type: integer, format: int64, description: Net of change; negative for a REVERSAL.}
+                        recordedAt: {type: string, format: date-time, description: 'Time the cash was confirmed, or the reversal recorded.'}
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /api/v1/workshop-cash-closes:
@@ -1263,7 +1276,8 @@ paths:
       summary: A Staff member or a Manager approves or rejects a queued change (FR-045a, T117; decided 2026-11-17)
       description: >-
         Manager, or a Staff member for a request of a location in their scope (LOCATION_SCOPE_DENIED otherwise); an
-        Admin gets 403 STAFF_OR_MANAGER_REQUIRED. Reason and Idempotency-Key required, audited. APPROVE is
+        Admin gets 403 STAFF_OR_MANAGER_REQUIRED. Idempotency-Key required, audited; reason required for REJECT only
+        (422 REASON_REQUIRED), optional for APPROVE (decided 2026-11-27). APPROVE is
         equivalent to a Manager-granted allowance (FR-054) followed by one
         counted change applied now; 003.2 still checks capacity, the package
         rules and a quota that is still full (409, request stays PENDING), so a
@@ -1280,10 +1294,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [decision, reason]
+              required: [decision]
               properties:
                 decision: {type: string, enum: [APPROVE, REJECT]}
-                reason: {type: string, minLength: 1, maxLength: 1000}
+                reason: {type: string, maxLength: 1000, nullable: true, description: "Required and non-blank for REJECT."}
       responses:
         '200': {description: Decision recorded, content: {application/json: {schema: {$ref: '#/components/schemas/ChangeRequest'}}}}
         '401': {$ref: '#/components/responses/Problem'}
@@ -1732,6 +1746,7 @@ components:
         priceIncreaseAmount: {$ref: '#/components/schemas/Vnd'}
         buyerConfirmedIncrease: {type: boolean}
         requesterRole: {type: string}
+        requesterName: {type: string, nullable: true, description: "Full name of the requesting account; null for a Guest or an account without a name (2026-11-27)."}
         channel: {type: string}
         reason: {type: string, nullable: true}
         expiresAt: {type: string, format: date-time}

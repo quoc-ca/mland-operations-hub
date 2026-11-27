@@ -10,17 +10,17 @@ export function consultationChatApi(request) {
 
   return {
     getContextOptions() {
-      return request('/api/v1/consultations/context-options', { method: 'GET', auth: true });
+      return request(`/api/v1/consultations/context-options?_t=${Date.now()}`, { method: 'GET', auth: true });
     },
 
     createConversation(key, body) {
       return command('/api/v1/consultations', 'POST', body, key);
     },
 
-    listConversations({ status, cursor, limit } = {}) {
+    listConversations({ status, unclaimed, cursor, limit } = {}) {
       return request('/api/v1/consultations', {
         method: 'GET',
-        query: { status, cursor, limit },
+        query: { status, unclaimed, cursor, limit, _t: Date.now() },
         auth: true,
       });
     },
@@ -30,7 +30,7 @@ export function consultationChatApi(request) {
     },
 
     getConversation(conversationReference) {
-      return request(`/api/v1/consultations/${encodeURIComponent(conversationReference)}`, {
+      return request(`/api/v1/consultations/${encodeURIComponent(conversationReference)}?_t=${Date.now()}`, {
         method: 'GET',
         auth: true,
       });

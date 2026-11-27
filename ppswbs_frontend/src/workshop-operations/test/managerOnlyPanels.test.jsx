@@ -20,16 +20,15 @@ function open(role) {
 describe('Manager-only panels on the session page', () => {
   beforeEach(() => clearRoleCache());
 
-  it('hides staff assignment, booking recovery, session cancellation and folio correction from a Staff', async () => {
+  it('hides staff assignment, booking recovery, and session cancellation from a Staff', async () => {
     open('STAFF');
 
     // What a Staff does at the session stays: check-in, corrections and ticket delivery.
     expect(await screen.findByText('Check-in desk')).toBeInTheDocument();
-    expect(screen.getByText('Check-in corrections')).toBeInTheDocument();
     expect(screen.getByText('Ticket delivery')).toBeInTheDocument();
     // Give the profile time to arrive, then confirm nothing of the Manager's appeared.
     await new Promise(resolve => setTimeout(resolve, 50));
-    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancellation handoff', 'Manager folio correction']) {
+    for (const hidden of ['Staff assignment', 'Manager booking recovery', 'Cancel session']) {
       expect(screen.queryByText(hidden)).not.toBeInTheDocument();
     }
   });
@@ -38,8 +37,11 @@ describe('Manager-only panels on the session page', () => {
     open('MANAGER');
 
     expect(await screen.findByText('Staff assignment')).toBeInTheDocument();
-    for (const shown of ['Manager booking recovery', 'Cancellation handoff', 'Manager folio correction']) {
+    for (const shown of ['Manager booking recovery', 'Cancel session']) {
       expect(screen.getByText(shown)).toBeInTheDocument();
     }
+    // 003.2 FR-070, FR-071: the late-payment queue and the bill correction have their own screens.
+    expect(screen.queryByText('Late payment reviews')).not.toBeInTheDocument();
+    expect(screen.queryByText('Manager bill correction')).not.toBeInTheDocument();
   });
 });

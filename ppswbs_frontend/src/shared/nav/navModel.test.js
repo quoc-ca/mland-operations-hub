@@ -23,6 +23,7 @@ const links = role => visibleGroups(role).flatMap(entry => entry.tabs.map(tab =>
 // The tabs that carry a waiting-work badge open the list filtered to the counted set (FR-004).
 const FILTERED = {
   '/settlement/cash-close': '/settlement/cash-close?view=confirmation',
+  '/operations/consultations': '/operations/consultations?status=OPEN&unclaimed=true',
   '/settlement/change-requests': '/settlement/change-requests?status=PENDING',
   '/settlement/refunds': '/settlement/refunds?status=WAITING',
 };
@@ -56,7 +57,7 @@ describe('navigation model', () => {
       .forEach(link => expect(shown).not.toContain(link));
     const sessions = locate('/operations/sessions').tab;
     expect(tabLabel(sessions, 'vi', 'STAFF')).toBe('Ca của tôi');
-    expect(tabLabel(sessions, 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
+    expect(tabLabel(sessions, 'vi', 'MANAGER')).toBe('Điều phối ca');
   });
 
   it('shows an Admin account management as home and no workshop operations, with role catalogue removed (T113)', () => {
@@ -101,23 +102,17 @@ describe('navigation model', () => {
     expect(pageActions(created, '/catalogue-management/products/new')).toEqual([]);
 
     const list = locate('/catalogue-management/products');
-    expect(pageActions(list, '/catalogue-management/products').map(action => action.vi)).toEqual(['Import Excel', 'Thêm sản phẩm']);
+    expect(pageActions(list, '/catalogue-management/products').map(action => action.vi)).toEqual(['Nhập từ Excel', 'Thêm sản phẩm']);
     expect(pageActions(locate('/promotion-management/programs'), '/promotion-management/programs').map(action => action.vi)).toEqual(['Tạo chương trình']);
     expect(pageActions(locate('/operations/admin'), '/operations/admin').map(action => action.vi)).toEqual(['Thêm khung giờ']);
   });
 
-  it('titles the administration Sessions tab as the session tab, not as locations and slots', () => {
-    const locations = locate('/operations/admin', '?tab=locations');
-    expect(pageTitle(locations, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
-    const slots = locate('/operations/admin', '?tab=slots');
-    expect(pageTitle(slots, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và khung giờ');
-
-    const sessions = locate('/operations/admin', '?tab=sessions');
-    expect(sessions.group.id).toBe('workshop');
-    expect(sessions.tab.id).toBe('sessions');
-    expect(pageTitle(sessions, '/operations/admin', 'vi', 'MANAGER')).toBe('Bảng điều phối ca');
-    // The "Thêm khung giờ" button belongs to locations and slots only.
-    expect(pageActions(sessions, '/operations/admin')).toEqual([]);
+  it('keeps all three administration sections, Sessions included, under locations and slots', () => {
+    ['?tab=locations', '?tab=slots', '?tab=sessions'].forEach(search => {
+      const place = locate('/operations/admin', search);
+      expect(place.tab.id).toBe('locations');
+      expect(pageTitle(place, '/operations/admin', 'vi', 'MANAGER')).toBe('Chi nhánh và lịch ca');
+    });
   });
 
   it('does not take public or member pages into the shell', () => {

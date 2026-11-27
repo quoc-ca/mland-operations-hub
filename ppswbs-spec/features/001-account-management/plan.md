@@ -1,11 +1,13 @@
 # Implementation Plan: Account Management (FE-001)
 
 **Date created**: 2026-10-26
-**Date updated**: 2026-11-24
+**Date updated**: 2026-11-27
 **Author**: Phan Sơn
 **Last updated by**: Phan Sơn
 
 **Branch**: `son` | **Spec**: [spec.md](spec.md)
+
+**2026-11-27 implementation correction:** Execute T120–T123 for the independent invitation happy case and shared navigation; retain T116/T124 and FE-007 T045 for configured Firebase/mail end-to-end evidence. The setup URL uses `FRONTEND_BASE_URL` and `/invitations/setup`; exchange is public, while completion requires bound-UID authentication and method proof. Duplicate-email collision, account deletion, and T117 MEMBER retirement remain outside this correction.
 
 **Input**: Historical approved design artifacts plus the 2026-11-14 Manager-global authorization revision in spec.md, data-model.md, contracts/interfaces.md, design/architecture.md, design/workflows.md, and design/ui-flow.md. Revision R-MGA in `approval.md` approves this revision for T078–T081; it supersedes no other approval record. This plan otherwise supersedes the legacy Member Profile plan entirely.
 

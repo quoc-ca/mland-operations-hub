@@ -155,7 +155,7 @@ export default function MainTopbar() {
   return (
     <div className="main-topbar-wrapper">
       <header className="main-topbar" role="banner">
-        <Link to="/" className="main-topbar-brand">
+        <Link to={isCarrier ? '/carrier' : '/'} className="main-topbar-brand">
           MLAND
         </Link>
 
@@ -188,7 +188,7 @@ export default function MainTopbar() {
                 to="/products"
                 className={`main-topbar-link ${location.pathname.startsWith('/products') ? 'active' : ''}`}
               >
-                Ready Rings
+                {t('nav.readyRings')}
               </Link>
               {isCustomerView && (
                 <Link
