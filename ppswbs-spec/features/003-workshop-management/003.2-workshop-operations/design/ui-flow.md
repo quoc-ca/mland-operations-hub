@@ -1,7 +1,7 @@
 # UI Flow Design: 003.2 Workshop Operations
 
 **Date created**: 2026-11-02
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | Package and lifecycle management | `/workshop-packages`, `/workshop-packages/{packageId}`, lifecycle transitions | Loading; empty list; validation; lifecycle conflict; preserve draft fields after server rejection. |
 | Location/slot management | `/workshop-locations`, `/workshop-locations/{locationId}/slots`, slot patch | Manager global access; Staff cannot administer catalog; reject inactive location or overlapping slot; show conflict without silently rewriting times. |
-| Session calendar/list | `/workshop-sessions`, bulk create, session GET/PATCH | Filter by date/location/state; show capacity and source revision; stale update returns conflict and reload action. |
+| Session calendar/list | `/workshop-sessions`, bulk create, session GET/PATCH | Filter by date and location; state tabs with counts, order and one colour per state on the session board (FR-056, 2026-11-27: running, upcoming, ended, cancelled and draft; From defaults to today, 7 days back on the Ended tab); show capacity and source revision; stale update returns conflict and reload action. |
 | Session state actions (backfilled 2026-11-12, 0a21bcb, c0f550d) | `/workshop-sessions/{sessionId}/state-transitions`, `/attendance-finalizations` | Buttons for transitions the lifecycle does not allow from the current state are greyed out. There is no `ATTENDANCE_FINALIZED` state button; "Finalize attendance" uses the dedicated action and is enabled only while the session is `IN_PROGRESS`. |
 | Staff assignment | `/workshop-sessions/{sessionId}/staff-assignments` | Manager assigns/removes; Staff sees only allowed scope; unauthorized actions remain disabled but backend response is shown if attempted. |
 | Roster and booking lookup | `/workshop-sessions/{sessionId}/booking-lookups/{bookingCode}` | Informational roster only; do not infer check-in from presence in the list. |

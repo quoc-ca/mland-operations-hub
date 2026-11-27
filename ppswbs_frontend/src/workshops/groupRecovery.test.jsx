@@ -81,7 +81,8 @@ describe('003.1 FR-042/FR-049 Guest lookup of a booking group', () => {
     expect(lookup.query).toEqual({});
 
     expect(await screen.findByText('WT-1')).toBeInTheDocument();
-    expect(screen.getByText('QR-OPAQUE-1')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Mã QR check-in của vé WT-1' })).toBeInTheDocument();
+    expect(screen.queryByText('QR-OPAQUE-1')).not.toBeInTheDocument();
     expect(screen.getAllByText('Cọc').length).toBe(2);
     // Per-ticket recipient and attendance (FR-042, FR-050).
     expect(screen.getByText(/Người nhận vé: f\*\*\*@mland\.vn/)).toBeInTheDocument();

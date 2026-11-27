@@ -1,5 +1,6 @@
 package edu.fpt.sep490_g22.ppswbs_backend.features.workshopsettlement.service;
 
+import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.AccountFacade;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.ActorRole;
 import edu.fpt.sep490_g22.ppswbs_backend.features.accountmanagement.facade.CurrentAccountActor;
 import edu.fpt.sep490_g22.ppswbs_backend.features.workshopbooking.facade.TicketFolioContext;
@@ -27,7 +28,8 @@ import java.util.UUID;
 
 /**
  * 003.3 T117 (FR-045a, decided 2026-11-14): the Staff/Manager queue of online changes that only a Manager may allow.
- * Staff read the queue of their locations; only a Manager decides, with a reason, an Idempotency-Key and an audit.
+ * Staff read and decide the queue of their locations, a Manager all of it, with an Idempotency-Key and an audit;
+ * a rejection needs a reason.
  * Approval equals a Manager-granted allowance (FR-054) followed by one counted change; a request expires when it can
  * no longer be carried out.
  */
@@ -45,6 +47,10 @@ public class TicketChangeRequestService {
     private final SettlementBusinessAuditRepository audits;
     private final WorkshopBookingFacade booking;
     private final TicketChangeNotifier notifier;
+    private final AccountFacade accounts;
+
+    /** Reason kept on the allowance grant when an approval is sent without one (2026-11-27). */
+    static final String DEFAULT_APPROVAL_REASON = "Duyệt yêu cầu đổi vé";
 
     /**
      * The state of the latest change request of a ticket, for the Member who bought it (FR-045a): the buyer's page
@@ -90,7 +96,7 @@ public class TicketChangeRequestService {
                 .filter(request -> actor.role() == ActorRole.MANAGER
                         || (request.getLocationReference() != null && actor.activeLocationIds() != null
                         && actor.activeLocationIds().contains(request.getLocationReference())))
-                .map(TicketChangeRequestService::toDto)
+                .map(this::toDto)
                 .toList();
     }
 
@@ -102,7 +108,8 @@ public class TicketChangeRequestService {
         if (body == null || body.decision() == null) {
             throw new WorkshopSettlementValidationException("DECISION_REQUIRED");
         }
-        if (body.reason() == null || body.reason().isBlank()) {
+        String reason = body.reason() == null || body.reason().isBlank() ? null : body.reason().trim();
+        if (reason == null && body.decision() == ChangeRequestDecision.REJECT) {
             throw new WorkshopSettlementValidationException("REASON_REQUIRED");
         }
         if (requestReference == null || requestReference.isBlank()) {
@@ -128,10 +135,10 @@ public class TicketChangeRequestService {
         }
         String correlation = correlationId == null || correlationId.isBlank()
                 ? UUID.randomUUID().toString() : correlationId.trim();
-        String reason = body.reason().trim();
 
         if (body.decision() == ChangeRequestDecision.APPROVE) {
-            request.setAppliedChangeReference(changes.applyApproved(request, actor, reason, correlation, now));
+            request.setAppliedChangeReference(changes.applyApproved(request, actor,
+                    reason == null ? DEFAULT_APPROVAL_REASON : reason, correlation, now));
             request.setStatus(SettlementTicketChangeRequest.APPROVED);
         } else {
             request.setStatus(SettlementTicketChangeRequest.REJECTED);
@@ -157,7 +164,9 @@ public class TicketChangeRequestService {
         return toDto(request);
     }
 
-    static ChangeRequestDto toDto(SettlementTicketChangeRequest request) {
+    private ChangeRequestDto toDto(SettlementTicketChangeRequest request) {
+        String requesterName = request.getRequesterAccountId() == null ? null
+                : accounts.findAccountFullName(request.getRequesterAccountId()).orElse(null);
         return new ChangeRequestDto(
                 request.getRequestReference(),
                 request.getTicketCode(),
@@ -171,6 +180,7 @@ public class TicketChangeRequestService {
                 String.valueOf(request.getPriceIncreaseAmountVnd()),
                 request.isBuyerConfirmedIncrease(),
                 request.getRequesterRole(),
+                requesterName,
                 request.getChannel(),
                 request.getReason(),
                 request.getExpiresAt(),

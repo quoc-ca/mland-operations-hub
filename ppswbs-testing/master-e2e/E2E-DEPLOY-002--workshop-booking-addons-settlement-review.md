@@ -115,7 +115,7 @@ Kiểm chứng toàn trình (End-to-End) chuỗi giá trị dịch vụ Workshop
   4. Mở cửa sổ ẩn danh riêng biệt, đăng nhập Nhân viên: `staff.test@mland.vn` / `StaffTest@123456`.
   5. Nhân viên truy cập `/settlement/change-requests`.
   6. Tìm yêu cầu đổi lịch của vé `WORKSHOP_TICKET_CODE` trong danh sách `PENDING`.
-  7. Bấm nút **"Approve"** (Duyệt) ➔ Nhập lý do: *"Hỗ trợ khách hàng đổi ca học kiểm thử trực tiếp"* ➔ Bấm xác nhận.
+  7. Bấm nút **"Approve"** (Duyệt) ➔ Bấm xác nhận (hộp thoại duyệt không có ô lý do).
 - **Observable Expected**:
   - Phía Khách hàng: Gửi yêu cầu đổi lịch thành công, nhận mã yêu cầu `CHANGE_REQUEST_ID`.
   - Phía Nhân viên: Sau khi duyệt, thông báo *"Change approved and applied."* xuất hiện; yêu cầu chuyển từ `PENDING` sang `APPROVED`.
@@ -138,8 +138,9 @@ Kiểm chứng toàn trình (End-to-End) chuỗi giá trị dịch vụ Workshop
      - Tại ô nhập mã vé, nhập mã vé giả: `TKT-FAKE-99999` ➔ Bấm "Check-in".
      - Quan sát phản ứng từ chối của hệ thống.
   5. **Quét vé thật:**
-     - Xóa ô nhập, điền mã vé thật `WORKSHOP_TICKET_CODE` (hoặc dán token QR).
+     - Xóa ô nhập, điền mã vé thật `WORKSHOP_TICKET_CODE`.
      - Bấm nút **"Check-in"**.
+     - Cách khác (003.2 FR-057, FR-058, từ 2026-11-27; ô nhập mã QR đã bỏ): bấm **"Quét bằng camera"** và đưa mã QR của vé vào khung hình (cần camera thật, `localhost` hoặc HTTPS), hoặc bấm hàng vé trong danh sách điểm danh rồi **"Xác nhận check-in"**.
 - **Observable Expected**:
   - Khi nhập vé giả: Hệ thống từ chối dứt khoát với thông báo lỗi đỏ rõ ràng ("Mã vé không tồn tại hoặc không thuộc ca học này").
   - Khi nhập vé thật: Hệ thống chấp nhận, dòng Khách hàng trong danh sách học viên (Roster) chuyển trạng thái thành badge xanh: **`CHECKED_IN`** (`ĐÃ ĐIỂM DANH`).
@@ -267,7 +268,7 @@ Kiểm chứng toàn trình (End-to-End) chuỗi giá trị dịch vụ Workshop
     - Thanh toán cọc qua cổng VNPay Sandbox thẻ NCB OTP `123456` thành công (`vnp_ResponseCode=00`, Transaction `15748981`), website xác nhận đặt chỗ và cấp token QR `QR-388a8de1-77db-4816-9ac5-8a6d5d9ed486`.
   - D2-S02 (Ticket Change Request & Manager Approval):
     - Khách hàng bấm "Đổi lịch" sang ca chiều 26/11/2026 (13:00 - 16:00), sinh mã yêu cầu `CHG-REQ-78fde43e-3eaf-4647-82db-27e9d065f80b` rơi vào hàng chờ duyệt vì dưới 24h (`ADVANCE_CHANGE_WINDOW_EXPIRED`).
-    - Quản lý `manager.test@mland.vn` truy cập `/settlement/change-requests`, thấy yêu cầu `PENDING` và bấm "Duyệt" với lý do *"Hỗ trợ khách hàng đổi ca học kiểm thử trực tiếp"*. Yêu cầu chuyển sang `APPROVED`, vé được cập nhật sang ca đích thành công.
+    - Quản lý `manager.test@mland.vn` truy cập `/settlement/change-requests`, thấy yêu cầu `PENDING` và bấm "Duyệt" rồi xác nhận (không cần lý do). Yêu cầu chuyển sang `APPROVED`, vé được cập nhật sang ca đích thành công.
   - D2-S03 (Session Operations, Adversarial Check & Attendance Check-in):
     - Quản lý/Nhân viên mở ca học `/operations/sessions/c8742dd7-e69e-11f1-b811-c2df278ecca3`, bấm "Đang diễn ra" (`IN_PROGRESS`).
     - Thử nghiệm đối nghịch: Nhập mã vé giả `TKT-FAKE-99999` -> Hệ thống từ chối dứt khoát với HTTP 409.

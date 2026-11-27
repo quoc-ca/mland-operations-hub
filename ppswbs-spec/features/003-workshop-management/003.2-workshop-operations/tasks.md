@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -629,3 +629,19 @@ Excluded by `approval.md` (PARTIALLY APPROVED 2026-11-17). Each needs its own de
 | B4 | 003.4: "push the matrix change to the OTA listing" step | 003.4 owner | Out of scope by owner decision (FR-039); the matrix never updates a listing | Only if the 003.4 owner chooses to build it |
 | B5 | ~~003.3: Settlement audit route, service and repository query (T171)~~ | 003.3 owner (Hồ Hoàng Quốc owns 003.3, agreement needed in that feature's tasks) | Route and query live inside 003.3, avoiding a module cycle (finding F1) | Before T171 | **Agreed 2026-11-17** (owner of 003.3, see `approval.md` "Design approval — audit workshop") |
 | B6 | ~~Audit review page UI and wording (T173–T174)~~ **Unblocked 2026-11-17**: mockup `design/audit-review-mockup.html` approved by Hồ Hoàng Quốc (`approval.md` "UI approval — trang audit workshop") | — | — | — |
+
+## Session board tabs, order and colours (spec FR-056, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T179 **Done 2026-11-27** [FE] State tabs with counts, order and default date window (`workshop-operations/sessionBoard.js`, `OperationsDashboardPage.jsx`), one badge colour per state on the board, the administration list and the session page. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.
+- [ ] T180 [Test] Browser check of the tabs, order and colours against a live stack as Staff and Manager.
+
+Mapping: FR-056 → T179, T180.
+
+## Camera scan and roster check-in (spec FR-057, FR-058, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T181 **Done 2026-11-27** [FE] Camera scan panel on the session page (`@zxing/browser`, `runCheckIn({ qrToken })`): large result, sound, repeat-scan guard, camera off on close and unmount, message when the camera is unavailable. Traces to FR-057. Check: Vitest. `QrCheckInScanner.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T182 **Done 2026-11-27** [FE] Keep the session page (and the camera) while it reloads; remove the typed QR code input and its messages. Traces to FR-057. Check: Vitest. `OperationsSessionPage.jsx` keeps its content on reload; typed QR input removed. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [x] T183 **Done 2026-11-27** [FE] Roster row opens the ticket: confirm check-in by ticket code, refusal reason outside check-in, check-in time, Manager-only reversal/correction with reason. Traces to FR-058. Check: Vitest. `RosterTicketDialog.jsx`; `qrScanAndRosterCheckIn.test.jsx`. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 171 files, 1416 tests passed; `npm run build` passed (2026-11-27).
+- [ ] T184 [Test] Browser check of camera scan and roster actions against a live stack as Staff and Manager (default browser: the in-app pane blocks the camera).
+
+Mapping: FR-057 → T181, T182, T184. FR-058 → T183, T184.

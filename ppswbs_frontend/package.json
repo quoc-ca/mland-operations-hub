@@ -10,6 +10,8 @@
     "test": "node --no-warnings ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
+    "@zxing/browser": "0.2.1",
+    "@zxing/library": "0.23.0",
     "firebase": "12.19.0",
     "qrcode.react": "^4.2.0",
     "react": "19.3.1",

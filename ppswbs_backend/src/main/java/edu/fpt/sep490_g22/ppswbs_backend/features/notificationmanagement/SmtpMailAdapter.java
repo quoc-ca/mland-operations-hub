@@ -3,6 +3,7 @@ package edu.fpt.sep490_g22.ppswbs_backend.features.notificationmanagement;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,10 @@ class SmtpMailAdapter implements MailAdapter {
         helper.setTo(message.to());
         helper.setSubject(message.subject());
         helper.setText(message.text(), message.html());
+        // Inline parts go after the text, so each mail client resolves the cid: references of the HTML.
+        for (MailMessage.InlineImage image : message.images()) {
+            helper.addInline(image.contentId(), new ByteArrayResource(image.png()), "image/png");
+        }
         sender.send(mime);
     }
 }

@@ -4,6 +4,7 @@ import { useRole } from '../../shared/auth/useRole';
 import { Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
 import { useUrlFilters } from '../../shared/ui/useUrlFilters';
 import { createSettlementApi } from '../api/settlementApi';
+import { createOperationsAdminApi } from '../../workshop-operations/api/operationsAdminApi';
 import { OpsPage } from '../OpsPage';
 import { useEnumLabel, useFormat, useT } from '../../shared/i18n/I18nProvider';
 import { messages } from '../messages';
@@ -14,10 +15,11 @@ export default function CashClosePage() {
   const t = useT(messages);
   const fmt = useFormat();
   const closeStatus = useEnumLabel(messages, 'closeStatus');
-  const api = createSettlementApi(useHttp());
+  const http = useHttp();
+  const api = createSettlementApi(http);
   const role = useRole();
   const isManager = role === 'MANAGER';
-  const [locationId, setLocationId] = useState('');
+  const [pickedLocation, setPickedLocation] = useState('');
   const [workingDate, setWorkingDate] = useState('');
   const [expected, setExpected] = useState(null);
   const [counted, setCounted] = useState('');
@@ -31,11 +33,21 @@ export default function CashClosePage() {
   const queue = useResource(() => (showQueue ? api.listCashClosesAwaitingConfirmation() : Promise.resolve([])), [showQueue]);
   const [message, setMessage] = useState('');
   const command = useCommand();
+  // The server lists the branches the signed-in Staff or Manager may see; the first one is filled in.
+  const locationsResource = useResource(() => (role === 'STAFF' || isManager ? createOperationsAdminApi(http).listLocations() : Promise.resolve([])), [role]);
+  const locations = Array.isArray(locationsResource.data) ? locationsResource.data : [];
+  const locationId = pickedLocation || String(locations[0]?.id ?? '');
+  const locationName = id => locations.find(item => String(item.id) === String(id))?.name || id;
+  // A figure belongs to the branch and day it was read for, so changing either drops it and the draft count.
+  const changeSubject = apply => {
+    apply();
+    setExpected(null); setClose(null); setCounted(''); setDifferenceReason(''); setMessage('');
+  };
 
   const loadExpected = async event => {
     event.preventDefault();
     setMessage(''); setClose(null);
-    const out = await command.run(() => api.getExpectedCash({ locationId: locationId.trim(), ...(workingDate ? { workingDate } : {}) }));
+    const out = await command.run(() => api.getExpectedCash({ locationId, ...(workingDate ? { workingDate } : {}) }));
     if (out.ok) setExpected(out.result);
   };
 
@@ -76,7 +88,7 @@ export default function CashClosePage() {
                 <thead><tr><th>{t('cash.col.close')}</th><th>{t('cash.col.branch')}</th><th>{t('cash.col.day')}</th><th>{t('cash.col.expected')}</th><th>{t('cash.col.counted')}</th><th>{t('cash.col.difference')}</th><th>{t('cash.col.reason')}</th><th /></tr></thead>
                 <tbody>{queue.data.map(item => (
                   <tr key={item.closeReference}>
-                    <td>{item.closeReference}</td><td>{item.locationId}</td><td>{item.workingDate}</td>
+                    <td>{item.closeReference}</td><td>{locationName(item.locationId)}</td><td>{item.workingDate}</td>
                     <td>{fmt.money(item.expectedCashVnd)}</td><td>{fmt.money(item.countedCashVnd)}</td><td>{signedMoney(fmt, item.differenceVnd)}</td>
                     <td>{item.differenceReason || '—'}</td>
                     <td><button className="button danger small" type="button" onClick={() => { setTarget(item); setConfirming(true); }}>{t('cash.confirmDifference')}</button></td>
@@ -87,10 +99,14 @@ export default function CashClosePage() {
         </section>
       )}
       <section className="wsp-panel">
+        <ProblemNotice error={locationsResource.error} onRetry={locationsResource.reload} onReload={locationsResource.reload} />
         <form className="wsp-inline-form" aria-label={t('cash.expectedAria')} onSubmit={loadExpected}>
-          <label>{t('cash.branchId')}<input inputMode="numeric" value={locationId} onChange={event => setLocationId(event.target.value)} /></label>
-          <label>{t('cash.workingDay')}<input type="date" value={workingDate} onChange={event => setWorkingDate(event.target.value)} /></label>
-          <button className="button outline" type="submit" disabled={command.pending || !/^[0-9]+$/.test(locationId.trim())}>{t('cash.showExpected')}</button>
+          <label>{t('cash.branch')}<select value={locationId} disabled={command.pending || locations.length === 0} onChange={event => changeSubject(() => setPickedLocation(event.target.value))}>
+            {locations.length === 0 && <option value="">{locationsResource.loading ? t('cash.branchLoading') : t('cash.noBranch')}</option>}
+            {locations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select></label>
+          <label>{t('cash.workingDay')}<input type="date" value={workingDate} disabled={command.pending} onChange={event => changeSubject(() => setWorkingDate(event.target.value))} /></label>
+          <button className="button outline" type="submit" disabled={command.pending || !locationId}>{t('cash.showExpected')}</button>
         </form>
         {expected && (
           <dl className="ops-facts">

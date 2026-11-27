@@ -102,8 +102,8 @@ export const GROUPS = [
   {
     id: 'tickets', icon: 'ticket', vi: 'Vé và hoàn tiền', en: 'Tickets & refunds',
     tabs: [
-      { id: 'ticket-actions', vi: 'Hủy và đổi vé', en: 'Cancel & change tickets', to: '/settlement/ticket-actions', match: ['/settlement/ticket-actions*'], visible: staffOrManager },
       { id: 'change-requests', vi: 'Yêu cầu đổi vé', en: 'Change requests', to: '/settlement/change-requests?status=PENDING', match: ['/settlement/change-requests*'], visible: notAdmin },
+      { id: 'ticket-actions', vi: 'Hỗ trợ đổi vé và hủy', en: 'Change & cancellation support', to: '/settlement/ticket-actions', match: ['/settlement/ticket-actions*'], visible: staffOrManager },
       { id: 'refunds', vi: 'Hàng đợi hoàn tiền', en: 'Refund queue', to: '/settlement/refunds?status=WAITING', match: ['/settlement/refunds*'], visible: manager },
       { id: 'cases', vi: 'Sự vụ và bồi hoàn', en: 'Settlement cases', to: '/settlement/cases?tab=cases', match: ['/settlement/cases*'], visible: manager },
       { id: 'refund-key', vi: 'Thay khóa hoàn tiền', en: 'Refund key', to: '/settlement/refund-account-key', match: ['/settlement/refund-account-key*'], visible: manager },

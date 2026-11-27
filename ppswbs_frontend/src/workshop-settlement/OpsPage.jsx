@@ -1,17 +1,13 @@
 import React from 'react';
-import { useT } from '../shared/i18n/I18nProvider';
-import { messages } from './messages';
 import '../shared/ui/workspace.css';
 import './workshop-settlement.css';
 
 /** Staff/Manager settlement screen frame: sidebar, heading and content. The backend decides every permission. */
 export function OpsPage({ eyebrow, title, intro, children }) {
-  const t = useT(messages);
   return (
     <div className="wsp-workspace">
       
       <main className="wsp-main">
-        <div className="wsp-topline">{t('frame.topline')} <span>● {t('frame.backendAuthorized')}</span></div>
         <header className="wsp-page-heading">
           <div>
             

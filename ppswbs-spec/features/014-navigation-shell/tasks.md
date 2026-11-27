@@ -15,7 +15,7 @@
 | T020 | Dropped (no review-moderation queue) |
 
 **Date created**: 2026-11-18
-**Date updated**: 2026-11-22
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -180,3 +180,7 @@ FE = `ppswbs_frontend/src`. Task numbers continue from T037.
 - Backend run 2026-11-18 (003 packages + ModulithArchitectureTests): the first run (1893 tests) had 14 failures and 5 errors in 8 classes. Fixed in tests and contracts only (no product code): WorkshopPackageFacadeIT and WorkshopOtaSnapshotIT activate the Package at the session location (Phase 18 availability); WorkshopSettlementMigrationIT inserts currency_code; WorkshopSettlementContractIT lists the existing change-request-status route (now also in the OpenAPI); WorkshopBookingContractIT reads the contract with CRLF normalised. Re-run after the fixes (1894 tests): 1 failure and 5 errors in 2 classes. BookingIdempotencyIT (H2 table missing, "database is empty") ran early in the run, before the new Manager Home ITs, and RefundReceiptImageMysqlIT uses its own data; both pass when run alone (5/5 and 3/3), so they are order-dependent in the full run. The cause is not proven and neither was fixed.
 - Not ticked: T013, T027, T037 (manual checks against the dev environment not run); T033 (375 px layout CSS written, not checked in a browser); T020 dropped.
 - Evidence 2026-11-22 (navigation shell, frontend only): `npx vitest run` all files passed; `npm run build` passed; there is no lint script in `ppswbs_frontend/package.json`, so no lint ran. Browser check of the shell with stubbed session and data (not the real backend): rail, tabs, header actions and badges at 1280 px and 375 px, no horizontal page scroll; Staff view shows "Trang chủ", "Ca của tôi" and no badges. Not checked: real sign-in, real counts, the other roles' pages beyond Products, Workshop, OTA, Tickets and the dashboard.
+
+## Ticket tabs (decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T045 **Done 2026-11-27** [FE] Renamed the `ticket-actions` tab and moved `change-requests` before it (`shared/nav/navModel.js`). Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.

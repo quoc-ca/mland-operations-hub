@@ -7,13 +7,15 @@ import { useHttp } from '../../shared/api/useHttp';
 import { enumLabel, formatDateTime, translate, useEnumLabel, useFormat, useLanguage, useT } from '../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../shared/ui/messages';
 import { messages } from '../messages';
-import { ConfirmDialog, ErrorNotice, Loading, SuccessNotice, useCommand, useResource } from '../../shared/ui/components';
+import { ConfirmDialog, ErrorNotice, Loading, SuccessNotice, useCommand, useErrorText, useResource } from '../../shared/ui/components';
 import { OperationsAuthWorkspace } from '../../shared/ui/OperationsAuthWorkspace';
 import { createOperationsApi } from '../api/operationsApi';
 import { sessionTimeRange } from './OperationsDashboardPage';
 import { decideLatePaymentReview, listLatePaymentReviews, submitGroupMagicLinkIncident } from '../../api/workshops';
 import StaffWorkshopAddonPanel from '../components/StaffWorkshopAddonPanel';
 import { RescheduleQuotaPanel } from '../components/RescheduleQuotaPanel';
+import { QrCheckInScanner } from '../components/QrCheckInScanner';
+import { RosterTicketDialog } from '../components/RosterTicketDialog';
 import '../../shared/ui/workspace.css';
 import '../workshop-operations.css';
 
@@ -129,6 +131,16 @@ export function checkInNotOpenText(error, language = 'vi') {
   return translate(messages, language, 'ses.opensAt', { when: when || translate(messages, language, 'ses.laterTime') });
 }
 
+/** Why one check-in was refused, in words for the counter; null when the generic notice should explain it. */
+export function checkInRefusalText(error, language = 'vi') {
+  if (!error) return null;
+  const notOpen = checkInNotOpenText(error, language);
+  if (notOpen) return notOpen;
+  const key = `ses.refused.${error.status === 404 ? 'RESOURCE_NOT_FOUND' : error.code}`;
+  const text = translate(messages, language, key);
+  return text === key ? null : text;
+}
+
 /**
  * The codes of a roster row as the customer knows them: the ticket code GRP-…-L1-T1 (line reference + person number)
  * and the booking code GRP-… (the group). A direct booking without a line suffix keeps its stored codes.
@@ -180,9 +192,12 @@ export default function OperationsSessionPage() {
   const [{ roster: rosterFilter }, setUrlFilters] = useUrlFilters({ roster: 'ALL' });
   const setRosterFilter = value => setUrlFilters({ roster: value });
   const command = useCommand();
+  const errorText = useErrorText(messages);
   const [message, setMessage] = useState('');
   const [ticketCode, setTicketCode] = useState('');
-  const [qrToken, setQrToken] = useState('');
+  const [scanning, setScanning] = useState(false);
+  // The ticket code (as the server stores it) of the roster row that is open.
+  const [openTicket, setOpenTicket] = useState(null);
   const [lookupBookingCode, setLookupBookingCode] = useState('');
   const [resendBookingCode, setResendBookingCode] = useState('');
   const [resendError, setResendError] = useState(null);
@@ -248,8 +263,9 @@ export default function OperationsSessionPage() {
       />
     );
   }
-  if (resource.loading) return <Loading />;
-  if (resource.error) return <div className="wsp-container"><ErrorNotice error={resource.error} onRetry={resource.reload} /></div>;
+  // Only the first read replaces the page: a reload after a command keeps the content (and the camera) on screen.
+  if (resource.loading && !resource.data) return <Loading />;
+  if (resource.error && !resource.data) return <div className="wsp-container"><ErrorNotice error={resource.error} onRetry={resource.reload} /></div>;
   const session = resource.data;
   const authorization = user?.token || user?.accessToken;
   const rosterRows = Array.isArray(roster.data) ? roster.data : [];
@@ -260,6 +276,7 @@ export default function OperationsSessionPage() {
     NOT_CHECKED_IN: rosterRows.filter(row => row.attendanceState === 'NOT_CHECKED_IN').length,
     NO_SHOW: rosterRows.filter(row => row.attendanceState === 'NO_SHOW').length,
   };
+  const openRow = openTicket ? rosterRows.find(row => row.ticketCode === openTicket) : null;
   const visibleRosterRows = rosterFilter === 'ALL' ? rosterRows : rosterRows.filter(row => row.attendanceState === rosterFilter);
   const assignedStaff = (session.assignedStaffAccountIds || []).map(accountId => {
     const staff = staffOptions.find(option => Number(option.accountId) === Number(accountId));
@@ -293,9 +310,27 @@ export default function OperationsSessionPage() {
       // A repeat scan answers 200 ALREADY_CHECKED_IN: say so, with the recorded check-in time only.
       const repeat = result.result?.checkInResult === 'ALREADY_CHECKED_IN';
       setMessage(repeat ? t('ses.alreadyCheckedIn', { when: formatDateTime(result.result.checkedInAt, language) }) : success);
-      resource.reload(); roster.reload(); return;
+      resource.reload(); roster.reload(); return result;
     }
     if (checkInNotOpenText(result.error, language)) { setCheckInNotOpen(result.error); command.reset(); }
+    return result;
+  }
+
+  // FR-057: one scanned QR is one normal check-in; the scan dialog shows what happened.
+  async function scanTicket(token) {
+    const result = await runCheckIn({ qrToken: token }, t('ses.ok.qrCheckIn'));
+    if (!result.ok) {
+      const refusal = checkInRefusalText(result.error, language);
+      command.reset();
+      return { tone: 'error', title: t('scan.refused'), detail: refusal || errorText(result.error) };
+    }
+    const code = result.result?.ticketCode;
+    const row = rosterRows.find(item => item.ticketCode === code);
+    const ticket = row ? rosterCodes(row).ticket : code;
+    if (result.result?.checkInResult === 'ALREADY_CHECKED_IN') {
+      return { tone: 'repeat', title: t('scan.repeat'), detail: [ticket, t('ses.alreadyCheckedIn', { when: formatDateTime(result.result.checkedInAt, language) })].filter(Boolean).join(' · ') };
+    }
+    return { tone: 'success', title: t('scan.success'), detail: ticket };
   }
 
   // T127 / T139: a resend refusal is explained inside the Ticket delivery panel (wait time, no eligible ticket, Booking
@@ -381,6 +416,12 @@ export default function OperationsSessionPage() {
       <span className={`ops-status large session-state session-state-${String(session.state).toLowerCase()}`}>{stateLabel(session.state)}</span>
     </header>
     <SuccessNotice>{message}</SuccessNotice><ErrorNotice error={command.error} onRetry={command.retry} onReload={resource.reload} />
+    <ErrorNotice error={resource.error} onRetry={resource.reload} />
+    {scanning && <QrCheckInScanner onScan={scanTicket} onClose={() => setScanning(false)} />}
+    {openRow && <RosterTicketDialog key={openRow.ticketCode} api={api} session={{ ...session, id: sessionId }} row={openRow}
+      ticketCode={rosterCodes(openRow).ticket} isManager={isManager} reasons={CHECKIN_CORRECTION_REASONS}
+      explain={error => checkInRefusalText(error, language)} onClose={() => setOpenTicket(null)}
+      onDone={text => { setOpenTicket(null); command.reset(); setCheckInNotOpen(null); setMessage(text); resource.reload(); roster.reload(); }} />}
     <ConfirmDialog open={confirming === 'finalize'} title={t('ses.confirm.finalizeTitle')} confirmLabel={t('ses.confirm.finalize')}
       onCancel={() => setConfirming(null)}
       onConfirm={() => { setConfirming(null); run(key => api.finalizeAttendance(sessionId, key), t('ses.ok.finalized')); }}>
@@ -395,12 +436,14 @@ export default function OperationsSessionPage() {
     <section className="ops-detail-grid">
       <article className="wsp-panel">
         <div className="wsp-panel-head"><h2>{t('ses.desk')}</h2></div>
+        <button type="button" className="button primary ops-scan-button" onClick={() => { setMessage(''); setCheckInNotOpen(null); command.reset(); setScanning(true); }}>
+          {t('scan.open')}
+        </button>
         <form
           className="wsp-form"
           onSubmit={e => {
             e.preventDefault();
             if (ticketCode.trim()) runCheckIn({ ticketCode: ticketCode.trim() }, t('ses.ok.checkIn'));
-            else if (qrToken.trim()) runCheckIn({ qrToken: qrToken.trim() }, t('ses.ok.qrCheckIn'));
           }}
         >
           <label>
@@ -411,18 +454,10 @@ export default function OperationsSessionPage() {
               placeholder="GRP-…-L0-T1"
             />
           </label>
-          <label>
-            {t('ses.orQr')}
-            <input
-              value={qrToken}
-              onChange={e => setQrToken(e.target.value)}
-              placeholder={t('ses.qrPlaceholder')}
-            />
-          </label>
           <button
             className="button primary"
             type="submit"
-            disabled={command.pending || (!ticketCode.trim() && !qrToken.trim())}
+            disabled={command.pending || !ticketCode.trim()}
           >
             {t('ses.checkIn')}
           </button>
@@ -535,8 +570,10 @@ export default function OperationsSessionPage() {
                 {visibleRosterRows.map(row => {
                   const pay = paymentBadge(folioStatuses.data?.statuses?.[rosterCodes(row).ticket], session.state, language);
                   return (
-                  <div className="wsp-ledger-row roster-row" key={`${row.ticketCode}`}>
-                    <strong title={rosterCodes(row).internal || undefined}>{rosterCodes(row).ticket}</strong>
+                  // The ticket button is the keyboard way in; the rest of the row is a larger target for the same action.
+                  <div className="wsp-ledger-row roster-row roster-clickable" key={`${row.ticketCode}`}
+                    onClick={event => { if (!event.target.closest('a')) setOpenTicket(row.ticketCode); }}>
+                    <strong title={rosterCodes(row).internal || undefined}><button type="button" className="roster-open">{rosterCodes(row).ticket}</button></strong>
                     <code>{rosterCodes(row).booking}</code>
                     <span className="roster-badges">
                       <span className={`roster-state roster-${String(row.attendanceState).toLowerCase()}`}>{attendanceLabel(row.attendanceState)}</span>

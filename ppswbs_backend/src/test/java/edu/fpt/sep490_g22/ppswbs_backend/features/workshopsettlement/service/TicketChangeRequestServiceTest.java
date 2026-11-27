@@ -46,9 +46,10 @@ class TicketChangeRequestServiceTest {
     private final SettlementBusinessAuditRepository audits = mock(SettlementBusinessAuditRepository.class);
     private final WorkshopBookingFacade booking = mock(WorkshopBookingFacade.class);
     private final TicketChangeNotifier notifier = mock(TicketChangeNotifier.class);
+    private final AccountFacade accounts = mock(AccountFacade.class);
     private final TicketChangeRequestService service = new TicketChangeRequestService(requests, changes,
             new WorkshopSettlementAuthorizationService(mock(AccountFacade.class), audits,
-                    mock(WorkshopOperationsSettlementAdapter.class)), audits, booking, notifier);
+                    mock(WorkshopOperationsSettlementAdapter.class)), audits, booking, notifier, accounts);
 
     private final CurrentAccountActor manager =
             new CurrentAccountActor(300L, ActorRole.MANAGER, ActorStatus.ACTIVE, true, List.of());
@@ -124,6 +125,37 @@ class TicketChangeRequestServiceTest {
     }
 
     @Test
+    @DisplayName("decide APPROVE without a reason: the grant records the default reason and the decision keeps none")
+    void approve_withoutReason() {
+        SettlementTicketChangeRequest request = pending(REQUEST_REF, 7L, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(requests.findByRequestReferenceForUpdate(REQUEST_REF)).thenReturn(Optional.of(request));
+        when(changes.applyApproved(eq(request), eq(manager), anyString(), anyString(), any())).thenReturn("TCHG-3");
+
+        ChangeRequestDto result = service.decide(REQUEST_REF,
+                new ChangeRequestDecisionDto(ChangeRequestDecision.APPROVE, null), KEY, null, manager);
+
+        assertThat(result.status()).isEqualTo("APPROVED");
+        assertThat(result.decisionReason()).isNull();
+        verify(changes).applyApproved(eq(request), eq(manager),
+                eq(TicketChangeRequestService.DEFAULT_APPROVAL_REASON), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("list: the requester is named from the account; a Guest request has no name")
+    void list_namesTheRequester() {
+        Instant future = Instant.now().plus(2, ChronoUnit.DAYS);
+        SettlementTicketChangeRequest member = pending("A", 7L, future);
+        member.setRequesterAccountId(77L);
+        SettlementTicketChangeRequest guest = pending("B", 7L, future);
+        guest.setRequesterRole("GUEST");
+        when(requests.findByStatusOrderByCreatedAtAsc("PENDING")).thenReturn(List.of(member, guest));
+        when(accounts.findAccountFullName(77L)).thenReturn(Optional.of("Nguyễn Văn A"));
+
+        assertThat(service.list(manager, null)).extracting(ChangeRequestDto::requesterName)
+                .containsExactly("Nguyễn Văn A", null);
+    }
+
+    @Test
     @DisplayName("decide REJECT: nothing is applied and the request is closed with the reason")
     void reject_appliesNothing() {
         SettlementTicketChangeRequest request = pending(REQUEST_REF, 7L, Instant.now().plus(1, ChronoUnit.DAYS));
@@ -165,7 +197,7 @@ class TicketChangeRequestServiceTest {
         assertThatThrownBy(() -> service.decide(REQUEST_REF, decision(ChangeRequestDecision.APPROVE), KEY, null, admin))
                 .isInstanceOf(WorkshopSettlementAuthorizationException.class).hasMessageContaining("STAFF_OR_MANAGER_REQUIRED");
         assertThatThrownBy(() -> service.decide(REQUEST_REF,
-                new ChangeRequestDecisionDto(ChangeRequestDecision.APPROVE, " "), KEY, null, manager))
+                new ChangeRequestDecisionDto(ChangeRequestDecision.REJECT, " "), KEY, null, manager))
                 .isInstanceOf(WorkshopSettlementValidationException.class).hasMessageContaining("REASON_REQUIRED");
 
         request.setStatus(SettlementTicketChangeRequest.REJECTED);

@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -501,6 +501,49 @@ bookings from feature 003.1; it does not create customer bookings, collect money
 perform refunds or connect to external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-27 ticket scanning and roster check-in (owner Hồ Hoàng Quốc)
+
+- Q: Where is a ticket QR scanned? → A: With the camera of the computer, on the session page of the operations workspace (FR-057). A separate scanning page for phones is out of scope.
+- Q: Is the typed QR code kept? → A: No. The "or Check-in QR code" input is removed; the ticket-code input stays as the fallback (FR-057).
+- Q: Does the session page refresh itself on a timer? → A: No. It reloads after an action only.
+- Q: Can a ticket be checked in from the roster? → A: Yes, by pressing its row and confirming (FR-058).
+- Q: Who may undo or correct from the roster? → A: Only who may do it today (Manager, FR-007a and FR-008). Letting assigned Staff undo is a later change and is not part of this one.
+
+- **FR-057** *(camera scan, 2026-11-27)*: The session page MUST offer "Scan with
+  camera". While the scan panel is open it reads ticket QR codes and sends each as
+  a normal check-in (FR-003, FR-010kh), with the same authority, window and
+  eligibility rules as a typed ticket code. Each outcome MUST be shown in large
+  text (checked in, already checked in with the first check-in time, or refused
+  with the reason) and accompanied by a short sound. The same QR read again within
+  a few seconds MUST NOT send another request. Reloading data after a check-in
+  MUST NOT blank the page or stop the camera. Closing the panel or leaving the page
+  MUST turn the camera off. When the camera cannot be used the panel MUST say so,
+  and the ticket-code input remains. The QR value MUST NOT be shown, logged or
+  stored by the page. The typed QR code input is removed.
+- **FR-058** *(roster check-in, 2026-11-27)*: Pressing a roster row MUST open the
+  ticket: a ticket that is not checked in is checked in after a confirmation, using
+  its ticket code; when check-in is not open (session state, or before the opening
+  time) the reason MUST be shown and no check-in offered. A checked-in ticket
+  shows its check-in time. A Manager is additionally offered, before attendance
+  finalization, to reverse a check-in, and after finalization to correct between
+  checked in and no-show, each with the standardized reason of FR-007a. Staff are
+  not offered these actions. The server remains the authority.
+
+### Session 2026-11-27 session board (owner Hồ Hoàng Quốc)
+
+- Q: How is the session list filtered by state? → A: By tabs with counts instead of a state select: All, In progress, Upcoming (published and sales paused), Ended (attendance finalized), Cancelled (cancellation requested and cancelled), and Drafts only when there is one (FR-056).
+- Q: In which order are sessions listed? → A: Running first (ending soonest), then upcoming (soonest), then ended (latest), then cancelled and drafts (FR-056).
+- Q: Which dates does the list show by default? → A: From today, never hiding a running session of the last 7 days; the Ended tab starts 7 days back. A From date the user chooses applies to every tab (FR-056).
+- Q: How are states told apart? → A: Each state has its own background colour, always with its text label (FR-056).
+
+- **FR-056** *(session board, 2026-11-27)*: The operational session list MUST offer
+  the state tabs above with the number of sessions in each, MUST order sessions
+  running, upcoming, ended, then cancelled and draft, and MUST give each session
+  state a distinct background colour beside its text label: draft grey, published
+  blue, sales paused yellow, in progress green, attendance finalized light
+  purple, cancellation requested orange, cancelled red. The server's visibility
+  rules are unchanged.
 
 *(Note 2026-11-14: every clarification below that grants Staff authority by
 location scope alone is superseded by the 2026-11-06 "Staff session-assignment
