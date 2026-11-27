@@ -122,21 +122,22 @@ public class FolioFinalizationService {
     }
 
     /**
-     * Records a real debt (`Còn nợ`), Manager-only and with a reason. There is deliberately no reminder, no
-     * deadline and no booking block: a Manager follows it up and closes it by hand.
+     * Records a real debt (`Còn nợ`), Manager-only and with a reason; the amount is the server's balance due at
+     * this moment (FR-035). There is deliberately no reminder, no deadline and no booking block: a Manager
+     * follows it up and closes it by hand.
      */
     @Transactional
-    public SettlementFinalBill recordDebt(String bookingReference, Long managerAccountId, long amountVnd,
-                                          String reason, String correlationReference) {
+    public SettlementFinalBill recordDebt(String bookingReference, Long managerAccountId, String reason,
+                                          String correlationReference) {
         if (reason == null || reason.isBlank()) {
             throw new WorkshopSettlementValidationException("DEBT_REASON_REQUIRED");
         }
         SettlementFinalBill folio = lock(bookingReference);
         FolioBalanceService.FolioBalance balance = balances.balanceOf(folio);
-        if (amountVnd <= 0 || amountVnd > balance.balanceDue()) {
+        if (balance.balanceDue() <= 0) {
             throw new WorkshopSettlementValidationException("DEBT_AMOUNT_INVALID");
         }
-        folio.setDebtAmountVnd(amountVnd);
+        folio.setDebtAmountVnd(balance.balanceDue());
         folio.setDebtReason(reason.trim());
         folio.setDebtRecordedByAccountId(managerAccountId);
         folio.setDebtRecordedAt(Instant.now());
