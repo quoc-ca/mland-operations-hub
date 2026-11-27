@@ -21,7 +21,7 @@ class GitHistoryError(RuntimeError):
 
 def _run_git(arguments: list[str]) -> str:
     try:
-        completed = subprocess.run(arguments, capture_output=True, text=True, check=False)
+        completed = subprocess.run(arguments, capture_output=True, text=True, encoding="utf-8", check=False)
     except OSError as exc:
         raise GitHistoryError(f"Cannot run Git: {exc}") from exc
     if completed.returncode:

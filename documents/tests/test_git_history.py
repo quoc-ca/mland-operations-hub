@@ -25,6 +25,7 @@ class GitHistoryTests(unittest.TestCase):
                 entries = git_history_entries(root, source)
         self.assertEqual([(entry.short_sha, entry.date, entry.author, entry.subject) for entry in entries], [("abc1234", "2026-09-11", "Mland Team", "Refine report")])
         self.assertEqual(run.call_args_list[1].args[0][-1], "docs/report-1")
+        self.assertEqual(run.call_args_list[1].kwargs["encoding"], "utf-8")
 
     def test_formats_empty_history_as_generated_table(self) -> None:
         table = markdown_change_history(())
