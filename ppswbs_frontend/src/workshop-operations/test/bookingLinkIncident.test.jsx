@@ -53,6 +53,20 @@ describe('Booking recovery: revoke or rotate the magic link', () => {
     expect(screen.queryByText(/correlationId|MAGIC_LINK_/)).not.toBeInTheDocument();
   });
 
+  it('offers only the magic link reasons and sends the first one by default', async () => {
+    const calls = open([ticket('TK-1', 'GRP-A-L0', 1)], { [INCIDENT]: json(200, { groupCode: 'GRP-A' }) });
+    const user = userEvent.setup();
+    await screen.findByRole('option', { name: 'GRP-A' });
+    const reason = screen.getByLabelText('Reason for the action *');
+    expect(within(reason).getAllByRole('option').map(option => option.value))
+      .toEqual(['LINK_COMPROMISED_SECURITY', 'CUSTOMER_REQUESTED_NEW_LINK', 'OTHER_REQUIRES_NOTE']);
+    await user.selectOptions(screen.getByLabelText('Booking code to handle *'), 'GRP-A');
+    await user.click(screen.getByRole('button', { name: 'Revoke magic link' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm revocation' }));
+    await screen.findByText(/GRP-A was revoked/);
+    expect(calls.find(call => call.path.endsWith('/magic-link-incidents')).body.reason).toBe('LINK_COMPROMISED_SECURITY');
+  });
+
   it('offers each booking of the roster once and no free text', async () => {
     open([ticket('TK-1', 'GRP-A-L0', 1), ticket('TK-2', 'GRP-A-L1', 1), ticket('TK-3', 'BK-DIRECT')]);
     await screen.findByRole('option', { name: 'GRP-A' });

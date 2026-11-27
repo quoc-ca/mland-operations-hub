@@ -701,6 +701,8 @@ Mapping: FR-069 → T202, T200.
 - [x] T205 **Done 2026-11-27** [FE] Booking recovery picks a roster booking code; empty and failed roster states; section hint updated. Traces to FR-072. Check: Vitest (`bookingLinkIncident.test.jsx`).
 - [ ] T206 [Test] Browser check of the session page recovery picker and the late-payment queue as Manager against a live stack.
 
+- [x] T207 **Done 2026-11-27** [FE] Booking recovery offers only the magic link reasons and `OTHER_REQUIRES_NOTE`; note wording without a transaction reference. Traces to FR-072. Evidence: full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1440 tests passed; `npm run build` passed.
+
 Evidence for T203–T205 (2026-11-27): Full `npx vitest run --maxWorkers=2 --testTimeout=20000` 172 files, 1439 tests passed; `npm run build` passed. Not checked in a browser.
 
-Mapping: FR-070 → T203, T206. FR-071 → T204, T206. FR-072 → T205, T206.
+Mapping: FR-070 → T203, T206. FR-071 → T204, T206. FR-072 → T205, T206, T207.

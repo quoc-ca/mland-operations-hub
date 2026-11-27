@@ -23,8 +23,7 @@ import '../workshop-operations.css';
 const CHECKIN_CORRECTION_REASONS = ['RECORDING_ERROR', 'OTHER_REQUIRES_NOTE'];
 const CANCELLATION_REASONS = ['INSTRUCTOR_UNAVAILABLE', 'FACILITY_ISSUE', 'WEATHER_EMERGENCY', 'OTHER_REQUIRES_NOTE'];
 const RECOVERY_REASONS = [
-  'PROVIDER_CONFIRMED_LATE_DEPOSIT', 'CUSTOMER_PRESENTED_RECEIPT', 'LINK_COMPROMISED_SECURITY',
-  'CUSTOMER_REQUESTED_NEW_LINK', 'DISPUTE_ESCALATION_FINANCE', 'OTHER_REQUIRES_NOTE',
+  'LINK_COMPROMISED_SECURITY', 'CUSTOMER_REQUESTED_NEW_LINK', 'OTHER_REQUIRES_NOTE',
 ];
 
 // While a session is IN_PROGRESS it can only go on to finalization or cancellation (spec 003.2): it never returns to a
@@ -179,7 +178,7 @@ export default function OperationsSessionPage() {
   // T130: why the chosen Staff cannot be assigned (STAFF_NOT_ELIGIBLE reason), shown next to the form.
   const [assignmentError, setAssignmentError] = useState('');
   const [bookingCode, setBookingCode] = useState('');
-  const [recoveryReasonCode, setRecoveryReasonCode] = useState('PROVIDER_CONFIRMED_LATE_DEPOSIT');
+  const [recoveryReasonCode, setRecoveryReasonCode] = useState('LINK_COMPROMISED_SECURITY');
   const [incidentNote, setIncidentNote] = useState('');
   const [transitionError, setTransitionError] = useState(null);
 

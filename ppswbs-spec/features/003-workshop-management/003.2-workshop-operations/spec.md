@@ -522,6 +522,10 @@ perform refunds or connect to external sales channels.
   that cannot be read is reported as a failed read, not as an empty roster. The
   reason, note and confirmation rules (FR-068) are unchanged. A booking without a
   ticket in this session cannot be handled from this page.
+  *(Amended the same day, owner Hồ Hoàng Quốc)*: the reasons offered are only
+  `LINK_COMPROMISED_SECURITY` (selected at first), `CUSTOMER_REQUESTED_NEW_LINK`
+  and `OTHER_REQUIRES_NOTE`; the payment reasons belong to the late-payment
+  queue screen, and the note no longer asks for a transaction reference.
 
 ### Session 2026-11-27 session page defects (owner Hồ Hoàng Quốc)
 
