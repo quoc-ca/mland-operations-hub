@@ -1,9 +1,9 @@
 # Feature-011 — Review Management
 
 Date created: 2026-11-03
-Date updated: 2026-11-24
+Date updated: 2026-11-28
 Author: Ngô Tiến Đạt
-Last updated by: Ngô Tiến Đạt
+Last updated by: Hồ Hoàng Quốc
 
 Status: `PUBLIC-READ / MEMBER-WRITE REBASELINE — IMPLEMENTATION PLAN REQUIRED`
 
@@ -44,6 +44,15 @@ authorization.
 
 - Workshop source: attendance ticket is `CHECKED_IN` and maps to exactly one
   `WORKSHOP_SESSION` owned by the Member.
+- Workshop balance *(decided 2026-11-28, Hồ Hoàng Quốc)*: an attended ticket
+  whose settlement folio still has `balanceDue > 0` is not eligible, including a
+  recorded debt (`Còn nợ`), an unverified transfer or VNPay part, and an approved
+  handover exception. The eligible-source list still returns it with
+  `eligible = false` and `reasonCode = BALANCE_DUE`; create is refused with
+  `REVIEW_SOURCE_NOT_ELIGIBLE`. The balance is read through the shared
+  `TicketBalancePort`; if it cannot be read, the request fails and nothing is
+  created. A ticket without a folio is not blocked by this rule. Reviews already
+  created stay as they are.
 - Retail source: order line belongs to the Member and its parent order is
   `PICKED_UP` or `DELIVERED`.
 - `NO_SHOW`, cancelled, unpaid and unfulfilled sources are not eligible.
