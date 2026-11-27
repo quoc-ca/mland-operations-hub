@@ -1,7 +1,5 @@
 ## 7. Notification Management (FE-07)
 
-**Implementation status:** Specification and backend notification boundaries exist; provider delivery and retry behavior require environment verification.
-
 ### 7.1 Class Diagram
 
 {{r4-cd-notification-management width=100% align=center}}
