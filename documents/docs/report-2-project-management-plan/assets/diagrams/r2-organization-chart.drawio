@@ -1,0 +1,51 @@
+<mxfile host="app.diagrams.net" pages="2">
+  <diagram id="r2-org" name="Organization Chart">
+    <mxGraphModel dx="619" dy="518" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="sv" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=16;strokeWidth=1.5;" value="&lt;b&gt;Trần Thị Xuyến&lt;br&gt;Supervisor&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="220" x="430" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="pl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;" value="&lt;b&gt;Hồ Hoàng Quốc&lt;/b&gt;&lt;br&gt;Team Leader /&lt;br&gt;Full-stack Developer" vertex="1">
+          <mxGeometry height="66" width="200" x="440" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;" value="Phan Nguyễn Trường Sơn&lt;br&gt;Full-stack Developer" vertex="1">
+          <mxGeometry height="60" width="200" x="40" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="m2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;" value="Đặng Thị Khương&lt;br&gt;Full-stack Developer" vertex="1">
+          <mxGeometry height="60" width="200" x="300" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="m3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;" value="Bùi Trọng Thịnh&lt;br&gt;Full-stack Developer" vertex="1">
+          <mxGeometry height="60" width="200" x="580" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="m4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;" value="Ngô Tiến Đạt&lt;br&gt;Full-stack Developer" vertex="1">
+          <mxGeometry height="60" width="200" x="840" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" edge="1" parent="1" source="sv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;" target="pl">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="pl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="m1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="pl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="m2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="pl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="m3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="pl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="m4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="Df1vLw8qSv-v6wKG9HeZ" name="Trang-2">
+    <mxGraphModel dx="669" dy="559" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

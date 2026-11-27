@@ -1,9 +1,18 @@
 ## 5. Project Objectives
 
-Targets below are proposed measures for the 14-week planning example. The group should confirm them before treating them as a baseline. Actual results remain TBD until supported by project records.
+Planned values are the team's committed targets. Actual values are recorded at project closing (week 14) from GitHub Issues and the test reports.
 
-| No. | Metric | Unit | Planned Target (Illustrative) | Actual | Notes / Evidence |
+::: {.docx-table width="100%" columns="5%,22%,15%,15%,13%,30%" repeat-header="false"}
+
+| # | Metric | Unit | Planned | Actual | Notes / References |
 |---|---|---|---|---|---|
-| 1 | Planned work packages completed | Work packages | 6 of 6 by the end of Week 14 | TBD — not measured | Based on the illustrative schedule in Cost & Time Estimations |
-| 2 | Approved in-scope high-priority requirements linked to acceptance tests | Percent | 100% before user acceptance testing | TBD — not measured | Verify through the requirements and test-case traceability review |
-| 3 | Critical acceptance scenarios passed with no unresolved critical defects | Scenarios / defects | 100% passed and 0 unresolved critical defects before handover | TBD — not measured | Record results in the approved test evidence; no product test result is claimed here |
+| 1 | Effort Usage | Person-day | 105 | | Effective capacity in Capacity Planning |
+| 2 | Review Defects | No of defects | ≤ 50 | | Found in spec and pull-request reviews |
+| 3 | Unit Test Defects | No of defects | ≤ 80 | | JUnit and Vitest runs |
+| 4 | Integration Test Defects | No of defects | ≤ 40 | | Report 5 integration test reports |
+| 5 | System Test Defects | No of defects | ≤ 30 | | Report 5 system test report |
+| 6 | Acceptance Test Defects | No of defects | ≤ 5, no critical | | Acceptance test with the Mland representative |
+| 7 | Timeliness | % | ≥ 90% | | Total on-time deliverables / Total project deliverables |
+| 8 | Requirement Completeness | % | ≥ 90% | | Implemented use cases / Approved use cases; failed if ≤ 75% |
+
+:::

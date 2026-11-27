@@ -1,16 +1,16 @@
 ## 2. Generic Calendar and Booking Tools {#generic-calendar-and-booking-tools}
 
-This representative category covers standalone calendars and appointment tools that let a business publish available dates and time slots, collect customer details, and receive reservations online. For a workshop, such a tool may help a customer choose a branch, session, or appointment time and may send a confirmation or reminder. It improves the visibility of availability and reduces the number of booking messages that Staff must handle, but it generally treats the reservation as a simple appointment rather than as the first step in a customization and fulfilment process. It usually does not connect a ring-design request, reference image, branch capability, feasibility decision, estimate, payment, fulfilment choice, and final invoice.
+Online scheduling tools such as Calendly let a business publish available time slots and let customers reserve one. Many small studios use them to replace booking messages.
 
 ::: {.docx-table width="100%" columns="35%,65%" repeat-header="false"}
 
 | Criteria | Details |
 | --- | --- |
-| Website / Link | N/A - representative tool category |
-| Target Users | Businesses that need basic appointment calendars or booking forms |
-| Core Features | Date and time-slot display, branch or appointment selection, customer reservation and contact capture, confirmation/reminder messages, and basic availability management |
-| Strengths | Faster self-service booking, clearer availability than manual messaging, fewer repetitive booking exchanges, and a familiar interaction model for customers |
-| Weaknesses | Treats the booking as an isolated appointment; limited support for group participant capacity, branch-specific design capability, ring configuration, consented reference images, feasibility review, estimates, payment gates, invoice adjustments, and order fulfilment |
-| GAP for this project | It cannot provide one traceable journey that starts with a group-session booking, carries a Member's customization context through feasibility and estimation, and continues to payment, fulfilment, order status, and final-price consent. |
+| Website / Link | https://calendly.com (representative example) |
+| Target Users | Small businesses that take appointments |
+| Core Features | Time-slot publishing, self-service reservation, confirmation and reminder emails, calendar sync |
+| Strengths | Fast self-service booking, clear availability, little setup |
+| Weaknesses | Built for one-to-one appointments; weak support for group capacity, per-ticket deposits, multi-session packages, check-in, and on-site extra charges; no product sales or design requests |
+| GAP for this project | It treats a workshop as an isolated appointment. It cannot carry a group booking through deposit, check-in, final payment, and refund, or connect it to ring sales and custom orders (GAP-02, GAP-04, GAP-05). |
 
 :::

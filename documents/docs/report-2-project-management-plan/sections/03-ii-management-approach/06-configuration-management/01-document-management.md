@@ -1,5 +1,5 @@
 ### 6.1 Document Management
 
-Git is the source of truth for report fragments and project records maintained in this repository. The team will make changes in reviewable commits or pull requests, preserve the document structure, and use Git history to trace approved changes. Generated DOCX files will be rebuilt from the source fragments rather than edited as the canonical copy.
+All reports are written as Markdown fragments in the Git repository, which is the single source of truth. A Python and Pandoc tool builds each report into Word format using the shared FPT template. On every push to `develop`, GitHub Actions rebuilds the reports and publishes them to Google Docs and Google Sheets for review.
 
-Google Docs and Google Sheets are publishing and review surfaces for mapped artifacts. Changes accepted into the source repository should be synchronized through the configured workflow; comments or suggestions in a published copy must be reconciled back into the source before they become the maintained version. Secrets, credentials, and customer data must not be added to project documents or commit history.
+Comments from the supervisor or teammates on Google Docs are applied back to the Markdown source, never edited directly in the published copy. The change log of each report is generated from Git commit history, so every change has an author, a date, and a description. Feature specifications are kept in the same repository and approved by the feature owner before implementation.

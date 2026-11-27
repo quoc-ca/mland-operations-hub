@@ -1,16 +1,16 @@
 ## 1. Manual Multi-Channel Coordination {#manual-multi-channel-coordination}
 
-This representative workaround uses channels such as Instagram, WhatsApp, phone calls, and informal notes to receive booking requests and discuss a customer's ring idea. A customer may send an incomplete description, preferred materials, components, or reference images, then refine the request through several conversations. Staff must check image quality, clarify requirements, assess feasibility, distinguish a workshop ring from a shop-made custom-manufacturing order, prepare a quote, and follow up on payment and fulfilment. The process is easy to start, but the booking, customization, review, quotation, and order context remain fragmented across channels and depend heavily on the Staff member handling the conversation.
+This is Mland's current process. Staff receive booking requests, design ideas, and payment proofs through Instagram, WhatsApp, phone calls, and bank-transfer screenshots, then track them in personal notes.
 
 ::: {.docx-table width="100%" columns="35%,65%" repeat-header="false"}
 
 | Criteria | Details |
 | --- | --- |
-| Website / Link | N/A - representative manual process |
-| Target Users | Workshop customers and Staff handling booking, design consultation, review, or quotation informally |
-| Core Features | Direct messages and calls for booking requests, descriptions, materials, components, reference images, clarification, quote follow-up, payment reminders, and order-status communication |
-| Strengths | Low initial cost, familiar communication channels, flexible consultation, and no formal training requirement |
-| Weaknesses | No shared bilingual design record, repeated clarification, inconsistent image-quality checks and feasibility explanations, limited session visibility, and high dependence on individual Staff memory and notes |
-| GAP for this project | It cannot reliably connect Member-owned design input, consultation messages, human review, workshop availability, quotation, payment, order status, fulfilment, and audit evidence in one traceable journey. |
+| Website / Link | N/A – current manual process at Mland |
+| Target Users | Mland customers and the Staff and Managers who answer them |
+| Core Features | Direct messages and calls, photo sharing, manual seat checks, bank-transfer deposits, cash collection at the counter |
+| Strengths | No cost, familiar to customers and Staff, flexible for unusual requests |
+| Weaknesses | No shared availability, no link between payment and booking, design history scattered across chats, dependence on individual Staff memory, no reporting |
+| GAP for this project | It cannot keep a booking, a design request, its payments, and its outcome in one traceable record shared by all branches (GAP-01, GAP-02, GAP-04, GAP-06). |
 
 :::
