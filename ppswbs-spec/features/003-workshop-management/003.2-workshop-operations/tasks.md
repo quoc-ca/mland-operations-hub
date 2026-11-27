@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-18
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -629,3 +629,10 @@ Excluded by `approval.md` (PARTIALLY APPROVED 2026-11-17). Each needs its own de
 | B4 | 003.4: "push the matrix change to the OTA listing" step | 003.4 owner | Out of scope by owner decision (FR-039); the matrix never updates a listing | Only if the 003.4 owner chooses to build it |
 | B5 | ~~003.3: Settlement audit route, service and repository query (T171)~~ | 003.3 owner (Hồ Hoàng Quốc owns 003.3, agreement needed in that feature's tasks) | Route and query live inside 003.3, avoiding a module cycle (finding F1) | Before T171 | **Agreed 2026-11-17** (owner of 003.3, see `approval.md` "Design approval — audit workshop") |
 | B6 | ~~Audit review page UI and wording (T173–T174)~~ **Unblocked 2026-11-17**: mockup `design/audit-review-mockup.html` approved by Hồ Hoàng Quốc (`approval.md` "UI approval — trang audit workshop") | — | — | — |
+
+## Session board tabs, order and colours (spec FR-056, decided 2026-11-27 by Hồ Hoàng Quốc)
+
+- [x] T179 **Done 2026-11-27** [FE] State tabs with counts, order and default date window (`workshop-operations/sessionBoard.js`, `OperationsDashboardPage.jsx`), one badge colour per state on the board, the administration list and the session page. Evidence: `npx vitest run --maxWorkers=2 --testTimeout=20000` 170 files, 1409 tests passed; `npm run build` passed; commit `e6879039`.
+- [ ] T180 [Test] Browser check of the tabs, order and colours against a live stack as Staff and Manager.
+
+Mapping: FR-056 → T179, T180.

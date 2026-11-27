@@ -292,6 +292,11 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   contains the branch; the session-assignment rule does not apply because the
   close is per branch, not per session. The closer is recorded on the close
   record, and only a Manager confirms a difference.
+- **FR-036a** *(cash-close screen, 2026-11-27)*: The screen MUST offer the branch
+  by name from the server's branch list, preselect the first, show branch names
+  in the confirmation queue, and MUST NOT keep a figure or a draft count after
+  the branch or working day changes. The server's scope check is unchanged.
+
 - **FR-037**: Add-on and variable-charge prices remain at least 5,000 VND. A
   wrongly recorded line is voided whole with history by a Manager while the
   folio is OPEN; this is not a customer's right to cancel a used service.
@@ -987,6 +992,7 @@ rescheduling, or serve external sales channels.
 
 *(Decided by Hồ Hoàng Quốc, owner of Feature 003.)*
 
+- Q: How does the closer choose the branch of a cash close? → A: By name from the branches the signed-in Staff or Manager may see, the first one filled in; changing the branch or the working day drops the expected figure, the counted amount and the reason (FR-036a).
 - Q: Is a reason required for both decisions on a queued change request? → A: Only for `REJECT`. `APPROVE` needs a confirmation only; when no reason is sent, the allowance granted by the approval records "Duyệt yêu cầu đổi vé" (FR-045a).
 - Q: What does the queue show about the requester and the request? → A: The requester's full name (a Member by name; a Staff member or Manager who entered it as "name (Nhân viên)" or "name (Quản lý)"; a Guest without an account as "Khách vãng lai"). The request reference, applied change reference, session identifiers, raw channel and the technical frame line are not shown; blocked rules are shown as text (FR-045a).
 

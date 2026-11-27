@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded") chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-17
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -501,6 +501,21 @@ bookings from feature 003.1; it does not create customer bookings, collect money
 perform refunds or connect to external sales channels.
 
 ## Clarifications
+
+### Session 2026-11-27 session board (owner Hồ Hoàng Quốc)
+
+- Q: How is the session list filtered by state? → A: By tabs with counts instead of a state select: All, In progress, Upcoming (published and sales paused), Ended (attendance finalized), Cancelled (cancellation requested and cancelled), and Drafts only when there is one (FR-056).
+- Q: In which order are sessions listed? → A: Running first (ending soonest), then upcoming (soonest), then ended (latest), then cancelled and drafts (FR-056).
+- Q: Which dates does the list show by default? → A: From today, never hiding a running session of the last 7 days; the Ended tab starts 7 days back. A From date the user chooses applies to every tab (FR-056).
+- Q: How are states told apart? → A: Each state has its own background colour, always with its text label (FR-056).
+
+- **FR-056** *(session board, 2026-11-27)*: The operational session list MUST offer
+  the state tabs above with the number of sessions in each, MUST order sessions
+  running, upcoming, ended, then cancelled and draft, and MUST give each session
+  state a distinct background colour beside its text label: draft grey, published
+  blue, sales paused yellow, in progress green, attendance finalized light
+  purple, cancellation requested orange, cancelled red. The server's visibility
+  rules are unchanged.
 
 *(Note 2026-11-14: every clarification below that grants Staff authority by
 location scope alone is superseded by the 2026-11-06 "Staff session-assignment

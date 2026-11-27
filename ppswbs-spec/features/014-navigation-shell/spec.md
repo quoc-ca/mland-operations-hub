@@ -3,7 +3,7 @@
 > **2026-11-25: OTA đã bị loại** (feature 003.4): rail còn 9 nhóm (bỏ `ota`), còn 5 hàng đợi có badge, read R-4 bị gỡ. ID giữ nguyên; phần còn nhắc OTA là lịch sử. Xem [quyết định loại OTA](../003-workshop-management/ota-removal-2026-11-25.md).
 
 **Date created**: 2026-11-22 (decisions); split out of `013-manager-home` on 2026-11-25
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -66,6 +66,10 @@ and Manager Home is merged with the Manager Dashboard (010). Approved on the pro
 ### Session 2026-11-26 (browser access)
 
 - Q: Which roles may open the Staff home `/staff/home`? → A: STAFF only. A signed-in MEMBER, MANAGER, ADMIN or CARRIER is replaced to `/404` before any request; a Guest is asked to sign in (owner decision Hồ Hoàng Quốc).
+
+### Session 2026-11-27 (ticket tabs; owner Hồ Hoàng Quốc)
+
+- Q: What is the ticket cancel-and-change tab called and where does it sit? → A: "Hỗ trợ đổi vé và hủy" (English "Change & cancellation support"), after "Yêu cầu đổi vé". Tab ids, routes, visibility and badges are unchanged (FR-002 table).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -145,7 +149,7 @@ A user collapses the rail to icons only to gain room, and the choice is remember
   | Bán lẻ (`retail`) | Đơn bán lẻ chi nhánh `orders`, Đối soát thanh toán bán lẻ `reconciliation` |
   | Workshop (`workshop`) | Bảng điều phối ca (Staff: Ca của tôi) `sessions`, Chi nhánh và khung giờ `locations`, Gói workshop `packages`, Hiệu lực gói `availability`, Add-on gói `add-ons` |
   | Thu tiền (`collect`) | Folio vé `folio`, Chốt sổ tiền mặt `cash-close`, Thanh toán về trễ `late-payments`, Đối soát thu tiền `reconciliation`, Khoản thiếu Mland chịu `absorbed` |
-  | Vé và hoàn tiền (`tickets`) | Hủy và đổi vé `ticket-actions`, Yêu cầu đổi vé `change-requests`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases` |
+  | Vé và hoàn tiền (`tickets`) | Yêu cầu đổi vé `change-requests`, Hỗ trợ đổi vé và hủy `ticket-actions`, Hàng đợi hoàn tiền `refunds`, Sự vụ và bồi hoàn `cases` |
   | Hệ thống (`system`) | Mẫu thông báo email `email-templates`, Nhật ký gửi thư `delivery-logs`, Nhật ký audit `audit` |
 
 - **FR-003** *(rail width and collapse)*: The rail is 112 px wide (icon above a 13 px label). A toggle at the top collapses it to 60 px, icon only; labels stay available as tooltips and to screen readers, and the badge stays visible. The choice is kept per browser (`localStorage`, key `ops-rail-collapsed`). The toggle is hidden at 640 px and below, where the rail is a horizontal bar. *(decision of Hồ Hoàng Quốc, 2026-11-22)*
