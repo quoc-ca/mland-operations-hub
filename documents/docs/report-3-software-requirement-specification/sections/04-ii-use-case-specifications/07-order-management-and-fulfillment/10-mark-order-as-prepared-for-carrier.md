@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-61 | Use Case Name | Mark Order as Prepared for Carrier |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Staff; Manager; GHTK partner (Đối tác vận chuyển) | Secondary Actors | Delivery Service; Mail Gateway |
 
 #### Description

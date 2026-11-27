@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-56 | Use Case Name | View Purchase Order History |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Member | Secondary Actors | None |
 
 #### Description

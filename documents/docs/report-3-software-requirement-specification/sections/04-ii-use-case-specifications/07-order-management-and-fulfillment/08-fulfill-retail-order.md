@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-59 | Use Case Name | Fulfill Retail Order |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Staff; Manager | Secondary Actors | Member |
 
 #### Description

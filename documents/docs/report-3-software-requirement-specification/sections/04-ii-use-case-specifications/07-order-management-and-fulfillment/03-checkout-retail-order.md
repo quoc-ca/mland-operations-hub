@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-54 | Use Case Name | Checkout and Pay for Retail Order |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Member | Secondary Actors | VNPay Payment Gateway |
 
 #### Description

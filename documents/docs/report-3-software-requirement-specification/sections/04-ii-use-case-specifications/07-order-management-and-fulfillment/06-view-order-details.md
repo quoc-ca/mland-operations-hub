@@ -2,7 +2,7 @@
 
 | Use Case ID | UC-57 | Use Case Name | View Order Details |
 | --- | --- | --- | --- |
-| Created By |  | Created Date |  |
+| Created By | ThinhBT | Created Date | 20/11/2026 |
 | Primary Actors | Member; Staff; Manager; Admin | Secondary Actors | None |
 
 #### Description
