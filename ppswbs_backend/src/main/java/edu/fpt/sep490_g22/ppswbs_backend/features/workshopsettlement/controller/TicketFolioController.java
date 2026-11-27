@@ -74,7 +74,7 @@ public class TicketFolioController {
             @PathVariable String ticketCode,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @Valid @RequestBody FolioCollectionDtos.DebtRequest request,
+            @Valid @RequestBody FolioCollectionDtos.ManagerReasonRequest request,
             Authentication authentication) {
         folioApi.recordDebt(ticketCode, idempotencyKey, correlationId, request, actor(authentication));
         return ResponseEntity.status(HttpStatus.CREATED).build();

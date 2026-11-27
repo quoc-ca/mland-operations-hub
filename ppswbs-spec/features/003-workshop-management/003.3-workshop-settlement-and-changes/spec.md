@@ -3,7 +3,7 @@
 > **OTA đã bị loại 2026-11-25** (chưa có tài khoản/sandbox đối tác): feature 003.4 và mọi hành vi OTA không còn hiệu lực. Phần còn nhắc OTA/003.4 bên dưới (Clarifications, câu "superseded", task đã đóng) chỉ là lịch sử. Xem [quyết định loại OTA](../ota-removal-2026-11-25.md).
 
 **Date created**: 2026-10-24
-**Date updated**: 2026-11-26
+**Date updated**: 2026-11-27
 **Author**: Hồ Hoàng Quốc
 **Last updated by**: Hồ Hoàng Quốc
 
@@ -259,6 +259,9 @@ self-service (FR-018 and Scope); whole-booking Mland remedy (FR-020, FR-021).
   verification is an exception only a Manager may approve, with a reason and
   audit. Recording a real debt (`Còn nợ`) and closing it are Manager-only, with
   a reason; there is no automatic reminder, deadline or booking block.
+  *(decided 2026-11-27, Hồ Hoàng Quốc)* The debt amount is the folio's
+  `balanceDue` taken by the server when the debt is recorded; the Manager sends
+  only the reason, and a folio with `balanceDue = 0` is refused.
   *(clarified 2026-11-15, checklist CHK012)* A recorded debt (`Còn nợ`) never
   finalizes a folio: `balanceDue` stays above 0, so the folio stays `OPEN` until
   a later collection clears it and finalizes it; the handover exception

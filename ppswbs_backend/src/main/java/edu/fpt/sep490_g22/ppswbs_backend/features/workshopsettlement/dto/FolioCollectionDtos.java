@@ -41,11 +41,6 @@ public final class FolioCollectionDtos {
     public record ManagerReasonRequest(@NotBlank @Size(max = 1000) String reason) {
     }
 
-    public record DebtRequest(
-            @NotNull @Positive Long amountVnd,
-            @NotBlank @Size(max = 1000) String reason) {
-    }
-
     /** T131 (C2): the contract body; {@code countedAmount} is the contract's whole-VND string. */
     public record CashCloseRequest(
             @NotNull Long locationId,

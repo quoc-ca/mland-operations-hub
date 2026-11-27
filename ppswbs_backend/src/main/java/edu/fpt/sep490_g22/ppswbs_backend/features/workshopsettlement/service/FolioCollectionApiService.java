@@ -56,11 +56,10 @@ public class FolioCollectionApiService {
         finalization.approveHandoverException(bookingReference, manager.accountId(), request.reason(), correlation);
     }
 
-    public void recordDebt(String bookingReference, DebtRequest request, String correlation,
+    public void recordDebt(String bookingReference, ManagerReasonRequest request, String correlation,
                            CurrentAccountActor actor) {
         CurrentAccountActor manager = authorization.requireManager(actor);
-        finalization.recordDebt(bookingReference, manager.accountId(), request.amountVnd(), request.reason(),
-                correlation);
+        finalization.recordDebt(bookingReference, manager.accountId(), request.reason(), correlation);
     }
 
     public void closeDebt(String bookingReference, ManagerReasonRequest request, String correlation,
