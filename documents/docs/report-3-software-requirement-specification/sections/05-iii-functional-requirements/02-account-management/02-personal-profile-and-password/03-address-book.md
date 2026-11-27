@@ -1,22 +1,29 @@
 #### 2.2.3 Address Book
 
-{{r3-02-address-book width=100% align=center}}
+![](assets/screens/live/07-address-book.png)
 
-**Description:** Displays saved delivery addresses (up to 10) and allows Members, Staff, Managers, and Admins to add, edit, delete, or set a default address.
+This screen allows Members, Staff, Managers and Admins to:
 
-::: {.docx-table width="100%" columns="50%,50%"}
+- See their saved delivery addresses, with the default address marked.
+- Add a new address or edit an existing one in a form that uses the official province and ward/commune lists.
+- Set another address as the default.
+- Delete an address after a confirmation.
+
+A user can save at most 10 addresses. The first address becomes the default automatically. The default address cannot be deleted while other addresses exist. The Carrier cannot open this screen.
+
+**Field Description**
 
 | Field Name | Description |
 | --- | --- |
-| Saved count | Displays `Saved: n/10 addresses`; disables **+ Add new address** at 10. |
-| Address card | Shows recipient name, phone, full address, **Default** badge, and type (Home or Office). |
-| Edit / Delete / Set as default | Card actions; **Delete** is disabled on the default address while others exist. |
-| Confirm address deletion | Confirmation modal with **Cancel** and **Confirm deletion**. |
-| Recipient full name | Required, up to 255 characters; unlocks the next fields sequentially. |
-| Phone number | Required 10-digit Vietnamese mobile number (`03`, `05`, `07`, `08`, `09`). |
-| Province / Ward drop-downs | Required province and searchable ward/commune selectors. |
-| Street address | Required house number, building, and street. |
-| Address type / Default | Home or Office selector and default address checkbox. |
+| Saved count | "Saved: n/10 addresses". At 10 addresses, **+ Add new address** is disabled and a notice asks the user to delete or edit an address. |
+| Address card | Recipient name, phone number, full address, the **Default** badge and the address type (Home or Office). |
+| Edit / Delete / Set as default | **Edit** opens the address form; **Delete** is disabled for the default address while others exist; **Set as default** is shown on non-default addresses. |
+| Confirm address deletion | Dialog naming the recipient and address, warning that the address is removed permanently, with **Cancel** and **Confirm deletion**. |
+| Recipient full name | Required, up to 255 characters; the next fields unlock one after another as each is valid. |
+| Phone number | Required; a 10-digit Vietnamese mobile number starting with 03, 05, 07, 08 or 09 (+84, spaces, dots and dashes are normalised). |
+| Province / City and Ward / Commune / Special zone | Required drop-downs; the ward list has a quick filter. Changing the province clears the ward and street address; changing the ward clears the street address. |
+| Street address | Required house number, building and street. |
+| Address type / Set as default delivery address | Home or Office, and a default checkbox that is fixed for the first address and for the current default address. |
+| Form buttons | The form is titled "Add a new delivery address" or "Update delivery address". **Cancel** closes it; **Done** (new) or **Update** (edit) saves and is enabled only when every field is valid. |
+| Empty state | "You have no delivery addresses yet" with **Add your first address**. |
 | ← Back to profile | Returns to User Profile. |
-
-:::

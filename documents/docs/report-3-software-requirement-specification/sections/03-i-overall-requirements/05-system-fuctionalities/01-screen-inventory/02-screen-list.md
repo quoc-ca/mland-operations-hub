@@ -26,7 +26,7 @@
 | 22 | Workshop Payment Result | Payment | Displays the system-verified payment outcome and the current status of the booking group after the return from VNPay; the browser return alone does not confirm payment. |
 | 23 | Booking Lookup | Workshop Booking | Allows a Member to open their own booking groups, or a Guest to find one by booking code and contact, and manage it. |
 | 24 | Booking Access (Magic Link) | Workshop Booking | Opens a read-only view of a booking group from the link sent by email. |
-| 25 | Customer Ticket Bill | Workshop Settlement | Displays the charges, payments and balance of one workshop ticket to its buyer. |
+| 25 | Customer Folio | Workshop Settlement | Displays the charges, payments and balance of one workshop ticket to its buyer. |
 | 26 | Mland Remedy | Workshop Settlement | Allows the buyer to respond to a session cancelled by Mland by moving to an equivalent session or choosing a refund. |
 | 27 | Refund Account | Workshop Settlement | Allows a refund recipient to enter their bank account through a single-use link sent by email. |
 | 28 | Public Review List | Review Management | Lists public reviews with target and rating filters, masked names and rating aggregates calculated from public reviews only. |
@@ -64,7 +64,7 @@
 | 61 | Removed Screen (Retired) | Workshop Management | Retired: this screen is not part of the platform (Stakeholder statement, Feature-003 owner, 2026-11-25); the number is not reused. |
 | 62 | Settlement Workspace | Workshop Settlement | Allows Staff and Managers to look up a ticket, take counter payments (cash or VNPay QR) and settle its balance. |
 | 63 | Cash Close | Workshop Settlement | Closes the cash book for one branch and working day using figures computed by the server. |
-| 64 | Change Requests | Workshop Settlement | Allows Staff and Managers to review the queued ticket-change requests for their authority, inspect the requested and current sessions, and approve or reject a request with a required reason; this screen implements UC-86 Decide Ticket Change Request and applies the decision through the workshop-settlement backend. |
+| 64 | Change Requests | Workshop Settlement | Allows Staff and Managers to approve or reject customer requests to change a ticket. |
 | 65 | Ticket Actions | Workshop Settlement | Allows Staff and Managers to cancel or change one or more tickets for the buyer after the buyer's contact code is verified. |
 | 66 | Manager Dashboard | Role Dashboards | Manager home that shows today's operations, the month's revenue by branch, best sellers and recent events that need attention. |
 | 67 | Promotion List | Loyalty and Promotion Management | Allows Managers to browse vouchers and automatic discounts by scope and state and open their details or create a new programme. |
@@ -97,7 +97,7 @@
 | 96 | Carrier Portal | Order Management and Fulfillment | Carrier home that shows today's GHTK work: new shipments, shipments waiting for pickup and shipments on the way. |
 | 97 | Carrier Orders | Order Management and Fulfillment | Allows the Carrier to see GHTK shipments from every Mland branch and record the courier's status steps. |
 | 98 | Carrier Statistics | Order Management and Fulfillment | Displays the Carrier's shipment statistics for a chosen period. |
-| 99 | Custom Order Operations | Custom Manufacturing | Allows Staff and Managers to follow paid custom orders by stage, record production and packing, create or view the GHTK shipment handoff, and monitor the carrier-delivery state without directly closing an undelivered order. |
+| 99 | Custom Order Operations | Custom Manufacturing | Allows Staff and Managers to follow paid custom orders by stage and record production and handover. |
 | 100 | Admin Ring Difficulty Policy | Administrative Parameter Configuration | Allows an active Admin to edit, preview and publish a complete ring-difficulty policy, inspect active-model impact and review immutable history. |
 
 :::

@@ -1,104 +1,174 @@
-### 6.3 Manage Promotions
+### 6.3 UC-65 Manage Promotions
 
-| Use Case ID | UC-45 | Use Case Name | Manage Promotions |
-| --- | --- | --- | --- |
-| Created By |  | Created Date |  |
-| Primary Actors | Manager | Secondary Actors | Product Management, Workshop Management |
+#### UC Name
+
+UC-65 Manage Promotions
+
+#### Primary Actors
+
+Manager
+
+#### Secondary Actors
+
+None
 
 #### Description
 
-As a Manager, I want to create, monitor, edit, pause, and resume automatic discounts and vouchers for products and workshops so that customers receive the intended promotions.
-
-#### Trigger
-
-A Manager opens the Promotion List to create or manage an automatic discount or a voucher.
+As a Manager, I want to create, edit, pause and resume automatic discounts and vouchers for products or workshop packages so that customers receive the intended offers.
 
 #### Preconditions
 
-1. The Manager is signed in, the account is active, and the role is Manager.
-
-#### Postconditions
-
-1. A valid automatic discount or voucher applies to eligible new orders or direct workshop bookings during its period.
-2. Each voucher has a unique, immutable code that is never reused.
-3. Accepted orders and bookings keep the discount and conditions recorded at acceptance.
+- The Manager is signed in with an active account and the Manager role.
 
 #### Normal Flow
 
-**Create Automatic Discount**
+***Create a Voucher***
 
-1. Manager opens the Promotion List and selects New automatic discount.
-2. System opens the Promotion Form.
-3. Manager enters name, period, scope, discount type, value, percentage cap, and minimum amount.
-4. System validates the entered data and scope.
-5. System saves the automatic discount, records a change log, and confirms (MSG38).
-
-**Create Voucher**
-
-1. Manager selects New product voucher or New workshop voucher on the Promotion List.
-2. System opens the Promotion Form and generates an `ML` voucher code.
-3. Manager enters name, period, scope, discount settings, usage limits, point rule, and distribution.
-4. System validates the data, scope, and code uniqueness.
-5. System saves the voucher, records a change log, and confirms with the code (MSG38).
-
-**View, Edit, Pause or Resume a Promotion**
-
-1. Manager filters the Promotion List and opens a promotion in Promotion Details.
-2. System displays conditions, distribution, period, limits, usage counts, total discount given, and unavailable-product warnings (MSG44).
-3. Manager edits allowed conditions, pauses the promotion, or resumes a paused promotion.
-4. System validates and saves the change for future transactions (MSG43).
+1. The Manager opens Promotion programmes.
+2. The system lists the programmes with name, code, kind, scope, discount, period and status.
+3. The Manager selects New programme.
+4. The system opens the form with a generated voucher code and a default 30-day period.
+5. The Manager chooses Voucher and the product or workshop scope.
+6. The Manager enters the name, period, discount, cap, minimum amount and point rule.
+7. The Manager chooses the distribution, total uses and uses per Member.
+8. The Manager selects the products, sizes and branches, or the workshop package, branch and session.
+9. The system checks each field as its value changes.
+10. The Manager selects Create programme.
+11. The system validates the data, scope and code uniqueness.
+12. The system saves the voucher and records the change in the audit log.
+13. The system opens the programme details and confirms the creation (MSG38).
 
 #### Alternative Flows
 
-V2a. Branch in product voucher scope becomes inactive → System keeps the voucher active and displays a warning.
+***Step 2.1 Manager Filters the List***
 
-V2b. Workshop booking using a voucher is validly cancelled → System excludes the booking from counts unless the voucher already expired.
+1. The Manager filters by scope or by status.
+2. The system lists only the matching programmes.
+3. The use case continues at step 3.
 
-V3a. Manager changes a fixed discount amount → System resets the cap equal to the new amount.
+***Step 2.2 No Programme Matches***
 
-V3b. Manager resumes a paused promotion → System keeps its code, history, and counts without extending its period.
+1. The system informs the Manager that no programme matches the filters (MSG342).
+2. The use case continues at step 3.
 
-#### Exception Flows
+***Step 2.3 Programme List Cannot Be Loaded***
 
-1a. Actor is not a Manager, session expired, or save failed → System rejects the request or reports an unconfirmed result without a duplicate (MSG01, MSG02, MSG04).
+1. The system informs the Manager that the data could not be loaded (MSG05).
+2. The use case ends.
 
-4a. Required fields, time range, amount, percentage, or minimum is invalid → System rejects the request (MSG08).
+***Step 5.1 Manager Creates an Automatic Discount***
 
-4b. Product, size, workshop package, branch, or session scope is invalid → System rejects the request (MSG40).
+1. The Manager chooses Automatic discount.
+2. The system removes the code, distribution, use limits and point option.
+3. The system states that an automatic discount always combines with points.
+4. The Manager selects products or sizes, or one or more workshop packages only.
+5. The use case continues at step 6.
 
-C4a. Generated voucher code already exists → System regenerates up to 3 times; persistent collision fails (MSG39).
+***Step 6.1 Manager Chooses a Fixed Amount***
 
-V3c. Manager attempts to change the code, scope, or distribution → System rejects the change (MSG41).
+1. The Manager chooses a fixed discount amount.
+2. The system hides the maximum discount field.
+3. The use case continues at step 7.
 
-V3d. New voucher limit is below used, held, and saved counts → System rejects the limit and shows current counts (MSG42).
+***Step 7.1 Manager Chooses Must Be Saved***
 
-#### Business Rules
+1. The Manager chooses Must be saved.
+2. The system sets uses per Member to one and locks that field.
+3. The use case continues at step 8.
 
-BR-45-01, BR-45-02, BR-45-03, BR-45-04, BR-45-05, BR-45-06, BR-45-07, BR-45-08, BR-45-09, BR-45-10
+***Step 8.1 Selected Size Is Not Sold at a Chosen Branch***
 
-#### Non-Functional Requirements
+1. The system warns that the size is not sold at any chosen branch.
+2. The system still allows the save.
+3. The use case continues at step 9.
 
-—
+***Step 9.1 Field Value Is Invalid***
 
-#### Priority
+1. The system shows the invalid field and the rule under that field (MSG08).
+2. The Manager corrects the value.
+3. The use case continues at step 9.
 
-—
+***Step 11.1 Scope Is Invalid***
 
-#### Messages
+1. The system rejects the save and shows the scope error under the picker (MSG40).
+2. The use case continues at step 8.
 
-MSG01, MSG02, MSG04, MSG08, MSG38, MSG39, MSG40, MSG41, MSG42, MSG43, MSG44
+***Step 11.2 Generated Code Already Exists***
 
-#### Business Rule Definitions
+1. The system draws a new code and sends the request again, up to three draws.
+2. The use case continues at step 12.
 
-| ID | Rule Definition |
-| --- | --- |
-| BR-45-01 | Only a Manager may create, edit, pause or resume automatic discounts and vouchers; Admin has no promotion permission. |
-| BR-45-02 | Automatic discounts apply to retail products or to workshop packages, need no code, have no total or per-Member use limits and always allow loyalty points. Product automatic discounts have no branch limit; workshop automatic discounts have no branch, date or session limit and apply to every direct website customer, including Guests. |
-| BR-45-03 | A product scope of an automatic discount or voucher is a set of products and/or specific size variants; when both are selected, each size must belong to a selected product. Unpublished or hidden products and sizes stopped from sale may be selected; soft-deleted products and sizes are rejected. An automatic discount for workshops covers one or more packages; a workshop voucher sets package, branch and session, each either All or exactly one item. The scope cannot change after creation. |
-| BR-45-04 | When several automatic discounts apply to an order or booking, the one with the largest discount is used, and the earliest created one wins a tie. The automatic discount cannot be declined; a voucher chosen by the customer is added on top of it and calculated on the amount after it. |
-| BR-45-05 | Discount amounts and caps are positive whole VND; a cap is entered only for a percentage, and for a fixed amount it is stored equal to the amount. Percentages are greater than 0 up to 100%, minimum amounts are whole VND of 0 or more, and use limits are positive whole numbers. |
-| BR-45-06 | Voucher codes are generated by the system, unique across all vouchers after trimming and ignoring case, never changed and never reused. |
-| BR-45-07 | A voucher's code, scope, including the branch scope of a product voucher, and distribution cannot change after creation; total and per-Member limits cannot be lowered below the current used plus held uses, and, for a Must-be-saved voucher, the total limit also counts the saved but unused uses. A Must-be-saved voucher allows one use per Member. |
-| BR-45-08 | Pausing, resuming, editing or expiry never changes discounts already accepted; resuming keeps the same code, history and counts and does not extend the promotion. |
-| BR-45-09 | The Promotion Form and the edit form check each field as soon as its value changes, with the same rules as on save; target selection errors and "nothing has changed" still appear only on save. |
-| BR-45-10 | The branch scope of a product voucher is optional and defaults to All branches; every selected branch must exist and be active when saving. Once branches are selected, the product finder suggests products sold at those branches, and a size not sold at any selected branch can still be saved but the form shows a warning. Automatic discounts have no branch scope. |
+***Step 11.3 Code Still Exists After Three Draws***
+
+1. The system informs the Manager that the voucher code already exists (MSG39).
+2. The use case ends without creating the programme.
+
+***Step 11.4 Actor Lost the Manager Role or Session***
+
+1. The system rejects the request (MSG01) or asks the Manager to sign in again (MSG02).
+2. The system records the refused request in the audit log.
+3. The use case ends without saving.
+
+***Step 12.1 Result Is Not Confirmed***
+
+1. The system informs the Manager that the result could not be confirmed (MSG04).
+2. The system keeps the request so the Manager can send it again without a duplicate.
+3. The use case continues at step 11.
+
+***Step 13.1 Manager Views a Programme***
+
+1. The Manager opens a programme from the list.
+2. The system shows its conditions, targets, version and status.
+3. The system shows used, held and saved uses, accepted orders and total discount given.
+4. The system warns about targets that are hidden, stopped from sale, deleted, or inactive branches (MSG43).
+5. The use case ends.
+
+***Step 13.2 Manager Edits a Programme***
+
+1. The Manager selects Edit on the programme details.
+2. The system shows only the name, period, discount, minimum, limits and point option.
+3. The Manager changes values and selects Save.
+4. The system validates the changed values and saves a new revision for new transactions.
+5. The system confirms the change (MSG42).
+6. The use case ends.
+
+***Step 13.3 Nothing Has Changed***
+
+1. The system informs the Manager that nothing has changed yet (MSG344).
+2. The use case continues at step 3 of Step 13.2.
+
+***Step 13.4 New Limit Is Too Low***
+
+1. The system rejects the limit below the used, held and saved uses (MSG41).
+2. The use case continues at step 3 of Step 13.2.
+
+***Step 13.5 Programme Was Changed by Someone Else***
+
+1. The system rejects the change made against an older version (MSG03).
+2. The Manager reloads the latest programme.
+3. The use case continues at step 3 of Step 13.2.
+
+***Step 13.6 Manager Pauses or Resumes a Programme***
+
+1. The Manager selects Pause on an enabled programme, or Resume on a paused one.
+2. The system asks the Manager to confirm and explains the effect (MSG343).
+3. The Manager confirms.
+4. The system changes the status and keeps the code, period, history and counts.
+5. The system confirms the change (MSG42).
+6. The use case ends.
+
+***Step 13.7 Manager Cancels the Pause or Resume***
+
+1. The Manager selects Cancel in the confirmation dialog.
+2. The system closes the dialog without changing the programme.
+3. The use case ends.
+
+#### Postconditions
+
+- A saved programme applies only to orders and bookings accepted after the save.
+- Each voucher keeps a unique code that is never changed or reused.
+- Each create, edit, pause and resume is recorded in the audit log.
+
+#### Business Rule
+
+BR-09, BR-15, BR-16, BR-17, BR-20, BR-22, BR-24, BR-25, BR-27, BR-32, BR-199, BR-200, BR-201, BR-202, BR-203, BR-204

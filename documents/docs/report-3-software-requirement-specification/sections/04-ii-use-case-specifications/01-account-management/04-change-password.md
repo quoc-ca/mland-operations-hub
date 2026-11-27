@@ -1,70 +1,75 @@
-### 1.4 Change Password
+### 1.4 UC-27 Change Password
 
-| Use Case ID | UC-04 | Use Case Name | Change Password |
-| --- | --- | --- | --- |
-| Created By |  | Created Date |  |
-| Primary Actors | Member, Staff, Manager, Admin, Carrier | Secondary Actors | Firebase Authentication |
+#### UC Name
+
+UC-27 Change Password
+
+#### Primary Actors
+
+Member, Staff, Manager, Admin, Carrier
+
+#### Secondary Actors
+
+SSO Provider (Firebase Authentication)
 
 #### Description
 
-As an authenticated user, I want to change my own password via Firebase so that my credential stays updated without Mland viewing it.
-
-#### Trigger
-
-An authenticated user opens Change Password.
+As a signed-in user with a password account, I want to change my password after confirming the current one so that my account stays secure.
 
 #### Preconditions
 
-1. The account is active and the current session is valid.
-2. Firebase lists a password sign-in method for this identity.
-
-#### Postconditions
-
-1. Firebase manages the changed password; Mland stores no copy.
-2. No password value is saved in browser storage, logs, or audit.
+- The actor is signed in.
+- The account has the email and password sign-in method.
 
 #### Normal Flow
 
-1. User opens Change Password.
-2. User enters the current password, new password, and confirmation.
-3. System reauthenticates User with Firebase using the current password.
-4. Firebase validates the new password and updates it.
-5. System clears the form fields and displays a success message.
+***Change Password***
+
+1. The actor opens the Change Password section.
+2. The system shows the current password, new password and confirmation fields.
+3. The actor enters the current password, the new password and its confirmation.
+4. The actor submits the change.
+5. The system checks the required fields, the new password length and the matching confirmation.
+6. The system re-authenticates the actor with the current password through Firebase Authentication.
+7. The system updates the password in Firebase Authentication.
+8. The system clears all password fields.
+9. The system confirms that the password has been changed (MSG97).
 
 #### Alternative Flows
 
-None.
+***Step 2.1 Account Signs In Only with Google***
 
-#### Exception Flows
+1. The system hides the password change section and its menu entry.
+2. The use case ends without a change.
 
-1a. Identity is Google-only → System hides the password-change control.
+***Step 5.1 Password Input Is Invalid***
 
-3a. Current password is incorrect → System clears only the current-password field and keeps proposed values in temporary memory.
+1. The system shows the validation error above the form (MSG96).
+2. The use case continues at step 3.
 
-3b. Session is expired or disabled → System discards unsaved values and directs User to sign in again.
+***Step 6.1 Current Password Is Incorrect***
 
-4a. Provider or validation fails → Current password remains active and System shows actionable guidance.
+1. The system informs the actor that the current password is incorrect (MSG98).
+2. The system clears only the current password field and keeps the new values in memory.
+3. The use case continues at step 3.
 
-#### Business Rules
+***Step 7.1 Session Has Ended***
 
-BR-04-01, BR-04-02, BR-04-03
+1. The system discards the unsaved form values.
+2. The system informs the actor that the session has expired (MSG02).
+3. The use case ends with the actor signed out.
 
-#### Non-Functional Requirements
+***Step 7.2 Password Update Fails***
 
-—
+1. The system informs the actor that the password could not be changed (MSG99).
+2. The use case continues at step 3.
 
-#### Priority
+#### Postconditions
 
-—
+- The new password is stored only in Firebase Authentication.
+- No password value is kept by the platform or in browser storage.
+- The account role, status and email are unchanged.
 
-#### Messages
+#### Business Rule
 
-—
-
-#### Business Rule Definitions
-
-| ID | Rule Definition |
-| --- | --- |
-| BR-04-01 | Only the signed-in owner of a password identity may change its password. |
-| BR-04-02 | The current password must reauthenticate the owner before the change. |
-| BR-04-03 | A Google-only identity has no Mland password-change form. |
+BR-41, BR-47
