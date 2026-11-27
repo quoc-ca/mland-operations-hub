@@ -318,6 +318,8 @@ export function WorkshopCartPage() {
   const changeBenefitSelection = next => {
     const hadQuote = Boolean(quote);
     userPicked.current = true;
+    // The preview answers for the previous voucher: drop it until the new one arrives.
+    if (next.voucherCode !== benefitSelection.voucherCode) setPreview(null);
     setBenefitSelection(next);
     invalidateQuote();
     runPreview(next);

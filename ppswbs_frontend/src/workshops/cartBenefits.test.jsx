@@ -239,3 +239,21 @@ describe('003.1 cart "Xem báo giá và đặt chỗ" reuses the auto-picked quo
     expect(quoteCount()).toBe(before);
   });
 });
+
+describe('003.1 a typed voucher the quote does not apply', () => {
+  it('is not shown as applied in the voucher row', async () => {
+    const user = userEvent.setup();
+    clearCart();
+    mockFetch(memberHandlers(call => json(201, call.body?.benefitSelection?.voucherCode
+      ? quote({ reasons: ['This voucher has no uses left.'] }) : quote())));
+    renderRoutes(workshopRoutes, { path: BOOK, session: fakeSession('signed-in') });
+
+    await screen.findByText('Báo giá đặt ngay');
+    await user.click(screen.getByRole('button', { name: /Voucher MLAND/i }));
+    await user.type(screen.getByPlaceholderText(/mã/i), 'USEDUP');
+    await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
+
+    const row = await screen.findByRole('button', { name: /USEDUP · Chưa áp dụng được/ });
+    expect(row.querySelector('.benefit-applied')).toBeNull();
+  });
+});
