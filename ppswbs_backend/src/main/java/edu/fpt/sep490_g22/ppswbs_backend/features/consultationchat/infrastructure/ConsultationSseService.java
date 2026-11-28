@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 @Service
 @Slf4j
@@ -21,6 +26,34 @@ public class ConsultationSseService {
 
     // conversationReference -> list of active emitters
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
+
+    private final ScheduledExecutorService heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "sse-heartbeat");
+        t.setDaemon(true);
+        return t;
+    });
+
+    @PostConstruct
+    public void initHeartbeat() {
+        heartbeatScheduler.scheduleAtFixedRate(this::sendHeartbeats, 15, 15, TimeUnit.SECONDS);
+    }
+
+    @PreDestroy
+    public void destroyHeartbeat() {
+        heartbeatScheduler.shutdownNow();
+    }
+
+    private void sendHeartbeats() {
+        emitters.forEach((convRef, emitterList) -> {
+            for (SseEmitter emitter : emitterList) {
+                try {
+                    emitter.send(SseEmitter.event().comment("ping"));
+                } catch (Exception e) {
+                    removeEmitter(convRef, emitter);
+                }
+            }
+        });
+    }
 
     public SseEmitter createEmitter(String conversationReference, Long userId) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);

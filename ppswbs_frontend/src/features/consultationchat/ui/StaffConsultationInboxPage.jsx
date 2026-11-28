@@ -143,7 +143,24 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     if (!silent) setLoadingDetail(true);
     try {
       const detail = await apiRef.current.getConversation(convRef);
-      setActiveConversation(detail);
+      setActiveConversation((prev) => {
+        if (prev && prev.conversationReference === convRef) {
+          const oldLen = prev.messages?.length || 0;
+          const newLen = detail?.messages?.length || 0;
+          if (newLen > oldLen) {
+            const newest = detail.messages[newLen - 1];
+            if (newest.senderRole === 'MEMBER') {
+              playNotificationChime();
+              setIncomingToast({
+                sender: 'Khách hàng',
+                text: newest.text,
+                ref: convRef,
+              });
+            }
+          }
+        }
+        return detail;
+      });
 
       const msgs = detail?.messages || [];
       if (msgs.length > 0 && detail.unreadCount > 0) {
@@ -155,7 +172,7 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
     } finally {
       if (!silent) setLoadingDetail(false);
     }
-  }, [t.errorGeneral]);
+  }, [t.errorGeneral, playNotificationChime]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -258,6 +275,18 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
             console.error('SSE conversation parse error:', err);
           }
         });
+
+        es.onerror = () => {
+          if (es) {
+            es.close();
+            es = null;
+          }
+          if (!cancelled) {
+            setTimeout(() => {
+              if (!cancelled) startSse();
+            }, 3000);
+          }
+        };
       } catch (err) {
         console.warn('EventSource initialization failed:', err);
       }
@@ -272,6 +301,18 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
       }
     };
   }, [selectedRef, getIdToken, playNotificationChime]);
+
+  // Periodic background fallback check to ensure 100% reliable message delivery even under strict firewalls or proxies
+  useEffect(() => {
+    if (!selectedRef) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadDetail(selectedRef, true);
+        loadConversations(true);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [selectedRef, loadDetail, loadConversations]);
 
   // Send message
   const handleSendMessage = async (e) => {

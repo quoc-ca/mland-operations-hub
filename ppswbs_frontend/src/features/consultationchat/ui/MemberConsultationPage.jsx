@@ -115,7 +115,19 @@ export function MemberConsultationPage() {
       if (!silent) setLoadingDetail(true);
       try {
         const detail = await apiRef.current.getConversation(convRef);
-        setActiveConversation(detail);
+        setActiveConversation((prev) => {
+          if (prev && prev.conversationReference === convRef) {
+            const oldLen = prev.messages?.length || 0;
+            const newLen = detail?.messages?.length || 0;
+            if (newLen > oldLen) {
+              const newest = detail.messages[newLen - 1];
+              if (newest.senderRole === 'STAFF' || newest.senderRole === 'MANAGER') {
+                playNotificationChime();
+              }
+            }
+          }
+          return detail;
+        });
 
         // Record read state if there are messages
         const msgs = detail?.messages || [];
@@ -128,7 +140,7 @@ export function MemberConsultationPage() {
       } finally {
         if (!silent) setLoadingDetail(false);
       }
-    }, [t]);
+    }, [t, playNotificationChime]);
 
     // Initial load - ensure viewport stays at top
     useEffect(() => {
@@ -261,6 +273,18 @@ export function MemberConsultationPage() {
               console.error('SSE conversation parse error:', err);
             }
           });
+
+          es.onerror = () => {
+            if (es) {
+              es.close();
+              es = null;
+            }
+            if (!cancelled) {
+              setTimeout(() => {
+                if (!cancelled) startSse();
+              }, 3000);
+            }
+          };
         } catch (err) {
           console.warn('EventSource initialization failed:', err);
         }
@@ -275,6 +299,18 @@ export function MemberConsultationPage() {
         }
       };
     }, [selectedRef, isAuthenticated, auth, playNotificationChime]);
+
+    // Periodic background fallback check to ensure 100% reliable message delivery
+    useEffect(() => {
+      if (!selectedRef || !isAuthenticated) return;
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          loadDetail(selectedRef, true);
+          loadConversations(true);
+        }
+      }, 4000);
+      return () => clearInterval(interval);
+    }, [selectedRef, isAuthenticated, loadDetail, loadConversations]);
 
     // Rate limit countdown timer
     useEffect(() => {

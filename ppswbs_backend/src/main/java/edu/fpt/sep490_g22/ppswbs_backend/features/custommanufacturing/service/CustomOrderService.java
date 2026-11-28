@@ -236,6 +236,83 @@ public class CustomOrderService {
         return mapToQuoteDto(quote);
     }
 
+    @Transactional
+    public QuoteProjectionDto rejectQuoteByDesignRequestId(
+            String designRequestId,
+            Long managerAccountId,
+            String managerReason) {
+        CustomOrder order = customOrderRepository.findByDesignRequestId(designRequestId)
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND",
+                        "Không tìm thấy đơn hàng tùy chỉnh cho yêu cầu này."));
+        return rejectQuote(order.getId(), null, managerAccountId, managerReason);
+    }
+
+    @Transactional
+    public QuoteProjectionDto rejectQuote(
+            String customOrderId,
+            String quoteId,
+            Long managerAccountId,
+            String managerReason) {
+        CustomOrder order = customOrderRepository.findById(customOrderId)
+                .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy đơn hàng."));
+
+        CustomOrderQuote quote;
+        if (quoteId != null && !quoteId.isBlank()) {
+            quote = quoteRepository.findById(quoteId)
+                    .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá."));
+        } else {
+            quote = quoteRepository.findTopByCustomOrderIdOrderByQuoteGenerationDesc(order.getId())
+                    .orElseThrow(() -> DesignReviewException.notFound("NOT_FOUND", "Không tìm thấy báo giá cho đơn hàng."));
+        }
+
+        requireQuoteUnlocked(order);
+        if (!"QUOTE_PENDING".equalsIgnoreCase(quote.getStatus())) {
+            throw DesignReviewException.conflict("QUOTE_ALREADY_DECIDED",
+                    "Báo giá không ở trạng thái chờ duyệt (QUOTE_PENDING). Trạng thái hiện tại: " + quote.getStatus());
+        }
+
+        quote.setApprovedByManager(false);
+        quote.setManagerAccountId(managerAccountId);
+        quote.setManagerReason(managerReason);
+        quote.setStatus("REJECTED");
+        quote.setUpdatedAt(Instant.now());
+        quoteRepository.save(quote);
+
+        order.setStatus("CANCELLED");
+        order.setUpdatedAt(Instant.now());
+        customOrderRepository.save(order);
+
+        if (order.getDesignRequestId() != null) {
+            designRequestRepository.findById(order.getDesignRequestId()).ifPresent(req -> {
+                req.setReviewStatus(ReviewStatus.REJECTED);
+                req.setDecisionExplanation(managerReason != null ? managerReason : "Quản lý từ chối mẫu thiết kế.");
+                req.setUpdatedAt(Instant.now());
+                designRequestRepository.save(req);
+            });
+        }
+
+        if (notificationIntentPort != null) {
+            try {
+                accountFacade.findAccountEmail(order.getMemberAccountId()).ifPresent(email -> {
+                    notificationIntentPort.submitIntent(
+                            "QUOTE_REJECTED_" + quote.getQuoteReference(),
+                            "CUSTOM_ORDER_QUOTE_REJECTED",
+                            email,
+                            Map.of(
+                                    "customOrderReference", order.getCustomOrderReference(),
+                                    "quoteReference", quote.getQuoteReference(),
+                                    "reason", managerReason != null ? managerReason : ""
+                            )
+                    );
+                });
+            } catch (Exception ex) {
+                log.warn("Failed to submit quote rejection notification: {}", ex.getMessage());
+            }
+        }
+
+        return mapToQuoteDto(quote);
+    }
+
     @Transactional(readOnly = true)
     public Optional<QuoteProjectionDto> findLatestQuoteByDesignRequestId(String designRequestId) {
         return customOrderRepository.findByDesignRequestId(designRequestId)

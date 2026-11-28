@@ -688,5 +688,57 @@ describe('F04-REVIEW-DETAIL Screen (/design-review-requests/:id)', () => {
     expect(screen.getByText(/Quản lý đã duyệt/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Phê duyệt Báo giá (Manager Approve)' })).toBeNull();
   });
+
+  it('allows Manager to reject pending quote on ReviewDetailPage without requiring price', async () => {
+    const user = userEvent.setup();
+    mockFetch({
+      'GET /api/v1/accounts/me/profile': json(200, { role: 'MANAGER' }),
+      'GET /api/v1/design-requests/rev-quote-reject': json(200, {
+        id: 'rev-quote-reject',
+        requestReference: 'DR-QREJ',
+        requestVersion: 1,
+        requestStatus: 'ACTIVE',
+        reviewStatus: 'ACCEPTED',
+        ownershipType: 'MEMBER',
+        quoteReference: 'QUO-PENDING-02',
+        description: 'Mẫu nhẫn đính đá quá phức tạp',
+      }),
+      'GET /api/v1/custom-design-requests/rev-quote-reject/quote': json(200, {
+        quoteReference: 'QUO-PENDING-02',
+        totalAmount: '45000000',
+        currency: 'VND',
+        status: 'QUOTE_PENDING',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Chất liệu bạch kim',
+      }),
+      'POST /api/v1/custom-design-requests/rev-quote-reject/quote/reject': json(200, {
+        quoteReference: 'QUO-PENDING-02',
+        totalAmount: '45000000',
+        currency: 'VND',
+        status: 'REJECTED',
+        quoteGeneration: 1,
+        approvedByManager: false,
+        managerReason: 'Xưởng không đáp ứng độ tinh xảo của mẫu này',
+      }),
+    });
+
+    open('/design-review-requests/rev-quote-reject', { session: fakeSession('signed-in') });
+
+    expect(await screen.findByText('QUO-PENDING-02')).toBeInTheDocument();
+    const rejectBtn = await screen.findByRole('button', { name: 'Từ chối Thiết kế & Báo giá (Manager Reject)' });
+    await user.click(rejectBtn);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Xác nhận từ chối mẫu thiết kế & báo giá')).toBeInTheDocument();
+
+    const textarea = within(dialog).getByRole('textbox');
+    await user.type(textarea, 'Xưởng không đáp ứng độ tinh xảo của mẫu này');
+
+    const confirmRejectBtn = within(dialog).getByRole('button', { name: 'Từ chối thiết kế & báo giá' });
+    await user.click(confirmRejectBtn);
+
+    expect(await screen.findByText(/Đã từ chối mẫu thiết kế và hủy báo giá gia công thành công\./)).toBeInTheDocument();
+  });
 });
 
