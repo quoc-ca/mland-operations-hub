@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
-        target: loadEnv(mode, process.cwd(), 'BACKEND_URL').BACKEND_URL
+        target: process.env.BACKEND_URL
+          || loadEnv(mode, process.cwd(), 'BACKEND_URL').BACKEND_URL
           || process.env.VITE_PROXY_BACKEND_DEFAULT
           || 'http://localhost:8080',
         changeOrigin: true,
