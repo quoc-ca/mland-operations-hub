@@ -103,7 +103,7 @@ class ConsultationApplicationServiceTest {
         var member = new AccountActorPort.CallerActor(10L, "MEMBER", "ACTIVE", List.of());
         when(conversationRepository.findByStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(eq(ConsultationStatus.OPEN), any()))
                 .thenReturn(org.springframework.data.domain.Page.empty());
-        when(conversationRepository.findByAssignedLocationIdInAndStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(eq(List.of(7L)), eq(ConsultationStatus.OPEN), any()))
+        when(conversationRepository.findForStaff(eq(ConsultationStatus.OPEN), eq(true), eq(List.of(7L)), eq(false), eq(3L), any()))
                 .thenReturn(org.springframework.data.domain.Page.empty());
 
         assertThat(service.listConversations(ConsultationStatus.OPEN, true, null, null, manager).getItems()).isEmpty();

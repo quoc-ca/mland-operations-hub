@@ -431,15 +431,14 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
 
   const currentCount = countCodePoints(messageInput);
   const isClosed = activeConversation?.status === 'CLOSED';
+  const isClaimed = Boolean(activeConversation?.claimantUserId || activeConversation?.claimantRole);
   const isClaimedByMe = Boolean(
     activeConversation?.claimantUserId &&
     currentUserId &&
     Number(activeConversation.claimantUserId) === Number(currentUserId)
   );
   const isClaimedByOther = Boolean(
-    activeConversation?.claimantRole &&
-    !isClaimedByMe &&
-    !isManager
+    isClaimed && !isClaimedByMe
   );
 
   return (
@@ -730,16 +729,26 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                       <div className="consultation-alert warning" style={{ margin: 0 }}>
                         {t.chatClosedWarning}
                       </div>
-                    ) : isClaimedByOther ? (
-                      <div className="consultation-alert warning" style={{ margin: 0 }} data-testid="chat-claimed-by-other-warning">
-                        Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.
-                      </div>
-                    ) : !isClaimedByMe && !isManager ? (
-                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{t.mustClaimWarning}</span>
+                    ) : !isClaimed ? (
+                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-must-claim-warning">
+                        <span>{t.mustClaimWarning || 'Cuộc trò chuyện chưa được tiếp nhận. Vui lòng nhận tư vấn trước khi gửi tin nhắn.'}</span>
                         <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
                           {t.claim}
                         </button>
+                      </div>
+                    ) : isClaimedByOther ? (
+                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-claimed-by-other-warning">
+                        <span>Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.</span>
+                        {isManager && (
+                          <button
+                            type="button"
+                            className="btn-secondary-consultation"
+                            onClick={() => setConfirmReleaseOpen(true)}
+                            style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                          >
+                            Gỡ tiếp nhận (Release)
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <>

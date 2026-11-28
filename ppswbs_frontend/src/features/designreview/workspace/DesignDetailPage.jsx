@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { RequireSession } from '../../../shared/auth/RequireSession';
@@ -6,6 +6,10 @@ import { useT } from '../../../shared/i18n/I18nProvider';
 import { ErrorNotice, Loading, SuccessNotice, useResource } from '../../../shared/ui/components';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import DesignImage from '../components/DesignImage';
+import Design3dDetailModal from '../components/Design3dDetailModal';
+import RingPreview from '../../ringdesignconfiguration/ui/RingPreview';
+import { derivePreviewModel, getRingCircumferenceMm, getRingDiameterMm } from '../../ringdesignconfiguration/domain/designPreview';
+import { messages as ringMessages } from '../../ringdesignconfiguration/messages';
 import { designReviewMessages } from '../messages';
 import { sharedMessages } from '../../../shared/ui/messages';
 
@@ -22,6 +26,7 @@ export default function DesignDetailPage() {
   const tokenFromUrl = searchParams.get('token');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
+  const [is3dModalOpen, setIs3dModalOpen] = useState(false);
 
   const successMessage = location.state?.successMessage;
 
@@ -29,6 +34,11 @@ export default function DesignDetailPage() {
     () => api.getDesignRequest(designRequestId, { auth: isAuthenticated, token: tokenFromUrl }),
     [designRequestId, isAuthenticated, tokenFromUrl]
   );
+
+  const previewModel = useMemo(() => {
+    if (!data?.designSnapshot && !data?.designReference) return null;
+    return derivePreviewModel(data?.designSnapshot, (k) => ringMessages.vi[k] || k);
+  }, [data]);
 
   function handleCopyCurrentLink() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -84,6 +94,10 @@ export default function DesignDetailPage() {
   const explanation = data.decisionExplanation || data.safeExplanation || '';
   const images = Array.isArray(data.images) ? data.images : [];
   const isGuestView = Boolean(tokenFromUrl) || (!isAuthenticated && data.guestSessionId);
+
+  const ringSize = data.designSnapshot?.ringSize || previewModel?.ringSize || 12;
+  const circMm = getRingCircumferenceMm(ringSize);
+  const diamMm = getRingDiameterMm(ringSize);
 
   return (
     <div className="design-container">
@@ -151,6 +165,109 @@ export default function DesignDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Linked Ring Design & SVG Preview */}
+      {Boolean(data.designSnapshot || data.designReference) && (
+        <section
+          className="card"
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1.5rem',
+            border: '1px solid #bae6fd',
+            borderRadius: '8px',
+            background: '#ffffff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+          data-testid="linked-ring-design-section"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem', borderBottom: '1px solid #e0f2fe', paddingBottom: '0.75rem' }}>
+            <h3 style={{ margin: 0, color: '#0369a1', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>💍</span>
+              <span>Thông tin chi tiết mẫu nhẫn thiết kế</span>
+            </h3>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {data.designReference && (
+                <span style={{ fontSize: '0.85rem', color: '#0284c7', background: '#e0f2fe', padding: '3px 8px', borderRadius: 4, fontWeight: 600 }}>
+                  Mã thiết kế: <code>{data.designReference}</code>
+                </span>
+              )}
+              <button
+                type="button"
+                className="button button-outline small"
+                onClick={() => setIs3dModalOpen(true)}
+                data-testid="open-specs-modal-btn"
+                style={{ fontSize: '0.85rem' }}
+              >
+                🔍 Xem toàn màn hình
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', alignItems: 'start' }}>
+            {/* SVG Ring Preview */}
+            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: 8, border: '1px solid #e2e8f0' }} data-testid="ring-svg-preview-container">
+              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#475569' }}>
+                Bản vẽ trực quan 2D / SVG:
+              </h4>
+              <RingPreview previewModel={previewModel} readOnly={true} />
+            </div>
+
+            {/* Specifications Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem', color: '#1e293b' }}>
+                Thông số kỹ thuật chế tác
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Chất liệu:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                    {previewModel?.material?.label || data.designSnapshot?.materialReference || 'Bạc Ý 925'}
+                  </strong>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Dáng nhẫn:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                    {previewModel?.shape?.label || data.designSnapshot?.shapeReference || 'Tròn cổ điển'}
+                  </strong>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Kích thước:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                    Size {ringSize} (~{circMm} mm / Ø {diamMm} mm)
+                  </strong>
+                </div>
+                <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Độ dày &amp; Bản rộng:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>
+                    {previewModel?.thicknessMm || 1.8} mm &times; {previewModel?.bandWidthMm || 3.5} mm
+                  </strong>
+                </div>
+              </div>
+
+              {(previewModel?.engravingText || data.designSnapshot?.engraving?.text) && (
+                <div style={{ background: '#fdf4ff', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #f5d0fe' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#86198f', display: 'block' }}>Nội dung khắc laser:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#701a75' }}>
+                    &ldquo;{previewModel?.engravingText || data.designSnapshot?.engraving?.text}&rdquo;
+                  </strong>
+                  <span style={{ fontSize: '0.75rem', color: '#a21caf', marginLeft: '0.5rem' }}>
+                    ({previewModel?.engravingPlacement === 'OUTER_BAND' ? 'Mặt ngoài lòng nhẫn' : 'Mặt trong lòng nhẫn'})
+                  </span>
+                </div>
+              )}
+
+              {((previewModel?.gemstones?.length > 0) || (previewModel?.stones?.length > 0) || (data.designSnapshot?.components?.length > 0)) && (
+                <div style={{ background: '#f0fdf4', padding: '0.5rem 0.75rem', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#166534', display: 'block' }}>Đá đính kèm:</span>
+                  <strong style={{ fontSize: '0.9rem', color: '#14532d' }}>
+                    {(previewModel?.stones || previewModel?.gemstones || data.designSnapshot?.components || []).length} viên đá trang trí
+                  </strong>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Description */}
@@ -243,6 +360,16 @@ export default function DesignDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Full-size 3D/Technical Specs Modal */}
+      {is3dModalOpen && (
+        <Design3dDetailModal
+          isOpen={is3dModalOpen}
+          onClose={() => setIs3dModalOpen(false)}
+          designSnapshot={data.designSnapshot}
+          designReference={data.designReference || data.requestReference || data.id}
+        />
       )}
 
       <div className="actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>

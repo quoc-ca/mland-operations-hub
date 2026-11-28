@@ -169,18 +169,10 @@ public class ConsultationApplicationService {
                 page = conversationRepository.findByMemberUserIdAndMemberHiddenAtIsNullOrderByUpdatedAtDescConversationReferenceDesc(caller.accountId(), pageRequest);
             }
         } else if ("STAFF".equals(caller.role())) {
-            List<Long> activeLocs = caller.activeLocationIds();
-            if (activeLocs == null || activeLocs.isEmpty()) {
-                page = Page.empty(pageRequest);
-            } else if (unclaimed) {
-                page = status != null
-                        ? conversationRepository.findByAssignedLocationIdInAndStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, status, pageRequest)
-                        : conversationRepository.findByAssignedLocationIdInAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, pageRequest);
-            } else if (status != null) {
-                page = conversationRepository.findByAssignedLocationIdInAndStatusOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, status, pageRequest);
-            } else {
-                page = conversationRepository.findByAssignedLocationIdInOrderByUpdatedAtDescConversationReferenceDesc(activeLocs, pageRequest);
-            }
+            List<Long> activeLocs = caller.activeLocationIds() != null ? caller.activeLocationIds() : List.of();
+            boolean locsEmpty = activeLocs.isEmpty();
+            List<Long> queryLocs = locsEmpty ? List.of(-1L) : activeLocs;
+            page = conversationRepository.findForStaff(status, unclaimed, queryLocs, locsEmpty, caller.accountId(), pageRequest);
         } else if ("MANAGER".equals(caller.role())) {
             if (unclaimed) {
                 page = status != null
@@ -252,9 +244,9 @@ public class ConsultationApplicationService {
             throw ConsultationException.conflict("CHAT_CONVERSATION_CLOSED", "Cuộc trò chuyện đã đóng, không thể gửi tin nhắn mới.");
         }
 
-        if ("STAFF".equals(caller.role())) {
+        if ("STAFF".equals(caller.role()) || "MANAGER".equals(caller.role())) {
             if (conv.getClaimedByUserId() == null || !conv.getClaimedByUserId().equals(caller.accountId())) {
-                throw ConsultationException.forbidden("CHAT_NOT_CLAIMED_BY_YOU", "Chỉ nhân viên đã tiếp nhận cuộc trò chuyện mới có thể gửi tin nhắn.");
+                throw ConsultationException.forbidden("CHAT_NOT_CLAIMED_BY_YOU", "Chỉ nhân viên hoặc quản lý đã tiếp nhận cuộc trò chuyện mới có thể gửi tin nhắn.");
             }
         }
 
@@ -592,7 +584,12 @@ public class ConsultationApplicationService {
             }
         } else if ("STAFF".equals(caller.role())) {
             List<Long> activeLocs = caller.activeLocationIds();
-            if (conv.getAssignedLocationId() == null || activeLocs == null || !activeLocs.contains(conv.getAssignedLocationId())) {
+            boolean isAssignedToOtherLocation = conv.getAssignedLocationId() != null
+                    && activeLocs != null && !activeLocs.isEmpty()
+                    && !activeLocs.contains(conv.getAssignedLocationId());
+            boolean isClaimedByMe = conv.getClaimedByUserId() != null && conv.getClaimedByUserId().equals(caller.accountId());
+
+            if (isAssignedToOtherLocation && !isClaimedByMe) {
                 throw ConsultationException.notFound("CHAT_NOT_FOUND", "Không tìm thấy cuộc trò chuyện.");
             }
         } else if ("MANAGER".equals(caller.role())) {

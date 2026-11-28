@@ -10,7 +10,7 @@ export const topbarMessages = {
     'nav.lookup': 'Tra cứu',
     'nav.ai': 'Trợ lý AI',
     'nav.reviews': 'Đánh giá',
-    'nav.consult': 'Tư vấn',
+    'nav.consult': 'Hỗ trợ',
     'cart.label': 'Giỏ hàng ({product} sản phẩm, {workshop} workshop)',
     'cart.title': 'Giỏ hàng: {product} sản phẩm · {workshop} workshop',
     'account.options': 'Tùy chọn tài khoản',

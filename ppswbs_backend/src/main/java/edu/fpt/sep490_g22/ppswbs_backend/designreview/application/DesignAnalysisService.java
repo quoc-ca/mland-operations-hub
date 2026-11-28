@@ -652,6 +652,19 @@ public class DesignAnalysisService {
                 log.warn("Failed to parse design snapshot json: {}", e.getMessage());
             }
         }
+        if (snapshotMap == null && request.getDesignReference() != null && !request.getDesignReference().isBlank()
+                && request.getOwnerAccountId() != null && workshopRingDesignFacade.isPresent()) {
+            try {
+                BookingDesignSnapshotDto liveSnapshot = workshopRingDesignFacade.get()
+                        .getOwnedActiveDesignSnapshot(request.getOwnerAccountId(), request.getDesignReference().trim())
+                        .orElse(null);
+                if (liveSnapshot != null && liveSnapshot.getSnapshot() != null) {
+                    snapshotMap = liveSnapshot.getSnapshot();
+                }
+            } catch (Exception e) {
+                log.warn("Fallback getOwnedActiveDesignSnapshot failed for designRef {}: {}", request.getDesignReference(), e.getMessage());
+            }
+        }
 
         String senderEmail = null;
         if (request.getOwnerAccountId() != null) {

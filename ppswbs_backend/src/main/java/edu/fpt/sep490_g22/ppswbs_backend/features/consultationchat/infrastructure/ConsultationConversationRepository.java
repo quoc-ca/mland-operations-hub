@@ -73,4 +73,18 @@ public interface ConsultationConversationRepository extends JpaRepository<Consul
     Page<ConsultationConversation> findByStatusAndClaimedByUserIdIsNullOrderByUpdatedAtDescConversationReferenceDesc(
             ConsultationStatus status, Pageable pageable
     );
+
+    @Query("SELECT c FROM ConsultationConversation c WHERE " +
+           "(:status IS NULL OR c.status = :status) AND " +
+           "(:unclaimed = false OR c.claimedByUserId IS NULL) AND " +
+           "(:locationIdsEmpty = true OR c.assignedLocationId IS NULL OR c.assignedLocationId IN :locationIds OR c.claimedByUserId = :staffId) " +
+           "ORDER BY c.updatedAt DESC, c.conversationReference DESC")
+    Page<ConsultationConversation> findForStaff(
+            @Param("status") ConsultationStatus status,
+            @Param("unclaimed") boolean unclaimed,
+            @Param("locationIds") List<Long> locationIds,
+            @Param("locationIdsEmpty") boolean locationIdsEmpty,
+            @Param("staffId") Long staffId,
+            Pageable pageable
+    );
 }

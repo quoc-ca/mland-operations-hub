@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router';
 import { useDesignReviewApi } from '../api/useDesignReviewApi';
 import { useFormat, useT } from '../../../shared/i18n/I18nProvider';
 import { sharedMessages } from '../../../shared/ui/messages';
 import DesignImage from '../components/DesignImage';
+import RingPreview from '../../ringdesignconfiguration/ui/RingPreview';
+import { derivePreviewModel } from '../../ringdesignconfiguration/domain/designPreview';
+import { messages as ringMessages } from '../../ringdesignconfiguration/messages';
 import { designReviewMessages } from '../messages';
 import { wholeAmount } from '../format';
 import { getOrderBadgeInfo, getProductionStatusLabel, getFulfilmentStatusLabel } from '../customOrderStatus';
@@ -22,6 +25,11 @@ export default function CustomOrderDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [paymentNotice, setPaymentNotice] = useState(null);
+
+  const previewModel = useMemo(() => {
+    if (!order?.designSnapshot) return null;
+    return derivePreviewModel(order.designSnapshot, (k) => ringMessages.vi[k] || k);
+  }, [order?.designSnapshot]);
 
   // Fix Bug 1: bfcache unlocks actionLoading when navigating back from payment gateway
   useEffect(() => {
@@ -545,6 +553,11 @@ export default function CustomOrderDetailPage() {
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.75rem' }}>
               📐 {t('co.snapshot.title')}
             </span>
+            {previewModel && (
+              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: '1rem' }} data-testid="order-ring-svg-preview">
+                <RingPreview previewModel={previewModel} readOnly={true} />
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.9rem' }}>
               {snapshot.model && (
                 <div>

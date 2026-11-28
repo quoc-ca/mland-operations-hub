@@ -656,38 +656,6 @@ export default function ReviewDetailPage() {
               Nhân viên thẩm duyệt thiết kế, đồng thời tính toán số tiền báo giá để chuyển Quản lý (Manager) phê duyệt trước khi gửi khách hàng.
             </p>
 
-            {/* Quick Action Decision Toggles */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={`button ${decision === 'ACCEPTED' ? 'primary' : 'outline'}`}
-                onClick={() => { setDecision('ACCEPTED'); setFormError(''); }}
-                style={{
-                  backgroundColor: decision === 'ACCEPTED' ? '#16a34a' : '#ffffff',
-                  color: decision === 'ACCEPTED' ? '#ffffff' : '#166534',
-                  borderColor: '#16a34a',
-                  fontWeight: 600,
-                  padding: '0.5rem 1rem',
-                }}
-              >
-                ✓ Duyệt & Gửi báo giá
-              </button>
-              <button
-                type="button"
-                className={`button ${decision === 'REJECTED' ? 'primary danger' : 'outline'}`}
-                onClick={() => { setDecision('REJECTED'); setFormError(''); }}
-                style={{
-                  backgroundColor: decision === 'REJECTED' ? '#dc2626' : '#ffffff',
-                  color: decision === 'REJECTED' ? '#ffffff' : '#dc2626',
-                  borderColor: '#dc2626',
-                  fontWeight: 600,
-                  padding: '0.5rem 1rem',
-                }}
-              >
-                ✕ Từ chối thiết kế
-              </button>
-            </div>
-
             <form onSubmit={handleOpenConfirm} className="stack">
               <Field label={t('reviewDetail.decisionLabel')}>
                 <select
