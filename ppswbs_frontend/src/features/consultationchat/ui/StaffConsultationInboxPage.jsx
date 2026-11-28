@@ -37,8 +37,8 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
             setSelfAccountId(Number(res.id || res.accountId));
           }
         })
-        .catch(() => {});
-    }).catch(() => {});
+        .catch(() => { });
+    }).catch(() => { });
     return () => { active = false; };
   }, [auth, selfAccountId]);
 
@@ -248,7 +248,7 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
         if (typeof getIdToken === 'function') {
           token = await getIdToken(false);
         }
-      } catch {}
+      } catch { }
 
       if (cancelled) return;
       if (typeof EventSource === 'undefined') return;
@@ -706,173 +706,173 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
                 {actionSuccess && <div className="consultation-alert warning">{actionSuccess}</div>}
 
                 {/* Messages Thread */}
-                  <div className="consultation-messages-thread" ref={messagesContainerRef}>
-                    {loadingDetail && !activeConversation.messages ? (
-                      <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
-                        Đang tải nội dung...
-                      </div>
-                    ) : activeConversation.messages?.length === 0 ? (
-                      <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
-                        {t.noMessagesYet}
-                      </div>
-                    ) : (
-                      activeConversation.messages?.map((msg, idx) => {
-                        const isStaffMsg = msg.senderRole === 'STAFF' || msg.senderRole === 'MANAGER';
-                        const roleClass = isStaffMsg ? 'member' : 'staff'; // Staff view: staff messages align right
-                        const roleName = msg.senderRole === 'MEMBER'
-                          ? t.senderMember
-                          : (msg.senderRole === 'MANAGER' ? t.senderManager : t.senderStaff);
-                        const timeStr = msg.createdAt
-                          ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                          : '';
+                <div className="consultation-messages-thread" ref={messagesContainerRef}>
+                  {loadingDetail && !activeConversation.messages ? (
+                    <div style={{ textAlign: 'center', color: '#888', padding: '2rem' }}>
+                      Đang tải nội dung...
+                    </div>
+                  ) : activeConversation.messages?.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#888', padding: '3rem' }}>
+                      {t.noMessagesYet}
+                    </div>
+                  ) : (
+                    activeConversation.messages?.map((msg, idx) => {
+                      const isStaffMsg = msg.senderRole === 'STAFF' || msg.senderRole === 'MANAGER';
+                      const roleClass = isStaffMsg ? 'member' : 'staff'; // Staff view: staff messages align right
+                      const roleName = msg.senderRole === 'MEMBER'
+                        ? t.senderMember
+                        : (msg.senderRole === 'MANAGER' ? t.senderManager : t.senderStaff);
+                      const timeStr = msg.createdAt
+                        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : '';
 
-                        return (
-                          <div key={msg.messageReference || idx} className={`consultation-bubble-group ${roleClass}`}>
-                            <div className="consultation-bubble-meta">
-                              <span className={`consultation-role-pill ${msg.senderRole?.toLowerCase()}`}>
-                                {roleName}
-                              </span>
-                              <span>{timeStr}</span>
-                            </div>
-                            <div className={`consultation-bubble ${roleClass}`}>
-                              {msg.text}
-                            </div>
+                      return (
+                        <div key={msg.messageReference || idx} className={`consultation-bubble-group ${roleClass}`}>
+                          <div className="consultation-bubble-meta">
+                            <span className={`consultation-role-pill ${msg.senderRole?.toLowerCase()}`}>
+                              {roleName}
+                            </span>
+                            <span>{timeStr}</span>
                           </div>
-                        );
-                      })
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
+                          <div className={`consultation-bubble ${roleClass}`}>
+                            {msg.text}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
 
-                  {/* Composer */}
-                  <form className="consultation-composer" onSubmit={handleSendMessage}>
-                    {isClosed ? (
-                      <div className="consultation-alert warning" style={{ margin: 0 }}>
-                        {t.chatClosedWarning}
-                      </div>
-                    ) : !isClaimed ? (
-                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-must-claim-warning">
-                        <span>{t.mustClaimWarning || 'Cuộc trò chuyện chưa được tiếp nhận. Vui lòng nhận tư vấn trước khi gửi tin nhắn.'}</span>
-                        <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
-                          {t.claim}
+                {/* Composer */}
+                <form className="consultation-composer" onSubmit={handleSendMessage}>
+                  {isClosed ? (
+                    <div className="consultation-alert warning" style={{ margin: 0 }}>
+                      {t.chatClosedWarning}
+                    </div>
+                  ) : !isClaimed ? (
+                    <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-must-claim-warning">
+                      <span>{t.mustClaimWarning || 'Cuộc trò chuyện chưa được tiếp nhận. Vui lòng nhận tư vấn trước khi gửi tin nhắn.'}</span>
+                      <button type="button" className="btn-primary-consultation" onClick={handleClaim} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}>
+                        {t.claim}
+                      </button>
+                    </div>
+                  ) : isClaimedByOther ? (
+                    <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-claimed-by-other-warning">
+                      <span>Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.</span>
+                      {isManager && (
+                        <button
+                          type="button"
+                          className="btn-secondary-consultation"
+                          onClick={() => setConfirmReleaseOpen(true)}
+                          style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                        >
+                          Gỡ tiếp nhận (Release)
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        className="consultation-textarea"
+                        placeholder={t.typeMessagePlaceholder}
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e);
+                          }
+                        }}
+                        disabled={sending}
+                        maxLength={MAX_MESSAGE_LENGTH}
+                      />
+                      <div className="consultation-composer-footer">
+                        <span
+                          className={`consultation-char-counter ${currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
+                            }`}
+                        >
+                          {t.charCount.replace('{count}', String(currentCount))}
+                        </span>
+                        <button
+                          type="submit"
+                          className="btn-primary-consultation"
+                          disabled={sending || !messageInput.trim() || currentCount > 2000}
+                        >
+                          {sending ? 'Đang gửi...' : t.send}
                         </button>
                       </div>
-                    ) : isClaimedByOther ? (
-                      <div className="consultation-alert warning" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid="chat-claimed-by-other-warning">
-                        <span>Cuộc trò chuyện đang được phụ trách bởi nhân viên khác. Bạn đang ở chế độ xem.</span>
-                        {isManager && (
-                          <button
-                            type="button"
-                            className="btn-secondary-consultation"
-                            onClick={() => setConfirmReleaseOpen(true)}
-                            style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', color: '#dc2626', borderColor: '#fca5a5' }}
-                          >
-                            Gỡ tiếp nhận (Release)
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <textarea
-                          className="consultation-textarea"
-                          placeholder={t.typeMessagePlaceholder}
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage(e);
-                            }
-                          }}
-                          disabled={sending}
-                          maxLength={MAX_MESSAGE_LENGTH}
-                        />
-                        <div className="consultation-composer-footer">
-                          <span
-                            className={`consultation-char-counter ${currentCount > 1900 ? (currentCount > 2000 ? 'limit-exceeded' : 'limit-near') : ''
-                              }`}
-                          >
-                            {t.charCount.replace('{count}', String(currentCount))}
-                          </span>
-                          <button
-                            type="submit"
-                            className="btn-primary-consultation"
-                            disabled={sending || !messageInput.trim() || currentCount > 2000}
-                          >
-                            {sending ? 'Đang gửi...' : t.send}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </form>
-                </>
-            )}
-              </div>
-
-            {/* Manager Release Confirmation Dialog */}
-            <ConfirmDialog
-              open={confirmReleaseOpen}
-              title="Xác nhận gỡ tiếp nhận tư vấn"
-              confirmLabel="Gỡ tiếp nhận"
-              danger
-              onCancel={() => setConfirmReleaseOpen(false)}
-              onConfirm={async () => {
-                setConfirmReleaseOpen(false);
-                await handleRelease();
-              }}
-            >
-              <p>Bạn có chắc chắn muốn gỡ quyền phụ trách của nhân viên để đưa cuộc trò chuyện này về trạng thái chờ tiếp nhận không?</p>
-            </ConfirmDialog>
-
-            {/* Assign Branch Modal (Manager only) */}
-            {isAssignModalOpen && (
-              <div className="consultation-modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
-                <div className="consultation-modal" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="consultation-modal-header">
-                    <h3 className="consultation-modal-title">{t.assign}</h3>
-                    <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
-                      ✕
-                    </button>
-                  </div>
-                  <form onSubmit={handleAssignSubmit}>
-                    <div className="consultation-modal-body">
-                      <p style={{ margin: 0, color: '#555' }}>{t.selectBranchToAssign}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="branch"
-                            value="HN-HOANKIEM"
-                            checked={selectedBranch === 'HN-HOANKIEM'}
-                            onChange={(e) => setSelectedBranch(e.target.value)}
-                          />
-                          <span>{t.branchHN_HOANKIEM} (HN-HOANKIEM)</span>
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="branch"
-                            value="HN-TAYHO"
-                            checked={selectedBranch === 'HN-TAYHO'}
-                            onChange={(e) => setSelectedBranch(e.target.value)}
-                          />
-                          <span>{t.branchHN_TAYHO} (HN-TAYHO)</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="consultation-modal-footer">
-                      <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
-                        {t.cancel}
-                      </button>
-                      <button type="submit" className="btn-primary-consultation" disabled={assigning}>
-                        {assigning ? 'Đang xử lý...' : t.confirm}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
+                    </>
+                  )}
+                </form>
+              </>
             )}
           </div>
+
+          {/* Manager Release Confirmation Dialog */}
+          <ConfirmDialog
+            open={confirmReleaseOpen}
+            title="Xác nhận gỡ tiếp nhận tư vấn"
+            confirmLabel="Gỡ tiếp nhận"
+            danger
+            onCancel={() => setConfirmReleaseOpen(false)}
+            onConfirm={async () => {
+              setConfirmReleaseOpen(false);
+              await handleRelease();
+            }}
+          >
+            <p>Bạn có chắc chắn muốn gỡ quyền phụ trách của nhân viên để đưa cuộc trò chuyện này về trạng thái chờ tiếp nhận không?</p>
+          </ConfirmDialog>
+
+          {/* Assign Branch Modal (Manager only) */}
+          {isAssignModalOpen && (
+            <div className="consultation-modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
+              <div className="consultation-modal" style={{ maxWidth: '450px' }} onClick={(e) => e.stopPropagation()}>
+                <div className="consultation-modal-header">
+                  <h3 className="consultation-modal-title">{t.assign}</h3>
+                  <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
+                    ✕
+                  </button>
+                </div>
+                <form onSubmit={handleAssignSubmit}>
+                  <div className="consultation-modal-body">
+                    <p style={{ margin: 0, color: '#555' }}>{t.selectBranchToAssign}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="branch"
+                          value="HN-HOANKIEM"
+                          checked={selectedBranch === 'HN-HOANKIEM'}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                        />
+                        <span>{t.branchHN_HOANKIEM} (HN-HOANKIEM)</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="branch"
+                          value="HN-TAYHO"
+                          checked={selectedBranch === 'HN-TAYHO'}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                        />
+                        <span>{t.branchHN_TAYHO} (HN-TAYHO)</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="consultation-modal-footer">
+                    <button type="button" className="btn-secondary-consultation" onClick={() => setIsAssignModalOpen(false)}>
+                      {t.cancel}
+                    </button>
+                    <button type="submit" className="btn-primary-consultation" disabled={assigning}>
+                      {assigning ? 'Đang xử lý...' : t.confirm}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
