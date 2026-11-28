@@ -267,8 +267,8 @@ class ConsultationApplicationServiceTest {
                 .build();
         when(conversationRepository.findByConversationReference("CONV-UNASSIGNED")).thenReturn(Optional.of(unassignedConv));
         ConversationDto claimedUnassigned = service.claim("CONV-UNASSIGNED", 1L, staff, "key-claim-unassigned", "c-unassigned");
-        assertThat(claimedUnassigned.getAssignedLocationId()).isEqualTo(1001L);
         assertThat(unassignedConv.getAssignedLocationId()).isEqualTo(1001L);
+        assertThat(claimedUnassigned.getClaimantUserId()).isEqualTo(staff.accountId());
 
         // Second claim by different staff fails
         var otherStaff = new AccountActorPort.CallerActor(30L, "STAFF", "ACTIVE", List.of(1001L));
