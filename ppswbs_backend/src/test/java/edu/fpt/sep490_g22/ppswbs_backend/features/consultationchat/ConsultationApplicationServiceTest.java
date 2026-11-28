@@ -255,6 +255,21 @@ class ConsultationApplicationServiceTest {
         ConversationDto claimed = service.claim("CONV-1", 1L, staff, "key-claim-123456", "c2");
         assertThat(claimed.getAggregateVersion()).isEqualTo(2L);
 
+        // Staff claiming unassigned conversation (assignedLocationId == null) assigns staff location
+        ConsultationConversation unassignedConv = ConsultationConversation.builder()
+                .id(2L)
+                .conversationReference("CONV-UNASSIGNED")
+                .memberUserId(10L)
+                .assignedLocationId(null)
+                .claimedByUserId(null)
+                .status(ConsultationStatus.OPEN)
+                .aggregateVersion(1L)
+                .build();
+        when(conversationRepository.findByConversationReference("CONV-UNASSIGNED")).thenReturn(Optional.of(unassignedConv));
+        ConversationDto claimedUnassigned = service.claim("CONV-UNASSIGNED", 1L, staff, "key-claim-unassigned", "c-unassigned");
+        assertThat(claimedUnassigned.getAssignedLocationId()).isEqualTo(1001L);
+        assertThat(unassignedConv.getAssignedLocationId()).isEqualTo(1001L);
+
         // Second claim by different staff fails
         var otherStaff = new AccountActorPort.CallerActor(30L, "STAFF", "ACTIVE", List.of(1001L));
         assertThatThrownBy(() -> service.claim("CONV-1", 2L, otherStaff, "k3", "c3"))

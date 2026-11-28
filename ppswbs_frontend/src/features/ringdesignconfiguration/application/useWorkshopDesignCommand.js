@@ -38,6 +38,21 @@ export function useWorkshopDesignCommand(isAuthenticated = false) {
       return res;
     } catch (err) {
       resetCommandKey();
+      if (createPayload?.startMode === 'PUBLISHED_MODEL' && (err?.code === 'DESIGN_OPTION_INVALID' || err?.data?.code === 'DESIGN_OPTION_INVALID' || err?.status === 422)) {
+        try {
+          const fallbackKey = newCommandId();
+          const fallbackPayload = { ...createPayload, startMode: 'BLANK', sourceModelReference: null };
+          const guestSession = getStoredGuestSession();
+          const fallbackRes = await api.createDesign(fallbackKey, fallbackPayload, guestSession, isAuthenticated);
+          if (fallbackRes && fallbackRes.guestSession) {
+            setStoredGuestSession(fallbackRes.guestSession);
+          }
+          return fallbackRes;
+        } catch (fallbackErr) {
+          setError(getErrorMessage(fallbackErr, t));
+          throw fallbackErr;
+        }
+      }
       if (err?.status === 401) {
         clearStoredGuestSession();
         // If guest session expired, retry once with fresh guest session

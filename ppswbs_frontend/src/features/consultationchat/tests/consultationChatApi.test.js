@@ -12,6 +12,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
       {
         method: 'GET',
         auth: true,
+        suppressAccessDenied: true,
       }
     );
   });
@@ -34,6 +35,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
       idempotencyKey: 'key-1234567890123456',
       headers: undefined,
       auth: true,
+      suppressAccessDenied: true,
     });
   });
 
@@ -49,6 +51,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
       idempotencyKey: 'key-claim',
       headers: { 'If-Match-Version': '1' },
       auth: true,
+      suppressAccessDenied: true,
     });
   });
 
@@ -64,6 +67,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
       idempotencyKey: 'key-assign',
       headers: { 'If-Match-Version': '1' },
       auth: true,
+      suppressAccessDenied: true,
     });
   });
 
@@ -75,8 +79,9 @@ describe('Feature-013 consultationChatApi adapter', () => {
 
     expect(mockRequest).toHaveBeenCalledWith('/api/v1/consultations', {
       method: 'GET',
-      query: { status: undefined, cursor: 'opaque-cursor', limit: 20, _t: expect.any(Number) },
+      query: { status: undefined, unclaimed: undefined, cursor: 'opaque-cursor', limit: 20, _t: expect.any(Number) },
       auth: true,
+      suppressAccessDenied: true,
     });
   });
 
@@ -92,6 +97,7 @@ describe('Feature-013 consultationChatApi adapter', () => {
       idempotencyKey: 'hide-key-123456789012',
       headers: { 'If-Match-Version': '4' },
       auth: true,
+      suppressAccessDenied: true,
     });
   });
 });

@@ -161,8 +161,8 @@ describe('Feature-012 Workshop Ring Design Configuration Screens', () => {
 
       expect(await screen.findByText('Mẫu Nhẫn Cưới Classic')).toBeInTheDocument();
       expect(screen.getByText('Mẫu Nhẫn Xoắn Đôi')).toBeInTheDocument();
-      expect(screen.getByText('2.0')).toBeInTheDocument();
-      expect(screen.getByText(/Dễ/i)).toBeInTheDocument();
+      expect(screen.getAllByText('2.0')[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/Dễ/i)[0]).toBeInTheDocument();
     });
 
     it('navigates to configurator with selected model reference on card click', async () => {

@@ -6,11 +6,12 @@ export function consultationChatApi(request) {
     idempotencyKey: key,
     headers: version === undefined ? undefined : { 'If-Match-Version': String(version) },
     auth: true,
+    suppressAccessDenied: true,
   });
 
   return {
     getContextOptions() {
-      return request(`/api/v1/consultations/context-options?_t=${Date.now()}`, { method: 'GET', auth: true });
+      return request(`/api/v1/consultations/context-options?_t=${Date.now()}`, { method: 'GET', auth: true, suppressAccessDenied: true });
     },
 
     createConversation(key, body) {
@@ -22,6 +23,7 @@ export function consultationChatApi(request) {
         method: 'GET',
         query: { status, unclaimed, cursor, limit, _t: Date.now() },
         auth: true,
+        suppressAccessDenied: true,
       });
     },
 
@@ -33,6 +35,7 @@ export function consultationChatApi(request) {
       return request(`/api/v1/consultations/${encodeURIComponent(conversationReference)}?_t=${Date.now()}`, {
         method: 'GET',
         auth: true,
+        suppressAccessDenied: true,
       });
     },
 
@@ -57,6 +60,7 @@ export function consultationChatApi(request) {
         method: 'POST',
         body,
         auth: true,
+        suppressAccessDenied: true,
       });
     },
 

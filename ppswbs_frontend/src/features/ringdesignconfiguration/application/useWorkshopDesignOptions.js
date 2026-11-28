@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWorkshopRingDesignApi } from '../api/useWorkshopRingDesignApi';
+import { SUGGESTED_RING_MODELS } from '../domain/suggestedModels';
 
 export function useWorkshopDesignOptions(packageReference, branchReference) {
   const api = useWorkshopRingDesignApi();
@@ -13,7 +14,16 @@ export function useWorkshopDesignOptions(packageReference, branchReference) {
     setError(null);
     try {
       const data = await api.getDesignOptions(packageReference, branchReference);
-      setOptions(data);
+      if (data) {
+        const existingRefs = new Set((data.models || []).map((m) => m.modelReference));
+        const additional = SUGGESTED_RING_MODELS.filter((m) => !existingRefs.has(m.modelReference));
+        setOptions({
+          ...data,
+          models: [...additional, ...(data.models || [])],
+        });
+      } else {
+        setOptions(data);
+      }
     } catch (err) {
       setError(err);
     } finally {

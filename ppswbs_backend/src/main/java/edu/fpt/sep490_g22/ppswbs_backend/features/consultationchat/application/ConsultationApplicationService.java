@@ -311,8 +311,11 @@ public class ConsultationApplicationService {
         ConsultationConversation conv = findAndAuthorizeConversation(conversationReference, caller);
 
         if ("STAFF".equals(caller.role())) {
-            if (conv.getAssignedLocationId() == null || !caller.activeLocationIds().contains(conv.getAssignedLocationId())) {
+            if (conv.getAssignedLocationId() != null && !caller.activeLocationIds().contains(conv.getAssignedLocationId())) {
                 throw ConsultationException.forbidden("CHAT_ACCESS_DENIED", "Nhân viên chỉ có thể tiếp nhận cuộc trò chuyện thuộc chi nhánh của mình.");
+            }
+            if (conv.getAssignedLocationId() == null && !caller.activeLocationIds().isEmpty()) {
+                conv.setAssignedLocationId(caller.activeLocationIds().get(0));
             }
         }
 

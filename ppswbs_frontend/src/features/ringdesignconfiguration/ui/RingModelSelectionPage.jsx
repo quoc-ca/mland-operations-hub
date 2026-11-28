@@ -115,6 +115,16 @@ export default function RingModelSelectionPage() {
               <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.4, margin: '0 0 0.5rem' }}>
                 {model.description}
               </p>
+              {model.thicknessMm && model.bandWidthMm && (
+                <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem' }}>
+                  📐 {model.ringSize ? `Size ${model.ringSize} · ` : ''}Dày {model.thicknessMm}mm · Rộng {model.bandWidthMm}mm
+                </div>
+              )}
+              {model.estimatedPrice && (
+                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#0369a1', marginBottom: '0.4rem' }}>
+                  💰 Ước tính: {Number(model.estimatedPrice).toLocaleString('vi-VN')} đ
+                </div>
+              )}
               {model.difficultyScore !== undefined && (() => {
                 const diff = getDifficultyMeta(model.difficultyScore, t);
                 const levelLabel = model.difficultyLevel ? (t(`difficulty.${model.difficultyLevel}`) || diff.label) : diff.label;
