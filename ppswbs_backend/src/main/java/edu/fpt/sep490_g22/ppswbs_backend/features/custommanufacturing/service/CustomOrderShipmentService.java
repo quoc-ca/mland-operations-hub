@@ -202,19 +202,20 @@ public class CustomOrderShipmentService implements CustomShipmentCarrierPort {
 
     public CarrierShipmentDtos.Shipment toCarrierDto(CustomOrderShipment shipment) {
         String carrierId = CUSTOM_SHIPMENT_PREFIX + shipment.getId();
+        ParsedAddress address = parseAddress(shipment.getShippingAddress());
         return new CarrierShipmentDtos.Shipment(
                 carrierId,
                 shipment.getTrackingNumber(),
                 shipment.getStatus(),
                 shipment.getVersion() != null ? shipment.getVersion() : 1,
                 shipment.getCustomOrderReference(),
-                null, // pickupLocationId
+                1L, // pickupLocationId: Mland Central Workshop (HN-HOANKIEM, id = 1)
                 shipment.getRecipientName() != null ? shipment.getRecipientName() : "Khách hàng Mland",
                 shipment.getRecipientPhone() != null ? shipment.getRecipientPhone() : "---",
-                shipment.getShippingAddress(),
-                "Phường Tân Phú", // default/mock geo fields
-                "Quận 9",
-                "TP. Hồ Chí Minh",
+                address.street(),
+                address.ward(),
+                address.district(),
+                address.province(),
                 1, // itemQuantity
                 "0", // shippingCharge: custom orders ship free; the contract carries a VND amount, the UI renders the label
                 shipment.getCreatedAt(),
@@ -223,6 +224,31 @@ public class CustomOrderShipmentService implements CustomShipmentCarrierPort {
                 shipment.getDeliveredAt(),
                 shipment.getUpdatedAt()
         );
+    }
+
+    private record ParsedAddress(String street, String ward, String district, String province) {}
+
+    private static ParsedAddress parseAddress(String rawAddress) {
+        if (rawAddress == null || rawAddress.isBlank()) {
+            return new ParsedAddress("Địa chỉ nhận mặc định của khách hàng", null, null, null);
+        }
+        String[] parts = java.util.Arrays.stream(rawAddress.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toArray(String[]::new);
+        if (parts.length >= 4) {
+            String province = parts[parts.length - 1];
+            String district = parts[parts.length - 2];
+            String ward = parts[parts.length - 3];
+            String street = String.join(", ", java.util.Arrays.copyOfRange(parts, 0, parts.length - 3));
+            return new ParsedAddress(street, ward, district, province);
+        } else if (parts.length == 3) {
+            String province = parts[2];
+            String ward = parts[1];
+            String street = parts[0];
+            return new ParsedAddress(street, ward, null, province);
+        }
+        return new ParsedAddress(rawAddress, null, null, null);
     }
 
     private Long parseShipmentId(String shipmentId) {

@@ -244,5 +244,37 @@ class CustomOrderShipmentServiceTest {
         assertThat(item.orderCode()).isEqualTo(orderRef);
         assertThat(item.status()).isEqualTo("READY_FOR_CARRIER");
         assertThat(item.shippingCharge()).isEqualTo("0");
+        assertThat(item.pickupLocationId()).isEqualTo(1L);
+        assertThat(item.recipientAddress()).isEqualTo("456 Tran Phu, Da Nang");
+    }
+
+    @Test
+    @DisplayName("toCarrierDto parses structured Vietnamese address into recipientAddress, ward, district, province and assigns Central Workshop branch")
+    void toCarrierDto_ParsesStructuredAddressCorrectly() {
+        CustomOrderShipment shipment = CustomOrderShipment.builder()
+                .id(99L)
+                .customOrderId(orderId)
+                .customOrderReference(orderRef)
+                .trackingNumber("S1234567890")
+                .status("READY_FOR_CARRIER")
+                .shippingAddress("123 Le Loi, Phuong Ben Nghe, Quan 1, TP Ho Chi Minh")
+                .recipientName("Nguyen Van A")
+                .recipientPhone("0901234567")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .version(1)
+                .build();
+
+        CarrierShipmentDtos.Shipment dto = shipmentService.toCarrierDto(shipment);
+
+        assertThat(dto.id()).isEqualTo("CUST_SHIP_99");
+        assertThat(dto.pickupLocationId()).isEqualTo(1L);
+        assertThat(dto.recipientAddress()).isEqualTo("123 Le Loi");
+        assertThat(dto.wardName()).isEqualTo("Phuong Ben Nghe");
+        assertThat(dto.districtName()).isEqualTo("Quan 1");
+        assertThat(dto.provinceName()).isEqualTo("TP Ho Chi Minh");
+        assertThat(dto.recipientName()).isEqualTo("Nguyen Van A");
+        assertThat(dto.recipientPhone()).isEqualTo("0901234567");
+        assertThat(dto.shippingCharge()).isEqualTo("0");
     }
 }
