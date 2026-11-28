@@ -114,12 +114,13 @@ export default function Design3dDetailModal({
             padding: '1.25rem 1.5rem',
             overflowY: 'auto',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '1.5rem',
+            boxSizing: 'border-box',
           }}
         >
           {/* Left Column: Visual Ring Preview */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', minWidth: 0 }}>
             <div
               style={{
                 width: '100%',
@@ -131,28 +132,29 @@ export default function Design3dDetailModal({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
+                boxSizing: 'border-box',
               }}
             >
               <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#475569', textTransform: 'uppercase' }}>
                 Mô hình trực quan bản vẽ nhẫn
               </h4>
-              <div style={{ width: '100%', height: '260px' }}>
-                <RingPreview model={previewModel} />
+              <div style={{ width: '100%', minHeight: '260px' }}>
+                <RingPreview previewModel={previewModel} readOnly={true} />
               </div>
-              <span style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center', marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center', marginTop: '0.75rem', lineHeight: 1.4 }}>
                 💡 Mô phỏng trực quan tương tác tỉ lệ thực tế theo góc nhìn trực diện.
               </span>
             </div>
           </div>
 
           {/* Right Column: Full Specifications Breakdown */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0, width: '100%' }}>
             {/* Box 1: Material & Dimensions */}
             <div style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '1rem' }}>
               <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: '#0369a1' }}>
                 1. Thông số Kích thước & Vật liệu
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem', color: '#334155' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem', fontSize: '0.875rem', color: '#334155' }}>
                 <div>
                   <strong>Chất liệu:</strong> {previewModel.material?.label || effectiveSnapshot?.metalType || 'Bạc Ý 925'}
                 </div>

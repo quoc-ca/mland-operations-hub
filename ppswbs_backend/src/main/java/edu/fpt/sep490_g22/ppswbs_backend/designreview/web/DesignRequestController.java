@@ -310,6 +310,29 @@ public class DesignRequestController {
                 return ResponseEntity.ok(quoteDto);
         }
 
+        @PostMapping("/{designRequestId}/quote/reject")
+        public ResponseEntity<QuoteProjectionDto> rejectQuote(
+                        @PathVariable("designRequestId") String designRequestId,
+                        @RequestBody(required = false) Map<String, String> body,
+                        Authentication authentication) {
+                String callerUid = SecurityIdentityExtractor.requireUid(authentication);
+                boolean isManager = DesignReviewPermissions.isManager(authentication.getAuthorities());
+                if (!isManager) {
+                        throw DesignReviewException.forbidden("REVIEW_NOT_AUTHORIZED",
+                                        "Chỉ Quản lý (Manager) mới có thẩm quyền từ chối báo giá / thiết kế.");
+                }
+                AccountSummary manager = accountFacade.resolveAccount(callerUid)
+                                .orElseThrow(() -> DesignReviewException.unauthorized("AUTHENTICATION_REQUIRED",
+                                                "Không tìm thấy thông tin tài khoản."));
+                String reason = body != null && body.get("managerReason") != null ? body.get("managerReason")
+                                : "Quản lý từ chối mẫu thiết kế và báo giá gia công";
+                QuoteProjectionDto quoteDto = customOrderService.rejectQuoteByDesignRequestId(
+                                designRequestId,
+                                manager.accountId(),
+                                reason);
+                return ResponseEntity.ok(quoteDto);
+        }
+
         @GetMapping("/{designRequestId}/tracking")
         public ResponseEntity<DesignAnalysisService.DesignRequestViewDto> getGuestTracking(
                         @PathVariable("designRequestId") String designRequestId) {

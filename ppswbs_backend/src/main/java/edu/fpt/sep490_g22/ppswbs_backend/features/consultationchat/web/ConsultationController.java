@@ -90,8 +90,12 @@ public class ConsultationController {
     @GetMapping(value = "/{conversationReference}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEvents(
             @PathVariable("conversationReference") String conversationReference,
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            jakarta.servlet.http.HttpServletResponse response
     ) {
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache, no-transform");
+        response.setHeader("Connection", "keep-alive");
         AccountActorPort.CallerActor caller = requireCaller();
         return applicationService.createSseEmitter(conversationReference, caller);
     }

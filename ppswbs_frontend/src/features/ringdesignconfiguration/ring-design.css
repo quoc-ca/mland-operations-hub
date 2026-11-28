@@ -65,9 +65,12 @@
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
   }
   .ring-preview-panel {
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
@@ -251,6 +254,8 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-height: calc(100vh - 3.5rem);
+  overflow-y: auto;
 }
 
 .ring-preview-dual-wrapper {
@@ -383,8 +388,10 @@
 .ring-summary-item {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   padding: 0.4rem 0;
   border-bottom: 1px dashed #e2e8f0;
+  gap: 0.75rem;
 }
 
 .ring-summary-item:last-child {
@@ -393,11 +400,14 @@
 
 .ring-summary-label {
   color: #64748b;
+  flex-shrink: 0;
 }
 
 .ring-summary-value {
   font-weight: 600;
   color: #0f172a;
+  text-align: right;
+  word-break: break-word;
 }
 
 /* Badges & Tags */

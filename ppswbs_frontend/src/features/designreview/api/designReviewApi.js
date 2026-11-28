@@ -320,6 +320,17 @@ export function designReviewApi(request) {
     },
 
     /**
+     * Manager rejects custom design quote by designRequestId.
+     */
+    rejectCustomDesignQuoteByRequestId(requestId, { managerReason } = {}) {
+      return request(`/api/v1/custom-design-requests/${encodeURIComponent(requestId)}/quote/reject`, {
+        method: 'POST',
+        body: { managerReason: managerReason || 'Quản lý từ chối mẫu thiết kế và báo giá gia công' },
+        auth: true,
+      });
+    },
+
+    /**
      * Read list of Custom Orders owned by the Member.
      */
     listMyCustomOrders() {

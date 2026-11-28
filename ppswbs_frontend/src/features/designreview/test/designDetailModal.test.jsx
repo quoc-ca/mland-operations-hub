@@ -35,7 +35,7 @@ describe('DesignDetailModal (Design3dDetailModal)', () => {
     expect(screen.getByTestId('design-3d-detail-modal')).toBeInTheDocument();
     expect(screen.getByText('DR-2026-001')).toBeInTheDocument();
     expect(screen.getByText(/Chi tiết Bản vẽ Thiết kế & Thông số Kỹ thuật/)).toBeInTheDocument();
-    expect(screen.getByText(/Size 14/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Size 14/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Kim cương chủ 1.0ct/)).toBeInTheDocument();
     expect(screen.getByText(/"Mland Forever"/)).toBeInTheDocument();
     expect(screen.getByText('Cỏ 4 lá')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('DesignDetailModal (Design3dDetailModal)', () => {
     );
 
     expect(screen.getByText('CO-REF-123')).toBeInTheDocument();
-    expect(screen.getByText(/Size 14/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Size 14/).length).toBeGreaterThan(0);
   });
 
   it('returns null when isOpen is false', () => {

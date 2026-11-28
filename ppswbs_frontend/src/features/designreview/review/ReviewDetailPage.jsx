@@ -45,6 +45,8 @@ export default function ReviewDetailPage() {
   const [quoteSubmitted, setQuoteSubmitted] = useState(false);
   const [quoteData, setQuoteData] = useState(null);
   const [managerApproveConfirmOpen, setManagerApproveConfirmOpen] = useState(false);
+  const [managerRejectConfirmOpen, setManagerRejectConfirmOpen] = useState(false);
+  const [managerRejectReason, setManagerRejectReason] = useState('');
 
   const { loading, error, data, reload, setData } = useResource(
     () => api.getDesignRequest(reviewRequestId),
@@ -172,6 +174,28 @@ export default function ReviewDetailPage() {
     });
   }
 
+  async function handleConfirmManagerReject() {
+    if (command.pending) return;
+    const finalReason = managerRejectReason.trim() || 'Quản lý từ chối mẫu thiết kế và báo giá gia công.';
+    await command.run(async () => {
+      try {
+        const res = await api.rejectCustomDesignQuoteByRequestId(reviewRequestId, {
+          managerReason: finalReason,
+        });
+        setManagerRejectConfirmOpen(false);
+        setQuoteData(res);
+        setQuoteSuccess(`Đã từ chối mẫu thiết kế và hủy báo giá gia công thành công.`);
+        setQuoteError('');
+        reload();
+        return res;
+      } catch (err) {
+        setManagerRejectConfirmOpen(false);
+        setQuoteError(err?.message || 'Từ chối báo giá thất bại. Vui lòng thử lại.');
+        throw err;
+      }
+    });
+  }
+
   function handleOpenConfirm(e) {
     e.preventDefault();
     setFormError('');
@@ -192,6 +216,15 @@ export default function ReviewDetailPage() {
         return;
       }
       if (reason.trim() && [...reason.trim()].length > LIMITS.reasonMax) {
+        setFormError(t('validation.reasonTooLong'));
+        return;
+      }
+    } else if (decision === 'REJECTED') {
+      if (!reason.trim()) {
+        setFormError('Vui lòng nhập lý do từ chối thiết kế (bắt buộc).');
+        return;
+      }
+      if ([...reason.trim()].length > LIMITS.reasonMax) {
         setFormError(t('validation.reasonTooLong'));
         return;
       }
@@ -383,7 +416,7 @@ export default function ReviewDetailPage() {
                   </p>
 
                   {isManager && !isQuoteApproved && (
-                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #cbd5e1' }}>
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #cbd5e1', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         className="button button-primary"
@@ -392,6 +425,15 @@ export default function ReviewDetailPage() {
                         style={{ backgroundColor: '#16a34a', color: '#ffffff', padding: '0.5rem 1.25rem' }}
                       >
                         {command.pending ? 'Đang duyệt...' : 'Phê duyệt Báo giá (Manager Approve)'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-primary"
+                        onClick={() => setManagerRejectConfirmOpen(true)}
+                        disabled={command.pending}
+                        style={{ backgroundColor: '#dc2626', color: '#ffffff', padding: '0.5rem 1.25rem' }}
+                      >
+                        {command.pending ? 'Đang xử lý...' : 'Từ chối Thiết kế & Báo giá (Manager Reject)'}
                       </button>
                     </div>
                   )}
@@ -614,6 +656,38 @@ export default function ReviewDetailPage() {
               Nhân viên thẩm duyệt thiết kế, đồng thời tính toán số tiền báo giá để chuyển Quản lý (Manager) phê duyệt trước khi gửi khách hàng.
             </p>
 
+            {/* Quick Action Decision Toggles */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`button ${decision === 'ACCEPTED' ? 'primary' : 'outline'}`}
+                onClick={() => { setDecision('ACCEPTED'); setFormError(''); }}
+                style={{
+                  backgroundColor: decision === 'ACCEPTED' ? '#16a34a' : '#ffffff',
+                  color: decision === 'ACCEPTED' ? '#ffffff' : '#166534',
+                  borderColor: '#16a34a',
+                  fontWeight: 600,
+                  padding: '0.5rem 1rem',
+                }}
+              >
+                ✓ Duyệt & Gửi báo giá
+              </button>
+              <button
+                type="button"
+                className={`button ${decision === 'REJECTED' ? 'primary danger' : 'outline'}`}
+                onClick={() => { setDecision('REJECTED'); setFormError(''); }}
+                style={{
+                  backgroundColor: decision === 'REJECTED' ? '#dc2626' : '#ffffff',
+                  color: decision === 'REJECTED' ? '#ffffff' : '#dc2626',
+                  borderColor: '#dc2626',
+                  fontWeight: 600,
+                  padding: '0.5rem 1rem',
+                }}
+              >
+                ✕ Từ chối thiết kế
+              </button>
+            </div>
+
             <form onSubmit={handleOpenConfirm} className="stack">
               <Field label={t('reviewDetail.decisionLabel')}>
                 <select
@@ -832,6 +906,34 @@ export default function ReviewDetailPage() {
           <p>Bạn có chắc chắn muốn phê duyệt báo giá này không?</p>
           <p className="muted small" style={{ margin: 0 }}>
             Sau khi duyệt, đơn hàng sẽ chuyển sang trạng thái sẵn sàng để Hội viên thanh toán toàn bộ 100%.
+          </p>
+        </ConfirmDialog>
+
+        {/* Manager Reject Quote / Design Dialog */}
+        <ConfirmDialog
+          open={managerRejectConfirmOpen}
+          title="Xác nhận từ chối mẫu thiết kế & báo giá"
+          confirmLabel={command.pending ? 'Đang xử lý...' : 'Từ chối thiết kế & báo giá'}
+          onConfirm={handleConfirmManagerReject}
+          onCancel={() => { if (!command.pending) setManagerRejectConfirmOpen(false); }}
+          pending={command.pending}
+          danger={true}
+        >
+          <p>Bạn có chắc chắn muốn từ chối mẫu thiết kế và hủy báo giá gia công này không?</p>
+          <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.35rem' }}>
+              Lý do từ chối (bắt buộc):
+            </label>
+            <textarea
+              rows={3}
+              value={managerRejectReason}
+              onChange={e => setManagerRejectReason(e.target.value)}
+              placeholder="Nhập lý do không chấp thuận mẫu thiết kế / báo giá (độ khó quá cao, xưởng không đáp ứng, cấu hình rủi ro...)"
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+            />
+          </div>
+          <p className="muted small" style={{ margin: 0 }}>
+            Sau khi từ chối, yêu cầu thiết kế sẽ chuyển thành REJECTED và đơn hàng sẽ bị hủy.
           </p>
         </ConfirmDialog>
       </div>
