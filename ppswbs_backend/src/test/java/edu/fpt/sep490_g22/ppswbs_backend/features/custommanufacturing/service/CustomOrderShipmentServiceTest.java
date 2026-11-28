@@ -243,6 +243,6 @@ class CustomOrderShipmentServiceTest {
         assertThat(item.trackingNumber()).isEqualTo("S9876543210");
         assertThat(item.orderCode()).isEqualTo(orderRef);
         assertThat(item.status()).isEqualTo("READY_FOR_CARRIER");
-        assertThat(item.shippingCharge()).isEqualTo("Miễn phí");
+        assertThat(item.shippingCharge()).isEqualTo("0");
     }
 }

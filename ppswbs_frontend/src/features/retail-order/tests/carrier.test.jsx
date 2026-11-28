@@ -46,6 +46,19 @@ describe('Simulated GHTK portal (Session 2026-11-20)', () => {
     expect(stats.trend.delivered[2]).toBe(1);
     expect(stats.byBranch.find(row => row.locationId === 1)).toMatchObject({ received: 1, delivered: 1, fee: '30000' });
   });
+
+  it('counts a delivered shipment with a non-numeric or missing fee as free instead of crashing', () => {
+    const period = carrierPeriod('MONTH', '2026-11-20', NOW);
+    const items = [
+      { pickupLocationId: 1, status: 'DELIVERED', createdAt: '2026-11-02T02:00:00Z', pickedUpAt: '2026-11-02T04:00:00Z', deliveredAt: '2026-11-03T04:00:00Z', shippingCharge: '30000' },
+      { pickupLocationId: null, status: 'DELIVERED', createdAt: '2026-11-04T02:00:00Z', pickedUpAt: '2026-11-04T04:00:00Z', deliveredAt: '2026-11-05T04:00:00Z', shippingCharge: 'Miễn phí' },
+      { pickupLocationId: null, status: 'DELIVERED', createdAt: '2026-11-06T02:00:00Z', pickedUpAt: '2026-11-06T04:00:00Z', deliveredAt: '2026-11-07T04:00:00Z', shippingCharge: null },
+    ];
+    const stats = carrierStats(items, period);
+    expect(stats.delivered).toBe(3);
+    expect(stats.fees).toBe('30000');
+    expect(stats.byBranch.find(row => row.locationId === null)).toMatchObject({ delivered: 2, fee: '0' });
+  });
 });
 
 describe('GHTK home page notice (Session 2026-11-23)', () => {

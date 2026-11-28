@@ -216,7 +216,7 @@ public class CustomOrderShipmentService implements CustomShipmentCarrierPort {
                 "Quận 9",
                 "TP. Hồ Chí Minh",
                 1, // itemQuantity
-                "Miễn phí", // shippingCharge
+                "0", // shippingCharge: custom orders ship free; the contract carries a VND amount, the UI renders the label
                 shipment.getCreatedAt(),
                 shipment.getCreatedAt(), // readyAt
                 shipment.getPickedUpAt(),

@@ -171,6 +171,9 @@ const bucketIndex = (value, period) => {
   return index;
 };
 
+/** A shipment fee as VND; anything that is not a whole amount counts as 0 so one bad row cannot break the page. */
+const feeOf = item => (/^\d+$/.test(String(item.shippingCharge ?? '')) ? BigInt(item.shippingCharge) : 0n);
+
 /** What the GHTK statistics page shows for a period. */
 export function carrierStats(items, period) {
   const received = items.filter(item => inPeriod(item.createdAt, period));
@@ -181,7 +184,7 @@ export function carrierStats(items, period) {
   const byBranch = new Map();
   [...received, ...delivered].forEach(item => { if (!byBranch.has(item.pickupLocationId)) byBranch.set(item.pickupLocationId, { received: 0, delivered: 0, fee: 0n }); });
   received.forEach(item => { byBranch.get(item.pickupLocationId).received += 1; });
-  delivered.forEach(item => { const row = byBranch.get(item.pickupLocationId); row.delivered += 1; row.fee += BigInt(item.shippingCharge || '0'); });
+  delivered.forEach(item => { const row = byBranch.get(item.pickupLocationId); row.delivered += 1; row.fee += feeOf(item); });
   return {
     received: received.length,
     pickedUp: picked.length,
@@ -189,7 +192,7 @@ export function carrierStats(items, period) {
     delivering: items.filter(item => item.status === 'HANDED_TO_CARRIER' || item.status === 'IN_TRANSIT').length,
     waitingPickup: items.filter(item => item.status === 'READY_FOR_CARRIER').length,
     averageHours: hours.length ? hours.reduce((a, b) => a + b, 0) / hours.length : null,
-    fees: delivered.reduce((sum, item) => sum + BigInt(item.shippingCharge || '0'), 0n).toString(),
+    fees: delivered.reduce((sum, item) => sum + feeOf(item), 0n).toString(),
     trend: { received: series('createdAt'), pickedUp: series('pickedUpAt'), delivered: series('deliveredAt') },
     byBranch: [...byBranch.entries()].map(([locationId, row]) => ({ locationId, ...row, fee: row.fee.toString() })),
   };
