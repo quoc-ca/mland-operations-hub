@@ -6,7 +6,6 @@ import { useT, useLanguage } from '../../../shared/i18n/I18nProvider';
 import { validateMessageText, countCodePoints, MAX_MESSAGE_LENGTH } from '../domain/chatRules';
 import { newCommandId } from '../../../shared/api/http';
 import { useRole } from '../../../shared/auth/useRole';
-import { useHttp } from '../../../shared/api/useHttp';
 import { AuthContext } from '../../../shared/auth/AuthProvider';
 import { ConfirmDialog } from '../../../shared/ui/components';
 import AttachedRingHoverRecap from './AttachedRingHoverRecap';
@@ -18,7 +17,6 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const tFn = useT(consultationMessages);
   const t = Object.assign((k, p) => tFn(k, p), consultationMessages[lang] || consultationMessages.vi);
   const api = useConsultationChatApi();
-  const http = useHttp();
   const userRole = useRole();
   const auth = useContext(AuthContext);
   const getIdToken = auth?.getIdToken;
@@ -26,17 +24,23 @@ export function StaffConsultationInboxPage({ currentUser = {} }) {
   const [selfAccountId, setSelfAccountId] = useState(currentUser?.id ?? currentUser?.accountId ?? null);
 
   useEffect(() => {
-    if (selfAccountId || !auth || auth.status !== 'signed-in') return;
+    if (selfAccountId || !auth || auth.status !== 'signed-in' || !auth.getIdToken) return;
     let active = true;
-    http('/api/v1/accounts/me/profile')
-      .then(res => {
-        if (active && (res?.id || res?.accountId)) {
-          setSelfAccountId(Number(res.id || res.accountId));
-        }
+    auth.getIdToken().then(token => {
+      if (!token || !active) return;
+      fetch('/api/v1/accounts/me/profile', {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch(() => {});
+        .then(r => r.ok ? r.json() : null)
+        .then(res => {
+          if (active && (res?.id || res?.accountId)) {
+            setSelfAccountId(Number(res.id || res.accountId));
+          }
+        })
+        .catch(() => {});
+    }).catch(() => {});
     return () => { active = false; };
-  }, [http, selfAccountId, auth]);
+  }, [auth, selfAccountId]);
 
   const currentUserId = currentUser?.id ?? currentUser?.accountId ?? selfAccountId;
 
